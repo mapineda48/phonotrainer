@@ -166,14 +166,22 @@ describe("App", () => {
       "GET /api/jobs": () => [job],
       [`GET /api/jobs/${job.id}/analysis`]: () => analysis,
       "GET /api/corpus/stats": () => ({
-        analyses: 1, words: 5, segments: 2, duration: 3,
+        analyses: 1, sources: 1, words: 5, segments: 2, duration: 3,
         phenomena: [{ phenomenon: "t_deletion", count: 1, analyses: 1 }],
         top_words: [],
+      }),
+      "GET /api/corpus/analyses": () => ({
+        items: [{
+          id: "/tmp/out", job_id: job.id, source: "clip.wav", duration: 3, words: 5,
+          segments: 2, attraction: true, duplicate_source: false,
+          indexed_at: "2026-07-26T18:00:00+00:00",
+        }],
       }),
       "GET /api/corpus/occurrences": () => ({
         phenomenon: null, word: null, total: 1,
         items: [{
-          analysis_id: job.id, analysis_source: "clip.wav", segment: 1, word_idx: 0,
+          analysis_id: "/tmp/out", job_id: job.id, analysis_source: "clip.wav",
+          analysis_attraction: true, next_word: "go", segment: 1, word_idx: 0,
           word: "wanna", start: 2, end: 2.3, dict_ipa: "wɑnə", canonical_ipa: "wɑnə",
           realized_ipa: "wɑnə", realized_raw_ipa: "", diff_cost: 0, attracted_count: 1,
           low_confidence: false, oov: false, lexical_form: "want to",

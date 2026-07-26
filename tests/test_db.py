@@ -66,9 +66,35 @@ def test_cuenta_el_total_aunque_el_listado_se_recorte(corpus):
     corpus.index_analysis("job1", mk_analysis())
 
     assert len(corpus.occurrences(limit=2)) == 2
-    assert corpus.count_occurrences() == 5
+    assert corpus.count_occurrences() == 3          # las 3 palabras con fenómeno
     assert corpus.count_occurrences(phenomenon="t_deletion") == 1
     assert corpus.count_occurrences(word="does") == 1
+
+
+def test_sin_filtro_solo_se_listan_palabras_con_fenomeno(corpus):
+    """La lista completa ordenada por divergencia son sobre todo fallos de
+    alineamiento: no es lo que hay que enseñar primero."""
+    corpus.index_analysis("job1", mk_analysis())
+
+    sin_filtro = corpus.occurrences()
+    assert {fila["word"] for fila in sin_filtro} == {"does", "that", "wanna"}
+    assert all(fila["phenomena"] for fila in sin_filtro)
+
+    # buscando una palabra concreta sí se ven todas sus apariciones
+    assert [f["word"] for f in corpus.occurrences(word="work")] == ["work"]
+
+
+def test_cada_aparicion_trae_con_qué_enlaza_y_de_qué_análisis_viene(corpus):
+    """En linking el fenómeno ocurre entre dos palabras; y dos análisis del
+    mismo material con distinta configuración no son variación nativa."""
+    analysis = mk_analysis()
+    analysis["meta"]["attraction"] = False
+    corpus.index_analysis("/tmp/out", analysis, job_id="job1")
+
+    (fila,) = corpus.occurrences(phenomenon="vowel_reduction")
+    assert fila["word"] == "does" and fila["next_word"] == "that"
+    assert fila["analysis_attraction"] is False
+    assert fila["job_id"] == "job1"
 
 
 def test_las_apariciones_salen_de_mayor_a_menor_divergencia(corpus):
@@ -129,6 +155,50 @@ def test_un_analisis_vacio_no_rompe_nada(corpus):
     corpus.index_analysis("vacio", {"meta": {}, "segments": []})
     assert corpus.stats()["analyses"] == 1
     assert corpus.occurrences() == []
+
+
+def test_una_base_ilegible_se_aparta_y_se_rehace(tmp_path):
+    """El corpus es derivado: nunca debe impedir arrancar la aplicación."""
+    ruta = tmp_path / "phonotrainer.db"
+    ruta.write_bytes(b"esto no es una base de datos")
+
+    db = Corpus(ruta)
+    try:
+        assert db.rebuilt is True
+        assert (tmp_path / "phonotrainer.db.corrupta").is_file()
+        db.index_analysis("x", mk_analysis())        # y funciona desde cero
+        assert db.stats()["analyses"] == 1
+    finally:
+        db.close()
+
+
+def test_un_esquema_viejo_tambien_se_rehace(tmp_path):
+    import sqlite3
+
+    ruta = tmp_path / "phonotrainer.db"
+    con = sqlite3.connect(ruta)
+    con.executescript("CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT);"
+                      "INSERT INTO meta VALUES ('schema_version', '1');"
+                      "CREATE TABLE analyses (id TEXT PRIMARY KEY);")
+    con.commit()
+    con.close()
+
+    db = Corpus(ruta)
+    try:
+        assert db.rebuilt is True
+        db.index_analysis("x", mk_analysis())
+        assert db.stats()["words"] == 5
+    finally:
+        db.close()
+
+
+def test_usa_wal_para_convivir_con_otro_proceso(tmp_path):
+    db = Corpus(tmp_path / "corpus.db")
+    try:
+        modo = db._rows("PRAGMA journal_mode")[0]
+        assert list(modo.values())[0] == "wal"
+    finally:
+        db.close()
 
 
 def test_la_base_de_datos_se_crea_sola(tmp_path):

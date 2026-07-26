@@ -14,6 +14,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from .errors import JobCancelled
+
 DEFAULT_DIR = Path("downloads")
 # Vídeo hasta 720p: más que suficiente para ver la cara y mucho más rápido.
 VIDEO_FORMAT = "bv*[height<=720]+ba/b[height<=720]/b"
@@ -58,23 +60,34 @@ def download(url: str, dest_dir: str | Path = DEFAULT_DIR, audio_only: bool = Fa
     dest_dir.mkdir(parents=True, exist_ok=True)
 
     last_percent = -1
+    last_mb = -1
 
     def hook(status: dict) -> None:
-        nonlocal last_percent
+        nonlocal last_percent, last_mb
         if status.get("status") == "downloading":
             total = status.get("total_bytes") or status.get("total_bytes_estimate") or 0
             done = status.get("downloaded_bytes") or 0
-            percent = int(done * 100 / total) if total else 0
-            if percent != last_percent:      # un mensaje por punto porcentual
-                last_percent = percent
-                progress(f"Descargando de YouTube… {percent} %")
+            if total:
+                percent = int(done * 100 / total)
+                if percent != last_percent:      # un mensaje por punto porcentual
+                    last_percent = percent
+                    progress(f"Descargando de YouTube… {percent} %")
+            else:
+                # Directos y descargas fragmentadas no saben cuánto ocupan:
+                # sin esto la barra se quedaba muda en el 2 % todo el rato.
+                mb = int(done / (1 << 20))
+                if mb != last_mb:
+                    last_mb = mb
+                    progress(f"Descargando de YouTube… {mb} MB")
         elif status.get("status") == "finished":
             progress("Descarga terminada, preparando el archivo…")
 
     options = {
         "format": AUDIO_FORMAT if audio_only else VIDEO_FORMAT,
         "outtmpl": str(dest_dir / "%(title).80s [%(id)s].%(ext)s"),
+        "trim_file_name": 120,   # el corte de la plantilla es por caracteres, no por bytes
         "noplaylist": True,
+        "playlist_items": "1",   # si la URL es una lista, solo el primer vídeo
         "quiet": True,
         "no_warnings": True,
         "noprogress": True,
@@ -87,11 +100,14 @@ def download(url: str, dest_dir: str | Path = DEFAULT_DIR, audio_only: bool = Fa
     try:
         with ydl_factory(options) as ydl:
             info = ydl.extract_info(url, download=True)
+            if isinstance(info, dict) and info.get("_type") == "playlist":
+                raise DownloadError(
+                    "eso es una lista de reproducción: pega la URL de un vídeo concreto")
             path = _resolve_path(ydl, info)
-    except DownloadError:
-        raise
+    except (DownloadError, JobCancelled):
+        raise                           # cancelar no es fallar
     except Exception as exc:            # noqa: BLE001 — yt-dlp lanza de todo
-        raise DownloadError(f"{type(exc).__name__}: {exc}") from exc
+        raise DownloadError(str(exc) or f"{type(exc).__name__}") from exc
 
     if path is None or not path.is_file():
         raise DownloadError(f"yt-dlp terminó pero no encuentro el archivo en {dest_dir}")

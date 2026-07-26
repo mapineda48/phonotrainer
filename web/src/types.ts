@@ -70,6 +70,8 @@ export interface JobOptions {
 
 export interface CorpusStats {
   analyses: number;
+  /** Materiales distintos: si es menor que `analyses`, algo está contado dos veces. */
+  sources: number;
   words: number;
   segments: number;
   duration: number;
@@ -77,9 +79,27 @@ export interface CorpusStats {
   top_words: { word: string; count: number }[];
 }
 
+export interface CorpusAnalysis {
+  id: string;
+  job_id: string | null;
+  source: string;
+  duration: number | null;
+  words: number;
+  segments: number;
+  attraction: boolean;
+  duplicate_source: boolean;
+  indexed_at: string;
+}
+
 export interface Occurrence {
+  /** Identidad estable del análisis (su directorio). */
   analysis_id: string;
+  /** Job de la interfaz, si lo hay: con esto se puede saltar. */
+  job_id: string | null;
   analysis_source: string;
+  analysis_attraction: boolean;
+  /** La palabra siguiente: en linking el fenómeno ocurre entre las dos. */
+  next_word: string | null;
   segment: number;
   word_idx: number;
   word: string;

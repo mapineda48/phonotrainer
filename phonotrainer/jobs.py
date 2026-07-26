@@ -28,6 +28,10 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
+from .errors import JobCancelled   # se lanza en el callback de progreso
+
+__all__ = ["JobCancelled", "JobError", "JobNotFound", "JobStore", "Job"]
+
 QUEUED = "queued"
 RUNNING = "running"
 DONE = "done"
@@ -47,10 +51,6 @@ SAVE_INTERVAL = 1.0  # s
 DOWNLOAD_DIR = Path("downloads")
 
 
-class JobCancelled(RuntimeError):
-    """Se lanza dentro del callback de progreso para abortar el pipeline."""
-
-
 class JobError(RuntimeError):
     """Petición inválida sobre el store (ruta inexistente, directorio sin
     analysis.json…). El servidor la traduce a 400."""
@@ -62,6 +62,15 @@ class JobNotFound(JobError):
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def analysis_key(result_dir: str | Path) -> str:
+    """Identidad de un análisis en el corpus: dónde vive su analysis.json.
+
+    Así el mismo `out/` analizado por la CLI e importado luego en la interfaz es
+    una sola entrada, en vez de contarse dos veces.
+    """
+    return str(Path(result_dir).resolve())
 
 
 # El pipeline emite "Segmento 3/27: …" en el bucle largo y la descarga
@@ -260,24 +269,38 @@ class JobStore:
                 self._jobs[job.id] = job
 
     def _reconcile_corpus(self) -> None:
-        """El corpus es un índice derivado: si falta (base de datos nueva, o
-        `data/` borrada), se reconstruye con los análisis que ya hay en disco.
-        Así la lista de análisis y el corpus nunca se contradicen."""
+        """El corpus es un índice derivado: se pone al día con lo que hay en el
+        workspace, en los dos sentidos.
+
+        Añadir: base nueva o `data/` borrada → se reindexa lo que ya existe.
+        Purgar: un job borrado mientras corría pudo dejar su fila (o el job.json
+        se borró a mano). Solo se tocan las filas que dejó un job: las que
+        indexó la CLI no tienen job_id y no son asunto nuestro.
+        """
         if self.corpus is None:
             return
         try:
             conocidos = {row["id"] for row in self.corpus.analyses()}
+            con_job = self.corpus.job_ids()
         except Exception:                             # noqa: BLE001
             return
+
+        vivos = set(self._jobs)
+        for huerfano in con_job - vivos:
+            try:
+                self.corpus.forget_job(huerfano)
+            except Exception:                         # noqa: BLE001
+                pass
+
         for job in list(self._jobs.values()):
-            if job.status != DONE or job.id in conocidos:
+            if job.status != DONE or analysis_key(job.result_dir) in conocidos:
                 continue
             path = job.artifact("analysis.json")
             if path is None:
                 continue
             try:
-                self.corpus.index_file(job.id, path, source=job.source,
-                                       result_dir=str(job.result_dir))
+                self.corpus.index_file(analysis_key(job.result_dir), path,
+                                       source=job.source, job_id=job.id)
             except Exception:                         # noqa: BLE001 — un análisis
                 continue                              # ilegible no debe impedir arrancar
 
@@ -428,7 +451,10 @@ class JobStore:
         with self._lock:
             self._jobs.pop(job_id, None)
         if self.corpus is not None:
-            self.corpus.forget(job_id)
+            try:
+                self.corpus.forget_job(job_id)
+            except Exception:                 # noqa: BLE001 — el borrado del job
+                pass                          # no puede fallar por el índice
         if job.status in (QUEUED, RUNNING):
             job.cancel_requested = True
             job.delete_when_done = True
@@ -486,11 +512,13 @@ class JobStore:
     def _index(self, job: Job, analysis: dict) -> None:
         """Vuelca el análisis al corpus. Que falle el índice no invalida el
         análisis: se avisa en el progreso y se sigue."""
-        if self.corpus is None:
-            return
+        if self.corpus is None or job.delete_when_done:
+            return              # lo están borrando: no lo metamos en el corpus
         try:
-            self.corpus.index_analysis(job.id, analysis, source=job.source,
-                                       result_dir=str(job.result_dir))
+            self.corpus.index_analysis(analysis_key(job.result_dir), analysis,
+                                       source=job.source,
+                                       result_dir=str(job.result_dir.resolve()),
+                                       job_id=job.id)
         except Exception as exc:                      # noqa: BLE001
             self._append_progress(job, f"Aviso: no se pudo indexar en el corpus ({exc})")
 

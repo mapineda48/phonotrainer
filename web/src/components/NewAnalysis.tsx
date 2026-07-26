@@ -93,7 +93,7 @@ export function NewAnalysis({ onCreated }: Props) {
             checked={audioOnly}
             onChange={(event) => setAudioOnly(event.target.checked)}
           />
-          solo audio
+          solo audio al descargar
           <span className="muted">— más rápido; sin vídeo que ver junto a la transcripción</span>
         </label>
 

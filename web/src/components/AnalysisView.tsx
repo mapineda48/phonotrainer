@@ -23,9 +23,12 @@ interface Props {
   onChanged: () => void;
   /** Palabra que hay que abrir al entrar (viene del corpus). */
   initialSelection?: Selection | null;
+  /** Presente si se llegó desde el corpus: permite volver sin perder el filtro. */
+  onBackToCorpus?: () => void;
 }
 
-export function AnalysisView({ job, onChanged, initialSelection = null }: Props) {
+export function AnalysisView({ job, onChanged, initialSelection = null,
+                               onBackToCorpus }: Props) {
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -73,7 +76,7 @@ export function AnalysisView({ job, onChanged, initialSelection = null }: Props)
   return (
     <PlayerProvider src={job.has_audio ? api.audioUrl(job.id) : null}>
       <AnalysisBody job={job} analysis={analysis} onChanged={onChanged}
-                    initialSelection={initialSelection} />
+                    initialSelection={initialSelection} onBackToCorpus={onBackToCorpus} />
     </PlayerProvider>
   );
 }
@@ -83,11 +86,13 @@ function AnalysisBody({
   analysis,
   onChanged,
   initialSelection,
+  onBackToCorpus,
 }: {
   job: Job;
   analysis: Analysis;
   onChanged: () => void;
   initialSelection: Selection | null;
+  onBackToCorpus?: () => void;
 }) {
   const player = usePlayer();
   const reference = useReference();
@@ -190,6 +195,11 @@ function AnalysisBody({
   return (
     <>
       <header className="topbar">
+        {onBackToCorpus && (
+          <button type="button" className="btn btn--sm" onClick={onBackToCorpus}>
+            ← Corpus
+          </button>
+        )}
         <h2 className="topbar__title" title={job.source}>
           {job.source}
         </h2>

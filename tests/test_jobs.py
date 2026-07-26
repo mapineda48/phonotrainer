@@ -311,7 +311,10 @@ def test_el_analisis_terminado_entra_en_el_corpus(tmp_path, media):
         wait_until(lambda: job.status == jobs.DONE)
 
         assert corpus.stats()["words"] == 5
-        assert corpus.occurrences(phenomenon="t_deletion")[0]["analysis_id"] == job.id
+        assert corpus.occurrences(phenomenon="t_deletion")[0]["job_id"] == job.id
+        # la identidad en el corpus es el directorio del análisis, no el job:
+        # así analizar por CLI e importar después no cuenta dos veces
+        assert corpus.analyses()[0]["id"] == str(job.result_dir.resolve())
 
         store.delete(job.id)                    # y salir de la lista lo saca del corpus
         assert corpus.stats()["analyses"] == 0
@@ -356,7 +359,7 @@ def test_el_corpus_se_reconstruye_con_lo_que_ya_hay_en_el_workspace(tmp_path, me
     revivido = JobStore(root, analyze_fn=fake_analyze, corpus=vacio)
     try:
         assert vacio.stats()["analyses"] == 1
-        assert vacio.analyses()[0]["id"] == job.id
+        assert vacio.analyses()[0]["job_id"] == job.id
         assert vacio.occurrences(phenomenon="t_deletion")
     finally:
         revivido.shutdown()
@@ -374,7 +377,7 @@ def test_reimportar_vuelve_a_indexar(tmp_path):
     store = JobStore(tmp_path / "ws", analyze_fn=fake_analyze, corpus=corpus)
     try:
         job = store.import_dir(out)
-        corpus.forget(job.id)                      # como si se hubiera perdido el índice
+        corpus.forget_job(job.id)                  # como si se hubiera perdido el índice
         assert corpus.stats()["analyses"] == 0
 
         assert store.import_dir(out).id == job.id  # sigue siendo idempotente…
@@ -382,6 +385,86 @@ def test_reimportar_vuelve_a_indexar(tmp_path):
     finally:
         store.shutdown()
         corpus.close()
+
+
+def test_borrar_mientras_corre_no_deja_fantasmas_en_el_corpus(tmp_path, media):
+    """Si el trabajador termina después del borrado, su análisis no debe entrar
+    al corpus: quedaba una fila que apuntaba a un job inexistente y sobrevivía a
+    todos los reinicios."""
+    from phonotrainer.db import Corpus
+
+    arrancado = threading.Event()
+
+    def lento(media_path, out_dir, progress=lambda m: None, **kw):
+        arrancado.set()
+        time.sleep(0.3)                 # no vuelve a llamar a progress: no se cancela solo
+        return fake_analyze(media_path, out_dir, progress=lambda m: None, **kw)
+
+    corpus = Corpus(":memory:")
+    store = JobStore(tmp_path / "ws", analyze_fn=lento, corpus=corpus)
+    try:
+        job = store.create(media)
+        arrancado.wait(5)
+        store.delete(job.id)
+        wait_until(lambda: job.status in (jobs.DONE, jobs.CANCELLED, jobs.ERROR))
+
+        assert corpus.stats()["analyses"] == 0
+        assert corpus.occurrences() == []
+    finally:
+        store.shutdown()
+        corpus.close()
+
+
+def test_al_arrancar_se_purgan_las_filas_de_jobs_que_ya_no_existen(tmp_path, media):
+    from phonotrainer.db import Corpus
+
+    corpus = Corpus(":memory:")
+    root = tmp_path / "ws"
+    store = JobStore(root, analyze_fn=fake_analyze, corpus=corpus)
+    job = store.create(media)
+    wait_until(lambda: job.status == jobs.DONE)
+    store.shutdown()
+
+    _rmtree_dir(job.dir)                # como si lo hubieran borrado a mano
+    assert corpus.stats()["analyses"] == 1
+
+    revivido = JobStore(root, analyze_fn=fake_analyze, corpus=corpus)
+    try:
+        assert corpus.stats()["analyses"] == 0
+    finally:
+        revivido.shutdown()
+        corpus.close()
+
+
+def test_analizar_por_cli_e_importar_despues_no_cuenta_dos_veces(tmp_path):
+    """El flujo del README: `analyze -o out/` y luego `ui --import-dir out/`."""
+    from phonotrainer.db import Corpus
+    from phonotrainer.jobs import analysis_key
+
+    out = tmp_path / "out"
+    out.mkdir()
+    analysis = mk_analysis("ep.webm")
+    (out / "analysis.json").write_text(json.dumps(analysis), encoding="utf-8")
+
+    corpus = Corpus(":memory:")
+    corpus.index_analysis(analysis_key(out), analysis, source="ep.webm",
+                          result_dir=str(out))       # lo que hace la CLI
+
+    store = JobStore(tmp_path / "ws", analyze_fn=fake_analyze, corpus=corpus)
+    try:
+        store.import_dir(out)                        # y ahora la interfaz
+        assert corpus.stats()["analyses"] == 1       # el mismo material, una entrada
+        assert corpus.stats()["words"] == 5
+        assert corpus.analyses()[0]["job_id"] is not None
+    finally:
+        store.shutdown()
+        corpus.close()
+
+
+def _rmtree_dir(path):
+    import shutil
+
+    shutil.rmtree(path, ignore_errors=True)
 
 
 def test_si_el_corpus_falla_el_analisis_sigue_siendo_valido(tmp_path, media):

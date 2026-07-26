@@ -136,6 +136,67 @@ def test_crea_el_directorio_de_destino(tmp_path):
     assert path.parent == destino
 
 
+def test_cancelar_no_es_un_fallo_de_descarga(tmp_path):
+    """El callback de progreso lanza JobCancelled para abortar: si `download`
+    lo convierte en DownloadError, el job aparece como error en vez de
+    cancelado."""
+    from phonotrainer.errors import JobCancelled
+
+    def cancela(mensaje):
+        if "%" in mensaje:
+            raise JobCancelled(mensaje)
+
+    with pytest.raises(JobCancelled):
+        download("https://youtu.be/abc123", tmp_path, progress=cancela,
+                 ydl_factory=factory())
+
+
+def test_una_lista_de_reproduccion_se_explica(tmp_path):
+    class Playlist(FakeYDL):
+        def extract_info(self, url, download=True):
+            return {"_type": "playlist", "entries": [], "id": "PL123"}
+
+    with pytest.raises(DownloadError, match="lista de reproducción"):
+        download("https://youtube.com/playlist?list=PL123", tmp_path,
+                 ydl_factory=lambda options: Playlist(options))
+
+
+def test_sin_tamano_conocido_informa_en_megas(tmp_path):
+    """Directos y descargas fragmentadas no saben cuánto ocupan: la barra no
+    puede quedarse muda."""
+
+    class SinTotal(FakeYDL):
+        def extract_info(self, url, download=True):
+            for hook in self.options["progress_hooks"]:
+                for mb in (1, 2, 5):
+                    hook({"status": "downloading", "downloaded_bytes": mb << 20,
+                          "total_bytes": None})
+            return super().extract_info(url, download)
+
+    mensajes = []
+    download("https://youtu.be/abc123", tmp_path, progress=mensajes.append,
+             ydl_factory=lambda options: SinTotal(options))
+
+    assert [m for m in mensajes if "MB" in m] == [
+        "Descargando de YouTube… 1 MB",
+        "Descargando de YouTube… 2 MB",
+        "Descargando de YouTube… 5 MB",
+    ]
+
+
+def test_recorta_los_nombres_larguisimos(tmp_path):
+    """80 caracteres pueden ser 258 bytes: ext4 no los admite."""
+    visto = {}
+
+    def espia(options):
+        visto.update(options)
+        return FakeYDL(options)
+
+    download("https://youtu.be/abc123", tmp_path, ydl_factory=espia)
+    assert visto["trim_file_name"] == 120
+    assert visto["playlist_items"] == "1"
+
+
 def test_la_cli_no_se_come_el_id_del_video(tmp_path):
     """El nombre lleva el id entre corchetes y rich los trata como marcado:
     sin escapar, la ruta que se imprime no existe."""

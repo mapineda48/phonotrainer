@@ -4,6 +4,7 @@
 import type {
   Analysis,
   Browse,
+  CorpusAnalysis,
   CorpusStats,
   Job,
   JobOptions,
@@ -83,6 +84,7 @@ export const api = {
   ) => request<Review>(`/api/jobs/${id}/review`, jsonInit("PUT", { seed, verdicts })),
 
   corpusStats: () => request<CorpusStats>("/api/corpus/stats"),
+  corpusAnalyses: () => request<{ items: CorpusAnalysis[] }>("/api/corpus/analyses"),
   corpusOccurrences: (params: { phenomenon?: string; word?: string; limit?: number }) => {
     const query = new URLSearchParams();
     if (params.phenomenon) query.set("phenomenon", params.phenomenon);

@@ -117,6 +117,15 @@ describe("PlayerProvider", () => {
     expect(api.rate).toBe(0.5);
   });
 
+  it("al montar no rebobina: quien entra pidiendo una palabra debe oírla", () => {
+    const { audio } = mount();
+    act(() => api.play({ start: 1.98, end: 2.2 }));
+
+    expect(audio.currentTime).toBe(1.98);
+    expect(audio.paused).toBe(false);
+    expect(api.span).toEqual({ start: 1.98, end: 2.2 });
+  });
+
   it("cambiar de análisis rebobina y suelta el fragmento", () => {
     const { audio, view, setTime } = mount();
     act(() => api.play({ start: 1, end: 2 }));

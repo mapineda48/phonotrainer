@@ -285,6 +285,12 @@ def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
     def corpus_stats() -> dict:
         return _corpus().stats()
 
+    @app.get("/api/corpus/analyses")
+    def corpus_analyses() -> dict:
+        """De qué se compone el corpus: sin esto, «3 análisis» puede ser el
+        mismo vídeo tres veces y las cifras globales engañan."""
+        return {"items": _corpus().analyses()}
+
     @app.get("/api/corpus/occurrences")
     def corpus_occurrences(phenomenon: str | None = None, word: str | None = None,
                            analysis: str | None = None,

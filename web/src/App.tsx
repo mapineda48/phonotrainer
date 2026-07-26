@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import { api } from "./api";
 import { AnalysisView } from "./components/AnalysisView";
-import { CorpusView } from "./components/CorpusView";
+import { CorpusView, type CorpusFilters } from "./components/CorpusView";
 import { JobProgress } from "./components/JobProgress";
 import { NewAnalysis } from "./components/NewAnalysis";
 import { Sidebar } from "./components/Sidebar";
@@ -25,6 +25,12 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>("job");
   /** Palabra a abrir al saltar desde el corpus. */
   const [jumpTo, setJumpTo] = useState<Selection | null>(null);
+  /** Filtros del corpus: sobreviven al ir y volver de un análisis. */
+  const [corpusFilters, setCorpusFilters] = useState<CorpusFilters>({
+    phenomenon: null,
+    word: "",
+  });
+  const [cameFromCorpus, setCameFromCorpus] = useState(false);
 
   useEffect(() => {
     api
@@ -46,6 +52,7 @@ export default function App() {
   const select = (id: string, selection: Selection | null = null) => {
     setSelectedId(id);
     setJumpTo(selection);
+    setCameFromCorpus(selection !== null);
     setScreen("job");
     window.localStorage.setItem(LAST_JOB_KEY, id);
   };
@@ -90,7 +97,11 @@ export default function App() {
             </p>
           )}
           {screen === "corpus" ? (
-            <CorpusView onOpen={(id, selection) => select(id, selection)} />
+            <CorpusView
+              onOpen={(id, selection) => select(id, selection)}
+              filters={corpusFilters}
+              onFilters={setCorpusFilters}
+            />
           ) : showNew ? (
             <NewAnalysis onCreated={onCreated} />
           ) : selected!.status === "done" ? (
@@ -98,6 +109,7 @@ export default function App() {
               key={selected!.id}
               job={selected!}
               initialSelection={jumpTo}
+              onBackToCorpus={cameFromCorpus ? () => setScreen("corpus") : undefined}
               onChanged={() => void refresh()}
             />
           ) : (

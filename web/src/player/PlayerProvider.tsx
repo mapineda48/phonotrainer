@@ -164,8 +164,16 @@ export function PlayerProvider({ src, children }: { src: string | null; children
     };
   }, [playing, clock]);
 
-  // Al cambiar de análisis: paramos y volvemos al principio.
+  // Al CAMBIAR de análisis: paramos y volvemos al principio. En el montaje no:
+  // si no, este efecto (del padre) pisaba al que abre una palabra concreta al
+  // entrar desde el corpus, y la palabra quedaba seleccionada pero muda.
+  const previousSrc = useRef<string | null | undefined>(undefined);
   useEffect(() => {
+    if (previousSrc.current === undefined || previousSrc.current === src) {
+      previousSrc.current = src;
+      return;
+    }
+    previousSrc.current = src;
     setSpan(null);
     setPlaying(false);
     clock.set(0);

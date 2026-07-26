@@ -30,9 +30,12 @@ def main() -> None:
               help="Si MEDIA es una URL, bajar solo el audio.")
 @click.option("--no-index", is_flag=True, default=False,
               help="No añadir el resultado al corpus (data/phonotrainer.db).")
+@click.option("--db", default=None, type=click.Path(dir_okay=False),
+              help="Base del corpus (por defecto data/phonotrainer.db).")
 def analyze(media: str, out_dir: str, phone_engine: str,
             whisper_model: str, language: str, no_attraction: bool,
-            download_dir: str, audio_only: bool, no_index: bool) -> None:
+            download_dir: str, audio_only: bool, no_index: bool,
+            db: str | None) -> None:
     """Analiza un video, un audio o una URL de YouTube.
 
     MEDIA puede ser una ruta local o una URL: en ese caso se descarga primero
@@ -40,6 +43,7 @@ def analyze(media: str, out_dir: str, phone_engine: str,
     """
     from pathlib import Path
 
+    from .db import DEFAULT_DB
     from .download import DownloadError, download, is_url
     from .pipeline import analyze as run
 
@@ -64,15 +68,21 @@ def analyze(media: str, out_dir: str, phone_engine: str,
 
     if not no_index:
         from .db import Corpus
+        from .jobs import analysis_key
 
+        corpus = None
         try:
-            corpus = Corpus()
-            corpus.index_analysis(str(Path(out_dir).resolve()), analysis,
+            corpus = Corpus(db or DEFAULT_DB)
+            # Misma identidad que usa la interfaz: analizar aquí e importar
+            # después el mismo out/ no debe contar dos veces.
+            corpus.index_analysis(analysis_key(out_dir), analysis,
                                   source=Path(media).name,
-                                  result_dir=str(Path(out_dir).resolve()))
-            corpus.close()
+                                  result_dir=analysis_key(out_dir))
         except Exception as exc:                      # noqa: BLE001
             console.print(f"[yellow]Aviso:[/] no se pudo indexar en el corpus: {exc}")
+        finally:
+            if corpus is not None:
+                corpus.close()
 
     counts = analysis["summary"]["phenomena_counts"]
     console.print(f"\n[bold green]Listo.[/] {len(analysis['segments'])} segmentos, "

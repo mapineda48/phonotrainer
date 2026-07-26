@@ -1,5 +1,7 @@
 /** Estado de un análisis en curso (o fallido): barra, log en vivo y cancelar. */
 
+import { useState } from "react";
+
 import { api } from "../api";
 import { useJob } from "../hooks/useJobs";
 import { fmtDate } from "../lib/format";
@@ -12,12 +14,25 @@ interface Props {
 
 export function JobProgress({ job: initial, onChanged }: Props) {
   const { job: live } = useJob(initial.id);
+  const [retrying, setRetrying] = useState(false);
   const job = live ?? initial;
   const running = job.status === "running" || job.status === "queued";
 
   const cancel = async () => {
     await api.cancelJob(job.id);
     onChanged();
+  };
+
+  /** Reintentar una descarga fallida sin tener que reescribir la URL. */
+  const retry = async () => {
+    if (!job.source_url) return;
+    setRetrying(true);
+    try {
+      await api.createFromUrl(job.source_url, job.options, false);
+      onChanged();
+    } finally {
+      setRetrying(false);
+    }
   };
 
   return (
@@ -64,10 +79,27 @@ export function JobProgress({ job: initial, onChanged }: Props) {
           <p className="error" style={{ margin: 0 }}>
             {job.error}
           </p>
-          <p className="tiny muted" style={{ marginBottom: 0 }}>
-            Comprueba que <code>ffmpeg</code> y <code>espeak-ng</code> están instalados y que los
-            modelos se descargaron (<code>scripts/download_models.py</code>).
-          </p>
+          {job.source_url ? (
+            <div className="row" style={{ marginTop: 8 }}>
+              <p className="tiny muted" style={{ margin: 0, flex: 1 }}>
+                Falló la descarga: comprueba la URL y la conexión. Los vídeos privados, de pago o
+                con restricción de edad no se pueden bajar.
+              </p>
+              <button
+                type="button"
+                className="btn btn--sm"
+                onClick={() => void retry()}
+                disabled={retrying}
+              >
+                Reintentar
+              </button>
+            </div>
+          ) : (
+            <p className="tiny muted" style={{ marginBottom: 0 }}>
+              Comprueba que <code>ffmpeg</code> y <code>espeak-ng</code> están instalados y que los
+              modelos se descargaron (<code>scripts/download_models.py</code>).
+            </p>
+          )}
         </div>
       )}
 

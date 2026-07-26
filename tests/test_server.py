@@ -338,7 +338,7 @@ def test_el_corpus_lista_apariciones_con_su_posicion(client, media):
     assert body["phenomenon"] == "t_deletion"
     (item,) = body["items"]
     # con esto la interfaz puede abrir el análisis justo en esa palabra
-    assert item["analysis_id"] == job_id
+    assert item["job_id"] == job_id
     assert (item["word"], item["segment"], item["word_idx"]) == ("that", 0, 1)
     assert item["analysis_source"] == "clip.wav"
 

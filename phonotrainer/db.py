@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 DEFAULT_DB = Path("data/phonotrainer.db")
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (
@@ -30,7 +30,11 @@ CREATE TABLE IF NOT EXISTS meta (
 );
 
 CREATE TABLE IF NOT EXISTS analyses (
+    -- Identidad estable del análisis: el directorio donde vive su analysis.json.
+    -- Si fuera el id del job, el mismo out/ analizado por la CLI e importado
+    -- luego en la interfaz contaría dos veces.
     id          TEXT PRIMARY KEY,
+    job_id      TEXT,                    -- el job de la interfaz, si lo hay
     source      TEXT NOT NULL,
     result_dir  TEXT,
     duration    REAL,
@@ -74,6 +78,7 @@ CREATE TABLE IF NOT EXISTS phenomena (
 CREATE INDEX IF NOT EXISTS idx_words_key   ON words (word_key);
 CREATE INDEX IF NOT EXISTS idx_phen_name   ON phenomena (phenomenon);
 CREATE INDEX IF NOT EXISTS idx_phen_word   ON phenomena (analysis_id, segment, word_idx);
+CREATE INDEX IF NOT EXISTS idx_analyses_job ON analyses (job_id);
 """
 
 _CLEAN_RE = re.compile(r"[^\w']+", re.UNICODE)
@@ -97,14 +102,50 @@ class Corpus:
         if str(self.path) != ":memory:":
             self.path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
+        self.rebuilt = False       # True si hubo que empezar de cero
+        try:
+            self._open()
+        except sqlite3.DatabaseError:
+            # Base corrupta o de un esquema anterior. Es un índice derivado:
+            # se aparta y se rehace, nunca debe impedir arrancar.
+            self._retire()
+            self._open()
+
+    def _open(self) -> None:
         self._conn = sqlite3.connect(str(self.path), check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         with self._lock, self._conn:
+            # WAL: la interfaz consulta mientras el trabajador indexa, y puede
+            # haber más de un `phonotrainer ui` contra la misma base.
+            self._conn.execute("PRAGMA journal_mode=WAL")
+            self._conn.execute("PRAGMA busy_timeout=5000")
+            version = self._stored_version()
+            if version is not None and version != SCHEMA_VERSION:
+                raise sqlite3.DatabaseError(
+                    f"esquema {version}, se esperaba {SCHEMA_VERSION}")
             self._conn.executescript(_SCHEMA)
             self._conn.execute(
                 "INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', ?)",
                 (str(SCHEMA_VERSION),),
             )
+
+    def _stored_version(self) -> int | None:
+        try:
+            row = self._conn.execute(
+                "SELECT value FROM meta WHERE key = 'schema_version'").fetchone()
+        except sqlite3.OperationalError:
+            return None            # base nueva: aún no hay tabla meta
+        return int(row["value"]) if row else None
+
+    def _retire(self) -> None:
+        """Aparta la base ilegible (no la borra: por si el usuario quiere verla)."""
+        try:
+            self._conn.close()
+        except Exception:                                 # noqa: BLE001
+            pass
+        if str(self.path) != ":memory:" and self.path.exists():
+            self.path.replace(self.path.with_suffix(self.path.suffix + ".corrupta"))
+        self.rebuilt = True
 
     def close(self) -> None:
         with self._lock:
@@ -112,9 +153,15 @@ class Corpus:
 
     # --- escritura ----------------------------------------------------------
     def index_analysis(self, analysis_id: str, analysis: dict,
-                       source: str | None = None, result_dir: str | None = None) -> int:
+                       source: str | None = None, result_dir: str | None = None,
+                       job_id: str | None = None) -> int:
         """Vuelca un análisis (reemplazando el anterior con el mismo id).
-        Devuelve cuántas palabras se indexaron."""
+
+        `analysis_id` debe ser una identidad estable del material —usamos el
+        directorio de salida—, no el id del job: si no, analizar por CLI e
+        importar después en la interfaz contaría el mismo material dos veces.
+        Devuelve cuántas palabras se indexaron.
+        """
         meta = analysis.get("meta") or {}
         segments = analysis.get("segments") or []
         models = meta.get("models") or {}
@@ -138,10 +185,10 @@ class Corpus:
         with self._lock, self._conn:
             self._forget(analysis_id)
             self._conn.execute(
-                """INSERT INTO analyses (id, source, result_dir, duration, language,
+                """INSERT INTO analyses (id, job_id, source, result_dir, duration, language,
                        attraction, asr_model, phone_model, segments, words, indexed_at)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
-                (analysis_id, source or meta.get("source") or analysis_id, result_dir,
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (analysis_id, job_id, source or meta.get("source") or analysis_id, result_dir,
                  meta.get("duration"), meta.get("language"),
                  int(bool(meta.get("attraction", True))),
                  models.get("asr"), models.get("phones"),
@@ -168,9 +215,21 @@ class Corpus:
         return self.index_analysis(analysis_id, analysis, **kwargs)
 
     def forget(self, analysis_id: str) -> None:
-        """Saca un análisis del corpus (al borrarlo de la interfaz)."""
+        """Saca un análisis del corpus por su identidad estable."""
         with self._lock, self._conn:
             self._forget(analysis_id)
+
+    def forget_job(self, job_id: str) -> None:
+        """Saca del corpus lo que indexó un job de la interfaz (al borrarlo)."""
+        with self._lock, self._conn:
+            for row in self._conn.execute(
+                    "SELECT id FROM analyses WHERE job_id = ?", (job_id,)).fetchall():
+                self._forget(row["id"])
+
+    def job_ids(self) -> set[str]:
+        """Jobs que han dejado algo en el corpus (para detectar huérfanos)."""
+        return {row["job_id"] for row in
+                self._rows("SELECT DISTINCT job_id FROM analyses WHERE job_id IS NOT NULL")}
 
     def _forget(self, analysis_id: str) -> None:
         for table in ("phenomena", "words", "analyses"):
@@ -183,7 +242,17 @@ class Corpus:
             return [dict(row) for row in self._conn.execute(sql, params).fetchall()]
 
     def analyses(self) -> list[dict]:
-        return self._rows("SELECT * FROM analyses ORDER BY indexed_at DESC")
+        """Qué compone el corpus. `duplicate_source` avisa de que el mismo
+        material está contado más de una vez (p. ej. el mismo clip analizado con
+        y sin atracción): si no, las cifras globales engañan."""
+        rows = self._rows("SELECT * FROM analyses ORDER BY indexed_at DESC")
+        veces: dict[str, int] = {}
+        for row in rows:
+            veces[row["source"]] = veces.get(row["source"], 0) + 1
+        for row in rows:
+            row["attraction"] = bool(row["attraction"])
+            row["duplicate_source"] = veces[row["source"]] > 1
+        return rows
 
     def stats(self) -> dict:
         totals = self._rows(
@@ -193,6 +262,8 @@ class Corpus:
                       COALESCE(SUM(segments), 0) AS segments
                FROM analyses"""
         )[0]
+        totals["sources"] = self._rows(
+            "SELECT COUNT(DISTINCT source) AS n FROM analyses")[0]["n"]
         totals["phenomena"] = self._rows(
             """SELECT phenomenon,
                       COUNT(*) AS count,
@@ -210,12 +281,20 @@ class Corpus:
 
     def _occurrence_filter(self, phenomenon: str | None, word: str | None,
                            analysis_id: str | None) -> tuple[str, list]:
-        where, params = ["1=1"], []
+        # Sin filtro de palabra listamos solo lo etiquetado: la lista completa
+        # encabezada por la divergencia son sobre todo fallos de alineamiento.
+        where, params = (["1=1"] if word else
+                         ["""EXISTS (SELECT 1 FROM phenomena p0
+                                     WHERE p0.analysis_id = w.analysis_id
+                                       AND p0.segment = w.segment
+                                       AND p0.word_idx = w.word_idx)"""]), []
         if phenomenon:
+            # Arrancar por idx_phen_name (y no escanear `words` entera) importa
+            # en cuanto el corpus tiene unos cuantos vídeos.
             where.append(
-                """EXISTS (SELECT 1 FROM phenomena p
-                           WHERE p.analysis_id = w.analysis_id AND p.segment = w.segment
-                             AND p.word_idx = w.word_idx AND p.phenomenon = ?)"""
+                """(w.analysis_id, w.segment, w.word_idx) IN
+                   (SELECT p.analysis_id, p.segment, p.word_idx FROM phenomena p
+                     WHERE p.phenomenon = ?)"""
             )
             params.append(phenomenon)
         if word:
@@ -242,11 +321,19 @@ class Corpus:
         """
         where, params = self._occurrence_filter(phenomenon, word, analysis_id)
         rows = self._rows(
-            f"""SELECT w.*, a.source AS analysis_source,
+            f"""SELECT w.*, a.source AS analysis_source, a.attraction AS analysis_attraction,
+                       a.job_id AS job_id,          -- con esto la interfaz puede saltar
+                       n.word AS next_word,
                        (SELECT GROUP_CONCAT(p.phenomenon, ',') FROM phenomena p
                          WHERE p.analysis_id = w.analysis_id AND p.segment = w.segment
                            AND p.word_idx = w.word_idx) AS phenomena
-                FROM words w JOIN analyses a ON a.id = w.analysis_id
+                FROM words w
+                JOIN analyses a ON a.id = w.analysis_id
+                -- la palabra siguiente: en linking o palatalización el fenómeno
+                -- ocurre entre las dos, listar solo la primera lo descontextualiza
+                LEFT JOIN words n ON n.analysis_id = w.analysis_id
+                                 AND n.segment = w.segment
+                                 AND n.word_idx = w.word_idx + 1
                 WHERE {where}
                 ORDER BY w.diff_cost DESC, w.analysis_id, w.segment, w.word_idx
                 LIMIT ?""",
@@ -256,6 +343,7 @@ class Corpus:
             row["phenomena"] = row["phenomena"].split(",") if row["phenomena"] else []
             row["low_confidence"] = bool(row["low_confidence"])
             row["oov"] = bool(row["oov"])
+            row["analysis_attraction"] = bool(row["analysis_attraction"])
         return rows
 
     def word_variants(self, word: str) -> list[dict]:
