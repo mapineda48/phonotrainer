@@ -187,6 +187,40 @@ def test_borrar_un_job_en_curso_espera_a_que_pare(tmp_path, media):
         store.shutdown()
 
 
+def test_borrar_un_job_en_curso_no_lo_resucita_al_reiniciar(tmp_path, media):
+    """El trabajador puede tardar minutos en llegar a su punto de cancelación
+    (cargando modelos). Si el proceso muere antes, el job borrado no debe volver."""
+    arrancado = threading.Event()
+
+    def lento(media_path, out_dir, progress=lambda m: None, **kw):
+        arrancado.set()
+        time.sleep(30)                      # como cargar los modelos: sin progress()
+        return mk_analysis()
+
+    root = tmp_path / "ws"
+    store = JobStore(root, analyze_fn=lento)
+    job = store.create(media)
+    arrancado.wait(5)
+    store.delete(job.id)
+    # el proceso "muere" aquí: no le damos tiempo a _finish
+
+    revivido = JobStore(root, analyze_fn=fake_analyze)
+    try:
+        assert revivido.list() == []
+    finally:
+        revivido.shutdown()
+        store.shutdown()
+
+
+def test_importar_algo_que_no_es_un_analisis_falla(store, tmp_path):
+    for contenido in ("[1,2,3]", "null", "{}", '{"segments": 4}'):
+        raro = tmp_path / f"raro{abs(hash(contenido))}"
+        raro.mkdir()
+        (raro / "analysis.json").write_text(contenido, encoding="utf-8")
+        with pytest.raises(JobError):
+            store.import_dir(raro)
+
+
 def test_importar_a_la_vez_el_mismo_directorio_crea_un_solo_job(store, tmp_path):
     out = tmp_path / "out"
     out.mkdir()

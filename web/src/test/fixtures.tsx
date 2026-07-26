@@ -57,6 +57,16 @@ export const reference: Reference = {
     flapping: "flapping",
     linking: "linking",
   },
+  descriptions: {
+    vowel_reduction: "Una vocal plena se reduce a schwa en sílaba átona. does → dəz",
+    t_deletion: "La /t/ o /d/ final no llega a pronunciarse. that → ðæ",
+    contraction_lex: "Forma reducida lexicalizada. want to → wanna",
+    flapping: "/t/ o /d/ entre vocales suenan como una erre suave. water → wɔɾɚ",
+    linking: "La consonante final se enlaza con la vocal siguiente. does it → dʌ‿zɪt",
+  },
+  // Los mismos que publica el backend desde ipa_maps.ENGLISH_INVENTORY.
+  ipa_tokens: ["ɑːɹ", "ɔːɹ", "aɪə", "aɪɚ", "oːɹ", "aɪ", "aʊ", "eɪ", "oʊ", "ɔɪ", "tʃ", "dʒ",
+               "iː", "uː", "ɑː", "ɔː", "ɜː", "ɪɹ", "ʊɹ", "ɛɹ", "iə", "eə", "əl", "ju"],
   verdicts: ["ok", "mal", "dudosa"],
   options: {
     whisper_models: ["tiny", "base", "small", "medium"],

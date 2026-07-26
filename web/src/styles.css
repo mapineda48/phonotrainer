@@ -599,6 +599,15 @@ button {
   color: var(--ink-2);
 }
 
+.phrase {
+  margin-top: 6px;
+}
+
+.phrase summary {
+  cursor: pointer;
+  list-style: revert;
+}
+
 /* ---------- panel de detalle ---------- */
 
 .panel__head {
@@ -705,6 +714,17 @@ button {
   flex-wrap: wrap;
   gap: 3px;
   margin-bottom: 10px;
+}
+
+/* Lazo del enlace entre dos palabras, sobre la fila de lo pronunciado. */
+.phones__tie {
+  position: absolute;
+  top: 72px;
+  transform: translateX(-50%);
+  color: var(--fam-fron);
+  font-size: 20px;
+  line-height: 1;
+  pointer-events: none;
 }
 
 .phones__boundary {

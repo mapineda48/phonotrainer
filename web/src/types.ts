@@ -108,6 +108,10 @@ export interface Reference {
   families: Family[];
   family_of: Record<string, string>;
   labels: Record<string, string>;
+  /** Qué es cada fenómeno, en una frase y con ejemplo. */
+  descriptions: Record<string, string>;
+  /** Símbolos IPA de más de un carácter, de mayor a menor longitud. */
+  ipa_tokens: string[];
   verdicts: VerdictValue[];
   options: {
     whisper_models: JobOptions["whisper_model"][];

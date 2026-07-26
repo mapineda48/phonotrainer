@@ -79,4 +79,20 @@ describe("WordDetail", () => {
     expect(screen.getByRole("button", { name: "▶ Palabra" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "▶ Frase" })).toBeDisabled();
   });
+
+  it("cada fenómeno viene explicado, no solo nombrado", () => {
+    render();
+    // "t/d elidida" no le dice nada a quien está aprendiendo
+    expect(screen.getByText(/La \/t\/ o \/d\/ final no llega a pronunciarse/)).toBeInTheDocument();
+  });
+
+  it("la h muda no se trata como frontera con la palabra siguiente", () => {
+    // es intra-palabra: su contexto útil es la anterior ("tell him")
+    const him = makeWord("him", 3, "h ɪ m", "ɪ m", { phenomena: ["h_dropping"] });
+    const back = makeWord("back", 3.3, "b æ k", "b æ k");
+    render(him, back);
+
+    expect(screen.queryByRole("button", { name: "▶ + back" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Fenómeno de frontera/)).not.toBeInTheDocument();
+  });
 });

@@ -4,13 +4,14 @@
 import { wordSpan } from "../lib/analysis";
 import { fmtTime } from "../lib/format";
 import { usePlayer } from "../player/PlayerProvider";
-import { familyColor, phenomenonLabel, useReference } from "../reference";
+import { familyColor, phenomenonDescription, phenomenonLabel, useReference } from "../reference";
 import type { Segment, Word } from "../types";
 import { F0Chart } from "./F0Chart";
 import { PhoneTimeline } from "./PhoneTimeline";
 
-/** Fenómenos que ocurren en la frontera: solo se oyen con la palabra siguiente. */
-const BOUNDARY = new Set(["linking", "palatalization", "h_dropping"]);
+/** Fenómenos que ocurren en la frontera con la palabra SIGUIENTE: solo se oyen
+ *  con ella. (`h_dropping` no está: es intra-palabra, su contexto es la anterior.) */
+const BOUNDARY = new Set(["linking", "palatalization"]);
 
 interface Props {
   word: Word;
@@ -133,20 +134,30 @@ export function WordDetail({ word, next, segment, segmentIndex, isEmphasis, canP
       {word.phenomena.length > 0 && (
         <div style={{ marginTop: 14 }}>
           <div className="phones__label">fenómenos</div>
-          <div className="chips" style={unreliable ? { opacity: 0.6 } : undefined}>
+          <div style={unreliable ? { opacity: 0.6 } : undefined}>
             {word.phenomena.map((phenomenon) => {
               const family = reference.family_of[phenomenon];
+              const description = phenomenonDescription(reference, phenomenon);
               return (
-                <span key={phenomenon} className="chip">
-                  {family && (
-                    <span
-                      className="chip__dot"
-                      style={{ background: familyColor(family) }}
-                      aria-hidden="true"
-                    />
+                <div key={phenomenon} style={{ marginBottom: 6 }}>
+                  <span className="chip" title={description}>
+                    {family && (
+                      <span
+                        className="chip__dot"
+                        style={{ background: familyColor(family) }}
+                        aria-hidden="true"
+                      />
+                    )}
+                    {phenomenonLabel(reference, phenomenon)}
+                  </span>
+                  {/* La definición a la vista: "glotalización" no le dice nada
+                      a quien está aprendiendo. */}
+                  {description && (
+                    <div className="tiny dim" style={{ marginTop: 2 }}>
+                      {description}
+                    </div>
                   )}
-                  {phenomenonLabel(reference, phenomenon)}
-                </span>
+                </div>
               );
             })}
           </div>

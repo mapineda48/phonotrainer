@@ -22,9 +22,17 @@ trae incorporados —el canónico de *better* es [bɛɾɚ], con flap—; y en lo
 fenómenos de frontera (linking, palatalización, h muda) la comparación y la
 reproducción se extienden hasta la palabra siguiente, que es donde ocurren.
 
+Cada fenómeno viene definido con un ejemplo junto a su etiqueta, cada segmento
+puede desplegar su transcripción fonética completa (real vs canónica) y en las
+fronteras se muestra el hueco medido en ms, que es lo que distingue un enlace
+(~20 ms) de una frontera normal (~60 ms).
+
 Además: filtro por fenómeno, buscador de palabras, bucle, velocidad 0.5×, video
 sincronizado y modo de revisión humana que guarda el mismo `review.json` que la
 CLI. Los atajos están dentro (botón `?`).
+
+Por seguridad la interfaz solo abre archivos bajo `$HOME` y el directorio de
+trabajo; para un disco externo, `phonotrainer ui --allow-dir /mnt/videos`.
 
 ## Uso desde la CLI
 

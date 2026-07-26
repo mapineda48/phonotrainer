@@ -81,6 +81,24 @@ describe("Transcript", () => {
   it("muestra la forma reducida de una contracción y el enlace entre palabras", () => {
     renderTranscript();
     expect(screen.getByText("want to")).toBeInTheDocument();
-    expect(screen.getByText("‿")).toBeInTheDocument();
+    expect(screen.getAllByText("‿").length).toBeGreaterThan(0);
+  });
+
+  it("el tooltip compara diccionario con lo pronunciado, no el canónico consigo mismo", () => {
+    renderTranscript();
+    // "work" se pronuncia igual que su canónico: repetirlo no enseñaba nada
+    expect(wordButton("work")).toHaveAttribute("title", "work · /wɝk/ → [wɝk]");
+    expect(wordButton("that")).toHaveAttribute(
+      "title",
+      "that · /ðæt/ → [ðæ] — t/d elidida",
+    );
+  });
+
+  it("ofrece la transcripción fonética de la frase entera", () => {
+    renderTranscript();
+    const detalles = screen.getAllByText("Transcripción fonética de la frase");
+    expect(detalles).toHaveLength(2); // una por segmento
+    expect(screen.getByText("[dəz‿ðæ wɝk]")).toBeInTheDocument();
+    expect(screen.getByText("/dʌz‿ðæt wɝk/")).toBeInTheDocument();
   });
 });

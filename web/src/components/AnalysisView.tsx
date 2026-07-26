@@ -6,6 +6,7 @@ import { api } from "../api";
 import { useHotkeys } from "../hooks/useHotkeys";
 import { filteredWords, flattenWords, wordSpan, type FlatWord } from "../lib/analysis";
 import { PlayerProvider, usePlayer } from "../player/PlayerProvider";
+import { useReference } from "../reference";
 import type { Analysis, Job } from "../types";
 import { PlayerBar } from "./PlayerBar";
 import { ReviewPanel } from "./ReviewPanel";
@@ -57,6 +58,15 @@ export function AnalysisView({ job, onChanged }: Props) {
       </div>
     );
   }
+  // Un analysis.json con otra forma tumbaría toda la app en blanco.
+  if (!analysis.meta || !Array.isArray(analysis.segments)) {
+    return (
+      <div className="empty">
+        <p className="error">Este analysis.json no tiene la forma que espera la interfaz.</p>
+        <p className="tiny muted">Vuelve a generarlo con «phonotrainer analyze».</p>
+      </div>
+    );
+  }
 
   return (
     <PlayerProvider src={job.has_audio ? api.audioUrl(job.id) : null}>
@@ -75,6 +85,7 @@ function AnalysisBody({
   onChanged: () => void;
 }) {
   const player = usePlayer();
+  const reference = useReference();
   const [selected, setSelected] = useState<Selection | null>(null);
   const [tab, setTab] = useState<Tab>("summary");
   const [filter, setFilter] = useState<ReadonlySet<string>>(new Set());
@@ -85,20 +96,26 @@ function AnalysisBody({
 
   const duration = analysis.meta.duration;
   const canPlay = job.has_audio;
+  const flat = useMemo(() => flattenWords(analysis), [analysis]);
 
   /** Palabras por las que navegan N / Mayús+N: las del filtro, o todas. */
+  const narrow = (base: FlatWord[], needle: string) =>
+    needle ? base.filter((fw) => fw.word.word.toLowerCase().includes(needle.toLowerCase())) : base;
+
   const walk = useMemo(() => {
     const byFilter = filteredWords(analysis, filter);
-    const base = byFilter.length > 0 ? byFilter : flattenWords(analysis);
-    const needle = query.trim().toLowerCase();
-    return needle ? base.filter((fw) => fw.word.word.toLowerCase().includes(needle)) : base;
-  }, [analysis, filter, query]);
+    return narrow(byFilter.length > 0 ? byFilter : flat, query.trim());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [analysis, flat, filter, query]);
 
   const selectedWord = selected ? analysis.segments[selected.segment]?.words[selected.index] : null;
   const selectedSegment = selected ? analysis.segments[selected.segment] : null;
-  const nextWord = selected
-    ? (analysis.segments[selected.segment]?.words[selected.index + 1] ?? null)
-    : null;
+  // La siguiente en la línea de tiempo, no en el segmento: el enlace también
+  // ocurre en la última palabra de un segmento.
+  const flatIndex = selected
+    ? flat.findIndex((fw) => fw.segment === selected.segment && fw.index === selected.index)
+    : -1;
+  const nextWord = flatIndex >= 0 ? (flat[flatIndex + 1]?.word ?? null) : null;
 
   const select = (next: Selection) => {
     setSelected(next);
@@ -166,25 +183,38 @@ function AnalysisBody({
           {analysis.meta.attraction ? "" : " · sin atracción"}
         </span>
         <span className="spacer" />
-        <label className="row" style={{ gap: 4 }}>
-          <span className="sr-only">Buscar una palabra en la transcripción</span>
-          <input
-            type="search"
-            className="input"
-            style={{ width: 150 }}
-            placeholder="Buscar palabra…"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                jump(1);
-              }
-            }}
-          />
-        </label>
+        <input
+          type="search"
+          className="input"
+          style={{ width: 150 }}
+          aria-label="Buscar una palabra en la transcripción"
+          placeholder="Buscar palabra…"
+          value={query}
+          onChange={(event) => {
+            const value = event.target.value;
+            setQuery(value);
+            // Ir a la primera coincidencia al teclear (sin reproducir, que
+            // sonaría en cada tecla); Intro y N pasan a la siguiente.
+            const hits = narrow(
+              filter.size > 0 ? filteredWords(analysis, filter) : flat,
+              value.trim(),
+            );
+            if (value.trim() && hits[0]) {
+              setSelected({ segment: hits[0].segment, index: hits[0].index });
+              player.seek(hits[0].word.start);
+            }
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              jump(1);
+            }
+          }}
+        />
         {query.trim() && (
-          <span className="tiny muted num">{walk.length} coincidencias</span>
+          <span className="tiny muted num">
+            {walk.length} {walk.length === 1 ? "coincidencia" : "coincidencias"}
+          </span>
         )}
         {job.is_video && job.has_media && (
           <button
@@ -338,10 +368,16 @@ function AnalysisBody({
         </aside>
       </div>
 
-      {filter.size > 0 && (
+      {(filter.size > 0 || query.trim()) && (
         <div className="row tiny" style={{ padding: "6px 16px", borderTop: "1px solid var(--border)" }}>
           <span>
-            Filtro activo: <strong>{walk.length}</strong> palabras.
+            {filter.size > 0 && (
+              <>
+                Filtro: <strong>{[...filter].map((p) => reference.labels[p] ?? p).join(", ")}</strong>{" "}
+              </>
+            )}
+            {query.trim() && <>Búsqueda: “{query.trim()}” </>}·{" "}
+            <strong>{walk.length}</strong> palabras.
           </span>
           <button type="button" className="btn btn--sm" onClick={() => jump(1)}>
             Siguiente (N)
@@ -350,8 +386,15 @@ function AnalysisBody({
             Anterior
           </button>
           <span className="spacer" />
-          <button type="button" className="btn btn--sm" onClick={() => setFilter(new Set())}>
-            Quitar filtro
+          <button
+            type="button"
+            className="btn btn--sm"
+            onClick={() => {
+              setFilter(new Set());
+              setQuery("");
+            }}
+          >
+            Quitar
           </button>
         </div>
       )}

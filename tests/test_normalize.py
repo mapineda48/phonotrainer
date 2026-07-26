@@ -2,7 +2,17 @@
 
 import pytest
 
+from phonotrainer.canonical import dict_pronunciation
 from phonotrainer.ipa_maps import ENGLISH_INVENTORY, normalize_espeak
+
+
+def test_la_forma_de_diccionario_conserva_el_acento():
+    """El acento explica la reducción: /bˈɛtɚ/ enseña que el flap cae en la
+    sílaba átona. Las reglas siguen mirando el ARPAbet, no esta cadena."""
+    entrada = dict_pronunciation("better")
+    assert entrada["ipa"] == "bˈɛtɚ"
+    assert entrada["arpabet"] == ["B", "EH1", "T", "ER0"]
+    assert dict_pronunciation("tonight")["ipa"] == "tʌnˈaɪt"
 
 
 def test_tokens_ingleses_pasan_intactos():

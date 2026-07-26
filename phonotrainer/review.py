@@ -35,8 +35,8 @@ def select_sample(analysis: dict, n: int = DEFAULT_N,
     seed. Devuelve [(seg_idx, word_idx, word)] en orden temporal."""
     rnd = random.Random(seed)
     keyed = []
-    for si, seg in enumerate(analysis["segments"]):
-        for wi, w in enumerate(seg["words"]):
+    for si, seg in enumerate(analysis.get("segments") or []):
+        for wi, w in enumerate(seg.get("words") or []):
             key = rnd.random() ** (1.0 / word_weight(w))
             keyed.append((key, si, wi, w))
     keyed.sort(key=lambda t: t[0], reverse=True)

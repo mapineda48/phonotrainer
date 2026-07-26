@@ -56,6 +56,71 @@ def test_health_y_referencia(client):
     assert ref["options"]["phone_engines"] == ["wav2vec2", "allosaurus"]
     assert ref["options"]["defaults"]["whisper_model"] == "small"
     assert ref["review"] == {"default_n": 20, "default_seed": 48, "max_n": 500}
+    # sin esto la UI no sabría qué es "flapping" ni cómo tokenizar /aɪ/
+    assert "erre suave" in ref["descriptions"]["flapping"]
+    assert set(ref["descriptions"]) == set(ref["labels"])
+    assert "aɪ" in ref["ipa_tokens"] and "tʃ" in ref["ipa_tokens"]
+    assert ref["ipa_tokens"] == sorted(ref["ipa_tokens"], key=len, reverse=True)
+
+
+def test_el_report_importado_va_en_sandbox(client, tmp_path):
+    """Un out/ puede venir de fuera: su report.html no debe poder hablar con
+    esta API desde el origen de la interfaz."""
+    out = tmp_path / "out"
+    out.mkdir()
+    (out / "analysis.json").write_text(json.dumps(mk_analysis()), encoding="utf-8")
+    (out / "report.html").write_text("<script>fetch('/api/browse')</script>", encoding="utf-8")
+    job_id = client.post("/api/jobs/import", json={"path": str(out)}).json()["id"]
+
+    resp = client.get(f"/api/jobs/{job_id}/report")
+    assert resp.status_code == 200
+    assert "sandbox" in resp.headers["content-security-policy"]
+    assert resp.headers["x-content-type-options"] == "nosniff"
+
+
+def test_las_peticiones_de_otro_origen_se_rechazan(client, tmp_path):
+    """multipart no lleva preflight: sin esto, cualquier web abierta podría
+    encolar análisis en la máquina del usuario."""
+    resp = client.post(
+        "/api/jobs/upload",
+        files={"file": ("x.wav", b"RIFF", "audio/wav")},
+        headers={"Sec-Fetch-Site": "cross-site", "Origin": "https://evil.example"},
+    )
+    assert resp.status_code == 403
+
+    # el mismo origen (y las herramientas de consola, que no mandan la cabecera) pasan
+    assert client.get("/api/jobs", headers={"Sec-Fetch-Site": "cross-site"}).status_code == 200
+    ok = client.post("/api/jobs/upload", files={"file": ("x.wav", b"RIFF", "audio/wav")},
+                     headers={"Sec-Fetch-Site": "same-origin"})
+    assert ok.status_code == 201
+
+
+def test_solo_se_suben_archivos_de_media(client):
+    resp = client.post("/api/jobs/upload", files={"file": ("payload.html", b"<script>", "text/html")})
+    assert resp.status_code == 400
+    assert "video ni un audio" in resp.json()["detail"]
+
+
+def test_un_analysis_con_otra_forma_no_da_500(client, tmp_path):
+    for contenido in ("[1,2,3]", "null", "{}", '{"segments": {"a": 1}}'):
+        raro = tmp_path / f"raro{abs(hash(contenido))}"
+        raro.mkdir()
+        (raro / "analysis.json").write_text(contenido, encoding="utf-8")
+        resp = client.post("/api/jobs/import", json={"path": str(raro)})
+        assert resp.status_code == 400, contenido
+
+
+def test_rutas_imposibles_dan_400(client):
+    for ruta in ("/tmp/con\x00nulo.wav", "~usuarioquenoexiste999/x.wav"):
+        assert client.post("/api/jobs", json={"path": ruta}).status_code == 400
+    assert client.get("/api/browse", params={"path": "~usuarioquenoexiste999"}).status_code == 400
+
+
+def test_no_se_permite_la_raiz_del_sistema_como_raiz(store, tmp_path):
+    import pytest as _pytest
+
+    with _pytest.raises(ValueError):
+        create_app(store=store, web_dist=tmp_path, allowed_roots=["/"])
 
 
 def test_analizar_archivo_local_de_principio_a_fin(client, media):

@@ -64,8 +64,12 @@ def analyze(media: str, out_dir: str, phone_engine: str,
 @click.option("--import-dir", "import_dirs", multiple=True,
               type=click.Path(exists=True, file_okay=False),
               help="Registra un out/ ya existente al arrancar (repetible).")
+@click.option("--allow-dir", "allow_dirs", multiple=True,
+              type=click.Path(exists=True, file_okay=False),
+              help="Directorio extra que la interfaz podrá abrir, además de "
+                   "$HOME y el directorio actual (p. ej. un disco en /mnt).")
 def ui(workspace: str, port: int, host: str, no_open: bool, reload: bool,
-       import_dirs: tuple[str, ...]) -> None:
+       import_dirs: tuple[str, ...], allow_dirs: tuple[str, ...]) -> None:
     """Interfaz web: analizar, explorar el resultado con audio y revisar."""
     from .jobs import JobStore
     from .server import serve
@@ -78,10 +82,13 @@ def ui(workspace: str, port: int, host: str, no_open: bool, reload: bool,
             console.print(f"Importado [cyan]{path}[/] → job {job.id}")
         store.shutdown()
 
+    from pathlib import Path
+
+    roots = [Path.home(), Path.cwd(), *(Path(d) for d in allow_dirs)]
     console.print(f"[bold]PhonoTrainer UI[/] → [cyan]http://{host}:{port}[/]  "
                   f"(workspace: {workspace})")
     serve(workspace=workspace, host=host, port=port, reload=reload,
-          open_browser=not no_open)
+          open_browser=not no_open, allowed_roots=roots)
 
 
 @main.command()

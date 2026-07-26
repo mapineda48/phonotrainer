@@ -32,7 +32,7 @@ from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFi
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field, ValidationError
 
-from . import __version__, report, review as review_mod
+from . import __version__, ipa_maps, report, review as review_mod
 from .jobs import MEDIA_SUFFIXES, JobError, JobNotFound, JobStore
 
 DEFAULT_WORKSPACE = Path("workspace")
@@ -100,8 +100,24 @@ def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
                   openapi_url="/api/openapi.json", lifespan=lifespan)
     app.state.store = store or JobStore(workspace)
     app.state.web_dist = Path(web_dist) if web_dist else WEB_DIST
-    app.state.roots = [Path(root).expanduser().resolve()
-                       for root in (allowed_roots or [Path.home(), Path.cwd()])]
+    roots = [Path(root).expanduser().resolve()
+             for root in (allowed_roots or [Path.home(), Path.cwd()])]
+    if any(root == Path("/") for root in roots):
+        raise ValueError("«/» como raíz permitida desactivaría el confinamiento")
+    app.state.roots = roots
+
+    @app.middleware("http")
+    async def solo_mismo_origen(request: Request, call_next):
+        """Ninguna página de internet debe poder encolar análisis en tu máquina.
+
+        Una subida `multipart` es una petición «simple»: el navegador la manda
+        sin preflight, así que CORS no la frena. `Sec-Fetch-Site` sí lo dice, y
+        lo envían todos los navegadores actuales (curl y los tests no lo mandan).
+        """
+        site = request.headers.get("sec-fetch-site")
+        if request.method not in ("GET", "HEAD") and site not in (None, "same-origin", "none"):
+            return JSONResponse({"detail": "petición de otro origen"}, status_code=403)
+        return await call_next(request)
 
     @app.exception_handler(JobNotFound)
     def _job_not_found(request: Request, exc: JobNotFound):   # noqa: ARG001
@@ -120,13 +136,16 @@ def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
     def _inside_roots(path: Path) -> bool:
         return any(path == root or root in path.parents for root in app.state.roots)
 
+    def _resolve(path_str: str) -> Path:
+        """`~usuario` inexistente, bytes NUL…: entrada del usuario, no 500."""
+        try:
+            return Path(path_str).expanduser().resolve()
+        except (OSError, ValueError, RuntimeError) as exc:
+            raise HTTPException(400, f"ruta inválida: {path_str}") from exc
+
     def _checked(path_str: str, *, want_dir: bool) -> Path:
         """Ruta que el usuario elige desde el navegador, ya validada."""
-        path = Path(path_str).expanduser()
-        try:
-            path = path.resolve()
-        except OSError as exc:
-            raise HTTPException(400, f"ruta inválida: {path_str}") from exc
+        path = _resolve(path_str)
         if not _inside_roots(path):
             raise HTTPException(
                 403, "por seguridad la interfaz solo abre archivos dentro de "
@@ -153,7 +172,10 @@ def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
             raise HTTPException(400, f"{path.name} ilegible en {path.parent}: {exc}") from exc
 
     def _analysis(job_id: str) -> dict:
-        return _read_json(_artifact(job_id, "analysis.json"))
+        analysis = _read_json(_artifact(job_id, "analysis.json"))
+        if not isinstance(analysis, dict) or not isinstance(analysis.get("segments"), list):
+            raise HTTPException(400, "analysis.json no tiene la forma esperada")
+        return analysis
 
     # --- meta ---------------------------------------------------------------
     @app.get("/api/health")
@@ -176,6 +198,13 @@ def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
             ],
             "family_of": report.FAMILY_OF,
             "labels": report.PHENOMENON_LABEL,
+            "descriptions": report.PHENOMENON_DESCRIPTION,
+            # Símbolos IPA de más de un carácter (aɪ, tʃ, ɑːɹ…): sin ellos el
+            # navegador partiría "aɪ" en dos al tokenizar la forma de diccionario.
+            "ipa_tokens": sorted(
+                (t for t in ipa_maps.ENGLISH_INVENTORY if len(t) > 1),
+                key=len, reverse=True,
+            ),
             "verdicts": list(review_mod.VERDICTS),
             "options": {
                 "whisper_models": list(get_args(Options.model_fields["whisper_model"].annotation)),
@@ -206,12 +235,17 @@ def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
         except (json.JSONDecodeError, ValidationError, TypeError) as exc:
             raise HTTPException(400, f"opciones inválidas: {exc}") from exc
 
+        # Misma regla que al analizar por ruta: solo video o audio.
+        name = Path(file.filename or "").name
+        if not name or Path(name).suffix.lower() not in MEDIA_SUFFIXES:
+            raise HTTPException(400, f"no parece un video ni un audio: {file.filename!r}")
+
         def writer(dest: Path) -> None:
             with dest.open("wb") as fh:
                 while chunk := file.file.read(1 << 20):
                     fh.write(chunk)
 
-        job = _store().adopt_upload(file.filename or "media", writer, opts.model_dump())
+        job = _store().adopt_upload(name, writer, opts.model_dump())
         return job.to_public(full=True)
 
     @app.post("/api/jobs/import", status_code=201)
@@ -253,7 +287,13 @@ def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
 
     @app.get("/api/jobs/{job_id}/report", response_class=HTMLResponse)
     def get_report(job_id: str) -> FileResponse:
-        return FileResponse(_artifact(job_id, "report.html"), media_type="text/html")
+        # Un out/ importado puede venir de fuera: el report se sirve en un origen
+        # opaco (sandbox) para que su JS no pueda hablar con esta API.
+        return FileResponse(
+            _artifact(job_id, "report.html"), media_type="text/html",
+            headers={"Content-Security-Policy": "sandbox allow-scripts",
+                     "X-Content-Type-Options": "nosniff"},
+        )
 
     # --- revisión humana ----------------------------------------------------
     @app.get("/api/jobs/{job_id}/review")
@@ -289,7 +329,7 @@ def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
     @app.get("/api/browse")
     def browse(path: str | None = None) -> dict:
         home = app.state.roots[0]
-        target = Path(path).expanduser().resolve() if path else Path.cwd().resolve()
+        target = _resolve(path) if path else Path.cwd().resolve()
         if not _inside_roots(target):
             target = home            # nunca salimos de las raíces permitidas
         if not target.is_dir():
@@ -347,7 +387,8 @@ color-scheme:light dark}code{background:#8883;padding:1px 5px;border-radius:4px}
 
 
 def serve(workspace: str | Path = DEFAULT_WORKSPACE, host: str = "127.0.0.1",
-          port: int = 8000, reload: bool = False, open_browser: bool = True) -> None:
+          port: int = 8000, reload: bool = False, open_browser: bool = True,
+          allowed_roots: list[str | Path] | None = None) -> None:
     """Levanta uvicorn con la app (usado por `phonotrainer ui`)."""
     import uvicorn
 
@@ -355,13 +396,20 @@ def serve(workspace: str | Path = DEFAULT_WORKSPACE, host: str = "127.0.0.1",
         import threading
         import webbrowser
 
-        threading.Timer(1.2, lambda: webbrowser.open(f"http://{host}:{port}")).start()
+        timer = threading.Timer(1.2, lambda: webbrowser.open(f"http://{host}:{port}"))
+        timer.daemon = True      # no debe retrasar el cierre con Ctrl-C
+        timer.start()
 
     os.environ["PHONOTRAINER_WORKSPACE"] = str(workspace)
-    uvicorn.run("phonotrainer.server:app_from_env" if reload else create_app(workspace),
+    if allowed_roots:
+        os.environ["PHONOTRAINER_ROOTS"] = os.pathsep.join(str(r) for r in allowed_roots)
+    uvicorn.run("phonotrainer.server:app_from_env" if reload
+                else create_app(workspace, allowed_roots=allowed_roots),
                 host=host, port=port, reload=reload, factory=reload)
 
 
 def app_from_env() -> FastAPI:
     """Factory para `uvicorn --reload` (no puede recibir la app ya construida)."""
-    return create_app(os.environ.get("PHONOTRAINER_WORKSPACE", DEFAULT_WORKSPACE))
+    roots = os.environ.get("PHONOTRAINER_ROOTS")
+    return create_app(os.environ.get("PHONOTRAINER_WORKSPACE", DEFAULT_WORKSPACE),
+                      allowed_roots=roots.split(os.pathsep) if roots else None)

@@ -38,12 +38,16 @@ function WordButtonImpl({
   if (selected) classes.push("w--selected");
   if (playing) classes.push("w--playing");
 
-  const title = [
-    `${word.word} · [${word.realized_ipa || "∅"}] vs [${word.canonical_ipa}]`,
-    names.length ? names.join(", ") : null,
-  ]
-    .filter(Boolean)
-    .join(" — ");
+  // Diccionario → real: el par que enseña algo. El canónico solo cuando aporta
+  // (si coincide con el real, repetirlo hacía que la mitad de los tooltips
+  // dijeran "[X] vs [X]" justo en las palabras más interesantes).
+  const realized = word.realized_ipa || "∅";
+  const parts = [`${word.word} · /${word.dict_ipa}/ → [${realized}]`];
+  if (word.canonical_ipa !== word.realized_ipa && word.canonical_ipa !== word.dict_ipa) {
+    parts.push(`canónico [${word.canonical_ipa}]`);
+  }
+  if (names.length) parts.push(names.join(", "));
+  const title = parts.join(" — ");
 
   // El color no puede ser el único portador de la identidad del fenómeno:
   // aquí va en el nombre accesible, no solo en el tooltip del ratón.

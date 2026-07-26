@@ -314,6 +314,11 @@ class JobStore:
             analysis = json.loads(analysis_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
             raise JobError(f"analysis.json ilegible en {result_dir}: {exc}") from exc
+        # JSON válido no basta: cualquier archivo con ese nombre pasaría el filtro
+        # del explorador y luego reventaría al leerlo.
+        if not isinstance(analysis, dict) or not isinstance(analysis.get("segments"), list):
+            raise JobError(f"{analysis_path} no parece un análisis de PhonoTrainer "
+                           "(falta la lista «segments»)")
         meta = analysis.get("meta") or {}
 
         # Buscar y registrar bajo el mismo lock: si no, dos importaciones
@@ -358,6 +363,10 @@ class JobStore:
         if job.status in (QUEUED, RUNNING):
             job.cancel_requested = True
             job.delete_when_done = True
+            # La baja tiene que ser durable ya: si el proceso muere antes de que
+            # el trabajador llegue a su punto de cancelación, sin esto el job
+            # borrado reaparecería al reiniciar (job.json sigue en disco).
+            (job.dir / "job.json").unlink(missing_ok=True)
             return
         self._cleanup(job)
 
@@ -418,6 +427,8 @@ class JobStore:
     def _save(self, job: Job) -> None:
         """Vuelca job.json. Solo el snapshot se toma bajo el lock; serializar y
         escribir se hace fuera para no bloquear a la UI ni a `cancel`."""
+        if job.delete_when_done:
+            return                      # está de baja: no lo resucitemos
         with self._lock:
             payload = job.to_dict()
             job.last_saved = time.monotonic()

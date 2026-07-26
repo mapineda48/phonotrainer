@@ -54,6 +54,7 @@ export function PlayerBar({ duration, spanLabel, enabled, children }: Props) {
         <select
           className="input"
           style={{ width: "auto", padding: "3px 6px" }}
+          aria-label="Velocidad de reproducción"
           disabled={!enabled}
           value={player.rate}
           onChange={(event) => player.setRate(Number(event.target.value))}

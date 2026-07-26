@@ -124,7 +124,32 @@ function SegmentCard({ segment, index, selected, onSelect, filter, follow }: Seg
         ))}
       </p>
 
+      <details className="phrase">
+        <summary className="tiny muted">Transcripción fonética de la frase</summary>
+        <div className="tiny" style={{ marginTop: 4 }}>
+          <div>
+            <span className="phones__label">real</span>{" "}
+            <span className="ipa">[{joinIpa(segment, "realized_ipa")}]</span>
+          </div>
+          <div>
+            <span className="phones__label">canónico</span>{" "}
+            <span className="ipa">/{joinIpa(segment, "canonical_ipa")}/</span>
+          </div>
+        </div>
+      </details>
+
       {isActive && <F0Chart segment={segment} width={320} />}
     </section>
   );
+}
+
+/** La frase entera en IPA, con ‿ donde el análisis detectó enlace. */
+function joinIpa(segment: Segment, field: "realized_ipa" | "canonical_ipa"): string {
+  return segment.words
+    .map((word, index) => {
+      const ipa = word[field] || "∅";
+      const last = index === segment.words.length - 1;
+      return last ? ipa : ipa + (word.boundary_link_next ? "‿" : " ");
+    })
+    .join("");
 }

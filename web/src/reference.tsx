@@ -25,6 +25,9 @@ export const familyTint = (family: string): string => `var(--tint-${family})`;
 export const phenomenonLabel = (reference: Reference, name: string): string =>
   reference.labels[name] ?? name;
 
+export const phenomenonDescription = (reference: Reference, name: string): string =>
+  reference.descriptions?.[name] ?? "";
+
 /** Primera familia con color de una palabra (el resto se nombra por texto). */
 export function primaryFamily(reference: Reference, word: Word): string | null {
   for (const phenomenon of word.phenomena) {

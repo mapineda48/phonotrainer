@@ -51,5 +51,8 @@ def dict_pronunciation(word: str) -> dict:
     else:
         arpabet = [p for p in _g2p()(w) if p.strip() and p != " "]
         oov = True
-    ipa = "".join(arpabet_to_ipa(arpabet))
+    # Con acento: /bˈɛtɚ/ enseña que el flap vive en la sílaba átona, que es la
+    # regla. Las reglas de phenomena.py miran `arpabet` (con dígitos de acento),
+    # no esta cadena, que es solo para mostrar.
+    ipa = "".join(arpabet_to_ipa(arpabet, with_stress=True))
     return {"ipa": ipa, "arpabet": arpabet, "oov": oov}

@@ -56,6 +56,24 @@ PHENOMENON_LABEL = {
     "contraction_lex": "contracción léxica",
 }
 
+# Qué es cada fenómeno, en una frase y con el ejemplo canónico de la tabla de
+# reglas (task.md, fase 5). La interfaz los muestra junto a cada etiqueta: sin
+# esto, «glotalización» no le dice nada a quien está aprendiendo.
+PHENOMENON_DESCRIPTION = {
+    "vowel_reduction": "Una vocal plena se reduce a schwa en sílaba átona. does → dəz",
+    "monophthongization": "Un diptongo se realiza como vocal simple. my → ma",
+    "elision_syllable": "Se pierde una sílaba entera. probably → prɒbli",
+    "word_elision": "La palabra no deja rastro acústico: el habla rápida se la come.",
+    "flapping": "/t/ o /d/ entre vocales suenan como una erre suave. water → wɔɾɚ",
+    "t_deletion": "La /t/ o /d/ final no llega a pronunciarse. that → ðæ",
+    "glottalization": "La /t/ se cierra en golpe de glotis. button → bʌʔn̩",
+    "th_stopping": "θ y ð se pronuncian como oclusivas t/d. that → dat",
+    "palatalization": "t+j y d+j se funden en tʃ/dʒ al final de palabra. got you → gotcha",
+    "linking": "La consonante final se enlaza con la vocal siguiente. does it → dʌ‿zɪt",
+    "h_dropping": "La h átona desaparece. tell him → tell im",
+    "contraction_lex": "Forma reducida lexicalizada. want to → wanna",
+}
+
 _CSS = """
 :root { color-scheme: light dark; }
 body {
