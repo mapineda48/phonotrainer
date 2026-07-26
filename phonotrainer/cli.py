@@ -52,6 +52,39 @@ def analyze(media: str, out_dir: str, phone_engine: str,
 
 
 @main.command()
+@click.option("-w", "--workspace", default="workspace", show_default=True,
+              type=click.Path(file_okay=False),
+              help="Directorio donde se guardan los análisis de la interfaz.")
+@click.option("-p", "--port", default=8000, show_default=True)
+@click.option("--host", default="127.0.0.1", show_default=True)
+@click.option("--no-open", is_flag=True, default=False,
+              help="No abrir el navegador al arrancar.")
+@click.option("--reload", is_flag=True, default=False,
+              help="Recarga en caliente del backend (desarrollo).")
+@click.option("--import-dir", "import_dirs", multiple=True,
+              type=click.Path(exists=True, file_okay=False),
+              help="Registra un out/ ya existente al arrancar (repetible).")
+def ui(workspace: str, port: int, host: str, no_open: bool, reload: bool,
+       import_dirs: tuple[str, ...]) -> None:
+    """Interfaz web: analizar, explorar el resultado con audio y revisar."""
+    from .jobs import JobStore
+    from .server import serve
+
+    console = Console()
+    if import_dirs:
+        store = JobStore(workspace)
+        for path in import_dirs:
+            job = store.import_dir(path)
+            console.print(f"Importado [cyan]{path}[/] → job {job.id}")
+        store.shutdown()
+
+    console.print(f"[bold]PhonoTrainer UI[/] → [cyan]http://{host}:{port}[/]  "
+                  f"(workspace: {workspace})")
+    serve(workspace=workspace, host=host, port=port, reload=reload,
+          open_browser=not no_open)
+
+
+@main.command()
 @click.argument("analysis_path", type=click.Path(exists=True, dir_okay=False),
                 default="out/analysis.json", required=False)
 @click.option("-n", "--num", default=20, show_default=True,

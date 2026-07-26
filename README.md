@@ -6,12 +6,30 @@ canónica alineada en tiempo, diff etiquetado de fenómenos de *connected speech
 (wanna, gotcha, flapping, schwa…) y prosodia (F0, énfasis, contorno). Ver `task.md`
 para el plan completo y `references/NOTES.md` para las decisiones de la Fase 0.
 
-## Uso
+## Interfaz web (recomendado)
+
+```bash
+make setup          # una vez: dependencias de Python + npm
+make ui             # compila la SPA y abre http://127.0.0.1:8000
+```
+
+Desde ahí: arrastrar un video/audio (o elegirlo por ruta, o importar un `out/`
+que ya exista), seguir el análisis en vivo y explorar el resultado con el audio
+sincronizado —clic en una palabra para oírla y ver su comparación fono a fono,
+filtro por fenómeno, bucle y velocidad 0.5×— además del modo de revisión humana,
+que guarda el mismo `review.json` que la CLI.
+
+Atajos: `espacio` play/pausa · `←`/`→` ±2 s · `L` bucle · `P` palabra ·
+`S` frase · `N` siguiente coincidencia del filtro · `F` seguir la reproducción ·
+`1`/`2`/`3` veredicto en revisión.
+
+## Uso desde la CLI
 
 ```bash
 source .venv/bin/activate            # venv creado con: uv venv --python 3.12 .venv
 phonotrainer analyze episodio.webm -o out/          # video
 phonotrainer analyze entrevista.mp3 -o out/          # o solo audio
+phonotrainer ui --import-dir out/                   # abrir ese resultado en la interfaz
 ```
 
 Salidas en `out/`: `audio.wav`, `transcript.json`, `canonical.json`,
@@ -37,6 +55,19 @@ uv pip install --python .venv/bin/python -r requirements.txt -e .
 .venv/bin/python scripts/download_models.py   # ~1.8 GB de modelos (una vez)
 ```
 
+## Arquitectura de la interfaz
+
+- **`phonotrainer/jobs.py`**: cada análisis es un *job* que corre en un hilo (de
+  uno en uno), publica progreso y sobrevive a un reinicio (`workspace/<id>/job.json`).
+  Los archivos locales se referencian sin copiarse; los `out/` externos se importan.
+- **`phonotrainer/server.py`**: API REST local (FastAPI) + servido de la SPA y del
+  audio con Range. `/api/reference` publica la taxonomía de fenómenos, así que la
+  UI no mantiene una copia de las etiquetas.
+- **`web/`**: React + TypeScript (Vite). Un solo `<audio>` gobierna la app; el
+  tiempo se publica por un store externo (`player/clock.ts`) para no re-renderizar
+  la transcripción 60 veces por segundo. Los colores son los mismos 4 slots
+  categóricos validados que usa `report.html`.
+
 ## Arquitectura (resumen)
 
 - **ASR**: faster-whisper `small` int8, `word_timestamps=True`, `vad_filter=True`.
@@ -60,8 +91,12 @@ uv pip install --python .venv/bin/python -r requirements.txt -e .
 ## Tests
 
 ```bash
-.venv/bin/python -m pytest tests/ -q
+make test                                   # pytest + vitest
+.venv/bin/python -m pytest tests/ -q        # solo backend
+cd web && npm test                          # solo interfaz
 ```
 
 Fixtures 100 % sintéticos (tonos numpy + media generada con ffmpeg): no hay audio
-con copyright en el repo; los episodios se procesan solo localmente.
+con copyright en el repo; los episodios se procesan solo localmente. Los tests del
+servidor sustituyen el pipeline por un doble (`tests/conftest.py::fake_analyze`),
+así que corren en segundos y sin cargar modelos.

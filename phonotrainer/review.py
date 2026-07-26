@@ -14,6 +14,7 @@ from pathlib import Path
 
 DEFAULT_N = 20
 DEFAULT_SEED = 48
+VERDICTS = ("ok", "mal", "dudosa")
 
 
 def word_weight(w: dict) -> float:
@@ -42,6 +43,79 @@ def select_sample(analysis: dict, n: int = DEFAULT_N,
     chosen = keyed[:n]
     return sorted([(si, wi, w) for _, si, wi, w in chosen],
                   key=lambda t: (t[0], t[1]))
+
+
+def sample_for_ui(analysis: dict, n: int = DEFAULT_N,
+                  seed: int = DEFAULT_SEED) -> list[dict]:
+    """Muestra para la UI: posición + la palabra completa + su segmento.
+
+    La CLI usa `select_sample` directamente; aquí añadimos el contexto que la
+    interfaz necesita para mostrar y reproducir cada caso.
+    """
+    out = []
+    for si, wi, w in select_sample(analysis, n=n, seed=seed):
+        seg = analysis["segments"][si]
+        out.append({
+            "segment": si, "word_idx": wi, "word": w,
+            "segment_text": seg.get("text", ""),
+            "segment_start": seg.get("start"), "segment_end": seg.get("end"),
+        })
+    return out
+
+
+def item_from_word(segment: int, word_idx: int, w: dict,
+                   verdict: str, note: str = "") -> dict:
+    """Entrada de review.json (misma forma que la escribe la CLI)."""
+    return {
+        "segment": segment, "word_idx": word_idx, "word": w["word"],
+        "t_start": w["start"], "t_end": w["end"],
+        "phenomena": w.get("phenomena", []),
+        "attracted_count": w.get("attracted_count", 0),
+        "low_confidence": bool(w.get("low_confidence")),
+        "verdict": verdict, "note": note,
+    }
+
+
+def build_items(analysis: dict, verdicts: list[dict]) -> list[dict]:
+    """Convierte [{segment, word_idx, verdict, note}] en entradas de review.json,
+    leyendo la palabra del propio análisis (la UI no fabrica datos fonéticos)."""
+    items = []
+    for v in verdicts:
+        si, wi = int(v["segment"]), int(v["word_idx"])
+        try:
+            w = analysis["segments"][si]["words"][wi]
+        except (IndexError, KeyError) as exc:
+            raise ValueError(f"palabra fuera de rango: segmento {si}, idx {wi}") from exc
+        verdict = v.get("verdict")
+        if verdict not in VERDICTS:
+            raise ValueError(f"veredicto inválido: {verdict!r} (usa {'/'.join(VERDICTS)})")
+        items.append(item_from_word(si, wi, w, verdict, v.get("note", "") or ""))
+    return items
+
+
+def summarize(items: list[dict]) -> dict:
+    """Conteos y % de acierto de una lista de veredictos."""
+    ok = sum(1 for i in items if i.get("verdict") == "ok")
+    mal = sum(1 for i in items if i.get("verdict") == "mal")
+    dudosa = sum(1 for i in items if i.get("verdict") == "dudosa")
+    return {
+        "ok": ok, "mal": mal, "dudosa": dudosa,
+        "sampled": len(items),
+        "accuracy": round(ok / (ok + mal), 3) if (ok + mal) else None,
+    }
+
+
+def save_review(analysis_path: str | Path, items: list[dict],
+                seed: int = DEFAULT_SEED, out_path: str | Path | None = None) -> Path:
+    """Escribe review.json junto al analysis.json (o en `out_path`)."""
+    analysis_path = Path(analysis_path)
+    out_path = Path(out_path) if out_path else analysis_path.parent / "review.json"
+    payload = {"analysis": str(analysis_path), "seed": seed}
+    payload.update(summarize(items))
+    payload["items"] = items
+    out_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2),
+                        encoding="utf-8")
+    return out_path
 
 
 def run_review(analysis_path: str | Path, n: int = DEFAULT_N,
@@ -85,33 +159,15 @@ def run_review(analysis_path: str | Path, n: int = DEFAULT_N,
         console.print(table)
 
         verdict = click.prompt("  veredicto", default="ok",
-                               type=click.Choice(["ok", "mal", "dudosa"]))
+                               type=click.Choice(list(VERDICTS)))
         note = click.prompt("  nota", default="", show_default=False)
-        items.append({
-            "segment": si, "word_idx": wi, "word": w["word"],
-            "t_start": w["start"], "t_end": w["end"],
-            "phenomena": w.get("phenomena", []),
-            "attracted_count": w.get("attracted_count", 0),
-            "low_confidence": bool(w.get("low_confidence")),
-            "verdict": verdict, "note": note,
-        })
+        items.append(item_from_word(si, wi, w, verdict, note))
 
-    ok = sum(1 for i in items if i["verdict"] == "ok")
-    mal = sum(1 for i in items if i["verdict"] == "mal")
-    dudosa = len(items) - ok - mal
-    accuracy = round(ok / (ok + mal), 3) if (ok + mal) else None
+    counts = summarize(items)
+    out_path = save_review(analysis_path, items, seed=seed)
 
-    out_path = analysis_path.parent / "review.json"
-    out_path.write_text(json.dumps({
-        "analysis": str(analysis_path),
-        "seed": seed,
-        "sampled": len(items),
-        "ok": ok, "mal": mal, "dudosa": dudosa,
-        "accuracy": accuracy,
-        "items": items,
-    }, ensure_ascii=False, indent=2), encoding="utf-8")
-
+    accuracy = counts["accuracy"]
     console.print(f"\n[bold green]Guardado {out_path}[/] — "
-                  f"ok={ok} mal={mal} dudosa={dudosa}"
+                  f"ok={counts['ok']} mal={counts['mal']} dudosa={counts['dudosa']}"
                   + (f" · acierto={accuracy:.0%}" if accuracy is not None else ""))
     return out_path

@@ -16,7 +16,13 @@ dependencies = [
     "soundfile",
     "click",
     "rich",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "python-multipart>=0.0.9",
 ]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "httpx>=0.27"]
 
 [project.scripts]
 phonotrainer = "phonotrainer.cli:main"
