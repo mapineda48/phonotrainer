@@ -6,15 +6,38 @@ import pytest
 from conftest import fake_analyze, mk_analysis, wait_until
 from fastapi.testclient import TestClient
 
+from phonotrainer.db import Corpus
 from phonotrainer.jobs import JobStore
 from phonotrainer.server import create_app
 
 
 @pytest.fixture
-def store(tmp_path):
-    st = JobStore(tmp_path / "workspace", analyze_fn=fake_analyze)
+def corpus():
+    db = Corpus(":memory:")
+    yield db
+    db.close()
+
+
+@pytest.fixture
+def store(tmp_path, corpus):
+    st = JobStore(tmp_path / "workspace", analyze_fn=fake_analyze, corpus=corpus,
+                  download_dir=tmp_path / "downloads",
+                  download_fn=_fake_download)
     yield st
     st.shutdown()
+
+
+def _fake_download(url, dest_dir, audio_only=False, progress=lambda m: None):
+    """Doble de la descarga: los tests no salen a la red."""
+    from pathlib import Path
+
+    progress("Descargando de YouTube… 100 %")
+    destino = Path(dest_dir)
+    destino.mkdir(parents=True, exist_ok=True)
+    archivo = destino / "Un vídeo [abc123].mp4"
+    archivo.write_bytes(b"media")
+    progress(f"Descargado: {archivo.name}")
+    return archivo
 
 
 @pytest.fixture
@@ -269,6 +292,72 @@ def test_importar_directorio_existente(client, tmp_path):
     assert job["status"] == "done" and job["imported"] is True
     assert job["source"] == "episodio.webm"
     assert job["summary"]["segments"] == 2
+
+
+def test_analizar_una_url_de_youtube(client):
+    resp = client.post("/api/jobs/youtube", json={
+        "url": "https://youtu.be/abc123",
+        "options": {"whisper_model": "tiny"},
+        "audio_only": True,
+    })
+    assert resp.status_code == 201
+    job_id = resp.json()["id"]
+    wait_until(lambda: client.get(f"/api/jobs/{job_id}").json()["status"] == "done")
+
+    job = client.get(f"/api/jobs/{job_id}").json()
+    assert job["source_url"] == "https://youtu.be/abc123"
+    assert job["source"] == "Un vídeo [abc123].mp4"
+    assert job["has_media"] is True and job["is_video"] is True
+    assert any("Descargando" in p["message"] for p in job["progress"])
+
+
+def test_una_url_que_no_lo_es_da_400(client):
+    resp = client.post("/api/jobs/youtube", json={"url": "/home/yo/video.webm"})
+    assert resp.status_code == 400
+    assert "no parece una URL" in resp.json()["detail"]
+
+
+def test_el_corpus_acumula_lo_analizado(client, media):
+    vacio = client.get("/api/corpus/stats").json()
+    assert vacio["analyses"] == 0 and vacio["phenomena"] == []
+
+    analizado(client, media)
+    analizado(client, media)
+
+    stats = client.get("/api/corpus/stats").json()
+    assert stats["analyses"] == 2
+    assert stats["words"] == 10
+    assert {p["phenomenon"] for p in stats["phenomena"]} >= {"t_deletion", "vowel_reduction"}
+    assert stats["top_words"][0]["word"] in {"does", "that", "wanna"}
+
+
+def test_el_corpus_lista_apariciones_con_su_posicion(client, media):
+    job_id = analizado(client, media)
+
+    body = client.get("/api/corpus/occurrences", params={"phenomenon": "t_deletion"}).json()
+    assert body["phenomenon"] == "t_deletion"
+    (item,) = body["items"]
+    # con esto la interfaz puede abrir el análisis justo en esa palabra
+    assert item["analysis_id"] == job_id
+    assert (item["word"], item["segment"], item["word_idx"]) == ("that", 0, 1)
+    assert item["analysis_source"] == "clip.wav"
+
+
+def test_el_corpus_responde_como_se_ha_dicho_una_palabra(client, media):
+    analizado(client, media)
+    analizado(client, media)
+
+    body = client.get("/api/corpus/variants", params={"word": "That,"}).json()
+    assert body["variants"][0]["realized_ipa"] == "ðæ"
+    assert body["variants"][0]["count"] == 2          # una vez por análisis
+
+
+def test_borrar_un_analisis_lo_saca_del_corpus(client, media):
+    job_id = analizado(client, media)
+    assert client.get("/api/corpus/stats").json()["analyses"] == 1
+
+    client.delete(f"/api/jobs/{job_id}")
+    assert client.get("/api/corpus/stats").json()["analyses"] == 0
 
 
 def test_job_desconocido_da_404(client):

@@ -33,6 +33,8 @@ Clonar en `references/` (solo lectura, para extraer patrones y código adaptable
 | `openai/whisper` ecosistema: `SYSTRAN/faster-whisper`, `m-bain/whisperX` | ASR con word timestamps; whisperX además trae forced alignment con wav2vec2 ya resuelto | Su diarización (no la necesitamos) |
 | Repos MDD wav2vec2 (`vocaliodmiku/wav2vec2mdd`, `rhss10/joint-apa-mdd-mtl`) | Recetas de decodificación CTC de fonemas, evaluación fonema-nivel | Fine-tuning (usamos checkpoints públicos) |
 | `Montreal Forced Aligner` (docs) | Referencia de calidad de alineación canónica | Instalación conda si torchaudio basta |
+| `yt-dlp/yt-dlp` | Obtención del material: descarga del vídeo/audio y remuxado con ffmpeg (`phonotrainer/download.py`) | Su post-procesado (subtítulos, miniaturas, playlists) |
+| `sqlite3` (stdlib) | Índice entre análisis: palabras y fenómenos consultables como corpus (`phonotrainer/db.py`) | ORM o servidor de base de datos: el fichero es derivado y desechable |
 
 Modelos preentrenados (HuggingFace, descargar una vez):
 - **ASR**: `faster-whisper small` (int8, CPU).

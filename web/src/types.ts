@@ -68,9 +68,47 @@ export interface JobOptions {
   attraction: boolean;
 }
 
+export interface CorpusStats {
+  analyses: number;
+  words: number;
+  segments: number;
+  duration: number;
+  phenomena: { phenomenon: string; count: number; analyses: number }[];
+  top_words: { word: string; count: number }[];
+}
+
+export interface Occurrence {
+  analysis_id: string;
+  analysis_source: string;
+  segment: number;
+  word_idx: number;
+  word: string;
+  start: number;
+  end: number;
+  dict_ipa: string | null;
+  canonical_ipa: string | null;
+  realized_ipa: string | null;
+  realized_raw_ipa: string | null;
+  diff_cost: number;
+  attracted_count: number;
+  low_confidence: boolean;
+  oov: boolean;
+  lexical_form: string | null;
+  phenomena: string[];
+}
+
+export interface WordVariant {
+  realized_ipa: string | null;
+  count: number;
+  analyses: number;
+  dict_ipa: string | null;
+}
+
 export interface Job {
   id: string;
   source: string;
+  /** Presente si el análisis empezó descargando un vídeo. */
+  source_url?: string | null;
   status: JobStatus;
   options: Partial<JobOptions>;
   created: string;

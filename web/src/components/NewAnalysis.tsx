@@ -21,6 +21,8 @@ export function NewAnalysis({ onCreated }: Props) {
   const reference = useReference();
   const [options, setOptions] = useState<JobOptions>(reference.options.defaults);
   const [path, setPath] = useState("");
+  const [url, setUrl] = useState("");
+  const [audioOnly, setAudioOnly] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -60,6 +62,40 @@ export function NewAnalysis({ onCreated }: Props) {
 
       <div className="card">
         <strong>1 · Material</strong>
+
+        <div className="row" style={{ marginTop: 10 }}>
+          <input
+            type="url"
+            className="input"
+            style={{ flex: 1, minWidth: 200 }}
+            aria-label="URL de YouTube"
+            placeholder="Pega una URL de YouTube…"
+            value={url}
+            onChange={(event) => setUrl(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && url.trim()) {
+                void run(() => api.createFromUrl(url.trim(), options, audioOnly));
+              }
+            }}
+          />
+          <button
+            type="button"
+            className="btn btn--primary"
+            disabled={!url.trim() || busy}
+            onClick={() => void run(() => api.createFromUrl(url.trim(), options, audioOnly))}
+          >
+            Descargar y analizar
+          </button>
+        </div>
+        <label className="row tiny" style={{ marginTop: 6, gap: 6 }}>
+          <input
+            type="checkbox"
+            checked={audioOnly}
+            onChange={(event) => setAudioOnly(event.target.checked)}
+          />
+          solo audio
+          <span className="muted">— más rápido; sin vídeo que ver junto a la transcripción</span>
+        </label>
 
         <div
           className={`dropzone ${dragging ? "dropzone--over" : ""}`}

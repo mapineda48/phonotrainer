@@ -33,7 +33,8 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field, ValidationError
 
 from . import __version__, ipa_maps, report, review as review_mod
-from .jobs import MEDIA_SUFFIXES, JobError, JobNotFound, JobStore
+from .db import DEFAULT_DB, Corpus
+from .jobs import DOWNLOAD_DIR, MEDIA_SUFFIXES, JobError, JobNotFound, JobStore
 
 DEFAULT_WORKSPACE = Path("workspace")
 WEB_DIST = Path(__file__).resolve().parents[1] / "web" / "dist"
@@ -70,6 +71,12 @@ class ImportRequest(BaseModel):
     path: str = Field(..., description="Directorio con analysis.json")
 
 
+class YoutubeRequest(BaseModel):
+    url: str = Field(..., description="URL del vídeo (YouTube u otro sitio de yt-dlp)")
+    options: Options = Options()
+    audio_only: bool = Field(False, description="Bajar solo el audio (más rápido)")
+
+
 class Verdict(BaseModel):
     segment: int
     word_idx: int
@@ -85,7 +92,9 @@ class ReviewRequest(BaseModel):
 def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
                store: JobStore | None = None,
                web_dist: str | Path | None = None,
-               allowed_roots: list[str | Path] | None = None) -> FastAPI:
+               allowed_roots: list[str | Path] | None = None,
+               db_path: str | Path = DEFAULT_DB,
+               download_dir: str | Path = DOWNLOAD_DIR) -> FastAPI:
     """La app. `allowed_roots` acota qué parte del disco puede tocarse desde el
     navegador (explorar, analizar, importar): por defecto $HOME y el directorio
     de trabajo. La CLI no pasa por aquí y no tiene ese límite."""
@@ -95,10 +104,13 @@ def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
         yield
         # Ctrl-C: marcamos la cancelación y soltamos el hilo trabajador (daemon).
         app.state.store.shutdown()
+        if app.state.store.corpus is not None:
+            app.state.store.corpus.close()
 
     app = FastAPI(title="PhonoTrainer", version=__version__, docs_url="/api/docs",
                   openapi_url="/api/openapi.json", lifespan=lifespan)
-    app.state.store = store or JobStore(workspace)
+    app.state.store = store or JobStore(workspace, corpus=Corpus(db_path),
+                                        download_dir=download_dir)
     app.state.web_dist = Path(web_dist) if web_dist else WEB_DIST
     roots = [Path(root).expanduser().resolve()
              for root in (allowed_roots or [Path.home(), Path.cwd()])]
@@ -248,9 +260,46 @@ def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
         job = _store().adopt_upload(name, writer, opts.model_dump())
         return job.to_public(full=True)
 
+    @app.post("/api/jobs/youtube", status_code=201)
+    def youtube_job(req: YoutubeRequest) -> dict:
+        from .download import is_url
+
+        if not is_url(req.url):
+            raise HTTPException(400, f"no parece una URL: {req.url}")
+        job = _store().create_from_url(req.url, options=req.options.model_dump(),
+                                       audio_only=req.audio_only)
+        return job.to_public(full=True)
+
     @app.post("/api/jobs/import", status_code=201)
     def import_job(req: ImportRequest) -> dict:
         return _store().import_dir(_checked(req.path, want_dir=True)).to_public(full=True)
+
+    # --- corpus (índice SQLite entre análisis) -------------------------------
+    def _corpus() -> Corpus:
+        corpus = _store().corpus
+        if corpus is None:
+            raise HTTPException(503, "este servidor corre sin corpus")
+        return corpus
+
+    @app.get("/api/corpus/stats")
+    def corpus_stats() -> dict:
+        return _corpus().stats()
+
+    @app.get("/api/corpus/occurrences")
+    def corpus_occurrences(phenomenon: str | None = None, word: str | None = None,
+                           analysis: str | None = None,
+                           limit: int = Query(100, ge=1, le=1000)) -> dict:
+        corpus = _corpus()
+        rows = corpus.occurrences(phenomenon=phenomenon, word=word,
+                                  analysis_id=analysis, limit=limit)
+        total = corpus.count_occurrences(phenomenon=phenomenon, word=word,
+                                         analysis_id=analysis)
+        return {"phenomenon": phenomenon, "word": word, "total": total, "items": rows}
+
+    @app.get("/api/corpus/variants")
+    def corpus_variants(word: str) -> dict:
+        """Cómo se ha pronunciado realmente una palabra en todo el corpus."""
+        return {"word": word, "variants": _corpus().word_variants(word)}
 
     @app.get("/api/jobs/{job_id}")
     def get_job(job_id: str) -> dict:

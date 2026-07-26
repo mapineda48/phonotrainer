@@ -118,6 +118,82 @@ describe("App", () => {
     });
   });
 
+  it("analiza una URL de YouTube sin pasar por el disco", async () => {
+    const descargando: Job = {
+      ...job, id: "yt", status: "running", percent: 8, has_analysis: false,
+      source_url: "https://youtu.be/abc123",
+      last_message: "Descargando de YouTube… 45 %",
+      progress: [{ at: "2026-07-26T12:00:02+00:00", message: "Descargando de YouTube… 45 %" }],
+    };
+    let creado = false;
+    const fetchMock = mockFetch({
+      "GET /api/reference": () => reference,
+      "GET /api/jobs": () => (creado ? [descargando] : []),
+      "POST /api/jobs/youtube": () => {
+        creado = true;
+        return { ...descargando, status: "queued" };
+      },
+      "GET /api/jobs/yt": () => descargando,
+    });
+
+    render(<App />);
+    await screen.findByText("Analizar habla nativa");
+
+    await userEvent.type(
+      screen.getByLabelText("URL de YouTube"),
+      "https://youtu.be/abc123",
+    );
+    await userEvent.click(screen.getByRole("checkbox", { name: /solo audio/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Descargar y analizar" }));
+
+    await waitFor(() => {
+      const call = fetchMock.mock.calls.find(([url]) => String(url).includes("youtube"));
+      expect(call).toBeDefined();
+      expect(JSON.parse(String(call![1]!.body))).toEqual({
+        url: "https://youtu.be/abc123",
+        options: reference.options.defaults,
+        audio_only: true,
+      });
+    });
+
+    // y el progreso de la descarga se ve como una etapa más (estado y registro)
+    expect(await screen.findAllByText(/Descargando de YouTube/)).toHaveLength(2);
+  });
+
+  it("desde el corpus se abre un análisis en la palabra elegida", async () => {
+    mockFetch({
+      "GET /api/reference": () => reference,
+      "GET /api/jobs": () => [job],
+      [`GET /api/jobs/${job.id}/analysis`]: () => analysis,
+      "GET /api/corpus/stats": () => ({
+        analyses: 1, words: 5, segments: 2, duration: 3,
+        phenomena: [{ phenomenon: "t_deletion", count: 1, analyses: 1 }],
+        top_words: [],
+      }),
+      "GET /api/corpus/occurrences": () => ({
+        phenomenon: null, word: null, total: 1,
+        items: [{
+          analysis_id: job.id, analysis_source: "clip.wav", segment: 1, word_idx: 0,
+          word: "wanna", start: 2, end: 2.3, dict_ipa: "wɑnə", canonical_ipa: "wɑnə",
+          realized_ipa: "wɑnə", realized_raw_ipa: "", diff_cost: 0, attracted_count: 1,
+          low_confidence: false, oov: false, lexical_form: "want to",
+          phenomena: ["contraction_lex"],
+        }],
+      }),
+    });
+
+    render(<App />);
+    await screen.findByRole("button", { name: /^does/ });
+
+    await userEvent.click(screen.getByRole("button", { name: /^Corpus/ }));
+    const fila = await screen.findByText("wanna");
+    await userEvent.click(fila);
+
+    // vuelve al análisis con esa palabra ya seleccionada y su detalle abierto
+    await waitFor(() => expect(wordButton("wanna")).toHaveAttribute("aria-pressed", "true"));
+    expect(screen.getByText("forma reducida")).toBeInTheDocument();
+  });
+
   it("avisa si el backend no responde", async () => {
     vi.stubGlobal(
       "fetch",

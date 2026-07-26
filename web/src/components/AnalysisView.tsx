@@ -21,9 +21,11 @@ type Tab = "word" | "summary" | "review";
 interface Props {
   job: Job;
   onChanged: () => void;
+  /** Palabra que hay que abrir al entrar (viene del corpus). */
+  initialSelection?: Selection | null;
 }
 
-export function AnalysisView({ job, onChanged }: Props) {
+export function AnalysisView({ job, onChanged, initialSelection = null }: Props) {
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -70,7 +72,8 @@ export function AnalysisView({ job, onChanged }: Props) {
 
   return (
     <PlayerProvider src={job.has_audio ? api.audioUrl(job.id) : null}>
-      <AnalysisBody job={job} analysis={analysis} onChanged={onChanged} />
+      <AnalysisBody job={job} analysis={analysis} onChanged={onChanged}
+                    initialSelection={initialSelection} />
     </PlayerProvider>
   );
 }
@@ -79,10 +82,12 @@ function AnalysisBody({
   job,
   analysis,
   onChanged,
+  initialSelection,
 }: {
   job: Job;
   analysis: Analysis;
   onChanged: () => void;
+  initialSelection: Selection | null;
 }) {
   const player = usePlayer();
   const reference = useReference();
@@ -141,6 +146,17 @@ function AnalysisBody({
   };
 
   const jump = (delta: number) => jumpIn(walk, delta);
+
+  // Llegando desde el corpus: abrir directamente en esa palabra y oírla.
+  useEffect(() => {
+    if (!initialSelection) return;
+    const word = analysis.segments[initialSelection.segment]?.words[initialSelection.index];
+    if (!word) return;
+    setSelected(initialSelection);
+    setTab("word");
+    if (canPlay) player.play(wordSpan(word));
+    else player.seek(word.start);
+  }, [initialSelection, analysis, canPlay, player]);
 
   const toggleFilter = (phenomenon: string) =>
     setFilter((current) => {

@@ -1058,6 +1058,21 @@ table.detail td {
   color: var(--ink);
 }
 
+.corpus__row {
+  cursor: pointer;
+}
+
+.corpus__source {
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.corpus__row:hover {
+  background: var(--surface-2);
+}
+
 .sr-only {
   position: absolute;
   width: 1px;

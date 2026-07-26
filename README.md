@@ -34,6 +34,32 @@ CLI. Los atajos están dentro (botón `?`).
 Por seguridad la interfaz solo abre archivos bajo `$HOME` y el directorio de
 trabajo; para un disco externo, `phonotrainer ui --allow-dir /mnt/videos`.
 
+## Material: de YouTube al análisis
+
+```bash
+phonotrainer download "https://youtu.be/…"                 # → downloads/
+phonotrainer analyze "https://youtu.be/…" -o out/          # descarga y analiza de un tirón
+phonotrainer analyze "https://youtu.be/…" --audio-only     # sin vídeo, más rápido
+```
+
+Desde la interfaz basta con pegar la URL. La descarga (yt-dlp, vídeo ≤720p
+remuxado con ffmpeg) es una etapa más de la barra de progreso, y el archivo se
+reutiliza si ya está: reanalizar la misma URL no vuelve a bajar nada.
+
+## Corpus: todo lo analizado, junto
+
+Cada análisis terminado (o importado) se indexa en SQLite. Eso contesta lo que
+un `analysis.json` suelto no puede:
+
+```bash
+phonotrainer corpus                        # cuántos fenómenos llevas y en cuántos vídeos
+phonotrainer corpus -p flapping            # todas sus apariciones, la más divergente primero
+phonotrainer corpus -w to                  # cómo se ha pronunciado "to" en todo el corpus
+```
+
+En la interfaz, la pestaña **Corpus** hace lo mismo y cada aparición abre su
+análisis en esa palabra exacta.
+
 ## Uso desde la CLI
 
 ```bash
@@ -66,6 +92,13 @@ uv pip install --python .venv/bin/python -r requirements.txt -e .
 .venv/bin/python scripts/download_models.py   # ~1.8 GB de modelos (una vez)
 ```
 
+## Qué genera la herramienta (y qué no se versiona)
+
+`downloads/` (vídeos bajados), `data/phonotrainer.db` (el corpus), `workspace/`
+(los análisis de la interfaz) y `out*/` están en `.gitignore`: **cada clon
+empieza limpio** y todo se regenera. El corpus es un índice derivado —se puede
+borrar y reconstruir reanalizando o reimportando.
+
 ## Arquitectura de la interfaz
 
 - **`phonotrainer/jobs.py`**: cada análisis es un *job* que corre en un hilo (de
@@ -74,6 +107,10 @@ uv pip install --python .venv/bin/python -r requirements.txt -e .
 - **`phonotrainer/server.py`**: API REST local (FastAPI) + servido de la SPA y del
   audio con Range. `/api/reference` publica la taxonomía de fenómenos, así que la
   UI no mantiene una copia de las etiquetas.
+- **`phonotrainer/download.py`**: yt-dlp con una costura (`ydl_factory`) para
+  que los tests no salgan a la red; el progreso se publica como el del pipeline.
+- **`phonotrainer/db.py`**: el corpus. Tres tablas (análisis, palabras,
+  fenómenos) y consultas entre análisis; se alimenta solo al terminar o importar.
 - **`web/`**: React + TypeScript (Vite). Un solo `<audio>` gobierna la app; el
   tiempo se publica por un store externo (`player/clock.ts`) para no re-renderizar
   la transcripción 60 veces por segundo. Los colores son los mismos 4 slots

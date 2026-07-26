@@ -18,3 +18,8 @@ web/dist/
 web/coverage/
 .vite/
 *.tsbuildinfo
+
+# generado por la herramienta (cada clon empieza limpio)
+downloads/
+data/
+*.db

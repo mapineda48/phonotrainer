@@ -1,24 +1,30 @@
-/** Armazón: lista de análisis a la izquierda, el análisis elegido a la derecha. */
+/** Armazón: lista de análisis a la izquierda, lo elegido a la derecha. */
 
 import { useEffect, useState } from "react";
 
 import { api } from "./api";
 import { AnalysisView } from "./components/AnalysisView";
+import { CorpusView } from "./components/CorpusView";
 import { JobProgress } from "./components/JobProgress";
 import { NewAnalysis } from "./components/NewAnalysis";
 import { Sidebar } from "./components/Sidebar";
+import type { Selection } from "./components/Transcript";
 import { useJobs } from "./hooks/useJobs";
 import { ReferenceProvider } from "./reference";
 import type { Job, Reference } from "./types";
 
 const LAST_JOB_KEY = "phonotrainer:last-job";
 
+type Screen = "job" | "new" | "corpus";
+
 export default function App() {
   const { jobs, loaded, error, refresh } = useJobs();
   const [reference, setReference] = useState<Reference | null>(null);
   const [referenceError, setReferenceError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
+  const [screen, setScreen] = useState<Screen>("job");
+  /** Palabra a abrir al saltar desde el corpus. */
+  const [jumpTo, setJumpTo] = useState<Selection | null>(null);
 
   useEffect(() => {
     api
@@ -37,9 +43,10 @@ export default function App() {
     setSelectedId(target.id);
   }, [loaded, jobs, selectedId]);
 
-  const select = (id: string) => {
+  const select = (id: string, selection: Selection | null = null) => {
     setSelectedId(id);
-    setCreating(false);
+    setJumpTo(selection);
+    setScreen("job");
     window.localStorage.setItem(LAST_JOB_KEY, id);
   };
 
@@ -49,7 +56,7 @@ export default function App() {
   };
 
   const selected = jobs.find((job) => job.id === selectedId) ?? null;
-  const showNew = creating || (loaded && jobs.length === 0) || !selected;
+  const showNew = screen === "new" || (screen === "job" && (!selected || (loaded && jobs.length === 0)));
 
   if (referenceError) {
     return (
@@ -66,9 +73,11 @@ export default function App() {
       <div className="app">
         <Sidebar
           jobs={jobs}
-          selectedId={showNew ? null : selectedId}
-          onSelect={select}
-          onNew={() => setCreating(true)}
+          selectedId={screen === "job" && !showNew ? selectedId : null}
+          onSelect={(id) => select(id)}
+          onNew={() => setScreen("new")}
+          onCorpus={() => setScreen("corpus")}
+          corpusOpen={screen === "corpus"}
           onChanged={() => {
             setSelectedId(null);
             void refresh();
@@ -80,10 +89,17 @@ export default function App() {
               {error}
             </p>
           )}
-          {showNew ? (
+          {screen === "corpus" ? (
+            <CorpusView onOpen={(id, selection) => select(id, selection)} />
+          ) : showNew ? (
             <NewAnalysis onCreated={onCreated} />
           ) : selected!.status === "done" ? (
-            <AnalysisView job={selected!} onChanged={() => void refresh()} />
+            <AnalysisView
+              key={selected!.id}
+              job={selected!}
+              initialSelection={jumpTo}
+              onChanged={() => void refresh()}
+            />
           ) : (
             <JobProgress job={selected!} onChanged={() => void refresh()} />
           )}

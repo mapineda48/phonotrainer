@@ -4,12 +4,15 @@
 import type {
   Analysis,
   Browse,
+  CorpusStats,
   Job,
   JobOptions,
+  Occurrence,
   Reference,
   Review,
   SampleItem,
   VerdictValue,
+  WordVariant,
 } from "./types";
 
 export class ApiError extends Error {
@@ -58,6 +61,9 @@ export const api = {
     return request<Job>("/api/jobs/upload", { method: "POST", body: form });
   },
   importJob: (path: string) => request<Job>("/api/jobs/import", jsonInit("POST", { path })),
+  createFromUrl: (url: string, options: Partial<JobOptions>, audioOnly: boolean) =>
+    request<Job>("/api/jobs/youtube",
+      jsonInit("POST", { url, options, audio_only: audioOnly })),
   cancelJob: (id: string) => request<Job>(`/api/jobs/${id}/cancel`, { method: "POST" }),
   deleteJob: (id: string) => request<void>(`/api/jobs/${id}`, { method: "DELETE" }),
 
@@ -75,6 +81,24 @@ export const api = {
     seed: number,
     verdicts: { segment: number; word_idx: number; verdict: VerdictValue; note: string }[],
   ) => request<Review>(`/api/jobs/${id}/review`, jsonInit("PUT", { seed, verdicts })),
+
+  corpusStats: () => request<CorpusStats>("/api/corpus/stats"),
+  corpusOccurrences: (params: { phenomenon?: string; word?: string; limit?: number }) => {
+    const query = new URLSearchParams();
+    if (params.phenomenon) query.set("phenomenon", params.phenomenon);
+    if (params.word) query.set("word", params.word);
+    query.set("limit", String(params.limit ?? 100));
+    return request<{
+      phenomenon: string | null;
+      word: string | null;
+      total: number;
+      items: Occurrence[];
+    }>(`/api/corpus/occurrences?${query}`);
+  },
+  corpusVariants: (word: string) =>
+    request<{ word: string; variants: WordVariant[] }>(
+      `/api/corpus/variants?word=${encodeURIComponent(word)}`,
+    ),
 
   audioUrl: (id: string) => `/api/jobs/${id}/audio`,
   mediaUrl: (id: string) => `/api/jobs/${id}/media`,

@@ -53,11 +53,21 @@ def test_progreso_con_marca_de_tiempo_y_porcentaje(store, media):
 
 def test_estimacion_de_porcentaje():
     assert estimate_percent(None) == 0
-    assert estimate_percent("Extrayendo audio (ffmpeg…)") == 3
-    assert estimate_percent("Segmento 1/10: fonos…") == 32
+    assert estimate_percent("Extrayendo audio (ffmpeg…)") == 17
+    assert estimate_percent("Segmento 1/10: fonos…") == 39
     assert estimate_percent("Segmento 10/10: fonos…") == 95
     assert estimate_percent("Generando report.html…") == 98
     assert estimate_percent("mensaje que no reconocemos") == 0
+
+
+def test_la_descarga_ocupa_su_propio_tramo_y_la_barra_no_retrocede():
+    """Un job que empieza descargando pasa por dos fases: el porcentaje debe
+    crecer de una a otra, no reiniciarse."""
+    descarga = [estimate_percent(f"Descargando de YouTube… {p} %") for p in (0, 50, 100)]
+    assert descarga == [2, 8, 15]
+    assert descarga[-1] <= estimate_percent("Descargado: clip.mp4")
+    assert estimate_percent("Descargado: clip.mp4") <= estimate_percent("Extrayendo audio…")
+    assert estimate_percent("Extrayendo audio…") <= estimate_percent("Segmento 1/10: …")
 
 
 def test_el_error_del_pipeline_queda_en_el_job(tmp_path, media):
@@ -246,14 +256,150 @@ def test_importar_a_la_vez_el_mismo_directorio_crea_un_solo_job(store, tmp_path)
     assert len(store.list()) == 1
 
 
-def test_los_hitos_de_progreso_siguen_existiendo_en_el_pipeline():
-    """`estimate_percent` reconoce prefijos del pipeline por texto: si alguien
-    reescribe un mensaje, la barra se queda en 0 sin que nada falle. Este test
-    ata las dos puntas."""
-    fuente = (Path(jobs.__file__).parent / "pipeline.py").read_text(encoding="utf-8")
+def test_los_hitos_de_progreso_siguen_existiendo_en_el_codigo():
+    """`estimate_percent` reconoce prefijos por texto: si alguien reescribe un
+    mensaje, la barra se queda en 0 sin que nada falle. Este test ata las puntas."""
+    raiz = Path(jobs.__file__).parent
+    fuente = "".join((raiz / nombre).read_text(encoding="utf-8")
+                     for nombre in ("pipeline.py", "download.py"))
     for prefijo, _ in jobs._STAGE_PERCENT:
         assert f'"{prefijo}' in fuente or f"f\"{prefijo}" in fuente, prefijo
     assert "Segmento {si + 1}/{n_seg}" in fuente     # el que alimenta el porcentaje fino
+    assert "Descargando de YouTube… {percent} %" in fuente
+
+
+def test_un_job_desde_una_url_descarga_y_luego_analiza(tmp_path):
+    descargas = []
+
+    def fake_download(url, dest_dir, audio_only=False, progress=lambda m: None):
+        descargas.append((url, Path(dest_dir), audio_only))
+        progress("Descargando de YouTube… 100 %")
+        destino = Path(dest_dir)
+        destino.mkdir(parents=True, exist_ok=True)
+        archivo = destino / "Un vídeo [abc123].mp4"
+        archivo.write_bytes(b"media")
+        progress(f"Descargado: {archivo.name}")
+        return archivo
+
+    store = JobStore(tmp_path / "ws", analyze_fn=fake_analyze,
+                     download_dir=tmp_path / "downloads", download_fn=fake_download)
+    try:
+        job = store.create_from_url("https://youtu.be/abc123", {"whisper_model": "tiny"},
+                                    audio_only=True)
+        assert job.source == "https://youtu.be/abc123"      # hasta que se sepa el título
+        wait_until(lambda: job.status == jobs.DONE)
+
+        assert descargas == [("https://youtu.be/abc123", tmp_path / "downloads", True)]
+        assert job.source == "Un vídeo [abc123].mp4"        # ya con el nombre real
+        assert job.media_path.endswith("Un vídeo [abc123].mp4")
+        assert job.artifact("analysis.json") is not None
+        mensajes = [p["message"] for p in job.progress]
+        assert any("Descargando" in m for m in mensajes)
+        assert any("Transcribiendo" in m for m in mensajes)
+        assert job.to_public()["source_url"] == "https://youtu.be/abc123"
+    finally:
+        store.shutdown()
+
+
+def test_el_analisis_terminado_entra_en_el_corpus(tmp_path, media):
+    from phonotrainer.db import Corpus
+
+    corpus = Corpus(":memory:")
+    store = JobStore(tmp_path / "ws", analyze_fn=fake_analyze, corpus=corpus)
+    try:
+        job = store.create(media)
+        wait_until(lambda: job.status == jobs.DONE)
+
+        assert corpus.stats()["words"] == 5
+        assert corpus.occurrences(phenomenon="t_deletion")[0]["analysis_id"] == job.id
+
+        store.delete(job.id)                    # y salir de la lista lo saca del corpus
+        assert corpus.stats()["analyses"] == 0
+    finally:
+        store.shutdown()
+        corpus.close()
+
+
+def test_importar_tambien_indexa(tmp_path):
+    from phonotrainer.db import Corpus
+
+    out = tmp_path / "out"
+    out.mkdir()
+    (out / "analysis.json").write_text(json.dumps(mk_analysis("ep.webm")), encoding="utf-8")
+
+    corpus = Corpus(":memory:")
+    store = JobStore(tmp_path / "ws", analyze_fn=fake_analyze, corpus=corpus)
+    try:
+        store.import_dir(out)
+        assert corpus.stats()["analyses"] == 1
+        assert corpus.analyses()[0]["source"] == "ep.webm"
+    finally:
+        store.shutdown()
+        corpus.close()
+
+
+def test_el_corpus_se_reconstruye_con_lo_que_ya_hay_en_el_workspace(tmp_path, media):
+    """El corpus es derivado: borrar data/ (o clonar el repo, que empieza sin
+    base de datos) no debe dejarlo desincronizado con la lista de análisis."""
+    from phonotrainer.db import Corpus
+
+    root = tmp_path / "ws"
+    primero = Corpus(":memory:")
+    store = JobStore(root, analyze_fn=fake_analyze, corpus=primero)
+    job = store.create(media)
+    wait_until(lambda: job.status == jobs.DONE)
+    store.shutdown()
+    primero.close()
+
+    # base de datos nueva y vacía, mismo workspace
+    vacio = Corpus(":memory:")
+    revivido = JobStore(root, analyze_fn=fake_analyze, corpus=vacio)
+    try:
+        assert vacio.stats()["analyses"] == 1
+        assert vacio.analyses()[0]["id"] == job.id
+        assert vacio.occurrences(phenomenon="t_deletion")
+    finally:
+        revivido.shutdown()
+        vacio.close()
+
+
+def test_reimportar_vuelve_a_indexar(tmp_path):
+    from phonotrainer.db import Corpus
+
+    out = tmp_path / "out"
+    out.mkdir()
+    (out / "analysis.json").write_text(json.dumps(mk_analysis("ep.webm")), encoding="utf-8")
+
+    corpus = Corpus(":memory:")
+    store = JobStore(tmp_path / "ws", analyze_fn=fake_analyze, corpus=corpus)
+    try:
+        job = store.import_dir(out)
+        corpus.forget(job.id)                      # como si se hubiera perdido el índice
+        assert corpus.stats()["analyses"] == 0
+
+        assert store.import_dir(out).id == job.id  # sigue siendo idempotente…
+        assert corpus.stats()["analyses"] == 1     # …pero recupera el índice
+    finally:
+        store.shutdown()
+        corpus.close()
+
+
+def test_si_el_corpus_falla_el_analisis_sigue_siendo_valido(tmp_path, media):
+    class CorpusRoto:
+        def index_analysis(self, *a, **kw):
+            raise RuntimeError("disco lleno")
+
+        def forget(self, *a, **kw):
+            pass
+
+    store = JobStore(tmp_path / "ws", analyze_fn=fake_analyze, corpus=CorpusRoto())
+    try:
+        job = store.create(media)
+        wait_until(lambda: job.status == jobs.DONE)
+        assert job.artifact("analysis.json") is not None
+        assert any("no se pudo indexar" in p["message"] for p in job.progress)
+    finally:
+        store.shutdown()
 
 
 def test_crear_con_ruta_inexistente_falla(store, tmp_path):

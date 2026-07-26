@@ -43,6 +43,9 @@ VIDEO_SUFFIXES = {".webm", ".mp4", ".mkv", ".mov", ".avi", ".m4v"}
 # I/O dentro del lock y retrasaría, entre otras cosas, las cancelaciones.
 SAVE_INTERVAL = 1.0  # s
 
+# Los vídeos descargados van aquí (ignorada por git: cada clon empieza limpio).
+DOWNLOAD_DIR = Path("downloads")
+
 
 class JobCancelled(RuntimeError):
     """Se lanza dentro del callback de progreso para abortar el pipeline."""
@@ -61,18 +64,24 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-# El pipeline emite "Segmento 3/27: …" en el bucle largo; el resto de etapas son
-# hitos fijos. Con eso estimamos un porcentaje sin tocar pipeline.py.
+# El pipeline emite "Segmento 3/27: …" en el bucle largo y la descarga
+# "Descargando de YouTube… 40 %"; el resto de etapas son hitos fijos. Con eso
+# estimamos un porcentaje sin tocar pipeline.py ni download.py.
 _SEG_RE = re.compile(r"Segmento (\d+)/(\d+)")
+_DOWNLOAD_RE = re.compile(r"Descargando de YouTube… (\d+) %")
 _STAGE_PERCENT = (
-    ("Extrayendo audio", 3),
-    ("Transcribiendo", 8),
-    ("Cargando motor", 18),
-    ("Cargando prosodia", 23),
+    ("Consultando la URL", 1),
+    ("Descarga terminada", 15),
+    ("Descargado:", 16),
+    ("Extrayendo audio", 17),
+    ("Transcribiendo", 21),
+    ("Cargando motor", 27),
+    ("Cargando prosodia", 31),
     ("Guardando salidas", 96),
     ("Generando report", 98),
 )
-_SEG_FLOOR, _SEG_SPAN = 25, 70
+_SEG_FLOOR, _SEG_SPAN = 33, 62
+_DL_FLOOR, _DL_SPAN = 2, 13
 
 
 def estimate_percent(message: str | None) -> int:
@@ -83,6 +92,9 @@ def estimate_percent(message: str | None) -> int:
     if m:
         done, total = int(m.group(1)), max(int(m.group(2)), 1)
         return int(_SEG_FLOOR + _SEG_SPAN * min(done / total, 1.0))
+    m = _DOWNLOAD_RE.search(message)
+    if m:
+        return int(_DL_FLOOR + _DL_SPAN * min(int(m.group(1)) / 100, 1.0))
     for prefix, pct in _STAGE_PERCENT:
         if message.startswith(prefix):
             return pct
@@ -97,6 +109,8 @@ class Job:
     status: str = QUEUED
     options: dict = field(default_factory=dict)
     media_path: str | None = None
+    source_url: str | None = None            # jobs que empiezan descargando
+    audio_only: bool = False                 # opción de la descarga, no del pipeline
     result_dir_override: str | None = None   # jobs importados: salida fuera del workspace
     created: str = field(default_factory=_now)
     started: str | None = None
@@ -138,6 +152,8 @@ class Job:
             "status": self.status,
             "options": self.options,
             "media_path": self.media_path,
+            "source_url": self.source_url,
+            "audio_only": self.audio_only,
             "result_dir_override": self.result_dir_override,
             "created": self.created,
             "started": self.started,
@@ -154,6 +170,7 @@ class Job:
         data = {
             "id": self.id,
             "source": self.source,
+            "source_url": self.source_url,
             "status": self.status,
             "options": self.options,
             "created": self.created,
@@ -190,6 +207,8 @@ def _load_job(job_dir: Path) -> Job | None:
         status=raw.get("status", DONE),
         options=raw.get("options") or {},
         media_path=raw.get("media_path"),
+        source_url=raw.get("source_url"),
+        audio_only=bool(raw.get("audio_only")),
         result_dir_override=raw.get("result_dir_override"),
         created=raw.get("created") or _now(),
         started=raw.get("started"),
@@ -214,10 +233,14 @@ class JobStore:
     minutos en llegar a su siguiente punto de cancelación).
     """
 
-    def __init__(self, root: str | Path, analyze_fn=None):
+    def __init__(self, root: str | Path, analyze_fn=None, corpus=None,
+                 download_dir: str | Path | None = None, download_fn=None):
         self.root = Path(root)
         self.root.mkdir(parents=True, exist_ok=True)
+        self.corpus = corpus                 # índice SQLite (opcional)
+        self.download_dir = Path(download_dir) if download_dir else DOWNLOAD_DIR
         self._analyze_fn = analyze_fn
+        self._download_fn = download_fn
         self._lock = threading.RLock()
         self._jobs: dict[str, Job] = {}
         # La cola lleva el Job, no su id: si lo borran mientras está encolado,
@@ -227,6 +250,7 @@ class JobStore:
                                         name="phonotrainer-job", daemon=True)
         self._worker.start()
         self._discover()
+        self._reconcile_corpus()
 
     # --- ciclo de vida -------------------------------------------------------
     def _discover(self) -> None:
@@ -234,6 +258,28 @@ class JobStore:
             job = _load_job(job_dir)
             if job is not None:
                 self._jobs[job.id] = job
+
+    def _reconcile_corpus(self) -> None:
+        """El corpus es un índice derivado: si falta (base de datos nueva, o
+        `data/` borrada), se reconstruye con los análisis que ya hay en disco.
+        Así la lista de análisis y el corpus nunca se contradicen."""
+        if self.corpus is None:
+            return
+        try:
+            conocidos = {row["id"] for row in self.corpus.analyses()}
+        except Exception:                             # noqa: BLE001
+            return
+        for job in list(self._jobs.values()):
+            if job.status != DONE or job.id in conocidos:
+                continue
+            path = job.artifact("analysis.json")
+            if path is None:
+                continue
+            try:
+                self.corpus.index_file(job.id, path, source=job.source,
+                                       result_dir=str(job.result_dir))
+            except Exception:                         # noqa: BLE001 — un análisis
+                continue                              # ilegible no debe impedir arrancar
 
     def _worker_loop(self) -> None:
         while True:
@@ -304,6 +350,23 @@ class JobStore:
         self._queue.put(job)
         return job
 
+    def create_from_url(self, url: str, options: dict | None = None,
+                        audio_only: bool = False) -> Job:
+        """Encola un análisis que empieza descargando el vídeo."""
+        url = str(url).strip()
+        if not url:
+            raise JobError("hace falta una URL")
+        job_id = self._new_id()
+        job_dir = self.root / job_id
+        job_dir.mkdir(parents=True, exist_ok=True)
+        job = Job(id=job_id, source=url, dir=job_dir, options=dict(options or {}),
+                  source_url=url, audio_only=audio_only)
+        with self._lock:
+            self._jobs[job_id] = job
+        self._save(job)
+        self._queue.put(job)
+        return job
+
     def import_dir(self, result_dir: str | Path, source: str | None = None) -> Job:
         """Registra un directorio de salida existente (out/) como job terminado."""
         result_dir = Path(result_dir).expanduser().resolve()
@@ -326,7 +389,10 @@ class JobStore:
         with self._lock:
             for job in self._jobs.values():
                 if job.imported and job.result_dir == result_dir:
-                    return job   # ya importado: idempotente
+                    # Ya importado (idempotente), pero puede que su contenido haya
+                    # cambiado o que no esté en el corpus: se reindexa igual.
+                    self._index(job, analysis)
+                    return job
             job_id = self._new_id()
             job = Job(
                 id=job_id,
@@ -342,6 +408,7 @@ class JobStore:
             job.dir.mkdir(parents=True, exist_ok=True)
             self._jobs[job_id] = job
         self._save(job)
+        self._index(job, analysis)
         return job
 
     def cancel(self, job_id: str) -> Job:
@@ -360,6 +427,8 @@ class JobStore:
         job = self.get(job_id)
         with self._lock:
             self._jobs.pop(job_id, None)
+        if self.corpus is not None:
+            self.corpus.forget(job_id)
         if job.status in (QUEUED, RUNNING):
             job.cancel_requested = True
             job.delete_when_done = True
@@ -391,6 +460,8 @@ class JobStore:
             self._append_progress(job, message)
 
         try:
+            if job.source_url and not job.media_path:
+                self._download(job, progress)
             analysis = self._analyze(job, progress)
         except JobCancelled:
             self._finish(job, CANCELLED, error="Cancelado durante el análisis.")
@@ -399,7 +470,29 @@ class JobStore:
         else:
             job.meta = analysis.get("meta")
             job.summary = _summarize(analysis)
+            self._index(job, analysis)
             self._finish(job, DONE)
+
+    def _download(self, job: Job, progress) -> None:
+        download_fn = self._download_fn
+        if download_fn is None:
+            from .download import download as download_fn   # import perezoso
+        path = download_fn(job.source_url, self.download_dir,
+                           audio_only=job.audio_only, progress=progress)
+        job.media_path = str(Path(path).resolve())
+        job.source = Path(path).name        # ya no es la URL: el título del vídeo
+        self._save(job)
+
+    def _index(self, job: Job, analysis: dict) -> None:
+        """Vuelca el análisis al corpus. Que falle el índice no invalida el
+        análisis: se avisa en el progreso y se sigue."""
+        if self.corpus is None:
+            return
+        try:
+            self.corpus.index_analysis(job.id, analysis, source=job.source,
+                                       result_dir=str(job.result_dir))
+        except Exception as exc:                      # noqa: BLE001
+            self._append_progress(job, f"Aviso: no se pudo indexar en el corpus ({exc})")
 
     def _analyze(self, job: Job, progress) -> dict:
         analyze_fn = self._analyze_fn

@@ -17,10 +17,13 @@ interface Props {
   selectedId: string | null;
   onSelect: (id: string) => void;
   onNew: () => void;
+  onCorpus: () => void;
+  corpusOpen: boolean;
   onChanged: () => void;
 }
 
-export function Sidebar({ jobs, selectedId, onSelect, onNew, onChanged }: Props) {
+export function Sidebar({ jobs, selectedId, onSelect, onNew, onCorpus, corpusOpen,
+                          onChanged }: Props) {
   const remove = async (job: Job) => {
     const what = job.imported ? "quitar de la lista" : "borrar los resultados de";
     if (!window.confirm(`¿Seguro que quieres ${what} “${job.source}”?`)) return;
@@ -34,6 +37,20 @@ export function Sidebar({ jobs, selectedId, onSelect, onNew, onChanged }: Props)
         <h1 className="sidebar__title">PhonoTrainer</h1>
         <button type="button" className="btn btn--primary btn--sm" onClick={onNew}>
           + Analizar
+        </button>
+      </div>
+
+      <div style={{ padding: "0 8px 8px" }}>
+        <button
+          type="button"
+          className="job"
+          aria-current={corpusOpen}
+          onClick={onCorpus}
+        >
+          <span className="job__name">Corpus</span>
+          <span className="job__meta">
+            <span>todo lo analizado, junto</span>
+          </span>
         </button>
       </div>
 
