@@ -6,7 +6,7 @@ import { render } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App";
-import { analysis, job, reference } from "./test/fixtures";
+import { analysis, job, reference, wordButton } from "./test/fixtures";
 import type { Job } from "./types";
 
 type Handler = (url: string, init?: RequestInit) => unknown;
@@ -52,8 +52,9 @@ describe("App", () => {
 
     render(<App />);
 
-    expect(await screen.findByRole("button", { name: "does" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "wanna" })).toBeInTheDocument();
+    await screen.findByRole("button", { name: /^does/ });
+    expect(wordButton("does")).toBeInTheDocument();
+    expect(wordButton("wanna")).toBeInTheDocument();
     expect(screen.getByText(/2 segmentos/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "report.html" })).toHaveAttribute(
       "href",

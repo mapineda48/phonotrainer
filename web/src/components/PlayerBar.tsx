@@ -10,11 +10,13 @@ interface Props {
   duration: number;
   /** Descripción de lo que está acotado ahora mismo ("palabra «does»"). */
   spanLabel: string | null;
+  /** Falso cuando el análisis se importó sin audio.wav: nada que reproducir. */
+  enabled: boolean;
   /** La onda: se inyecta para que la barra no dependa de cómo se dibuja. */
   children?: React.ReactNode;
 }
 
-export function PlayerBar({ duration, spanLabel, children }: Props) {
+export function PlayerBar({ duration, spanLabel, enabled, children }: Props) {
   const player = usePlayer();
   const time = useTime(player.clock);
 
@@ -24,6 +26,7 @@ export function PlayerBar({ duration, spanLabel, children }: Props) {
         type="button"
         className="btn btn--icon btn--play"
         aria-label={player.playing ? "Pausa" : "Reproducir"}
+        disabled={!enabled}
         onClick={() => player.toggle()}
       >
         {player.playing ? "❚❚" : "▶"}
@@ -39,6 +42,7 @@ export function PlayerBar({ duration, spanLabel, children }: Props) {
         type="button"
         className="btn btn--sm"
         aria-pressed={player.loop}
+        disabled={!enabled}
         title="Repetir el fragmento seleccionado (tecla L)"
         onClick={() => player.setLoop(!player.loop)}
       >
@@ -50,6 +54,7 @@ export function PlayerBar({ duration, spanLabel, children }: Props) {
         <select
           className="input"
           style={{ width: "auto", padding: "3px 6px" }}
+          disabled={!enabled}
           value={player.rate}
           onChange={(event) => player.setRate(Number(event.target.value))}
           title="Velocidad de reproducción (mantiene el tono)"

@@ -1,7 +1,9 @@
 """Store de trabajos: ejecución en hilo, progreso, cancelación y persistencia."""
 
 import json
+import threading
 import time
+from pathlib import Path
 
 import pytest
 from conftest import fake_analyze, mk_analysis, wait_until
@@ -153,6 +155,71 @@ def test_borrar_no_toca_los_datos_importados(store, tmp_path):
     assert not (store.root / job.id).exists()
     with pytest.raises(JobError):
         store.get(job.id)
+
+
+def test_borrar_un_job_en_curso_espera_a_que_pare(tmp_path, media):
+    """El trabajador sigue escribiendo en el directorio: borrarlo en el acto
+    dejaba el análisis a medias, un FileNotFoundError tragado y —si el pipeline
+    recreaba el directorio— el job resucitado al reiniciar."""
+    arrancado = threading.Event()
+
+    def lento(media_path, out_dir, progress=lambda m: None, **kw):
+        arrancado.set()
+        for i in range(1, 201):
+            time.sleep(0.01)
+            progress(f"Segmento {i}/200: …")
+            Path(out_dir).mkdir(parents=True, exist_ok=True)
+            (Path(out_dir) / "parcial.json").write_text("{}", encoding="utf-8")
+        return mk_analysis()
+
+    store = JobStore(tmp_path / "ws", analyze_fn=lento)
+    try:
+        job = store.create(media)
+        arrancado.wait(5)
+        store.delete(job.id)
+
+        assert store.list() == []                       # desaparece de la UI al instante
+        with pytest.raises(JobError):
+            store.get(job.id)
+        wait_until(lambda: job.status == jobs.CANCELLED)
+        wait_until(lambda: not job.dir.exists())        # y el directorio se limpia al parar
+    finally:
+        store.shutdown()
+
+
+def test_importar_a_la_vez_el_mismo_directorio_crea_un_solo_job(store, tmp_path):
+    out = tmp_path / "out"
+    out.mkdir()
+    (out / "analysis.json").write_text(json.dumps(mk_analysis()), encoding="utf-8")
+
+    listos = threading.Barrier(8)
+    creados: list[str] = []
+    lock = threading.Lock()
+
+    def importar():
+        listos.wait()
+        job = store.import_dir(out)
+        with lock:
+            creados.append(job.id)
+
+    hilos = [threading.Thread(target=importar) for _ in range(8)]
+    for hilo in hilos:
+        hilo.start()
+    for hilo in hilos:
+        hilo.join()
+
+    assert len(set(creados)) == 1
+    assert len(store.list()) == 1
+
+
+def test_los_hitos_de_progreso_siguen_existiendo_en_el_pipeline():
+    """`estimate_percent` reconoce prefijos del pipeline por texto: si alguien
+    reescribe un mensaje, la barra se queda en 0 sin que nada falle. Este test
+    ata las dos puntas."""
+    fuente = (Path(jobs.__file__).parent / "pipeline.py").read_text(encoding="utf-8")
+    for prefijo, _ in jobs._STAGE_PERCENT:
+        assert f'"{prefijo}' in fuente or f"f\"{prefijo}" in fuente, prefijo
+    assert "Segmento {si + 1}/{n_seg}" in fuente     # el que alimenta el porcentaje fino
 
 
 def test_crear_con_ruta_inexistente_falla(store, tmp_path):

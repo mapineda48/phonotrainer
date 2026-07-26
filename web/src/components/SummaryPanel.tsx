@@ -18,6 +18,10 @@ export function SummaryPanel({ analysis, filter, onToggle, onClear }: Props) {
   const counts = phenomenaByFrequency(analysis);
   const max = counts.length ? counts[0][1] : 1;
   const meta = analysis.meta;
+  // Fenómenos que no tienen color propio (se marcan con tipografía, no con tono).
+  const noFamily = counts
+    .filter(([name]) => !reference.family_of[name])
+    .map(([name]) => phenomenonLabel(reference, name));
 
   return (
     <div className="panel__body">
@@ -78,6 +82,17 @@ export function SummaryPanel({ analysis, filter, onToggle, onClear }: Props) {
               </span>
             </span>
           ))}
+          <span className="legend__item">
+            <span
+              className="chip__dot"
+              style={{ background: "var(--ink-muted)" }}
+              aria-hidden="true"
+            />
+            <span>
+              Sin familia{" "}
+              <span className="muted">({noFamily.join(", ") || "—"}): se marcan en el texto</span>
+            </span>
+          </span>
         </div>
         <p className="tiny muted" style={{ marginTop: 8 }}>
           ⋯ subrayado punteado = contracción léxica · ‿ = enlace con la siguiente · negrita =

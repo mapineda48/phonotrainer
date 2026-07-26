@@ -15,13 +15,16 @@ make ui             # compila la SPA y abre http://127.0.0.1:8000
 
 Desde ahí: arrastrar un video/audio (o elegirlo por ruta, o importar un `out/`
 que ya exista), seguir el análisis en vivo y explorar el resultado con el audio
-sincronizado —clic en una palabra para oírla y ver su comparación fono a fono,
-filtro por fenómeno, bucle y velocidad 0.5×— además del modo de revisión humana,
-que guarda el mismo `review.json` que la CLI.
+sincronizado. Al pulsar una palabra se oye y se compara **fono a fono en tres
+filas**: diccionario (forma de cita), canónico alineado y lo realmente
+pronunciado. Esa fila de diccionario es la que destapa procesos que espeak-ng ya
+trae incorporados —el canónico de *better* es [bɛɾɚ], con flap—; y en los
+fenómenos de frontera (linking, palatalización, h muda) la comparación y la
+reproducción se extienden hasta la palabra siguiente, que es donde ocurren.
 
-Atajos: `espacio` play/pausa · `←`/`→` ±2 s · `L` bucle · `P` palabra ·
-`S` frase · `N` siguiente coincidencia del filtro · `F` seguir la reproducción ·
-`1`/`2`/`3` veredicto en revisión.
+Además: filtro por fenómeno, buscador de palabras, bucle, velocidad 0.5×, video
+sincronizado y modo de revisión humana que guarda el mismo `review.json` que la
+CLI. Los atajos están dentro (botón `?`).
 
 ## Uso desde la CLI
 

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { api } from "../api";
 import { useHotkeys } from "../hooks/useHotkeys";
-import { filteredWords, wordSpan } from "../lib/analysis";
+import { filteredWords, flattenWords, wordSpan, type FlatWord } from "../lib/analysis";
 import { PlayerProvider, usePlayer } from "../player/PlayerProvider";
 import type { Analysis, Job } from "../types";
 import { PlayerBar } from "./PlayerBar";
@@ -80,33 +80,58 @@ function AnalysisBody({
   const [filter, setFilter] = useState<ReadonlySet<string>>(new Set());
   const [follow, setFollow] = useState(true);
   const [showVideo, setShowVideo] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+  const [query, setQuery] = useState("");
 
   const duration = analysis.meta.duration;
-  const matches = useMemo(() => filteredWords(analysis, filter), [analysis, filter]);
+  const canPlay = job.has_audio;
+
+  /** Palabras por las que navegan N / Mayús+N: las del filtro, o todas. */
+  const walk = useMemo(() => {
+    const byFilter = filteredWords(analysis, filter);
+    const base = byFilter.length > 0 ? byFilter : flattenWords(analysis);
+    const needle = query.trim().toLowerCase();
+    return needle ? base.filter((fw) => fw.word.word.toLowerCase().includes(needle)) : base;
+  }, [analysis, filter, query]);
 
   const selectedWord = selected ? analysis.segments[selected.segment]?.words[selected.index] : null;
   const selectedSegment = selected ? analysis.segments[selected.segment] : null;
+  const nextWord = selected
+    ? (analysis.segments[selected.segment]?.words[selected.index + 1] ?? null)
+    : null;
 
   const select = (next: Selection) => {
     setSelected(next);
     setTab("word");
   };
 
-  /** Salta a la siguiente palabra que cumple el filtro (o a la anterior). */
-  const jump = (delta: number) => {
-    if (matches.length === 0) return;
+  /** Salta a la siguiente palabra de `list` (o a la anterior) y la reproduce. */
+  const jumpIn = (list: FlatWord[], delta: number) => {
+    if (list.length === 0) return;
     const now = player.clock.getSnapshot();
-    let index = matches.findIndex((match) => match.word.start > now + 0.01);
+    let index: number;
     if (delta < 0) {
-      const previous = [...matches].reverse().find((match) => match.word.end < now - 0.01);
-      index = previous ? matches.indexOf(previous) : matches.length - 1;
-    } else if (index === -1) {
-      index = 0;
+      const previous = [...list].reverse().find((match) => match.word.end < now - 0.01);
+      index = previous ? list.indexOf(previous) : list.length - 1;
+    } else {
+      const found = list.findIndex((match) => match.word.start > now + 0.01);
+      index = found === -1 ? 0 : found;
     }
-    const target = matches[index];
+    const target = list[index];
     select({ segment: target.segment, index: target.index });
-    player.play(wordSpan(target.word));
+    if (canPlay) player.play(wordSpan(target.word));
+    else player.seek(target.word.start);
   };
+
+  const jump = (delta: number) => jumpIn(walk, delta);
+
+  const toggleFilter = (phenomenon: string) =>
+    setFilter((current) => {
+      const next = new Set(current);
+      if (next.has(phenomenon)) next.delete(phenomenon);
+      else next.add(phenomenon);
+      return next;
+    });
 
   useHotkeys({
     " ": () => player.toggle(),
@@ -120,6 +145,7 @@ function AnalysisBody({
     s: () =>
       selectedSegment &&
       player.play({ start: selectedSegment.start, end: selectedSegment.end }),
+    "?": () => setShowHelp((value) => !value),
   });
 
   const spanLabel = player.span
@@ -140,6 +166,26 @@ function AnalysisBody({
           {analysis.meta.attraction ? "" : " · sin atracción"}
         </span>
         <span className="spacer" />
+        <label className="row" style={{ gap: 4 }}>
+          <span className="sr-only">Buscar una palabra en la transcripción</span>
+          <input
+            type="search"
+            className="input"
+            style={{ width: 150 }}
+            placeholder="Buscar palabra…"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                jump(1);
+              }
+            }}
+          />
+        </label>
+        {query.trim() && (
+          <span className="tiny muted num">{walk.length} coincidencias</span>
+        )}
         {job.is_video && job.has_media && (
           <button
             type="button"
@@ -169,10 +215,21 @@ function AnalysisBody({
             report.html
           </a>
         )}
+        <button
+          type="button"
+          className="btn btn--sm"
+          aria-pressed={showHelp}
+          title="Atajos de teclado (?)"
+          onClick={() => setShowHelp((value) => !value)}
+        >
+          ?
+        </button>
       </header>
 
-      <PlayerBar duration={duration} spanLabel={spanLabel}>
-        {job.has_audio && <Waveform src={api.audioUrl(job.id)} duration={duration} />}
+      {showHelp && <Shortcuts onClose={() => setShowHelp(false)} />}
+
+      <PlayerBar duration={duration} spanLabel={spanLabel} enabled={canPlay}>
+        {canPlay && <Waveform src={api.audioUrl(job.id)} duration={duration} />}
       </PlayerBar>
 
       {!job.has_audio && (
@@ -180,6 +237,10 @@ function AnalysisBody({
           Este análisis se importó sin <code>audio.wav</code>: se puede leer, pero no escuchar.
         </p>
       )}
+
+      <a className="skip" href="#panel">
+        Saltar al panel de detalle
+      </a>
 
       <div className="workspace">
         <div style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
@@ -197,7 +258,7 @@ function AnalysisBody({
           />
         </div>
 
-        <aside className="aside">
+        <aside className="aside" id="panel" tabIndex={-1}>
           <div className="tabs" role="tablist">
             <button
               type="button"
@@ -232,15 +293,17 @@ function AnalysisBody({
             (selectedWord && selectedSegment && selected ? (
               <WordDetail
                 word={selectedWord}
+                next={nextWord}
                 segment={selectedSegment}
                 segmentIndex={selected.segment}
                 isEmphasis={selectedSegment.emphasis_word_idx === selected.index}
+                canPlay={canPlay}
               />
             ) : (
               <div className="panel__body">
                 <p className="muted tiny">
                   Pulsa cualquier palabra de la transcripción para oírla y ver su comparación fono a
-                  fono.
+                  fono. Con <span className="kbd">N</span> vas saltando de una a la siguiente.
                 </p>
               </div>
             ))}
@@ -249,14 +312,17 @@ function AnalysisBody({
             <SummaryPanel
               analysis={analysis}
               filter={filter}
-              onToggle={(phenomenon) =>
-                setFilter((current) => {
-                  const next = new Set(current);
-                  if (next.has(phenomenon)) next.delete(phenomenon);
-                  else next.add(phenomenon);
-                  return next;
-                })
-              }
+              onToggle={(phenomenon) => {
+                const activando = !filter.has(phenomenon);
+                toggleFilter(phenomenon);
+                // Al activar un fenómeno vamos a su primera aparición: filtrar
+                // sin moverse deja al usuario mirando un texto atenuado.
+                if (activando) {
+                  const next = new Set(filter);
+                  next.add(phenomenon);
+                  jumpIn(filteredWords(analysis, next), 1);
+                }
+              }}
               onClear={() => setFilter(new Set())}
             />
           )}
@@ -275,7 +341,7 @@ function AnalysisBody({
       {filter.size > 0 && (
         <div className="row tiny" style={{ padding: "6px 16px", borderTop: "1px solid var(--border)" }}>
           <span>
-            Filtro activo: <strong>{matches.length}</strong> palabras.
+            Filtro activo: <strong>{walk.length}</strong> palabras.
           </span>
           <button type="button" className="btn btn--sm" onClick={() => jump(1)}>
             Siguiente (N)
@@ -290,5 +356,42 @@ function AnalysisBody({
         </div>
       )}
     </>
+  );
+}
+
+const SHORTCUTS: [string, string][] = [
+  ["espacio", "reproducir / pausa"],
+  ["N", "siguiente palabra (o siguiente coincidencia del filtro o la búsqueda)"],
+  ["Mayús + N", "palabra anterior"],
+  ["P", "repetir la palabra seleccionada"],
+  ["S", "repetir la frase entera"],
+  ["L", "bucle: repetir el fragmento acotado"],
+  ["← / →", "retroceder / avanzar 2 s"],
+  ["F", "seguir la reproducción (desplaza la transcripción)"],
+  ["1 / 2 / 3", "en Revisión: ok / mal / dudosa"],
+  ["?", "mostrar u ocultar esta ayuda"],
+];
+
+function Shortcuts({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="card" style={{ margin: "12px 16px" }}>
+      <div className="row">
+        <strong className="tiny">Atajos de teclado</strong>
+        <span className="spacer" />
+        <button type="button" className="btn btn--ghost btn--sm" onClick={onClose}>
+          ✕
+        </button>
+      </div>
+      <dl className="deflist" style={{ marginTop: 8 }}>
+        {SHORTCUTS.map(([keys, what]) => (
+          <div key={keys} style={{ display: "contents" }}>
+            <dt>
+              <span className="kbd">{keys}</span>
+            </dt>
+            <dd>{what}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
   );
 }

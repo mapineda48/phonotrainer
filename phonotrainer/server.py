@@ -23,20 +23,33 @@ se sirve con soporte de Range para que el reproductor pueda hacer seek.
 from __future__ import annotations
 
 import json
-import mimetypes
 import os
+from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Literal
+from typing import Literal, get_args
 
 from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from . import __version__, report, review as review_mod
-from .jobs import MEDIA_SUFFIXES, JobError, JobStore
+from .jobs import MEDIA_SUFFIXES, JobError, JobNotFound, JobStore
 
 DEFAULT_WORKSPACE = Path("workspace")
 WEB_DIST = Path(__file__).resolve().parents[1] / "web" / "dist"
+
+# Tipos servidos para el archivo original. Es una tabla cerrada a propósito:
+# adivinar el tipo permitiría servir text/html desde el mismo origen que la SPA.
+MEDIA_TYPES = {
+    ".webm": "video/webm", ".mp4": "video/mp4", ".mkv": "video/x-matroska",
+    ".mov": "video/quicktime", ".avi": "video/x-msvideo", ".m4v": "video/x-m4v",
+    ".mp3": "audio/mpeg", ".wav": "audio/wav", ".m4a": "audio/mp4",
+    ".flac": "audio/flac", ".ogg": "audio/ogg", ".opus": "audio/ogg",
+    ".aac": "audio/aac",
+}
+
+
+MAX_SAMPLE = 500   # tope de palabras por muestreo de revisión
 
 
 class Options(BaseModel):
@@ -71,15 +84,32 @@ class ReviewRequest(BaseModel):
 
 def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
                store: JobStore | None = None,
-               web_dist: str | Path | None = None) -> FastAPI:
+               web_dist: str | Path | None = None,
+               allowed_roots: list[str | Path] | None = None) -> FastAPI:
+    """La app. `allowed_roots` acota qué parte del disco puede tocarse desde el
+    navegador (explorar, analizar, importar): por defecto $HOME y el directorio
+    de trabajo. La CLI no pasa por aquí y no tiene ese límite."""
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        yield
+        # Ctrl-C: marcamos la cancelación y soltamos el hilo trabajador (daemon).
+        app.state.store.shutdown()
+
     app = FastAPI(title="PhonoTrainer", version=__version__, docs_url="/api/docs",
-                  openapi_url="/api/openapi.json")
+                  openapi_url="/api/openapi.json", lifespan=lifespan)
     app.state.store = store or JobStore(workspace)
     app.state.web_dist = Path(web_dist) if web_dist else WEB_DIST
+    app.state.roots = [Path(root).expanduser().resolve()
+                       for root in (allowed_roots or [Path.home(), Path.cwd()])]
+
+    @app.exception_handler(JobNotFound)
+    def _job_not_found(request: Request, exc: JobNotFound):   # noqa: ARG001
+        return JSONResponse({"detail": str(exc)}, status_code=404)
 
     @app.exception_handler(JobError)
-    def _job_error(request: Request, exc: JobError):   # noqa: ARG001
-        return JSONResponse({"detail": str(exc)}, status_code=404)
+    def _job_error(request: Request, exc: JobError):          # noqa: ARG001
+        return JSONResponse({"detail": str(exc)}, status_code=400)
 
     def _store() -> JobStore:
         return app.state.store
@@ -87,14 +117,43 @@ def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
     def _job(job_id: str):
         return _store().get(job_id)
 
+    def _inside_roots(path: Path) -> bool:
+        return any(path == root or root in path.parents for root in app.state.roots)
+
+    def _checked(path_str: str, *, want_dir: bool) -> Path:
+        """Ruta que el usuario elige desde el navegador, ya validada."""
+        path = Path(path_str).expanduser()
+        try:
+            path = path.resolve()
+        except OSError as exc:
+            raise HTTPException(400, f"ruta inválida: {path_str}") from exc
+        if not _inside_roots(path):
+            raise HTTPException(
+                403, "por seguridad la interfaz solo abre archivos dentro de "
+                     + " o ".join(str(root) for root in app.state.roots))
+        if want_dir and not path.is_dir():
+            raise HTTPException(400, f"no es un directorio: {path}")
+        if not want_dir:
+            if not path.is_file():
+                raise HTTPException(400, f"no existe el archivo: {path}")
+            if path.suffix.lower() not in MEDIA_SUFFIXES:
+                raise HTTPException(400, f"no parece un video ni un audio: {path.name}")
+        return path
+
     def _artifact(job_id: str, name: str) -> Path:
         path = _job(job_id).artifact(name)
         if path is None:
             raise HTTPException(404, f"{name} todavía no existe para {job_id}")
         return path
 
+    def _read_json(path: Path) -> dict:
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise HTTPException(400, f"{path.name} ilegible en {path.parent}: {exc}") from exc
+
     def _analysis(job_id: str) -> dict:
-        return json.loads(_artifact(job_id, "analysis.json").read_text(encoding="utf-8"))
+        return _read_json(_artifact(job_id, "analysis.json"))
 
     # --- meta ---------------------------------------------------------------
     @app.get("/api/health")
@@ -105,7 +164,8 @@ def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
 
     @app.get("/api/reference")
     def reference() -> dict:
-        """Taxonomía de fenómenos: la UI no mantiene su propia copia."""
+        """Vocabulario del backend: fenómenos, opciones del pipeline y ajustes
+        de la revisión. La UI los consume tal cual, no mantiene copias."""
         return {
             "families": [
                 {"key": key, "label": label,
@@ -117,7 +177,16 @@ def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
             "family_of": report.FAMILY_OF,
             "labels": report.PHENOMENON_LABEL,
             "verdicts": list(review_mod.VERDICTS),
-            "options": Options.model_json_schema(),
+            "options": {
+                "whisper_models": list(get_args(Options.model_fields["whisper_model"].annotation)),
+                "phone_engines": list(get_args(Options.model_fields["phone_engine"].annotation)),
+                "defaults": Options().model_dump(),
+            },
+            "review": {
+                "default_n": review_mod.DEFAULT_N,
+                "default_seed": review_mod.DEFAULT_SEED,
+                "max_n": MAX_SAMPLE,
+            },
         }
 
     # --- jobs ---------------------------------------------------------------
@@ -127,16 +196,14 @@ def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
 
     @app.post("/api/jobs", status_code=201)
     def create_job(req: AnalyzeRequest) -> dict:
-        path = Path(req.path).expanduser()
-        if not path.is_file():
-            raise HTTPException(400, f"no existe el archivo: {path}")
+        path = _checked(req.path, want_dir=False)
         return _store().create(path, options=req.options.model_dump()).to_public(full=True)
 
     @app.post("/api/jobs/upload", status_code=201)
     def upload_job(file: UploadFile = File(...), options: str = Form("{}")) -> dict:
         try:
-            opts = Options(**json.loads(options or "{}"))
-        except (json.JSONDecodeError, ValueError) as exc:
+            opts = Options.model_validate(json.loads(options or "{}"))
+        except (json.JSONDecodeError, ValidationError, TypeError) as exc:
             raise HTTPException(400, f"opciones inválidas: {exc}") from exc
 
         def writer(dest: Path) -> None:
@@ -149,7 +216,7 @@ def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
 
     @app.post("/api/jobs/import", status_code=201)
     def import_job(req: ImportRequest) -> dict:
-        return _store().import_dir(req.path).to_public(full=True)
+        return _store().import_dir(_checked(req.path, want_dir=True)).to_public(full=True)
 
     @app.get("/api/jobs/{job_id}")
     def get_job(job_id: str) -> dict:
@@ -180,8 +247,9 @@ def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
         path = Path(job.media_path) if job.media_path else None
         if path is None or not path.is_file():
             raise HTTPException(404, "este análisis no tiene el archivo original")
-        media_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
-        return FileResponse(path, media_type=media_type)
+        return FileResponse(path,
+                            media_type=MEDIA_TYPES.get(path.suffix.lower(),
+                                                       "application/octet-stream"))
 
     @app.get("/api/jobs/{job_id}/report", response_class=HTMLResponse)
     def get_report(job_id: str) -> FileResponse:
@@ -194,11 +262,11 @@ def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
         if path is None:
             return {"items": [], "sampled": 0, "ok": 0, "mal": 0, "dudosa": 0,
                     "accuracy": None, "seed": review_mod.DEFAULT_SEED}
-        return json.loads(path.read_text(encoding="utf-8"))
+        return _read_json(path)
 
     @app.get("/api/jobs/{job_id}/review/sample")
     def sample_review(job_id: str,
-                      n: int = Query(review_mod.DEFAULT_N, ge=1, le=500),
+                      n: int = Query(review_mod.DEFAULT_N, ge=1, le=MAX_SAMPLE),
                       seed: int = review_mod.DEFAULT_SEED) -> dict:
         sample = review_mod.sample_for_ui(_analysis(job_id), n=n, seed=seed)
         return {"seed": seed, "n": n, "items": sample}
@@ -206,7 +274,7 @@ def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
     @app.put("/api/jobs/{job_id}/review")
     def put_review(job_id: str, req: ReviewRequest) -> dict:
         analysis_path = _artifact(job_id, "analysis.json")
-        analysis = json.loads(analysis_path.read_text(encoding="utf-8"))
+        analysis = _read_json(analysis_path)
         try:
             items = review_mod.build_items(
                 analysis, [v.model_dump() for v in req.verdicts])
@@ -220,10 +288,10 @@ def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
     # --- explorador de archivos ---------------------------------------------
     @app.get("/api/browse")
     def browse(path: str | None = None) -> dict:
-        home = Path.home().resolve()
+        home = app.state.roots[0]
         target = Path(path).expanduser().resolve() if path else Path.cwd().resolve()
-        if target != home and home not in target.parents:
-            target = home            # nunca salimos de $HOME
+        if not _inside_roots(target):
+            target = home            # nunca salimos de las raíces permitidas
         if not target.is_dir():
             target = target.parent if target.parent.is_dir() else home
 
@@ -246,7 +314,7 @@ def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
                                   "size": entry.stat().st_size})
             except OSError:
                 continue
-        parent = str(target.parent) if (target != home and home in target.parents) else None
+        parent = str(target.parent) if _inside_roots(target.parent) else None
         return {"path": str(target), "parent": parent, "home": str(home),
                 "dirs": dirs, "files": files}
 
@@ -289,7 +357,7 @@ def serve(workspace: str | Path = DEFAULT_WORKSPACE, host: str = "127.0.0.1",
 
         threading.Timer(1.2, lambda: webbrowser.open(f"http://{host}:{port}")).start()
 
-    os.environ.setdefault("PHONOTRAINER_WORKSPACE", str(workspace))
+    os.environ["PHONOTRAINER_WORKSPACE"] = str(workspace)
     uvicorn.run("phonotrainer.server:app_from_env" if reload else create_app(workspace),
                 host=host, port=port, reload=reload, factory=reload)
 

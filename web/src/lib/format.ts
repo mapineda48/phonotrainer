@@ -3,8 +3,10 @@
 /** 12.34 → "0:12.3" */
 export function fmtTime(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) seconds = 0;
-  const min = Math.floor(seconds / 60);
-  const rest = seconds - min * 60;
+  // Redondear ANTES de partir en minutos: si no, 59.96 s sale como "0:60.0".
+  const tenths = Math.round(seconds * 10);
+  const min = Math.floor(tenths / 600);
+  const rest = (tenths - min * 600) / 10;
   return `${min}:${rest.toFixed(1).padStart(4, "0")}`;
 }
 

@@ -10,7 +10,7 @@
   --surface-2: #f2f2ee;
   --ink: #0b0b0b;
   --ink-2: #52514e;
-  --ink-muted: #898781;
+  --ink-muted: #6f6d68; /* 4.9:1 sobre --page: el texto de 12 px debe leerse */
   --grid: #e1e0d9;
   --baseline: #c3c2b7;
   --border: rgba(11, 11, 11, 0.1);
@@ -562,11 +562,12 @@ button {
 }
 
 .w--lowconf {
-  opacity: 0.5;
+  opacity: 0.6;
 }
 
+/* Atenuado por el filtro: el contexto debe seguir leyéndose. */
 .w--muted {
-  opacity: 0.3;
+  opacity: 0.45;
 }
 
 .w--selected {
@@ -686,14 +687,33 @@ button {
 /* ---------- comparador de fonos ---------- */
 
 .phones {
-  position: relative;
   margin: 10px 0 4px;
+}
+
+.phones__timed {
+  position: relative;
 }
 
 .phones__row {
   position: relative;
   height: 30px;
   margin-bottom: 4px;
+}
+
+.phones__dict {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-bottom: 10px;
+}
+
+.phones__boundary {
+  position: absolute;
+  top: 0;
+  bottom: 14px;
+  width: 0;
+  border-left: 1.5px dashed var(--ink-2);
+  pointer-events: none;
 }
 
 .phones__label {
@@ -723,13 +743,18 @@ button {
   background: var(--surface-2);
 }
 
-.phone--diff {
-  border-color: var(--fam-fron);
-  background: var(--tint-fron);
+.phone--static {
+  position: static;
+  height: 24px;
 }
 
-.phone--attracted {
-  border-style: dashed;
+/* Divergencia: marca neutra (borde grueso + fondo), nunca un color de familia:
+   en esta pantalla los colores ya significan "familia de fenómeno". */
+.phone--diff {
+  border-color: var(--ink);
+  border-width: 2px;
+  background: var(--surface-2);
+  font-weight: 600;
 }
 
 .phones__axis {
@@ -994,6 +1019,23 @@ table.detail td {
   padding: 3px 8px 3px 0;
   border-bottom: 1px solid var(--grid);
   vertical-align: top;
+}
+
+/* Enlace de salto: la transcripción puede tener miles de botones antes del panel. */
+.skip {
+  position: absolute;
+  left: -9999px;
+  z-index: 30;
+}
+
+.skip:focus {
+  left: 12px;
+  top: 12px;
+  background: var(--surface);
+  border: 1px solid var(--ink);
+  border-radius: 8px;
+  padding: 6px 12px;
+  color: var(--ink);
 }
 
 .sr-only {

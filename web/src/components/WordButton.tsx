@@ -45,6 +45,10 @@ function WordButtonImpl({
     .filter(Boolean)
     .join(" — ");
 
+  // El color no puede ser el único portador de la identidad del fenómeno:
+  // aquí va en el nombre accesible, no solo en el tooltip del ratón.
+  const label = names.length ? `${word.word}, ${names.join(", ")}` : word.word;
+
   return (
     <>
       <button
@@ -56,6 +60,7 @@ function WordButtonImpl({
             : undefined
         }
         aria-pressed={selected}
+        aria-label={label}
         title={title}
         onClick={onSelect}
       >

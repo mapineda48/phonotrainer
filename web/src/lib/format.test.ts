@@ -13,6 +13,12 @@ describe("fmtTime", () => {
     expect(fmtTime(Number.NaN)).toBe("0:00.0");
     expect(fmtTime(-4)).toBe("0:00.0");
   });
+
+  it("pasa de minuto en el borde en vez de escribir 0:60.0", () => {
+    expect(fmtTime(59.96)).toBe("1:00.0");
+    expect(fmtTime(119.97)).toBe("2:00.0");
+    expect(fmtTime(3599.98)).toBe("60:00.0");
+  });
 });
 
 describe("fmtDuration", () => {

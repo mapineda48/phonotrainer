@@ -15,12 +15,6 @@ import { usePlayer } from "../player/PlayerProvider";
 import { phenomenonLabel, useReference } from "../reference";
 import type { Review, SampleItem, VerdictValue } from "../types";
 
-const VERDICT_LABEL: Record<VerdictValue, string> = {
-  ok: "ok",
-  mal: "mal",
-  dudosa: "dudosa",
-};
-
 const key = (item: { segment: number; word_idx: number }) => `${item.segment}:${item.word_idx}`;
 
 interface Props {
@@ -30,9 +24,10 @@ interface Props {
 
 export function ReviewPanel({ jobId, onSaved }: Props) {
   const player = usePlayer();
+  // Veredictos y valores por defecto vienen del backend (review.py).
   const reference = useReference();
-  const [n, setN] = useState(20);
-  const [seed, setSeed] = useState(48);
+  const [n, setN] = useState(reference.review.default_n);
+  const [seed, setSeed] = useState(reference.review.default_seed);
   const [items, setItems] = useState<SampleItem[]>([]);
   const [verdicts, setVerdicts] = useState<Record<string, { verdict: VerdictValue; note: string }>>({});
   const [current, setCurrent] = useState(0);
@@ -81,7 +76,7 @@ export function ReviewPanel({ jobId, onSaved }: Props) {
         );
         void sample(existing.items.length, existing.seed);
       } else {
-        void sample(20, 48);
+        void sample(reference.review.default_n, reference.review.default_seed);
       }
     })();
     return () => {
@@ -158,7 +153,7 @@ export function ReviewPanel({ jobId, onSaved }: Props) {
           <input
             type="number"
             min={1}
-            max={200}
+            max={reference.review.max_n}
             value={n}
             style={{ width: 62 }}
             onChange={(event) => setN(Number(event.target.value))}
@@ -177,7 +172,9 @@ export function ReviewPanel({ jobId, onSaved }: Props) {
           type="button"
           className="btn btn--sm"
           disabled={busy}
-          onClick={() => void sample(n, seed)}
+          onClick={() =>
+            void sample(Math.min(Math.max(1, n || 1), reference.review.max_n), seed || 0)
+          }
         >
           Muestrear
         </button>
@@ -265,7 +262,7 @@ export function ReviewPanel({ jobId, onSaved }: Props) {
             </div>
 
             <div className="verdicts">
-              {(Object.keys(VERDICT_LABEL) as VerdictValue[]).map((value) => (
+              {reference.verdicts.map((value) => (
                 <button
                   key={value}
                   type="button"
@@ -281,7 +278,7 @@ export function ReviewPanel({ jobId, onSaved }: Props) {
                     }));
                   }}
                 >
-                  {VERDICT_LABEL[value]}
+                  {value}
                 </button>
               ))}
               <input

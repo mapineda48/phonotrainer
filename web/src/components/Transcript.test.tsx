@@ -3,31 +3,46 @@ import userEvent from "@testing-library/user-event";
 import { act } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { analysis, fakePlayer, renderWith } from "../test/fixtures";
+import { analysis, fakePlayer, renderWith, wordButton } from "../test/fixtures";
 import { Transcript } from "./Transcript";
 
 const noop = () => undefined;
 
+const renderTranscript = (props: Partial<Parameters<typeof Transcript>[0]> = {}, player?: ReturnType<typeof fakePlayer>) =>
+  renderWith(
+    <Transcript
+      analysis={analysis}
+      selected={null}
+      onSelect={noop}
+      filter={new Set()}
+      follow={false}
+      {...props}
+    />,
+    player ? { player } : {},
+  );
+
 describe("Transcript", () => {
   it("pinta todas las palabras y marca las que tienen fenómeno", () => {
-    renderWith(
-      <Transcript analysis={analysis} selected={null} onSelect={noop} filter={new Set()} follow={false} />,
-    );
+    renderTranscript();
 
-    expect(screen.getByRole("button", { name: "does" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "work" })).toBeInTheDocument();
+    expect(wordButton("does")).toBeInTheDocument();
+    expect(wordButton("work")).toBeInTheDocument();
     // "does" tiene reducción vocálica → recibe color de familia
-    expect(screen.getByRole("button", { name: "does" })).toHaveClass("w--fam");
-    expect(screen.getByRole("button", { name: "work" })).not.toHaveClass("w--fam");
+    expect(wordButton("does")).toHaveClass("w--fam");
+    expect(wordButton("work")).not.toHaveClass("w--fam");
+  });
+
+  it("el nombre accesible dice el fenómeno: la identidad no depende del color", () => {
+    renderTranscript();
+    expect(wordButton("that")).toHaveAccessibleName("that, t/d elidida");
+    expect(wordButton("work")).toHaveAccessibleName("work");
   });
 
   it("al pulsar una palabra la selecciona y la reproduce", async () => {
     const onSelect = vi.fn();
-    const { player } = renderWith(
-      <Transcript analysis={analysis} selected={null} onSelect={onSelect} filter={new Set()} follow={false} />,
-    );
+    const { player } = renderTranscript({ onSelect });
 
-    await userEvent.click(screen.getByRole("button", { name: "that" }));
+    await userEvent.click(wordButton("that"));
 
     expect(onSelect).toHaveBeenCalledWith({ segment: 0, index: 1 });
     expect(player.play).toHaveBeenCalledWith(
@@ -36,50 +51,35 @@ describe("Transcript", () => {
   });
 
   it("atenúa lo que queda fuera del filtro sin ocultarlo", () => {
-    renderWith(
-      <Transcript
-        analysis={analysis}
-        selected={null}
-        onSelect={noop}
-        filter={new Set(["t_deletion"])}
-        follow={false}
-      />,
-    );
+    renderTranscript({ filter: new Set(["t_deletion"]) });
 
-    expect(screen.getByRole("button", { name: "that" })).not.toHaveClass("w--muted");
-    expect(screen.getByRole("button", { name: "does" })).toHaveClass("w--muted");
-    expect(screen.getByRole("button", { name: "does" })).toBeVisible();
+    expect(wordButton("that")).not.toHaveClass("w--muted");
+    expect(wordButton("does")).toHaveClass("w--muted");
+    expect(wordButton("does")).toBeVisible();
   });
 
   it("sigue la reproducción resaltando la palabra que suena", () => {
     const player = fakePlayer();
-    renderWith(
-      <Transcript analysis={analysis} selected={null} onSelect={noop} filter={new Set()} follow={false} />,
-      { player },
-    );
+    renderTranscript({}, player);
 
     act(() => player.clock.set(0.45));
-    expect(screen.getByRole("button", { name: "that" })).toHaveClass("w--playing");
-    expect(screen.getByRole("button", { name: "does" })).not.toHaveClass("w--playing");
+    expect(wordButton("that")).toHaveClass("w--playing");
+    expect(wordButton("does")).not.toHaveClass("w--playing");
 
     act(() => player.clock.set(2.05));
-    expect(screen.getByRole("button", { name: "wanna" })).toHaveClass("w--playing");
-    expect(screen.getByRole("button", { name: "that" })).not.toHaveClass("w--playing");
+    expect(wordButton("wanna")).toHaveClass("w--playing");
+    expect(wordButton("that")).not.toHaveClass("w--playing");
   });
 
   it("el botón de tiempo reproduce el segmento entero", async () => {
-    const { player } = renderWith(
-      <Transcript analysis={analysis} selected={null} onSelect={noop} filter={new Set()} follow={false} />,
-    );
+    const { player } = renderTranscript();
 
     await userEvent.click(screen.getByRole("button", { name: /0:00.0–0:01.2/ }));
     expect(player.play).toHaveBeenCalledWith({ start: 0, end: 1.2 });
   });
 
-  it("muestra la forma plena de una contracción y el enlace entre palabras", () => {
-    renderWith(
-      <Transcript analysis={analysis} selected={null} onSelect={noop} filter={new Set()} follow={false} />,
-    );
+  it("muestra la forma reducida de una contracción y el enlace entre palabras", () => {
+    renderTranscript();
     expect(screen.getByText("want to")).toBeInTheDocument();
     expect(screen.getByText("‿")).toBeInTheDocument();
   });

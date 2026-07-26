@@ -19,7 +19,9 @@ def store(tmp_path):
 
 @pytest.fixture
 def client(store, tmp_path):
-    app = create_app(store=store, web_dist=tmp_path / "sin-compilar")
+    # tmp_path como raíz permitida: los tests no dependen del $HOME real.
+    app = create_app(store=store, web_dist=tmp_path / "sin-compilar",
+                     allowed_roots=[tmp_path])
     with TestClient(app) as c:
         yield c
 
@@ -49,6 +51,11 @@ def test_health_y_referencia(client):
     assert ref["labels"]["vowel_reduction"] == "reducción vocálica"
     assert [f["key"] for f in ref["families"]] == ["red", "td", "asim", "fron"]
     assert ref["verdicts"] == ["ok", "mal", "dudosa"]
+    # la UI puebla sus selectores con esto, no con listas copiadas a mano
+    assert ref["options"]["whisper_models"] == ["tiny", "base", "small", "medium"]
+    assert ref["options"]["phone_engines"] == ["wav2vec2", "allosaurus"]
+    assert ref["options"]["defaults"]["whisper_model"] == "small"
+    assert ref["review"] == {"default_n": 20, "default_seed": 48, "max_n": 500}
 
 
 def test_analizar_archivo_local_de_principio_a_fin(client, media):
@@ -76,6 +83,70 @@ def test_opciones_invalidas_dan_422(client, media):
     resp = client.post("/api/jobs", json={"path": str(media),
                                           "options": {"whisper_model": "gigante"}})
     assert resp.status_code == 422
+
+
+def test_no_se_puede_analizar_fuera_de_las_raices(client, tmp_path):
+    """La interfaz no debe convertirse en un lector de archivos del sistema."""
+    resp = client.post("/api/jobs", json={"path": "/etc/passwd"})
+    assert resp.status_code == 403
+    assert "seguridad" in resp.json()["detail"]
+
+    fuera = tmp_path.parent / "fuera.wav"
+    fuera.write_bytes(b"RIFF")
+    try:
+        assert client.post("/api/jobs", json={"path": str(fuera)}).status_code == 403
+        assert client.post("/api/jobs/import",
+                           json={"path": str(tmp_path.parent)}).status_code == 403
+    finally:
+        fuera.unlink()
+
+
+def test_solo_se_analizan_archivos_de_media(client, tmp_path):
+    texto = tmp_path / "notas.txt"
+    texto.write_text("no soy un video", encoding="utf-8")
+    resp = client.post("/api/jobs", json={"path": str(texto)})
+    assert resp.status_code == 400
+    assert "video ni un audio" in resp.json()["detail"]
+
+
+def test_el_media_original_nunca_se_sirve_como_html(client, tmp_path):
+    """Adivinar el Content-Type permitiría servir HTML —y por tanto JS— desde
+    el mismo origen que la interfaz."""
+    trampa = tmp_path / "trampa.webm"
+    trampa.write_bytes(b"<script>alert(1)</script>")
+    job_id = client.post("/api/jobs", json={"path": str(trampa)}).json()["id"]
+    wait_until(lambda: client.get(f"/api/jobs/{job_id}").json()["status"] == "done")
+
+    resp = client.get(f"/api/jobs/{job_id}/media")
+    assert resp.headers["content-type"].startswith("video/webm")
+
+
+def test_opciones_de_subida_no_json_objeto_dan_400(client):
+    for payload in ("[]", '"hola"', "5", "{no json"):
+        resp = client.post(
+            "/api/jobs/upload",
+            files={"file": ("x.wav", b"RIFF", "audio/wav")},
+            data={"options": payload},
+        )
+        assert resp.status_code == 400, payload
+        assert "opciones inválidas" in resp.json()["detail"]
+
+
+def test_analysis_corrupto_da_400_y_no_500(client, tmp_path):
+    roto = tmp_path / "roto"
+    roto.mkdir()
+    (roto / "analysis.json").write_text("{ esto no es json", encoding="utf-8")
+
+    resp = client.post("/api/jobs/import", json={"path": str(roto)})
+    assert resp.status_code == 400
+    assert "ilegible" in resp.json()["detail"]
+
+    # y si se corrompe después de importarlo, las rutas que lo leen tampoco revientan
+    (roto / "analysis.json").write_text(json.dumps(mk_analysis()), encoding="utf-8")
+    job_id = client.post("/api/jobs/import", json={"path": str(roto)}).json()["id"]
+    (roto / "analysis.json").write_text("{ roto otra vez", encoding="utf-8")
+    assert client.get(f"/api/jobs/{job_id}/review/sample").status_code == 400
+    assert client.put(f"/api/jobs/{job_id}/review", json={"verdicts": []}).status_code == 400
 
 
 def test_subida_de_archivo(client):
@@ -204,35 +275,42 @@ def test_veredicto_fuera_de_rango_da_400(client, media):
 
 
 @pytest.fixture
-def home(tmp_path, monkeypatch):
-    """$HOME simulado: el explorador nunca debe salir de ahí."""
+def home(tmp_path):
+    """Raíz permitida simulada: el explorador nunca debe salir de ahí."""
     home = tmp_path / "home"
     home.mkdir()
-    monkeypatch.setattr("pathlib.Path.home", staticmethod(lambda: home))
     return home
 
 
-def test_explorador_lista_media_y_directorios(client, home):
+@pytest.fixture
+def browser(store, home, tmp_path):
+    app = create_app(store=store, web_dist=tmp_path / "nada", allowed_roots=[home])
+    with TestClient(app) as c:
+        yield c
+
+
+def test_explorador_lista_media_y_directorios(browser, home):
     (home / "videos").mkdir()
     (home / "videos" / "ep1.webm").write_bytes(b"x")
     (home / "salida").mkdir()
     (home / "salida" / "analysis.json").write_text("{}", encoding="utf-8")
     (home / "notas.txt").write_text("no es media", encoding="utf-8")
 
-    raiz = client.get("/api/browse", params={"path": str(home)}).json()
+    raiz = browser.get("/api/browse", params={"path": str(home)}).json()
     assert {d["name"] for d in raiz["dirs"]} == {"videos", "salida"}
     assert raiz["files"] == []                                   # notas.txt no es media
     assert [d["has_analysis"] for d in raiz["dirs"] if d["name"] == "salida"] == [True]
-    assert raiz["parent"] is None                                # no se sube de $HOME
+    assert raiz["parent"] is None                                # no se sube de la raíz
 
-    dentro = client.get("/api/browse", params={"path": str(home / "videos")}).json()
+    dentro = browser.get("/api/browse", params={"path": str(home / "videos")}).json()
     assert [f["name"] for f in dentro["files"]] == ["ep1.webm"]
     assert dentro["parent"] == str(home)
 
 
-def test_el_explorador_no_sale_de_home(client, home):
-    fuera = client.get("/api/browse", params={"path": "/etc"}).json()
+def test_el_explorador_no_sale_de_la_raiz(browser, home):
+    fuera = browser.get("/api/browse", params={"path": "/etc"}).json()
     assert fuera["path"] == str(home)
+    assert browser.get("/api/browse", params={"path": str(home.parent)}).json()["path"] == str(home)
 
 
 def test_sin_compilar_explica_como_compilar(client):

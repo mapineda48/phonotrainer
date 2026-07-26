@@ -72,6 +72,8 @@ export function useJob(jobId: string | null) {
       } catch (err) {
         if (cancelled) return;
         setError(err instanceof Error ? err.message : String(err));
+        // Un fallo de red no debe congelar la vista de progreso: se reintenta.
+        timer = window.setTimeout(tick, ACTIVE_POLL_MS);
       }
     };
     void tick();

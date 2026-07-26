@@ -125,6 +125,7 @@ def analyze(media_path: str | Path, out_dir: str | Path,
                 "low_confidence": w["low_confidence"],
                 "boundary_link_next": w["boundary_link_next"],
                 "lexical_form": w.get("lexical_form"),
+                "lexical_expansion": w.get("lexical_expansion"),
                 "alignment_fallback": w["alignment_fallback"],
             })
 

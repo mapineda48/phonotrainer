@@ -7,25 +7,19 @@
 import { useState } from "react";
 
 import { api } from "../api";
+import { useReference } from "../reference";
 import type { Job, JobOptions } from "../types";
 import { FileBrowser } from "./FileBrowser";
-
-const WHISPER_MODELS: JobOptions["whisper_model"][] = ["tiny", "base", "small", "medium"];
-const ENGINES: JobOptions["phone_engine"][] = ["wav2vec2", "allosaurus"];
-
-const DEFAULTS: JobOptions = {
-  whisper_model: "small",
-  phone_engine: "wav2vec2",
-  language: "en",
-  attraction: true,
-};
 
 interface Props {
   onCreated: (job: Job) => void;
 }
 
 export function NewAnalysis({ onCreated }: Props) {
-  const [options, setOptions] = useState<JobOptions>(DEFAULTS);
+  // Modelos, motores y valores por defecto los publica el backend: si mañana
+  // el pipeline admite otro modelo, aparece aquí sin tocar el frontend.
+  const reference = useReference();
+  const [options, setOptions] = useState<JobOptions>(reference.options.defaults);
   const [path, setPath] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -148,7 +142,7 @@ export function NewAnalysis({ onCreated }: Props) {
                 set("whisper_model", event.target.value as JobOptions["whisper_model"])
               }
             >
-              {WHISPER_MODELS.map((model) => (
+              {reference.options.whisper_models.map((model) => (
                 <option key={model} value={model}>
                   {model}
                 </option>
@@ -163,7 +157,7 @@ export function NewAnalysis({ onCreated }: Props) {
                 set("phone_engine", event.target.value as JobOptions["phone_engine"])
               }
             >
-              {ENGINES.map((engine) => (
+              {reference.options.phone_engines.map((engine) => (
                 <option key={engine} value={engine}>
                   {engine}
                 </option>

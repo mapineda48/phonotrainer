@@ -19,7 +19,10 @@ export interface Word {
   phenomena: string[];
   low_confidence: boolean;
   boundary_link_next: boolean;
+  /** Forma reducida realmente dicha ("wanna", "dunno"). */
   lexical_form: string | null;
+  /** Forma plena correspondiente ("want to"). Ausente en análisis antiguos. */
+  lexical_expansion?: string | null;
   alignment_fallback: boolean;
 }
 
@@ -105,7 +108,13 @@ export interface Reference {
   families: Family[];
   family_of: Record<string, string>;
   labels: Record<string, string>;
-  verdicts: string[];
+  verdicts: VerdictValue[];
+  options: {
+    whisper_models: JobOptions["whisper_model"][];
+    phone_engines: JobOptions["phone_engine"][];
+    defaults: JobOptions;
+  };
+  review: { default_n: number; default_seed: number; max_n: number };
 }
 
 export interface BrowseEntry {

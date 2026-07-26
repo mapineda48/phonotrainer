@@ -70,10 +70,13 @@ describe("ayudas varias", () => {
     expect(flat[3]).toMatchObject({ segment: 1, index: 0 });
   });
 
-  it("ordena los fenómenos por frecuencia", () => {
-    expect(phenomenaByFrequency(analysis)[0][1]).toBeGreaterThanOrEqual(
-      phenomenaByFrequency(analysis)[1][1],
-    );
+  it("ordena los fenómenos de más a menos frecuente", () => {
+    expect(phenomenaByFrequency(analysis)).toEqual([
+      ["linking", 7],
+      ["vowel_reduction", 4],
+      ["t_deletion", 2],
+      ["contraction_lex", 1],
+    ]);
   });
 
   it("resuelve la familia de color de una palabra", () => {

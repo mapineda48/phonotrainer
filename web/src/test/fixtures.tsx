@@ -2,7 +2,7 @@
  *  El análisis es el mismo que produce `tests/conftest.py::mk_analysis`, así los
  *  tests de las dos mitades hablan del mismo material. */
 
-import { render, type RenderOptions } from "@testing-library/react";
+import { render, screen, type RenderOptions } from "@testing-library/react";
 import type { ReactElement, ReactNode } from "react";
 import { vi } from "vitest";
 
@@ -58,6 +58,17 @@ export const reference: Reference = {
     linking: "linking",
   },
   verdicts: ["ok", "mal", "dudosa"],
+  options: {
+    whisper_models: ["tiny", "base", "small", "medium"],
+    phone_engines: ["wav2vec2", "allosaurus"],
+    defaults: {
+      whisper_model: "small",
+      phone_engine: "wav2vec2",
+      language: "en",
+      attraction: true,
+    },
+  },
+  review: { default_n: 20, default_seed: 48, max_n: 500 },
 };
 
 function aligned(ipa: string, start: number): AlignedPhone[] {
@@ -152,7 +163,8 @@ export const analysis: Analysis = {
     },
   ],
   summary: {
-    phenomena_counts: { vowel_reduction: 1, t_deletion: 1, contraction_lex: 1 },
+    // Recuentos distintos a propósito: así los tests de orden prueban algo.
+    phenomena_counts: { linking: 7, vowel_reduction: 4, t_deletion: 2, contraction_lex: 1 },
   },
 };
 
@@ -178,6 +190,11 @@ export const job: Job = {
   meta: analysis.meta,
   summary: { segments: 2, words: 5, duration: 3, phenomena_counts: analysis.summary.phenomena_counts },
 };
+
+/** Botón de una palabra de la transcripción. Su nombre accesible incluye los
+ *  fenómenos ("that, t/d elidida"), así que buscamos por prefijo. */
+export const wordButton = (word: string): HTMLElement =>
+  screen.getByRole("button", { name: new RegExp(`^${word}(,|$)`) });
 
 /** Reproductor de mentira: registra las llamadas sin tocar el DOM de audio. */
 export function fakePlayer(overrides: Partial<PlayerApi> = {}): PlayerApi {

@@ -19,11 +19,11 @@ importados guardan `result_dir` apuntando fuera del workspace.
 from __future__ import annotations
 
 import json
+import queue
 import re
 import threading
 import time
 import uuid
-from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -49,7 +49,12 @@ class JobCancelled(RuntimeError):
 
 
 class JobError(RuntimeError):
-    """Error de uso del store (ruta inexistente, job desconocido…)."""
+    """Petición inválida sobre el store (ruta inexistente, directorio sin
+    analysis.json…). El servidor la traduce a 400."""
+
+
+class JobNotFound(JobError):
+    """El job no existe. El servidor la traduce a 404."""
 
 
 def _now() -> str:
@@ -103,6 +108,7 @@ class Job:
 
     # --- runtime (no se serializa) -----------------------------------------
     cancel_requested: bool = field(default=False, repr=False)
+    delete_when_done: bool = field(default=False, repr=False)
     last_saved: float = field(default=0.0, repr=False)
 
     @property
@@ -201,17 +207,25 @@ def _load_job(job_dir: Path) -> Job | None:
 
 
 class JobStore:
-    """Registro de jobs con ejecución serializada en un hilo trabajador."""
+    """Registro de jobs con ejecución serializada en un hilo trabajador.
 
-    def __init__(self, root: str | Path, analyze_fn=None, max_workers: int = 1):
+    El hilo es *daemon* y consume una cola: así `Ctrl-C` en el servidor cierra
+    el proceso en el acto aunque haya un análisis a medias (que puede tardar
+    minutos en llegar a su siguiente punto de cancelación).
+    """
+
+    def __init__(self, root: str | Path, analyze_fn=None):
         self.root = Path(root)
         self.root.mkdir(parents=True, exist_ok=True)
         self._analyze_fn = analyze_fn
         self._lock = threading.RLock()
         self._jobs: dict[str, Job] = {}
-        self._futures: dict[str, Future] = {}
-        self._pool = ThreadPoolExecutor(max_workers=max_workers,
-                                        thread_name_prefix="phonotrainer-job")
+        # La cola lleva el Job, no su id: si lo borran mientras está encolado,
+        # el trabajador sigue teniéndolo y puede limpiar su directorio.
+        self._queue: queue.SimpleQueue[Job | None] = queue.SimpleQueue()
+        self._worker = threading.Thread(target=self._worker_loop,
+                                        name="phonotrainer-job", daemon=True)
+        self._worker.start()
         self._discover()
 
     # --- ciclo de vida -------------------------------------------------------
@@ -221,11 +235,24 @@ class JobStore:
             if job is not None:
                 self._jobs[job.id] = job
 
+    def _worker_loop(self) -> None:
+        while True:
+            job = self._queue.get()
+            if job is None:
+                return
+            try:
+                self._run(job)
+            except Exception:      # noqa: BLE001 — el hilo nunca debe morir
+                pass
+
     def shutdown(self, wait: bool = False) -> None:
-        for job in self.list():
-            if job.status in (QUEUED, RUNNING):
-                job.cancel_requested = True
-        self._pool.shutdown(wait=wait, cancel_futures=True)
+        with self._lock:
+            for job in self._jobs.values():
+                if job.status in (QUEUED, RUNNING):
+                    job.cancel_requested = True
+        self._queue.put(None)
+        if wait:
+            self._worker.join(timeout=5)
 
     # --- consultas -----------------------------------------------------------
     def list(self) -> list[Job]:
@@ -236,7 +263,7 @@ class JobStore:
         with self._lock:
             job = self._jobs.get(job_id)
         if job is None:
-            raise JobError(f"job desconocido: {job_id}")
+            raise JobNotFound(f"job desconocido: {job_id}")
         return job
 
     # --- creación ------------------------------------------------------------
@@ -245,46 +272,36 @@ class JobStore:
         return f"{stamp}-{uuid.uuid4().hex[:4]}"
 
     def create(self, media_path: str | Path, options: dict | None = None,
-               source: str | None = None, copy_into_job: bool = False) -> Job:
+               source: str | None = None) -> Job:
         """Registra un análisis y lo encola. `media_path` debe existir."""
         media_path = Path(media_path).expanduser()
         if not media_path.is_file():
             raise JobError(f"no existe el archivo: {media_path}")
-
-        job_id = self._new_id()
-        job_dir = self.root / job_id
-        job_dir.mkdir(parents=True, exist_ok=True)
-        if copy_into_job:
-            dest = job_dir / "media" / media_path.name
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            dest.write_bytes(media_path.read_bytes())
-            media_path = dest
-
-        job = Job(id=job_id, source=source or media_path.name, dir=job_dir,
-                  options=dict(options or {}), media_path=str(media_path.resolve()))
-        with self._lock:
-            self._jobs[job_id] = job
-            self._save(job)
-            self._futures[job_id] = self._pool.submit(self._run, job_id)
-        return job
+        return self._enqueue(source or media_path.name, media_path, options)
 
     def adopt_upload(self, filename: str, data_writer, options: dict | None = None) -> Job:
         """Crea el job y deja que `data_writer(destino)` escriba el archivo subido."""
         job_id = self._new_id()
-        job_dir = self.root / job_id
-        media_dir = job_dir / "media"
+        media_dir = self.root / job_id / "media"
         media_dir.mkdir(parents=True, exist_ok=True)
         dest = media_dir / Path(filename).name
         data_writer(dest)
         if not dest.is_file() or dest.stat().st_size == 0:
+            _rmtree(self.root / job_id)      # no dejamos restos de una subida fallida
             raise JobError("el archivo subido llegó vacío")
+        return self._enqueue(dest.name, dest, options, job_id=job_id)
 
-        job = Job(id=job_id, source=dest.name, dir=job_dir,
-                  options=dict(options or {}), media_path=str(dest.resolve()))
+    def _enqueue(self, source: str, media_path: Path, options: dict | None,
+                 job_id: str | None = None) -> Job:
+        job_id = job_id or self._new_id()
+        job_dir = self.root / job_id
+        job_dir.mkdir(parents=True, exist_ok=True)
+        job = Job(id=job_id, source=source, dir=job_dir,
+                  options=dict(options or {}), media_path=str(media_path.resolve()))
         with self._lock:
             self._jobs[job_id] = job
-            self._save(job)
-            self._futures[job_id] = self._pool.submit(self._run, job_id)
+        self._save(job)
+        self._queue.put(job)
         return job
 
     def import_dir(self, result_dir: str | Path, source: str | None = None) -> Job:
@@ -293,58 +310,63 @@ class JobStore:
         analysis_path = result_dir / "analysis.json"
         if not analysis_path.is_file():
             raise JobError(f"no hay analysis.json en {result_dir}")
-        analysis = json.loads(analysis_path.read_text(encoding="utf-8"))
+        try:
+            analysis = json.loads(analysis_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise JobError(f"analysis.json ilegible en {result_dir}: {exc}") from exc
+        meta = analysis.get("meta") or {}
 
+        # Buscar y registrar bajo el mismo lock: si no, dos importaciones
+        # simultáneas del mismo directorio crean dos jobs.
         with self._lock:
             for job in self._jobs.values():
                 if job.imported and job.result_dir == result_dir:
                     return job   # ya importado: idempotente
-
-        job_id = self._new_id()
-        job_dir = self.root / job_id
-        job_dir.mkdir(parents=True, exist_ok=True)
-        meta = analysis.get("meta", {})
-        job = Job(
-            id=job_id,
-            source=source or meta.get("source") or result_dir.name,
-            dir=job_dir,
-            status=DONE,
-            options={"attraction": meta.get("attraction", True)},
-            result_dir_override=str(result_dir),
-            finished=_now(),
-            meta=meta,
-            summary=_summarize(analysis),
-        )
-        with self._lock:
+            job_id = self._new_id()
+            job = Job(
+                id=job_id,
+                source=source or meta.get("source") or result_dir.name,
+                dir=self.root / job_id,
+                status=DONE,
+                options={"attraction": meta.get("attraction", True)},
+                result_dir_override=str(result_dir),
+                finished=_now(),
+                meta=meta,
+                summary=_summarize(analysis),
+            )
+            job.dir.mkdir(parents=True, exist_ok=True)
             self._jobs[job_id] = job
-            self._save(job)
+        self._save(job)
         return job
 
     def cancel(self, job_id: str) -> Job:
+        """Pide la cancelación. Si aún no había arrancado, `_run` la ve al entrar."""
         job = self.get(job_id)
-        if job.status not in (QUEUED, RUNNING):
-            return job
-        job.cancel_requested = True
-        with self._lock:
-            future = self._futures.get(job_id)
-        if future is not None and future.cancel():   # aún en cola: nunca arrancó
-            self._finish(job, CANCELLED, error="Cancelado antes de empezar.")
+        if job.status in (QUEUED, RUNNING):
+            job.cancel_requested = True
         return job
 
     def delete(self, job_id: str) -> None:
-        """Elimina el job. Los datos importados (fuera del workspace) no se tocan."""
+        """Elimina el job. Los datos importados (fuera del workspace) no se tocan.
+
+        Si está en curso no se borra el directorio en el acto: el trabajador
+        todavía escribe dentro. Se marca para que lo limpie al terminar.
+        """
         job = self.get(job_id)
-        if job.status in (QUEUED, RUNNING):
-            self.cancel(job_id)
         with self._lock:
             self._jobs.pop(job_id, None)
-            self._futures.pop(job_id, None)
+        if job.status in (QUEUED, RUNNING):
+            job.cancel_requested = True
+            job.delete_when_done = True
+            return
+        self._cleanup(job)
+
+    def _cleanup(self, job: Job) -> None:
         if job.dir.is_dir() and job.dir.parent == self.root:
             _rmtree(job.dir)
 
     # --- ejecución -----------------------------------------------------------
-    def _run(self, job_id: str) -> None:
-        job = self.get(job_id)
+    def _run(self, job: Job) -> None:
         if job.cancel_requested:
             self._finish(job, CANCELLED, error="Cancelado antes de empezar.")
             return
@@ -388,6 +410,9 @@ class JobStore:
             job.status = status
             job.error = error
             job.finished = _now()
+        if job.delete_when_done:      # lo borraron mientras corría
+            self._cleanup(job)
+            return
         self._save(job)
 
     def _save(self, job: Job) -> None:
@@ -398,9 +423,13 @@ class JobStore:
             job.last_saved = time.monotonic()
         path = job.dir / "job.json"
         tmp = path.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2),
-                       encoding="utf-8")
-        tmp.replace(path)
+        try:
+            tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2),
+                           encoding="utf-8")
+            tmp.replace(path)
+        except OSError:
+            # El job se borró bajo nuestros pies: no hay nada que persistir.
+            pass
 
 
 def _summarize(analysis: dict) -> dict:
