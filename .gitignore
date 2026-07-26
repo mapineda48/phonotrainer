@@ -1,0 +1,19 @@
+.venv/
+references/*/
+out/
+out_*/
+workspace/
+__pycache__/
+*.pyc
+*.webm
+*.mp4
+*.mp3
+*.wav
+.pytest_cache/
+*.egg-info/
+
+# UI (React)
+node_modules/
+web/dist/
+web/coverage/
+.vite/

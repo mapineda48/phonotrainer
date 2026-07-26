@@ -1,0 +1,11 @@
+faster-whisper>=1.0
+transformers>=4.40
+phonemizer>=3.2
+g2p-en>=2.1
+panphon>=0.20
+praat-parselmouth>=0.4
+numpy
+soundfile
+click
+rich
+pytest

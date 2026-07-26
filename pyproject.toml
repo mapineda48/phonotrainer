@@ -1,0 +1,32 @@
+[project]
+name = "phonotrainer"
+version = "0.1.0"
+description = "Analizador fonético de habla nativa en inglés: fonos reales vs canónicos + fenómenos de connected speech + prosodia"
+requires-python = ">=3.11"
+dependencies = [
+    "faster-whisper>=1.0",
+    "transformers>=4.40",
+    "torch",
+    "torchaudio",
+    "phonemizer>=3.2",
+    "g2p-en>=2.1",
+    "panphon>=0.20",
+    "praat-parselmouth>=0.4",
+    "numpy",
+    "soundfile",
+    "click",
+    "rich",
+]
+
+[project.scripts]
+phonotrainer = "phonotrainer.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["phonotrainer"]
+
+[tool.pytest.ini_options]
+markers = ["slow: tests lentos (cobertura de vocabulario completo, modelos)"]
