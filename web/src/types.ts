@@ -167,6 +167,8 @@ export interface Family {
 }
 
 export interface Reference {
+  /** Contrato de la API. Ausente = servidor anterior a que existiera. */
+  api_version?: number;
   families: Family[];
   family_of: Record<string, string>;
   labels: Record<string, string>;

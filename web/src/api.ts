@@ -16,6 +16,9 @@ import type {
   WordVariant,
 } from "./types";
 
+/** Versión de la API que necesita esta interfaz (ver `server.API_VERSION`). */
+export const REQUIRED_API_VERSION = 1;
+
 export class ApiError extends Error {
   constructor(
     message: string,

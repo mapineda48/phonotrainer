@@ -12,6 +12,7 @@ import { ReferenceProvider } from "../reference";
 import type { AlignedPhone, Analysis, Job, Reference, Word } from "../types";
 
 export const reference: Reference = {
+  api_version: 1,
   families: [
     {
       key: "red",

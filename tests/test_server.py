@@ -66,8 +66,13 @@ def analizado(client, media, **options) -> str:
 
 
 def test_health_y_referencia(client):
+    from phonotrainer.server import API_VERSION
+
     health = client.get("/api/health").json()
     assert health["ok"] is True and health["web_built"] is False
+    # La interfaz compara esto para detectar un servidor viejo dejado abierto.
+    assert health["api_version"] == API_VERSION
+    assert client.get("/api/reference").json()["api_version"] == API_VERSION
 
     ref = client.get("/api/reference").json()
     assert ref["family_of"]["flapping"] == "td"

@@ -207,6 +207,22 @@ describe("App", () => {
     expect(fetchMock.mock.calls.length - antes).toBeLessThan(5);
   });
 
+  it("avisa si el servidor es más viejo que la interfaz", async () => {
+    // El caso real: queda abierto un `phonotrainer ui` de antes en ese puerto.
+    // Sirve el dist/ nuevo desde disco, así que la interfaz carga y luego pide
+    // rutas que ese servidor no tiene («Method Not Allowed»).
+    const { api_version: _omitido, ...viejo } = reference;
+    mockFetch({
+      "GET /api/reference": () => viejo,
+      "GET /api/jobs": () => [],
+    });
+
+    render(<App />);
+
+    expect(await screen.findByText(/más antiguo que esta interfaz/)).toBeInTheDocument();
+    expect(screen.getByText(/Párralo \(Ctrl-C\)/)).toBeInTheDocument();
+  });
+
   it("avisa si el backend no responde", async () => {
     vi.stubGlobal(
       "fetch",

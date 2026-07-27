@@ -52,6 +52,12 @@ MEDIA_TYPES = {
 
 MAX_SAMPLE = 500   # tope de palabras por muestreo de revisión
 
+# Contrato entre esta API y la SPA. Súbelo al añadir o cambiar endpoints que la
+# interfaz necesite: la SPA se sirve desde disco y siempre está al día, pero el
+# proceso que responde puede ser uno viejo que quedó abierto —y entonces la
+# interfaz pedía rutas inexistentes y mostraba «Method Not Allowed».
+API_VERSION = 1
+
 
 class Options(BaseModel):
     """Opciones del pipeline; los nombres coinciden con `pipeline.analyze`."""
@@ -192,7 +198,7 @@ def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
     # --- meta ---------------------------------------------------------------
     @app.get("/api/health")
     def health() -> dict:
-        return {"ok": True, "version": __version__,
+        return {"ok": True, "version": __version__, "api_version": API_VERSION,
                 "workspace": str(_store().root.resolve()),
                 "web_built": (app.state.web_dist / "index.html").is_file()}
 
@@ -201,6 +207,7 @@ def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
         """Vocabulario del backend: fenómenos, opciones del pipeline y ajustes
         de la revisión. La UI los consume tal cual, no mantiene copias."""
         return {
+            "api_version": API_VERSION,
             "families": [
                 {"key": key, "label": label,
                  "members": report.FAMILY_MEMBERS[key],

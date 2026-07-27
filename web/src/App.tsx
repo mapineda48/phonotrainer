@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { api } from "./api";
+import { api, REQUIRED_API_VERSION } from "./api";
 import { AnalysisView } from "./components/AnalysisView";
 import { CorpusView, type CorpusFilters } from "./components/CorpusView";
 import { JobProgress } from "./components/JobProgress";
@@ -74,6 +74,23 @@ export default function App() {
     );
   }
   if (!reference) return <div className="empty">Cargando…</div>;
+  // La interfaz se sirve desde disco y siempre está al día; el proceso que
+  // responde puede ser uno viejo que quedó abierto en ese puerto. Sin este
+  // aviso, la interfaz pedía rutas que ese servidor no tiene y el usuario solo
+  // veía «Method Not Allowed».
+  if ((reference.api_version ?? 0) < REQUIRED_API_VERSION) {
+    return (
+      <div className="empty">
+        <p className="error">
+          El servidor que responde en este puerto es más antiguo que esta interfaz.
+        </p>
+        <p className="tiny muted">
+          Seguramente quedó abierto un <code>phonotrainer ui</code> de antes. Párralo (Ctrl-C) y
+          vuelve a arrancarlo, o usa el puerto del nuevo.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <ReferenceProvider value={reference}>
