@@ -86,6 +86,16 @@ describe("ayudas varias", () => {
   });
 
   it("añade margen al span de una palabra sin irse a negativo", () => {
-    expect(wordSpan(makeWord("x", 0, "a", "a"))).toEqual({ start: 0, end: 0.11 });
+    const largo = makeWord("largo", 1, "a b c d e f", "a b c d e f");   // ~0.4 s
+    expect(wordSpan(largo)).toEqual({ start: 0.98, end: largo.end + 0.06 });
+  });
+
+  it("estira los spans inaudibles: hay palabras que duran un frame", () => {
+    // 50 ms + márgenes seguía siendo silencio al reproducirlo
+    const corta = makeWord("x", 0, "a", "a");
+    const span = wordSpan(corta);
+    expect(span.end - span.start).toBeCloseTo(0.25, 3);
+    expect(span.start).toBe(0);                       // sin irse antes del cero
+    expect(wordSpan(makeWord("y", 10, "a", "a")).start).toBeCloseTo(9.9, 3);
   });
 });

@@ -56,7 +56,7 @@ describe("WordDetail", () => {
     await userEvent.click(boton);
 
     const span = (player.play as ReturnType<typeof import("vitest").vi.fn>).mock.calls[0][0];
-    expect(span.start).toBeCloseTo(5.88, 2);
+    expect(span.start).toBeCloseTo(5.86, 2);
     expect(span.end).toBeGreaterThan(about.end); // llega hasta después de la siguiente
   });
 

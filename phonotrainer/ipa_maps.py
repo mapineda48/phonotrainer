@@ -32,17 +32,26 @@ STRESS_MARKS = {"0": "", "1": "ˈ", "2": "ˌ"}
 
 
 def arpabet_to_ipa(phones: list[str], with_stress: bool = False) -> list[str]:
-    """['DH', 'AH0', 'Z'] → ['ð', 'ʌ', 'z'] (opcionalmente con marca de acento)."""
+    """['DH', 'AH0', 'Z'] → ['ð', 'ə', 'z'] (opcionalmente con marca de acento).
+
+    `AH0` es schwa por definición en CMUdict: mapearlo a /ʌ/ hacía que el
+    diccionario dijera /ðʌ/ para «the» y /ʌbaʊt/ para «about», justo al lado de
+    la reducción vocálica que la herramienta quiere enseñar.
+    """
     out = []
     for p in phones:
         stress = ""
         base = p
+        digit = ""
         if base and base[-1].isdigit():
-            stress = STRESS_MARKS.get(base[-1], "")
+            digit = base[-1]
+            stress = STRESS_MARKS.get(digit, "")
             base = base[:-1]
         ipa = ARPABET_TO_IPA.get(base)
         if ipa is None:
             continue
+        if base == "AH" and digit == "0":
+            ipa = "ə"
         out.append((stress + ipa) if with_stress else ipa)
     return out
 

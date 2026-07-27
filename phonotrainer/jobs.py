@@ -80,6 +80,9 @@ _SEG_RE = re.compile(r"Segmento (\d+)/(\d+)")
 _DOWNLOAD_RE = re.compile(r"Descargando de YouTube… (\d+) %")
 _STAGE_PERCENT = (
     ("Consultando la URL", 1),
+    # Sin tamaño conocido la descarga informa en MB: sin esta entrada el
+    # porcentaje volvía a 0 y la barra retrocedía.
+    ("Descargando de YouTube", 2),
     ("Descarga terminada", 15),
     ("Descargado:", 16),
     ("Extrayendo audio", 17),
@@ -280,17 +283,23 @@ class JobStore:
         if self.corpus is None:
             return
         try:
-            conocidos = {row["id"] for row in self.corpus.analyses()}
-            con_job = self.corpus.job_ids()
+            registrados = self.corpus.analyses()
         except Exception:                             # noqa: BLE001
             return
+        conocidos = {row["id"] for row in registrados}
 
-        vivos = set(self._jobs)
-        for huerfano in con_job - vivos:
-            try:
-                self.corpus.forget_job(huerfano)
-            except Exception:                         # noqa: BLE001
-                pass
+        # Purgar por lo que ya no existe EN DISCO, no por «no es un job mío»:
+        # con la segunda regla, abrir la interfaz con otro workspace borraba del
+        # corpus todo lo que había indexado el primero.
+        for row in registrados:
+            if not row["job_id"]:
+                continue                              # lo indexó la CLI: no es asunto nuestro
+            if not (Path(row["id"]) / "analysis.json").is_file():
+                try:
+                    self.corpus.forget(row["id"])
+                    conocidos.discard(row["id"])
+                except Exception:                     # noqa: BLE001
+                    pass
 
         for job in list(self._jobs.values()):
             if job.status != DONE or analysis_key(job.result_dir) in conocidos:
@@ -450,14 +459,19 @@ class JobStore:
         job = self.get(job_id)
         with self._lock:
             self._jobs.pop(job_id, None)
+            # Antes de tocar el corpus: si el trabajador termina justo ahora, ya
+            # sabe que no debe indexar.
+            if job.status in (QUEUED, RUNNING):
+                job.cancel_requested = True
+                job.delete_when_done = True
         if self.corpus is not None:
             try:
-                self.corpus.forget_job(job_id)
+                # Un análisis importado sigue en disco y puede haberlo indexado
+                # la CLI: se queda en el corpus, solo pierde su job.
+                self.corpus.forget_job(job_id, keep_analysis=job.imported)
             except Exception:                 # noqa: BLE001 — el borrado del job
                 pass                          # no puede fallar por el índice
-        if job.status in (QUEUED, RUNNING):
-            job.cancel_requested = True
-            job.delete_when_done = True
+        if job.delete_when_done:
             # La baja tiene que ser durable ya: si el proceso muere antes de que
             # el trabajador llegue a su punto de cancelación, sin esto el job
             # borrado reaparecería al reiniciar (job.json sigue en disco).

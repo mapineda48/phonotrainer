@@ -130,6 +130,55 @@ def test_variantes_de_pronunciacion_de_una_palabra(corpus):
     assert variantes[0]["analyses"] == 2
 
 
+def test_el_material_repetido_se_reconoce_aunque_cambie_el_nombre(corpus):
+    """Un recorte del mismo vídeo se llama distinto y sigue siendo la misma
+    grabación: contarlo como otra fuente infla todas las cifras."""
+    entero = mk_analysis("episodio.webm")
+    recorte = mk_analysis("clip.mp3")
+    # los primeros segundos: mismas palabras, mismos instantes, menos material
+    recorte["segments"][1]["words"] = recorte["segments"][1]["words"][:1]
+    otro = mk_analysis("otra-cosa.webm")
+    otro["segments"][0]["words"][0]["start"] = 7.5     # otra grabación
+
+    corpus.index_analysis("/a", entero)
+    corpus.index_analysis("/b", recorte)
+    corpus.index_analysis("/c", otro)
+
+    stats = corpus.stats()
+    assert stats["analyses"] == 3
+    assert stats["sources"] == 3            # tres nombres de archivo…
+    assert stats["materials"] == 2          # …pero dos grabaciones
+    por_id = {a["id"]: a for a in corpus.analyses()}
+    assert por_id["/a"]["duplicate_source"] and por_id["/b"]["duplicate_source"]
+    assert not por_id["/c"]["duplicate_source"]
+
+
+def test_las_palabras_de_un_frame_no_encabezan_la_lista(corpus):
+    """Duran 20 ms: son picos de CTC sueltos, no algo que se pueda oír ni
+    juzgar. Siguen en el corpus, pero al final."""
+    analysis = mk_analysis()
+    corta = analysis["segments"][0]["words"][0]
+    corta["end"] = corta["start"] + 0.02
+    corta["diff_cost"] = 9.9                # la más divergente de todas
+
+    corpus.index_analysis("job1", analysis)
+    filas = corpus.occurrences()
+
+    assert filas[0]["word"] != corta["word"]
+    assert filas[-1]["word"] == corta["word"]
+    assert filas[-1]["too_short"] is True
+    assert filas[0]["too_short"] is False
+
+
+def test_buscar_sin_apostrofo_encuentra_la_palabra(corpus):
+    analysis = mk_analysis()
+    analysis["segments"][0]["words"][0] = mk_analysis_word("don't", 0.0, "d oʊ n t", "d oʊ n")
+    corpus.index_analysis("job1", analysis)
+
+    assert corpus.occurrences(word="dont")[0]["word"] == "don't"
+    assert corpus.occurrences(word="DON'T")[0]["word"] == "don't"
+
+
 def test_olvidar_un_analisis_lo_borra_entero(corpus):
     corpus.index_analysis("job1", mk_analysis("ep1.webm"))
     corpus.index_analysis("job2", mk_analysis("ep2.webm"))
@@ -165,11 +214,37 @@ def test_una_base_ilegible_se_aparta_y_se_rehace(tmp_path):
     db = Corpus(ruta)
     try:
         assert db.rebuilt is True
-        assert (tmp_path / "phonotrainer.db.corrupta").is_file()
+        assert list(tmp_path.glob("phonotrainer.db.*.corrupta"))    # apartada, no borrada
         db.index_analysis("x", mk_analysis())        # y funciona desde cero
         assert db.stats()["analyses"] == 1
     finally:
         db.close()
+
+
+def test_una_base_bloqueada_no_se_da_por_corrupta(tmp_path):
+    """Retirar una base sana por un bloqueo pasajero le costaba el corpus entero
+    al usuario."""
+    import sqlite3
+
+    from phonotrainer.db import _looks_broken
+
+    assert _looks_broken(sqlite3.OperationalError("database is locked")) is False
+    assert _looks_broken(sqlite3.OperationalError("attempt to write a readonly database")) is False
+    assert _looks_broken(sqlite3.DatabaseError("file is not a database")) is True
+    assert _looks_broken(sqlite3.DatabaseError("database disk image is malformed")) is True
+
+    ruta = tmp_path / "sana.db"
+    primera = Corpus(ruta)
+    try:
+        primera.index_analysis("job1", mk_analysis())
+        otra = Corpus(ruta)                          # segunda conexión: no pasa nada
+        try:
+            assert otra.rebuilt is False
+            assert otra.stats()["analyses"] == 1
+        finally:
+            otra.close()
+    finally:
+        primera.close()
 
 
 def test_un_esquema_viejo_tambien_se_rehace(tmp_path):

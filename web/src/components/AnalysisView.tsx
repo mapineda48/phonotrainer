@@ -1,6 +1,6 @@
 /** Vista de un análisis terminado: reproductor + transcripción + panel lateral. */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { api } from "../api";
 import { useHotkeys } from "../hooks/useHotkeys";
@@ -95,6 +95,10 @@ function AnalysisBody({
   onBackToCorpus?: () => void;
 }) {
   const player = usePlayer();
+  /** El reproductor sin su identidad cambiante, para efectos que no deben
+   *  reejecutarse cada vez que cambia el fragmento activo. */
+  const playerRef = useRef(player);
+  playerRef.current = player;
   const reference = useReference();
   const [selected, setSelected] = useState<Selection | null>(null);
   const [tab, setTab] = useState<Tab>("summary");
@@ -153,15 +157,20 @@ function AnalysisBody({
   const jump = (delta: number) => jumpIn(walk, delta);
 
   // Llegando desde el corpus: abrir directamente en esa palabra y oírla.
+  // Una sola vez por selección: `player` cambia de identidad al fijar el
+  // fragmento, así que sin el testigo el efecto se volvía a disparar solo y la
+  // palabra se reproducía sin fin.
+  const applied = useRef<Selection | null>(null);
   useEffect(() => {
-    if (!initialSelection) return;
+    if (!initialSelection || applied.current === initialSelection) return;
     const word = analysis.segments[initialSelection.segment]?.words[initialSelection.index];
     if (!word) return;
+    applied.current = initialSelection;
     setSelected(initialSelection);
     setTab("word");
-    if (canPlay) player.play(wordSpan(word));
-    else player.seek(word.start);
-  }, [initialSelection, analysis, canPlay, player]);
+    if (canPlay) playerRef.current.play(wordSpan(word));
+    else playerRef.current.seek(word.start);
+  }, [initialSelection, analysis, canPlay]);
 
   const toggleFilter = (phenomenon: string) =>
     setFilter((current) => {

@@ -24,6 +24,7 @@ vi.mock("../api", async (importOriginal) => {
 const stats = {
   analyses: 3,
   sources: 2,
+  materials: 1,
   words: 540,
   segments: 81,
   duration: 128,
@@ -63,6 +64,7 @@ const ocurrencia = {
   oov: false,
   lexical_form: null,
   phenomena: ["flapping"],
+  too_short: false,
 };
 
 /** La vista recibe los filtros de arriba: aquí los mantenemos como App. */
@@ -93,7 +95,7 @@ describe("CorpusView", () => {
   it("resume todo el corpus, no un análisis suelto", async () => {
     renderWith(<Anfitrion />);
 
-    expect(await screen.findByText(/3 análisis de 2 fuentes/)).toBeInTheDocument();
+    expect(await screen.findByText(/3 análisis de 1 grabación/)).toBeInTheDocument();
     expect(screen.getByText(/540 palabras/)).toBeInTheDocument();
     const linking = screen.getByRole("button", { name: /linking/ });
     expect(within(linking).getByText(/90/)).toBeInTheDocument();
@@ -102,9 +104,9 @@ describe("CorpusView", () => {
 
   it("avisa de que hay material contado dos veces y deja verlo", async () => {
     renderWith(<Anfitrion />);
-    await screen.findByText(/3 análisis de 2 fuentes/);
+    await screen.findByText(/3 análisis de 1 grabación/);
 
-    expect(screen.getByText(/cuentan doble/)).toBeInTheDocument();
+    expect(screen.getByText(/la cuentan más de una vez/)).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: /ver de qué se compone/ }));
     const tabla = screen.getByTestId("corpus-analyses");
@@ -115,7 +117,7 @@ describe("CorpusView", () => {
 
   it("filtrar por fenómeno mantiene la palabra buscada y la cabecera no miente", async () => {
     renderWith(<Anfitrion />);
-    await screen.findByText(/3 análisis de 2 fuentes/);
+    await screen.findByText(/3 análisis de 1 grabación/);
 
     await userEvent.type(screen.getByRole("searchbox"), "to");
     await userEvent.click(screen.getByRole("button", { name: "Buscar" }));
@@ -135,7 +137,7 @@ describe("CorpusView", () => {
 
   it("responde cómo se ha pronunciado una palabra, y cada forma filtra la lista", async () => {
     renderWith(<Anfitrion />);
-    await screen.findByText(/3 análisis de 2 fuentes/);
+    await screen.findByText(/3 análisis de 1 grabación/);
 
     await userEvent.type(screen.getByRole("searchbox"), "to");
     await userEvent.click(screen.getByRole("button", { name: "Buscar" }));
@@ -164,7 +166,7 @@ describe("CorpusView", () => {
 
   it("un corpus vacío lo dice en vez de mostrar tablas vacías", async () => {
     vi.mocked(api.corpusStats).mockResolvedValue({
-      ...stats, analyses: 0, sources: 0, words: 0, phenomena: [], top_words: [],
+      ...stats, analyses: 0, sources: 0, materials: 0, words: 0, phenomena: [], top_words: [],
     });
     renderWith(<Anfitrion />);
 
@@ -185,7 +187,7 @@ describe("CorpusView", () => {
       });
 
     renderWith(<Anfitrion />);
-    await screen.findByText(/3 análisis de 2 fuentes/);
+    await screen.findByText(/3 análisis de 1 grabación/);
     await userEvent.click(screen.getByRole("button", { name: /flapping/ }));
     await screen.findByText("water");
 

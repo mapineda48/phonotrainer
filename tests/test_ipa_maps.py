@@ -15,7 +15,9 @@ def test_arpabet_cubre_cmudict_completo():
 
 
 def test_arpabet_to_ipa_con_stress():
-    assert ipa_maps.arpabet_to_ipa(["DH", "AH0", "Z"]) == ["ð", "ʌ", "z"]
+    # AH0 es schwa en CMUdict: "the" es /ðə/, no /ðʌ/
+    assert ipa_maps.arpabet_to_ipa(["DH", "AH0", "Z"]) == ["ð", "ə", "z"]
+    assert ipa_maps.arpabet_to_ipa(["DH", "AH1", "Z"]) == ["ð", "ʌ", "z"]
     assert ipa_maps.arpabet_to_ipa(["W", "AO1", "T", "ER0"]) == ["w", "ɔ", "t", "ɚ"]
 
 

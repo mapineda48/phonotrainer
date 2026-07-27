@@ -107,8 +107,8 @@ export function CorpusView({ onOpen, filters, onFilters }: Props) {
     <div className="scroll" style={{ padding: "20px 24px 60px" }}>
       <h2 style={{ margin: "0 0 2px", fontSize: 19 }}>Corpus</h2>
       <p className="muted tiny" style={{ marginTop: 0 }}>
-        {stats.analyses} análisis de {stats.sources}{" "}
-        {stats.sources === 1 ? "fuente" : "fuentes"} · {stats.words} palabras ·{" "}
+        {stats.analyses} análisis de {stats.materials}{" "}
+        {stats.materials === 1 ? "grabación" : "grabaciones"} · {stats.words} palabras ·{" "}
         {fmtDuration(stats.duration)} de habla ·{" "}
         <button
           type="button"
@@ -125,8 +125,9 @@ export function CorpusView({ onOpen, filters, onFilters }: Props) {
         {duplicados && (
           <>
             {" "}
-            <strong>Ojo:</strong> hay material analizado más de una vez (p. ej. con y sin
-            atracción); esas apariciones cuentan doble.
+            <strong>Ojo:</strong> hay una misma grabación analizada más de una vez (p. ej. con y
+            sin atracción, o un recorte suyo); esas apariciones y los recuentos de arriba la
+            cuentan más de una vez.
           </>
         )}
       </p>
@@ -237,7 +238,7 @@ export function CorpusView({ onOpen, filters, onFilters }: Props) {
                   onFilters({ ...filters, word: entry.word });
                 }}
               >
-                {entry.word} <span className="muted">×{entry.count}</span>
+                {entry.word} <span className="muted">· {entry.count} fenómenos</span>
               </button>
             ))}
           </div>
@@ -254,16 +255,29 @@ export function CorpusView({ onOpen, filters, onFilters }: Props) {
               {variants.map((variant) => {
                 const key = variant.realized_ipa || "";
                 const on = variantFilter === key;
+                const alternar = () => setVariantFilter(on ? null : key);
                 return (
                   <tr
                     key={key || "∅"}
                     className="corpus__row"
+                    role="button"
+                    tabIndex={0}
                     aria-pressed={on}
+                    aria-label={`quedarse solo con las pronunciadas ${
+                      variant.realized_ipa || "sin fonos"}, ${variant.count} ${
+                      variant.count === 1 ? "vez" : "veces"}`}
                     style={on ? { fontWeight: 600 } : undefined}
-                    onClick={() => setVariantFilter(on ? null : key)}
+                    onClick={alternar}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        alternar();
+                      }
+                    }}
                   >
-                    <td className="ipa" title={key ? undefined : "sin fonos reconocidos"}>
-                      [{variant.realized_ipa || "∅"}]
+                    <td className="ipa">
+                      {variant.realized_ipa ? `[${variant.realized_ipa}]`
+                                            : <span className="muted">(sin fonos)</span>}
                     </td>
                     <td className="num">
                       {variant.count} {variant.count === 1 ? "vez" : "veces"}
@@ -281,17 +295,26 @@ export function CorpusView({ onOpen, filters, onFilters }: Props) {
 
       <div className="card">
         <strong className="tiny">
-          {total} apariciones
+          {variantFilter !== null ? visibles.length : total} apariciones
           {filters.phenomenon && (
             <> de «{phenomenonLabel(reference, filters.phenomenon)}»</>
           )}
           {filters.word && <> de «{filters.word}»</>}
-          {variantFilter !== null && <> pronunciadas [{variantFilter || "∅"}]</>}
+          {variantFilter !== null && (
+            <> pronunciadas {variantFilter ? `[${variantFilter}]` : "sin fonos"}</>
+          )}
         </strong>
         <p className="tiny muted" style={{ margin: "2px 0 8px" }}>
-          Ordenadas por divergencia: primero las que más se apartan del canónico. Pulsa una para
+          Ordenadas por divergencia: primero las que más se apartan del canónico; al final las que
+          duran uno o dos frames (⏱), que casi siempre son fallos de alineación. Pulsa una para
           abrirla en su análisis.
-          {total > items.length && <> Se muestran las {items.length} primeras.</>}
+          {variantFilter === null && total > items.length && (
+            <> Se muestran las {items.length} primeras.</>
+          )}
+        </p>
+        <p className="tiny muted" style={{ margin: "0 0 8px" }}>
+          <strong>dicc.</strong> = forma de cita · <strong>canónico</strong> = lo que esperaba el
+          alineador (espeak ya aplica procesos nativos) · <strong>real</strong> = lo reconocido.
         </p>
         <table className="detail">
           <thead>
@@ -340,12 +363,18 @@ export function CorpusView({ onOpen, filters, onFilters }: Props) {
                   </td>
                   <td className="ipa">/{item.dict_ipa}/</td>
                   <td className="ipa muted">[{item.canonical_ipa}]</td>
-                  <td className="ipa" title={item.realized_ipa ? undefined : "sin fonos reconocidos"}>
-                    [{item.realized_ipa || "∅"}]
+                  <td className="ipa">
+                    {item.realized_ipa ? `[${item.realized_ipa}]`
+                                       : <span className="muted">(sin fonos)</span>}
                     {(item.low_confidence || item.oov) && (
                       <span className="muted" title={item.low_confidence
                         ? "baja confianza: puede ser silencio o ruido"
                         : "fuera de diccionario"}> ⚠</span>
+                    )}
+                    {item.too_short && (
+                      <span className="muted" title={
+                        "dura menos de 60 ms: probablemente un fallo de alineación, "
+                        + "no un fenómeno"}> ⏱</span>
                     )}
                   </td>
                   <td className="num">{fmtTime(item.start)}</td>

@@ -45,8 +45,9 @@ describe("Transcript", () => {
     await userEvent.click(wordButton("that"));
 
     expect(onSelect).toHaveBeenCalledWith({ segment: 0, index: 1 });
+    // "that" dura 110 ms: el span se estira hasta ser audible, centrado en ella
     expect(player.play).toHaveBeenCalledWith(
-      expect.objectContaining({ start: expect.closeTo(0.38, 2) }),
+      expect.objectContaining({ start: expect.closeTo(0.36, 2) }),
     );
   });
 

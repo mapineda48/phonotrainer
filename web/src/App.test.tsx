@@ -161,7 +161,7 @@ describe("App", () => {
   });
 
   it("desde el corpus se abre un análisis en la palabra elegida", async () => {
-    mockFetch({
+    const fetchMock = mockFetch({
       "GET /api/reference": () => reference,
       "GET /api/jobs": () => [job],
       [`GET /api/jobs/${job.id}/analysis`]: () => analysis,
@@ -200,6 +200,11 @@ describe("App", () => {
     // vuelve al análisis con esa palabra ya seleccionada y su detalle abierto
     await waitFor(() => expect(wordButton("wanna")).toHaveAttribute("aria-pressed", "true"));
     expect(screen.getByText("forma reducida")).toBeInTheDocument();
+    // y solo una vez: el efecto no debe reengancharse consigo mismo
+    const antes = fetchMock.mock.calls.length;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    expect(wordButton("wanna")).toHaveAttribute("aria-pressed", "true");
+    expect(fetchMock.mock.calls.length - antes).toBeLessThan(5);
   });
 
   it("avisa si el backend no responde", async () => {

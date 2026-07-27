@@ -12,7 +12,9 @@ def test_la_forma_de_diccionario_conserva_el_acento():
     entrada = dict_pronunciation("better")
     assert entrada["ipa"] == "bˈɛtɚ"
     assert entrada["arpabet"] == ["B", "EH1", "T", "ER0"]
-    assert dict_pronunciation("tonight")["ipa"] == "tʌnˈaɪt"
+    # y AH0 es schwa: la sílaba átona se ve como tal
+    assert dict_pronunciation("tonight")["ipa"] == "tənˈaɪt"
+    assert dict_pronunciation("the")["ipa"] == "ðə"
 
 
 def test_tokens_ingleses_pasan_intactos():

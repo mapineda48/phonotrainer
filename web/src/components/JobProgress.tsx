@@ -23,12 +23,14 @@ export function JobProgress({ job: initial, onChanged }: Props) {
     onChanged();
   };
 
-  /** Reintentar una descarga fallida sin tener que reescribir la URL. */
+  /** Reintentar una descarga fallida sin tener que reescribir la URL: el job
+   *  fallido se va, para no dejar dos filas idénticas en la lista. */
   const retry = async () => {
     if (!job.source_url) return;
     setRetrying(true);
     try {
       await api.createFromUrl(job.source_url, job.options, false);
+      await api.deleteJob(job.id).catch(() => undefined);
       onChanged();
     } finally {
       setRetrying(false);
@@ -79,7 +81,7 @@ export function JobProgress({ job: initial, onChanged }: Props) {
           <p className="error" style={{ margin: 0 }}>
             {job.error}
           </p>
-          {job.source_url ? (
+          {job.source_url && !job.has_media ? (
             <div className="row" style={{ marginTop: 8 }}>
               <p className="tiny muted" style={{ margin: 0, flex: 1 }}>
                 Falló la descarga: comprueba la URL y la conexión. Los vídeos privados, de pago o

@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-import pytest
+import pytest  # noqa: F401  (lo usan las pruebas de errores)
 
 from phonotrainer.download import DownloadError, download, is_url
 
@@ -184,8 +184,11 @@ def test_sin_tamano_conocido_informa_en_megas(tmp_path):
     ]
 
 
-def test_recorta_los_nombres_larguisimos(tmp_path):
-    """80 caracteres pueden ser 258 bytes: ext4 no los admite."""
+def test_recorta_los_nombres_larguisimos_por_bytes(tmp_path):
+    """80 caracteres CJK son 240 bytes: ext4 no admite nombres tan largos, y
+    recortar por caracteres no evita el problema."""
+    from yt_dlp import YoutubeDL
+
     visto = {}
 
     def espia(options):
@@ -193,8 +196,12 @@ def test_recorta_los_nombres_larguisimos(tmp_path):
         return FakeYDL(options)
 
     download("https://youtu.be/abc123", tmp_path, ydl_factory=espia)
-    assert visto["trim_file_name"] == 120
     assert visto["playlist_items"] == "1"
+
+    # el recorte lo hace yt-dlp de verdad, no nuestra suposición
+    nombre = Path(YoutubeDL({"outtmpl": visto["outtmpl"], "quiet": True}).prepare_filename(
+        {"title": "あ" * 80, "id": "dQw4w9WgXcQ", "ext": "mp4"})).name
+    assert len(nombre.encode("utf-8")) <= 255
 
 
 def test_la_cli_no_se_come_el_id_del_video(tmp_path):

@@ -70,8 +70,10 @@ export interface JobOptions {
 
 export interface CorpusStats {
   analyses: number;
-  /** Materiales distintos: si es menor que `analyses`, algo está contado dos veces. */
+  /** Nombres de archivo distintos. */
   sources: number;
+  /** Grabaciones distintas: si es menor que `analyses`, algo está contado dos veces. */
+  materials: number;
   words: number;
   segments: number;
   duration: number;
@@ -115,6 +117,8 @@ export interface Occurrence {
   oov: boolean;
   lexical_form: string | null;
   phenomena: string[];
+  /** Dura menos de 60 ms: casi siempre un fallo de alineación, no un fenómeno. */
+  too_short: boolean;
 }
 
 export interface WordVariant {

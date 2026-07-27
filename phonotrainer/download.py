@@ -84,8 +84,9 @@ def download(url: str, dest_dir: str | Path = DEFAULT_DIR, audio_only: bool = Fa
 
     options = {
         "format": AUDIO_FORMAT if audio_only else VIDEO_FORMAT,
-        "outtmpl": str(dest_dir / "%(title).80s [%(id)s].%(ext)s"),
-        "trim_file_name": 120,   # el corte de la plantilla es por caracteres, no por bytes
+        # El corte va en BYTES (sufijo B): 80 caracteres CJK son 240 bytes y
+        # ext4 no admite nombres tan largos.
+        "outtmpl": str(dest_dir / "%(title).120B [%(id)s].%(ext)s"),
         "noplaylist": True,
         "playlist_items": "1",   # si la URL es una lista, solo el primer vídeo
         "quiet": True,

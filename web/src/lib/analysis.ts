@@ -73,10 +73,20 @@ export function filteredWords(analysis: Analysis, selected: ReadonlySet<string>)
   return flattenWords(analysis).filter((fw) => matchesFilter(fw.word, selected));
 }
 
+/** Nada más corto que esto se oye: hay palabras cuyo span son uno o dos picos
+ *  de CTC (20 ms) y reproducirlas tal cual era silencio. */
+const MIN_AUDIBLE = 0.25;
+
 /** Span temporal de una palabra con un margen para que se oiga entera: poco por
  *  delante (para no invadir la palabra anterior) y algo más por detrás. */
 export function wordSpan(word: Word, padStart = 0.02, padEnd = 0.06): { start: number; end: number } {
-  return { start: Math.max(0, word.start - padStart), end: word.end + padEnd };
+  const start = Math.max(0, word.start - padStart);
+  const end = word.end + padEnd;
+  if (end - start >= MIN_AUDIBLE) return { start, end };
+  // Se estira alrededor del centro, sin irse antes del cero.
+  const centro = (word.start + word.end) / 2;
+  const desde = Math.max(0, centro - MIN_AUDIBLE / 2);
+  return { start: desde, end: desde + MIN_AUDIBLE };
 }
 
 export function segmentSpan(segment: Segment): { start: number; end: number } {

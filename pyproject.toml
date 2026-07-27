@@ -36,4 +36,6 @@ build-backend = "setuptools.build_meta"
 packages = ["phonotrainer"]
 
 [tool.pytest.ini_options]
+# Sin esto, `pytest` a secas intenta recoger los repos clonados en references/.
+testpaths = ["tests"]
 markers = ["slow: tests lentos (cobertura de vocabulario completo, modelos)"]

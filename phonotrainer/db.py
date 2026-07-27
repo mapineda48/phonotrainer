@@ -21,7 +21,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 DEFAULT_DB = Path("data/phonotrainer.db")
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
+# Por debajo de esto la "palabra" es un pico de CTC suelto, no algo que se pueda
+# oír ni juzgar: sigue en el corpus, pero no encabeza la lista.
+MIN_AUDIBLE = 0.06   # s
+# Palabras iniciales que forman la huella del material. Son pocas a propósito:
+# un recorte del mismo vídeo debe compartirla, y que dos grabaciones distintas
+# empiecen con las mismas 4 palabras EN LOS MISMOS INSTANTES no pasa.
+_MATERIAL_WORDS = 4
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (
@@ -35,6 +42,10 @@ CREATE TABLE IF NOT EXISTS analyses (
     -- luego en la interfaz contaría dos veces.
     id          TEXT PRIMARY KEY,
     job_id      TEXT,                    -- el job de la interfaz, si lo hay
+    -- Huella del material: las primeras palabras y sus tiempos. Dos análisis
+    -- del mismo audio (con y sin atracción, o un recorte) la comparten, y así
+    -- el corpus puede decir cuántas grabaciones distintas hay de verdad.
+    material    TEXT,
     source      TEXT NOT NULL,
     result_dir  TEXT,
     duration    REAL,
@@ -81,12 +92,43 @@ CREATE INDEX IF NOT EXISTS idx_phen_word   ON phenomena (analysis_id, segment, w
 CREATE INDEX IF NOT EXISTS idx_analyses_job ON analyses (job_id);
 """
 
-_CLEAN_RE = re.compile(r"[^\w']+", re.UNICODE)
+_CLEAN_RE = re.compile(r"[^\w]+", re.UNICODE)
+# Un esquema distinto o una base ilegible se rehacen; lo demás (bloqueos,
+# permisos) es del entorno y no debe costarle el corpus a nadie.
+_BROKEN = ("not a database", "malformed", "encrypted", "esquema")
 
 
 def word_key(word: str) -> str:
-    """Clave de búsqueda: «That,» y «that» son la misma palabra."""
+    """Clave de búsqueda: «That,», «that» y «dont» / «don't» son lo mismo."""
     return _CLEAN_RE.sub("", str(word).lower())
+
+
+def material_key(analysis: dict) -> str | None:
+    """Huella del material: las primeras palabras con su instante.
+
+    Analizar el mismo vídeo dos veces (p. ej. con y sin atracción) o un recorte
+    suyo produce la misma cabecera; sin esto, el corpus presenta como tres
+    grabaciones lo que es una, e infla todas sus cifras.
+    """
+    import hashlib
+
+    piezas = []
+    for segment in analysis.get("segments") or []:
+        for word in segment.get("words") or []:
+            piezas.append(f"{word_key(word.get('word', ''))}@{float(word.get('start', 0)):.1f}")
+            if len(piezas) >= _MATERIAL_WORDS:
+                break
+        if len(piezas) >= _MATERIAL_WORDS:
+            break
+    if len(piezas) < _MATERIAL_WORDS:
+        return None                      # demasiado corto para reconocer nada
+    return hashlib.sha1("|".join(piezas).encode("utf-8")).hexdigest()[:16]
+
+
+def _looks_broken(exc: Exception) -> bool:
+    if isinstance(exc, sqlite3.OperationalError) and "esquema" not in str(exc):
+        return False
+    return any(marca in str(exc).lower() for marca in _BROKEN)
 
 
 def _now() -> str:
@@ -105,9 +147,12 @@ class Corpus:
         self.rebuilt = False       # True si hubo que empezar de cero
         try:
             self._open()
-        except sqlite3.DatabaseError:
-            # Base corrupta o de un esquema anterior. Es un índice derivado:
-            # se aparta y se rehace, nunca debe impedir arrancar.
+        except sqlite3.DatabaseError as exc:
+            # Solo se aparta lo que de verdad está roto o es de otro esquema.
+            # Un `database is locked` o un archivo sin permiso de escritura son
+            # problemas del entorno: retirar por eso borraba un corpus sano.
+            if not _looks_broken(exc):
+                raise
             self._retire()
             self._open()
 
@@ -138,13 +183,23 @@ class Corpus:
         return int(row["value"]) if row else None
 
     def _retire(self) -> None:
-        """Aparta la base ilegible (no la borra: por si el usuario quiere verla)."""
+        """Aparta la base ilegible (no la borra: por si el usuario quiere verla).
+
+        Se lleva también `-wal` y `-shm`: dejarlos sueltos corrompía la base
+        nueva, y el WAL puede contener lo último indexado.
+        """
         try:
             self._conn.close()
         except Exception:                                 # noqa: BLE001
             pass
-        if str(self.path) != ":memory:" and self.path.exists():
-            self.path.replace(self.path.with_suffix(self.path.suffix + ".corrupta"))
+        if str(self.path) == ":memory:":
+            self.rebuilt = True
+            return
+        marca = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+        for sufijo in ("", "-wal", "-shm"):
+            viejo = self.path.with_name(self.path.name + sufijo)
+            if viejo.exists():
+                viejo.replace(viejo.with_name(f"{viejo.name}.{marca}.corrupta"))
         self.rebuilt = True
 
     def close(self) -> None:
@@ -185,10 +240,11 @@ class Corpus:
         with self._lock, self._conn:
             self._forget(analysis_id)
             self._conn.execute(
-                """INSERT INTO analyses (id, job_id, source, result_dir, duration, language,
-                       attraction, asr_model, phone_model, segments, words, indexed_at)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
-                (analysis_id, job_id, source or meta.get("source") or analysis_id, result_dir,
+                """INSERT INTO analyses (id, job_id, material, source, result_dir, duration,
+                       language, attraction, asr_model, phone_model, segments, words, indexed_at)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (analysis_id, job_id, material_key(analysis),
+                 source or meta.get("source") or analysis_id, result_dir,
                  meta.get("duration"), meta.get("language"),
                  int(bool(meta.get("attraction", True))),
                  models.get("asr"), models.get("phones"),
@@ -219,12 +275,22 @@ class Corpus:
         with self._lock, self._conn:
             self._forget(analysis_id)
 
-    def forget_job(self, job_id: str) -> None:
-        """Saca del corpus lo que indexó un job de la interfaz (al borrarlo)."""
+    def forget_job(self, job_id: str, keep_analysis: bool = False) -> None:
+        """Suelta del corpus lo que indexó un job de la interfaz (al borrarlo).
+
+        `keep_analysis` para los jobs importados: sus datos siguen en disco (el
+        borrado del job no los toca) y puede que los indexara la CLI, así que la
+        fila se queda y solo pierde su job.
+        """
         with self._lock, self._conn:
-            for row in self._conn.execute(
-                    "SELECT id FROM analyses WHERE job_id = ?", (job_id,)).fetchall():
-                self._forget(row["id"])
+            filas = self._conn.execute(
+                "SELECT id FROM analyses WHERE job_id = ?", (job_id,)).fetchall()
+            for row in filas:
+                if keep_analysis:
+                    self._conn.execute("UPDATE analyses SET job_id = NULL WHERE id = ?",
+                                       (row["id"],))
+                else:
+                    self._forget(row["id"])
 
     def job_ids(self) -> set[str]:
         """Jobs que han dejado algo en el corpus (para detectar huérfanos)."""
@@ -248,10 +314,13 @@ class Corpus:
         rows = self._rows("SELECT * FROM analyses ORDER BY indexed_at DESC")
         veces: dict[str, int] = {}
         for row in rows:
-            veces[row["source"]] = veces.get(row["source"], 0) + 1
+            clave = row["material"] or row["source"]
+            veces[clave] = veces.get(clave, 0) + 1
         for row in rows:
             row["attraction"] = bool(row["attraction"])
-            row["duplicate_source"] = veces[row["source"]] > 1
+            # Mismo material: el nombre del archivo no basta (un recorte del
+            # mismo vídeo se llama distinto y sigue siendo la misma grabación).
+            row["duplicate_source"] = veces[row["material"] or row["source"]] > 1
         return rows
 
     def stats(self) -> dict:
@@ -264,6 +333,10 @@ class Corpus:
         )[0]
         totals["sources"] = self._rows(
             "SELECT COUNT(DISTINCT source) AS n FROM analyses")[0]["n"]
+        # Grabaciones distintas de verdad: si es menor que `analyses`, hay
+        # material analizado más de una vez y las cifras lo cuentan doble.
+        totals["materials"] = self._rows(
+            "SELECT COUNT(DISTINCT COALESCE(material, id)) AS n FROM analyses")[0]["n"]
         totals["phenomena"] = self._rows(
             """SELECT phenomenon,
                       COUNT(*) AS count,
@@ -335,15 +408,20 @@ class Corpus:
                                  AND n.segment = w.segment
                                  AND n.word_idx = w.word_idx + 1
                 WHERE {where}
-                ORDER BY w.diff_cost DESC, w.analysis_id, w.segment, w.word_idx
+                -- Las palabras de uno o dos frames son casi siempre fallos de
+                -- alineación (y duran menos de lo que se puede oír): al final,
+                -- por muy alta que sea su divergencia.
+                ORDER BY (w.end - w.start) < ?, w.diff_cost DESC,
+                         w.analysis_id, w.segment, w.word_idx
                 LIMIT ?""",
-            (*params, int(limit)),
+            (*params, MIN_AUDIBLE, int(limit)),
         )
         for row in rows:
             row["phenomena"] = row["phenomena"].split(",") if row["phenomena"] else []
             row["low_confidence"] = bool(row["low_confidence"])
             row["oov"] = bool(row["oov"])
             row["analysis_attraction"] = bool(row["analysis_attraction"])
+            row["too_short"] = (row["end"] - row["start"]) < MIN_AUDIBLE
         return rows
 
     def word_variants(self, word: str) -> list[dict]:
