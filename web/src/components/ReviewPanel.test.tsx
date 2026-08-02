@@ -65,7 +65,7 @@ describe("ReviewPanel", () => {
   });
 
   it("muestra la muestra priorizada con su contexto fonético", async () => {
-    renderWith(<ReviewPanel jobId="j1" onSaved={vi.fn()} />);
+    renderWith(<ReviewPanel jobId="j1" />);
 
     expect(await screen.findByText("that")).toBeInTheDocument();
     expect(screen.getByText("wanna")).toBeInTheDocument();
@@ -74,7 +74,7 @@ describe("ReviewPanel", () => {
   });
 
   it("el teclado marca el veredicto y avanza", async () => {
-    renderWith(<ReviewPanel jobId="j1" onSaved={vi.fn()} />);
+    renderWith(<ReviewPanel jobId="j1" />);
     await screen.findByText("that");
 
     await userEvent.keyboard("1"); // ok para la primera
@@ -88,8 +88,7 @@ describe("ReviewPanel", () => {
   });
 
   it("guarda solo lo decidido y muestra el acierto", async () => {
-    const onSaved = vi.fn();
-    renderWith(<ReviewPanel jobId="j1" onSaved={onSaved} />);
+    renderWith(<ReviewPanel jobId="j1" />);
     await screen.findByText("that");
 
     await userEvent.click(screen.getAllByRole("button", { name: "ok" })[0]);
@@ -99,7 +98,6 @@ describe("ReviewPanel", () => {
     expect(vi.mocked(api.saveReview).mock.calls[0][2]).toEqual([
       { segment: 0, word_idx: 1, verdict: "ok", note: "" },
     ]);
-    expect(onSaved).toHaveBeenCalled();
     expect(await screen.findByText(/acierto 100%/)).toBeInTheDocument();
   });
 
@@ -127,7 +125,7 @@ describe("ReviewPanel", () => {
       ],
     });
 
-    renderWith(<ReviewPanel jobId="j1" onSaved={vi.fn()} />);
+    renderWith(<ReviewPanel jobId="j1" />);
 
     await waitFor(() => expect(api.reviewSample).toHaveBeenCalledWith("j1", 1, 7));
     expect(await screen.findByDisplayValue("bien")).toBeInTheDocument();
@@ -138,7 +136,7 @@ describe("ReviewPanel", () => {
   });
 
   it("vuelve a muestrear con otra semilla", async () => {
-    renderWith(<ReviewPanel jobId="j1" onSaved={vi.fn()} />);
+    renderWith(<ReviewPanel jobId="j1" />);
     await screen.findByText("that");
 
     const seed = screen.getByRole("spinbutton", { name: /seed/i });

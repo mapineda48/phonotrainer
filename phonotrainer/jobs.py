@@ -27,6 +27,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Callable
 
 from .errors import JobCancelled   # se lanza en el callback de progreso
 
@@ -203,7 +204,9 @@ class Job:
             "summary": self.summary,
         }
         if full:
-            data["progress"] = self.progress
+            # Copia: el trabajador puede estar añadiendo líneas mientras el
+            # WebSocket serializa esto para enviarlo.
+            data["progress"] = list(self.progress)
         return data
 
 
@@ -255,6 +258,7 @@ class JobStore:
         self._download_fn = download_fn
         self._lock = threading.RLock()
         self._jobs: dict[str, Job] = {}
+        self._listeners: set[Callable[[str, str], None]] = set()
         # La cola lleva el Job, no su id: si lo borran mientras está encolado,
         # el trabajador sigue teniéndolo y puede limpiar su directorio.
         self._queue: queue.SimpleQueue[Job | None] = queue.SimpleQueue()
@@ -332,6 +336,39 @@ class JobStore:
         if wait:
             self._worker.join(timeout=5)
 
+    # --- observadores (WebSocket) --------------------------------------------
+    def subscribe(self, listener: Callable[[str, str], None]) -> Callable[[], None]:
+        """Registra un observador de cambios; devuelve la función para darlo de baja.
+
+        El observador recibe `(evento, job_id)` —"upsert" (creado o cambiado) o
+        "deleted"— y se invoca DESDE EL HILO que hizo el cambio (el trabajador,
+        la petición HTTP…): debe ser thread-safe y rápido. Solo lleva el id:
+        quien publica el estado lo relee fresco, así un evento viejo jamás hace
+        retroceder al cliente.
+        """
+        with self._lock:
+            self._listeners.add(listener)
+
+        def unsubscribe() -> None:
+            with self._lock:
+                self._listeners.discard(listener)
+
+        return unsubscribe
+
+    def _notify(self, event: str, job_id: str) -> None:
+        with self._lock:
+            listeners = list(self._listeners)
+        for listener in listeners:
+            try:
+                listener(event, job_id)
+            except Exception:      # noqa: BLE001 — un observador roto no
+                pass               # puede romper el análisis
+
+    def touch(self, job_id: str) -> None:
+        """Avisa de que el job cambió por fuera del store (p. ej. review.json)."""
+        self.get(job_id)                       # 404 si no existe
+        self._notify("upsert", job_id)
+
     # --- consultas -----------------------------------------------------------
     def list(self) -> list[Job]:
         with self._lock:
@@ -379,6 +416,7 @@ class JobStore:
         with self._lock:
             self._jobs[job_id] = job
         self._save(job)
+        self._notify("upsert", job_id)
         self._queue.put(job)
         return job
 
@@ -396,6 +434,7 @@ class JobStore:
         with self._lock:
             self._jobs[job_id] = job
         self._save(job)
+        self._notify("upsert", job_id)
         self._queue.put(job)
         return job
 
@@ -424,6 +463,7 @@ class JobStore:
                     # Ya importado (idempotente), pero puede que su contenido haya
                     # cambiado o que no esté en el corpus: se reindexa igual.
                     self._index(job, analysis)
+                    self._notify("upsert", job.id)
                     return job
             job_id = self._new_id()
             job = Job(
@@ -440,6 +480,7 @@ class JobStore:
             job.dir.mkdir(parents=True, exist_ok=True)
             self._jobs[job_id] = job
         self._save(job)
+        self._notify("upsert", job_id)
         self._index(job, analysis)
         return job
 
@@ -464,6 +505,7 @@ class JobStore:
             if job.status in (QUEUED, RUNNING):
                 job.cancel_requested = True
                 job.delete_when_done = True
+        self._notify("deleted", job_id)
         if self.corpus is not None:
             try:
                 # Un análisis importado sigue en disco y puede haberlo indexado
@@ -492,6 +534,7 @@ class JobStore:
         job.status = RUNNING
         job.started = _now()
         self._save(job)
+        self._notify("upsert", job.id)
         self._append_progress(job, "En cola → arrancando…")
 
         def progress(message: str) -> None:
@@ -522,6 +565,7 @@ class JobStore:
         job.media_path = str(Path(path).resolve())
         job.source = Path(path).name        # ya no es la URL: el título del vídeo
         self._save(job)
+        self._notify("upsert", job.id)
 
     def _index(self, job: Job, analysis: dict) -> None:
         """Vuelca el análisis al corpus. Que falle el índice no invalida el
@@ -548,6 +592,7 @@ class JobStore:
             due = time.monotonic() - job.last_saved >= SAVE_INTERVAL
         if due:
             self._save(job)
+        self._notify("upsert", job.id)
 
     def _finish(self, job: Job, status: str, error: str | None = None) -> None:
         with self._lock:
@@ -558,6 +603,7 @@ class JobStore:
             self._cleanup(job)
             return
         self._save(job)
+        self._notify("upsert", job.id)
 
     def _save(self, job: Job) -> None:
         """Vuelca job.json. Solo el snapshot se toma bajo el lock; serializar y

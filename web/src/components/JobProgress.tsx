@@ -1,4 +1,5 @@
-/** Estado de un análisis en curso (o fallido): barra, log en vivo y cancelar. */
+/** Estado de un análisis en curso (o fallido): barra, log en vivo y cancelar.
+ *  El job llega por el canal WebSocket: cancelar o reintentar se ve solo. */
 
 import { useState } from "react";
 
@@ -7,20 +8,14 @@ import { useJob } from "../hooks/useJobs";
 import { fmtDate } from "../lib/format";
 import type { Job } from "../types";
 
-interface Props {
-  job: Job;
-  onChanged: () => void;
-}
-
-export function JobProgress({ job: initial, onChanged }: Props) {
-  const { job: live } = useJob(initial.id);
+export function JobProgress({ job: initial }: { job: Job }) {
+  const live = useJob(initial.id);
   const [retrying, setRetrying] = useState(false);
   const job = live ?? initial;
   const running = job.status === "running" || job.status === "queued";
 
   const cancel = async () => {
     await api.cancelJob(job.id);
-    onChanged();
   };
 
   /** Reintentar una descarga fallida sin tener que reescribir la URL: el job
@@ -31,7 +26,6 @@ export function JobProgress({ job: initial, onChanged }: Props) {
     try {
       await api.createFromUrl(job.source_url, job.options, false);
       await api.deleteJob(job.id).catch(() => undefined);
-      onChanged();
     } finally {
       setRetrying(false);
     }

@@ -17,12 +17,7 @@ import type { Review, SampleItem, VerdictValue } from "../types";
 
 const key = (item: { segment: number; word_idx: number }) => `${item.segment}:${item.word_idx}`;
 
-interface Props {
-  jobId: string;
-  onSaved: () => void;
-}
-
-export function ReviewPanel({ jobId, onSaved }: Props) {
+export function ReviewPanel({ jobId }: { jobId: string }) {
   const player = usePlayer();
   // Veredictos y valores por defecto vienen del backend (review.py).
   const reference = useReference();
@@ -136,8 +131,8 @@ export function ReviewPanel({ jobId, onSaved }: Props) {
           verdict: verdicts[key(each)].verdict,
           note: verdicts[key(each)].note,
         }));
+      // Al guardar, el servidor avisa por el canal: has_review se actualiza solo.
       setSaved(await api.saveReview(jobId, seed, payload));
-      onSaved();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {

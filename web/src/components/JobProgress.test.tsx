@@ -1,18 +1,10 @@
 import { screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { act } from "react";
+import { afterEach, describe, expect, it } from "vitest";
 
-import { api } from "../api";
-import { job, renderWith } from "../test/fixtures";
+import { fakeJobsChannel, job, renderWith } from "../test/fixtures";
 import type { Job } from "../types";
 import { JobProgress } from "./JobProgress";
-
-vi.mock("../api", async (importOriginal) => {
-  const original = await importOriginal<typeof import("../api")>();
-  return {
-    ...original,
-    api: { ...original.api, getJob: vi.fn() },
-  };
-});
 
 const runningJob: Job = {
   ...job,
@@ -26,10 +18,16 @@ const runningJob: Job = {
   ],
 };
 
+let canal: ReturnType<typeof fakeJobsChannel> | null = null;
+
+afterEach(() => {
+  canal?.channel.dispose();
+  canal = null;
+});
+
 describe("JobProgress", () => {
   it("muestra el registro con la línea más reciente primero", async () => {
-    vi.mocked(api.getJob).mockResolvedValue(runningJob);
-    renderWith(<JobProgress job={runningJob} onChanged={() => undefined} />);
+    renderWith(<JobProgress job={runningJob} />);
 
     await screen.findByText("Registro");
     const log = document.querySelector(".log")!;
@@ -40,5 +38,23 @@ describe("JobProgress", () => {
       "Consultando la URL…",
       "En cola → arrancando…",
     ]);
+  });
+
+  it("se actualiza cuando el servidor empuja por el canal, sin sondeo", async () => {
+    canal = fakeJobsChannel([{ ...runningJob, percent: 8 }]);
+    renderWith(<JobProgress job={{ ...runningJob, progress: [], last_message: null }} />, {
+      jobsChannel: canal.channel,
+    });
+
+    // el snapshot ya trae el job completo: el registro aparece sin pedir nada
+    expect((await screen.findAllByText("Descargando de YouTube… 8 %")).length).toBeGreaterThan(0);
+
+    act(() =>
+      canal!.socket.push({
+        type: "job",
+        job: { ...runningJob, percent: 20, last_message: "Descargando de YouTube… 20 %" },
+      }),
+    );
+    expect(await screen.findByText("20%")).toBeInTheDocument();
   });
 });

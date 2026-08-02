@@ -1,5 +1,6 @@
 /** Cliente HTTP de la API local. Mismo origen que la SPA; en `npm run dev`
- *  Vite hace proxy de /api al backend. */
+ *  Vite hace proxy de /api al backend. La lista de análisis NO va por aquí:
+ *  llega empujada por el WebSocket (`jobs/channel.ts`). */
 
 import type {
   Analysis,
@@ -17,7 +18,7 @@ import type {
 } from "./types";
 
 /** Versión de la API que necesita esta interfaz (ver `server.API_VERSION`). */
-export const REQUIRED_API_VERSION = 1;
+export const REQUIRED_API_VERSION = 2;
 
 export class ApiError extends Error {
   constructor(
@@ -54,8 +55,6 @@ const jsonInit = (method: string, body: unknown): RequestInit => ({
 export const api = {
   reference: () => request<Reference>("/api/reference"),
 
-  listJobs: () => request<Job[]>("/api/jobs"),
-  getJob: (id: string) => request<Job>(`/api/jobs/${id}`),
   createJob: (path: string, options: Partial<JobOptions>) =>
     request<Job>("/api/jobs", jsonInit("POST", { path, options })),
   uploadJob: (file: File, options: Partial<JobOptions>) => {

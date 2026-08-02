@@ -10,6 +10,7 @@ import { NewAnalysis } from "./components/NewAnalysis";
 import { Sidebar } from "./components/Sidebar";
 import type { Selection } from "./components/Transcript";
 import { useJobs } from "./hooks/useJobs";
+import { useJobsChannel } from "./jobs/JobsProvider";
 import { ReferenceProvider } from "./reference";
 import type { Job, Reference } from "./types";
 
@@ -18,7 +19,8 @@ const LAST_JOB_KEY = "phonotrainer:last-job";
 type Screen = "job" | "new" | "corpus";
 
 export default function App() {
-  const { jobs, loaded, error, refresh } = useJobs();
+  const { jobs, loaded, error } = useJobs();
+  const channel = useJobsChannel();
   const [reference, setReference] = useState<Reference | null>(null);
   const [referenceError, setReferenceError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -58,7 +60,8 @@ export default function App() {
   };
 
   const onCreated = (job: Job) => {
-    void refresh();
+    // La respuesta del POST se aplica ya; el evento del servidor la confirma.
+    channel.upsert(job);
     select(job.id);
   };
 
@@ -102,10 +105,7 @@ export default function App() {
           onNew={() => setScreen("new")}
           onCorpus={() => setScreen("corpus")}
           corpusOpen={screen === "corpus"}
-          onChanged={() => {
-            setSelectedId(null);
-            void refresh();
-          }}
+          onChanged={() => setSelectedId(null)}
         />
         <main className="main">
           {error && (
@@ -127,10 +127,9 @@ export default function App() {
               job={selected!}
               initialSelection={jumpTo}
               onBackToCorpus={cameFromCorpus ? () => setScreen("corpus") : undefined}
-              onChanged={() => void refresh()}
             />
           ) : (
-            <JobProgress job={selected!} onChanged={() => void refresh()} />
+            <JobProgress job={selected!} />
           )}
         </main>
       </div>

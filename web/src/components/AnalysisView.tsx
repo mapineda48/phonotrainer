@@ -20,14 +20,13 @@ type Tab = "word" | "summary" | "review";
 
 interface Props {
   job: Job;
-  onChanged: () => void;
   /** Palabra que hay que abrir al entrar (viene del corpus). */
   initialSelection?: Selection | null;
   /** Presente si se llegó desde el corpus: permite volver sin perder el filtro. */
   onBackToCorpus?: () => void;
 }
 
-export function AnalysisView({ job, onChanged, initialSelection = null,
+export function AnalysisView({ job, initialSelection = null,
                                onBackToCorpus }: Props) {
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -75,7 +74,7 @@ export function AnalysisView({ job, onChanged, initialSelection = null,
 
   return (
     <PlayerProvider src={job.has_audio ? api.audioUrl(job.id) : null}>
-      <AnalysisBody job={job} analysis={analysis} onChanged={onChanged}
+      <AnalysisBody job={job} analysis={analysis}
                     initialSelection={initialSelection} onBackToCorpus={onBackToCorpus} />
     </PlayerProvider>
   );
@@ -84,13 +83,11 @@ export function AnalysisView({ job, onChanged, initialSelection = null,
 function AnalysisBody({
   job,
   analysis,
-  onChanged,
   initialSelection,
   onBackToCorpus,
 }: {
   job: Job;
   analysis: Analysis;
-  onChanged: () => void;
   initialSelection: Selection | null;
   onBackToCorpus?: () => void;
 }) {
@@ -394,7 +391,7 @@ function AnalysisBody({
 
           {tab === "review" &&
             (job.has_analysis ? (
-              <ReviewPanel jobId={job.id} onSaved={onChanged} />
+              <ReviewPanel jobId={job.id} />
             ) : (
               <div className="panel__body">
                 <p className="muted tiny">No hay análisis que revisar.</p>

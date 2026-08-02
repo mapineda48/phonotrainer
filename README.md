@@ -103,18 +103,25 @@ borrar y reconstruir reanalizando o reimportando.
 
 - **`phonotrainer/jobs.py`**: cada análisis es un *job* que corre en un hilo (de
   uno en uno), publica progreso y sobrevive a un reinicio (`workspace/<id>/job.json`).
-  Los archivos locales se referencian sin copiarse; los `out/` externos se importan.
+  Cada cambio se anuncia a los observadores (`subscribe`), que es de donde come el
+  WebSocket. Los archivos locales se referencian sin copiarse; los `out/` externos
+  se importan.
 - **`phonotrainer/server.py`**: API REST local (FastAPI) + servido de la SPA y del
-  audio con Range. `/api/reference` publica la taxonomía de fenómenos, así que la
-  UI no mantiene una copia de las etiquetas.
+  audio con Range. El estado de los análisis viaja empujado por WebSocket
+  (`/ws/jobs`: snapshot al conectar y, tras cada cambio, el job completo y fresco,
+  así que aplicar eventos es idempotente) —la interfaz no sondea `/api/jobs`.
+  `/api/reference` publica la taxonomía de fenómenos, así que la UI no mantiene una
+  copia de las etiquetas.
 - **`phonotrainer/download.py`**: yt-dlp con una costura (`ydl_factory`) para
   que los tests no salgan a la red; el progreso se publica como el del pipeline.
 - **`phonotrainer/db.py`**: el corpus. Tres tablas (análisis, palabras,
   fenómenos) y consultas entre análisis; se alimenta solo al terminar o importar.
 - **`web/`**: React + TypeScript (Vite). Un solo `<audio>` gobierna la app; el
   tiempo se publica por un store externo (`player/clock.ts`) para no re-renderizar
-  la transcripción 60 veces por segundo. Los colores son los mismos 4 slots
-  categóricos validados que usa `report.html`.
+  la transcripción 60 veces por segundo. La lista de análisis y sus logs llegan
+  por otro store externo (`jobs/channel.ts`), un WebSocket con reconexión que
+  comparten todos los componentes vía `JobsProvider`. Los colores son los mismos
+  4 slots categóricos validados que usa `report.html`.
 
 ## Arquitectura (resumen)
 

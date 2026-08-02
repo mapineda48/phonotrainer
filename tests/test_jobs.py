@@ -51,6 +51,43 @@ def test_progreso_con_marca_de_tiempo_y_porcentaje(store, media):
     assert job.percent == 100
 
 
+def test_los_observadores_se_enteran_del_ciclo_completo(store, media):
+    """De aquí come el WebSocket: upsert al crear, al correr, al terminar
+    y deleted al borrar. Un observador roto no rompe el análisis."""
+    eventos = []
+    store.subscribe(lambda event, job_id: eventos.append((event, job_id)))
+    store.subscribe(lambda _e, _i: (_ for _ in ()).throw(RuntimeError("roto")))
+
+    job = store.create(media)
+    _done(store, job)
+    store.delete(job.id)
+
+    assert ("upsert", job.id) in eventos
+    assert ("deleted", job.id) in eventos
+    # cada mensaje de progreso es un upsert: hay varios entre crear y terminar
+    assert len([e for e in eventos if e == ("upsert", job.id)]) > 3
+
+
+def test_unsubscribe_deja_de_recibir(store, media):
+    eventos = []
+    baja = store.subscribe(lambda event, job_id: eventos.append(event))
+    baja()
+
+    job = store.create(media)
+    _done(store, job)
+    assert eventos == []
+
+
+def test_touch_avisa_de_cambios_ajenos_al_store(store, media):
+    job = store.create(media)
+    _done(store, job)
+
+    eventos = []
+    store.subscribe(lambda event, job_id: eventos.append((event, job_id)))
+    store.touch(job.id)
+    assert eventos == [("upsert", job.id)]
+
+
 def test_estimacion_de_porcentaje():
     assert estimate_percent(None) == 0
     assert estimate_percent("Extrayendo audio (ffmpeg…)") == 17

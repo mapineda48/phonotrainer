@@ -6,13 +6,15 @@ import { render, screen, type RenderOptions } from "@testing-library/react";
 import type { ReactElement, ReactNode } from "react";
 import { vi } from "vitest";
 
+import { JobsChannel, type JobsSocket } from "../jobs/channel";
+import { JobsProvider } from "../jobs/JobsProvider";
 import { Clock } from "../player/clock";
 import { PlayerContextProvider, type PlayerApi } from "../player/PlayerProvider";
 import { ReferenceProvider } from "../reference";
 import type { AlignedPhone, Analysis, Job, Reference, Word } from "../types";
 
 export const reference: Reference = {
-  api_version: 1,
+  api_version: 2,
   families: [
     {
       key: "red",
@@ -227,13 +229,67 @@ export function fakePlayer(overrides: Partial<PlayerApi> = {}): PlayerApi {
   };
 }
 
+/** WebSocket de mentira para el canal de jobs: al "abrirse" entrega el
+ *  snapshot y luego el test empuja eventos con push(). La apertura va en un
+ *  microtask, como el open real: para entonces el canal ya asignó handlers. */
+export class FakeJobsSocket implements JobsSocket {
+  onopen: (() => void) | null = null;
+  onmessage: ((event: { data: string }) => void) | null = null;
+  onclose: (() => void) | null = null;
+
+  constructor(
+    private readonly snapshot: Job[] = [],
+    { autoOpen = true }: { autoOpen?: boolean } = {},
+  ) {
+    if (autoOpen) queueMicrotask(() => this.open());
+  }
+
+  open(): void {
+    this.onopen?.();
+    this.push({ type: "snapshot", jobs: this.snapshot });
+  }
+
+  push(message: unknown): void {
+    this.onmessage?.({ data: JSON.stringify(message) });
+  }
+
+  close(): void {
+    /* el canal cierra al desecharse: aquí no hay nada que cerrar */
+  }
+}
+
+/** Canal con el socket de mentira dentro. El socket nace al suscribirse
+ *  (como el real), así que se pide con el getter, no antes. */
+export function fakeJobsChannel(jobs: Job[] = []) {
+  let socket: FakeJobsSocket | null = null;
+  const channel = new JobsChannel("ws://test", () => {
+    socket = new FakeJobsSocket(jobs);
+    return socket;
+  });
+  return {
+    channel,
+    get socket(): FakeJobsSocket {
+      if (!socket) throw new Error("nadie se ha suscrito todavía: no hay socket");
+      return socket;
+    },
+  };
+}
+
 export function renderWith(
   ui: ReactElement,
-  { player = fakePlayer(), ...options }: { player?: PlayerApi } & RenderOptions = {},
+  {
+    player = fakePlayer(),
+    jobsChannel,
+    ...options
+  }: { player?: PlayerApi; jobsChannel?: JobsChannel } & RenderOptions = {},
 ) {
   const Wrapper = ({ children }: { children: ReactNode }) => (
     <ReferenceProvider value={reference}>
-      <PlayerContextProvider value={player}>{children}</PlayerContextProvider>
+      <PlayerContextProvider value={player}>
+        <JobsProvider channel={jobsChannel ?? fakeJobsChannel().channel}>
+          {children}
+        </JobsProvider>
+      </PlayerContextProvider>
     </ReferenceProvider>
   );
   return { player, ...render(ui, { wrapper: Wrapper, ...options }) };

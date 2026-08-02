@@ -1,12 +1,16 @@
-/** Recorrido de la app contra un backend simulado a nivel de fetch. */
+/** Recorrido de la app: REST simulado a nivel de fetch y estado de los
+ *  análisis empujado por un canal WebSocket de mentira (como en producción,
+ *  aquí tampoco se sondea /api/jobs). */
 
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { render } from "@testing-library/react";
+import { act } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App";
-import { analysis, job, reference, wordButton } from "./test/fixtures";
+import { JobsProvider } from "./jobs/JobsProvider";
+import { analysis, fakeJobsChannel, job, reference, wordButton } from "./test/fixtures";
 import type { Job } from "./types";
 
 type Handler = (url: string, init?: RequestInit) => unknown;
@@ -26,18 +30,25 @@ function mockFetch(routes: Record<string, Handler>) {
   return fetchMock;
 }
 
+/** La app con su canal: los análisis llegan por el snapshot del WebSocket. */
+function renderApp(jobs: Job[]) {
+  const tools = fakeJobsChannel(jobs);
+  render(
+    <JobsProvider channel={tools.channel}>
+      <App />
+    </JobsProvider>,
+  );
+  return tools;
+}
+
 beforeEach(() => {
   window.localStorage.clear();
 });
 
 describe("App", () => {
   it("sin análisis previos ofrece crear uno", async () => {
-    mockFetch({
-      "GET /api/reference": () => reference,
-      "GET /api/jobs": () => [],
-    });
-
-    render(<App />);
+    mockFetch({ "GET /api/reference": () => reference });
+    renderApp([]);
 
     expect(await screen.findByText("Analizar habla nativa")).toBeInTheDocument();
     expect(screen.getByText(/Todavía no hay análisis/)).toBeInTheDocument();
@@ -46,11 +57,9 @@ describe("App", () => {
   it("abre el último análisis y muestra la transcripción", async () => {
     mockFetch({
       "GET /api/reference": () => reference,
-      "GET /api/jobs": () => [job],
       [`GET /api/jobs/${job.id}/analysis`]: () => analysis,
     });
-
-    render(<App />);
+    renderApp([job]);
 
     await screen.findByRole("button", { name: /^does/ });
     expect(wordButton("does")).toBeInTheDocument();
@@ -71,13 +80,8 @@ describe("App", () => {
       has_analysis: false,
       progress: [{ at: "2026-07-26T12:00:02+00:00", message: "Transcribiendo…" }],
     };
-    mockFetch({
-      "GET /api/reference": () => reference,
-      "GET /api/jobs": () => [running],
-      [`GET /api/jobs/${running.id}`]: () => running,
-    });
-
-    render(<App />);
+    mockFetch({ "GET /api/reference": () => reference });
+    renderApp([running]);
 
     expect(await screen.findByText("Analizando…")).toBeInTheDocument();
     expect(screen.getByText("40%")).toBeInTheDocument();
@@ -88,12 +92,9 @@ describe("App", () => {
   it("lanza un análisis nuevo con la ruta y las opciones elegidas", async () => {
     const fetchMock = mockFetch({
       "GET /api/reference": () => reference,
-      "GET /api/jobs": () => [],
-      "POST /api/jobs": () => ({ ...job, id: "nuevo", status: "queued" }),
-      "GET /api/jobs/nuevo": () => ({ ...job, id: "nuevo", status: "queued", percent: 0 }),
+      "POST /api/jobs": () => ({ ...job, id: "nuevo", status: "queued", percent: 0 }),
     });
-
-    render(<App />);
+    renderApp([]);
     await screen.findByText("Analizar habla nativa");
 
     await userEvent.type(
@@ -116,6 +117,9 @@ describe("App", () => {
         },
       });
     });
+
+    // la respuesta del POST se aplica al canal al momento: se abre su progreso
+    expect(await screen.findByText("En cola…")).toBeInTheDocument();
   });
 
   it("analiza una URL de YouTube sin pasar por el disco", async () => {
@@ -125,18 +129,11 @@ describe("App", () => {
       last_message: "Descargando de YouTube… 45 %",
       progress: [{ at: "2026-07-26T12:00:02+00:00", message: "Descargando de YouTube… 45 %" }],
     };
-    let creado = false;
     const fetchMock = mockFetch({
       "GET /api/reference": () => reference,
-      "GET /api/jobs": () => (creado ? [descargando] : []),
-      "POST /api/jobs/youtube": () => {
-        creado = true;
-        return { ...descargando, status: "queued" };
-      },
-      "GET /api/jobs/yt": () => descargando,
+      "POST /api/jobs/youtube": () => ({ ...descargando, status: "queued", percent: 0 }),
     });
-
-    render(<App />);
+    const { socket } = renderApp([]);
     await screen.findByText("Analizar habla nativa");
 
     await userEvent.type(
@@ -156,14 +153,14 @@ describe("App", () => {
       });
     });
 
-    // y el progreso de la descarga se ve como una etapa más (estado y registro)
+    // el progreso de la descarga llega empujado por el canal (estado y registro)
+    act(() => socket.push({ type: "job", job: descargando }));
     expect(await screen.findAllByText(/Descargando de YouTube/)).toHaveLength(2);
   });
 
   it("desde el corpus se abre un análisis en la palabra elegida", async () => {
     const fetchMock = mockFetch({
       "GET /api/reference": () => reference,
-      "GET /api/jobs": () => [job],
       [`GET /api/jobs/${job.id}/analysis`]: () => analysis,
       "GET /api/corpus/stats": () => ({
         analyses: 1, sources: 1, words: 5, segments: 2, duration: 3,
@@ -189,8 +186,7 @@ describe("App", () => {
         }],
       }),
     });
-
-    render(<App />);
+    renderApp([job]);
     await screen.findByRole("button", { name: /^does/ });
 
     await userEvent.click(screen.getByRole("button", { name: /^Corpus/ }));
@@ -212,12 +208,8 @@ describe("App", () => {
     // Sirve el dist/ nuevo desde disco, así que la interfaz carga y luego pide
     // rutas que ese servidor no tiene («Method Not Allowed»).
     const { api_version: _omitido, ...viejo } = reference;
-    mockFetch({
-      "GET /api/reference": () => viejo,
-      "GET /api/jobs": () => [],
-    });
-
-    render(<App />);
+    mockFetch({ "GET /api/reference": () => viejo });
+    renderApp([]);
 
     expect(await screen.findByText(/más antiguo que esta interfaz/)).toBeInTheDocument();
     expect(screen.getByText(/Párralo \(Ctrl-C\)/)).toBeInTheDocument();
@@ -230,8 +222,7 @@ describe("App", () => {
         throw new Error("conexión rechazada");
       }),
     );
-
-    render(<App />);
+    renderApp([]);
 
     expect(await screen.findByText(/No se pudo hablar con el backend/)).toBeInTheDocument();
   });

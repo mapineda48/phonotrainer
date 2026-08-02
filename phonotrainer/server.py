@@ -18,17 +18,21 @@ se sirve con soporte de Range para que el reproductor pueda hacer seek.
     GET    /api/jobs/{id}/review/sample  muestreo priorizado (n, seed)
     PUT    /api/jobs/{id}/review         guardar veredictos
     GET    /api/browse                   explorador de archivos (bajo $HOME)
+    WS     /ws/jobs                      estado de los análisis empujado en vivo
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal, get_args
+from urllib.parse import urlparse
 
-from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile
+from fastapi import (FastAPI, File, Form, HTTPException, Query, Request,
+                     UploadFile, WebSocket, WebSocketDisconnect)
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field, ValidationError
 
@@ -56,7 +60,8 @@ MAX_SAMPLE = 500   # tope de palabras por muestreo de revisión
 # interfaz necesite: la SPA se sirve desde disco y siempre está al día, pero el
 # proceso que responde puede ser uno viejo que quedó abierto —y entonces la
 # interfaz pedía rutas inexistentes y mostraba «Method Not Allowed».
-API_VERSION = 1
+#   2: /ws/jobs — la interfaz ya no sondea /api/jobs
+API_VERSION = 2
 
 
 class Options(BaseModel):
@@ -326,6 +331,59 @@ def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
     def cancel_job(job_id: str) -> dict:
         return _store().cancel(job_id).to_public(full=True)
 
+    # --- estado en vivo (WebSocket: la interfaz no sondea) --------------------
+    def _ws_origin_allowed(ws: WebSocket) -> bool:
+        """Un WebSocket NO pasa por CORS: sin este filtro cualquier página
+        abierta en el navegador podría leer tu lista de análisis. Se aceptan
+        clientes sin Origin (curl, tests), orígenes loopback (la SPA y el
+        proxy de Vite) y el propio host al que se conectaron."""
+        origin = ws.headers.get("origin")
+        if origin is None:
+            return True
+        host = urlparse(origin).hostname
+        return host in ("localhost", "127.0.0.1", "::1") or host == ws.url.hostname
+
+    @app.websocket("/ws/jobs")
+    async def jobs_ws(ws: WebSocket) -> None:
+        """Snapshot inicial + eventos "job" / "deleted" conforme cambia el store.
+
+        El observador del store solo encola el id y aquí se relee el estado al
+        ENVIAR, no al producirse el evento: cada mensaje lleva el job completo
+        y fresco, así que aplicarlos es idempotente y nunca hacen retroceder
+        al cliente (un evento viejo reenvía el estado actual).
+        """
+        if not _ws_origin_allowed(ws):
+            await ws.close(code=1008)   # policy violation
+            return
+        await ws.accept()
+        loop = asyncio.get_running_loop()
+        pending: asyncio.Queue[tuple[str, str]] = asyncio.Queue()
+
+        def on_store_event(event: str, job_id: str) -> None:
+            # Se llama desde el hilo trabajador: saltar al bucle asyncio.
+            loop.call_soon_threadsafe(pending.put_nowait, (event, job_id))
+
+        unsubscribe = _store().subscribe(on_store_event)
+        try:
+            await ws.send_json({
+                "type": "snapshot",
+                "jobs": [j.to_public(full=True) for j in _store().list()],
+            })
+            while True:
+                event, job_id = await pending.get()
+                if event == "deleted":
+                    await ws.send_json({"type": "deleted", "id": job_id})
+                    continue
+                try:
+                    job = _store().get(job_id)
+                except JobNotFound:
+                    continue       # borrado entre medias: su "deleted" va detrás
+                await ws.send_json({"type": "job", "job": job.to_public(full=True)})
+        except WebSocketDisconnect:
+            pass
+        finally:
+            unsubscribe()
+
     # --- artefactos ---------------------------------------------------------
     @app.get("/api/jobs/{job_id}/analysis")
     def get_analysis(job_id: str) -> FileResponse:
@@ -383,6 +441,7 @@ def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
         except ValueError as exc:
             raise HTTPException(400, str(exc)) from exc
         review_mod.save_review(analysis_path, items, seed=req.seed)
+        _store().touch(job_id)        # has_review cambia: avisar a los clientes WS
         payload = {"seed": req.seed, "items": items}
         payload.update(review_mod.summarize(items))
         return payload
