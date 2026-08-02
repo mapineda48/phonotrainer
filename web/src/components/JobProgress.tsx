@@ -115,7 +115,8 @@ export function JobProgress({ job: initial, onChanged }: Props) {
         <div className="card">
           <strong className="tiny">Registro</strong>
           <div className="log" style={{ marginTop: 8 }}>
-            {job.progress.map((entry, index) => (
+            {/* Lo más reciente arriba: es la línea que importa, sin desplazarse. */}
+            {[...job.progress].reverse().map((entry, index) => (
               <div key={`${entry.at}-${index}`}>{entry.message}</div>
             ))}
           </div>
