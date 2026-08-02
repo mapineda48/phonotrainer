@@ -72,6 +72,40 @@ describe("Transcript", () => {
     expect(wordButton("that")).not.toHaveClass("w--playing");
   });
 
+  it("con «seguir» activo el segmento que suena se ancla arriba", () => {
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(window.Element.prototype, "scrollIntoView", {
+      configurable: true,
+      writable: true,
+      value: scrollIntoView,
+    });
+    const player = fakePlayer();
+    renderTranscript({ follow: true }, player);
+
+    // El primer segmento ya está activo al cargar: se ancla sin esperar.
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: "start", behavior: "smooth" });
+
+    act(() => player.clock.set(2.05)); // entra el segundo segmento
+
+    expect(scrollIntoView).toHaveBeenLastCalledWith({ block: "start", behavior: "smooth" });
+    expect(scrollIntoView).toHaveBeenCalledTimes(2);
+  });
+
+  it("con «seguir» apagado no desplaza la transcripción", () => {
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(window.Element.prototype, "scrollIntoView", {
+      configurable: true,
+      writable: true,
+      value: scrollIntoView,
+    });
+    const player = fakePlayer();
+    renderTranscript({ follow: false }, player);
+
+    act(() => player.clock.set(2.05));
+
+    expect(scrollIntoView).not.toHaveBeenCalled();
+  });
+
   it("el botón de tiempo reproduce el segmento entero", async () => {
     const { player } = renderTranscript();
 

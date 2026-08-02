@@ -77,7 +77,8 @@ function SegmentCard({ segment, index, selected, onSelect, filter, follow }: Seg
     if (!follow || !isActive) return;
     const node = ref.current;
     if (node && typeof node.scrollIntoView === "function") {
-      node.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      // "start": el segmento que suena se ancla arriba, no solo "que se vea".
+      node.scrollIntoView({ block: "start", behavior: "smooth" });
     }
   }, [follow, isActive]);
 

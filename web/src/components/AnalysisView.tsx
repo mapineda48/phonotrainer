@@ -265,7 +265,7 @@ function AnalysisBody({
           type="button"
           className="btn btn--sm"
           aria-pressed={follow}
-          title="Seguir la reproducción y desplazar la transcripción (F)"
+          title="Seguir la reproducción: el segmento que suena se queda arriba (F)"
           onClick={() => setFollow((value) => !value)}
         >
           Seguir
@@ -445,7 +445,7 @@ const SHORTCUTS: [string, string][] = [
   ["S", "repetir la frase entera"],
   ["L", "bucle: repetir el fragmento acotado"],
   ["← / →", "retroceder / avanzar 2 s"],
-  ["F", "seguir la reproducción (desplaza la transcripción)"],
+  ["F", "seguir la reproducción (el segmento que suena, siempre arriba)"],
   ["1 / 2 / 3", "en Revisión: ok / mal / dudosa"],
   ["?", "mostrar u ocultar esta ayuda"],
 ];
