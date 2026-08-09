@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { api } from "../api";
 import { useHotkeys } from "../hooks/useHotkeys";
+import { usePersistentFlag } from "../hooks/usePersistentFlag";
 import { filteredWords, flattenWords, wordSpan, type FlatWord } from "../lib/analysis";
 import { PlayerProvider, usePlayer } from "../player/PlayerProvider";
 import { useReference } from "../reference";
@@ -101,9 +102,13 @@ function AnalysisBody({
   const [tab, setTab] = useState<Tab>("summary");
   const [filter, setFilter] = useState<ReadonlySet<string>>(new Set());
   const [follow, setFollow] = useState(true);
-  const [showVideo, setShowVideo] = useState(false);
+  // Preferencia persistente: por defecto apagado (como siempre); solo se
+  // respeta si el análisis abierto tiene video.
+  const [showVideo, toggleVideo] = usePersistentFlag("phonotrainer:show-video");
   const [showHelp, setShowHelp] = useState(false);
   const [query, setQuery] = useState("");
+
+  const hasVideo = job.is_video && job.has_media;
 
   const duration = analysis.meta.duration;
   const canPlay = job.has_audio;
@@ -183,6 +188,7 @@ function AnalysisBody({
     ArrowLeft: () => player.seek(player.clock.getSnapshot() - 2),
     l: () => player.setLoop(!player.loop),
     f: () => setFollow((value) => !value),
+    v: () => hasVideo && toggleVideo(),
     n: () => jump(1),
     N: () => jump(-1),
     p: () => selectedWord && player.play(wordSpan(selectedWord)),
@@ -248,12 +254,13 @@ function AnalysisBody({
             {walk.length} {walk.length === 1 ? "coincidencia" : "coincidencias"}
           </span>
         )}
-        {job.is_video && job.has_media && (
+        {hasVideo && (
           <button
             type="button"
             className="btn btn--sm"
             aria-pressed={showVideo}
-            onClick={() => setShowVideo((value) => !value)}
+            title="Mostrar el video original sobre la transcripción (V)"
+            onClick={toggleVideo}
           >
             Video
           </button>
@@ -305,12 +312,7 @@ function AnalysisBody({
       </a>
 
       <div className="workspace">
-        <div style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
-          {showVideo && job.has_media && (
-            <div style={{ padding: "10px 16px 0" }}>
-              <VideoPane src={api.mediaUrl(job.id)} />
-            </div>
-          )}
+        <div style={{ display: "flex", flexDirection: "column", minHeight: 0, position: "relative" }}>
           <Transcript
             analysis={analysis}
             selected={selected}
@@ -318,6 +320,21 @@ function AnalysisBody({
             filter={filter}
             follow={follow}
           />
+          {showVideo && hasVideo && (
+            /* El dock flota sobre la transcripción: acompaña al scroll que
+             * sigue la frase en vez de empujarla hacia abajo. */
+            <div className="video-dock">
+              <VideoPane src={api.mediaUrl(job.id)} />
+              <button
+                type="button"
+                className="btn btn--ghost btn--sm video-dock__close"
+                aria-label="Ocultar video"
+                onClick={toggleVideo}
+              >
+                ✕
+              </button>
+            </div>
+          )}
         </div>
 
         <aside className="aside" id="panel" tabIndex={-1}>
@@ -443,6 +460,7 @@ const SHORTCUTS: [string, string][] = [
   ["L", "bucle: repetir el fragmento acotado"],
   ["← / →", "retroceder / avanzar 2 s"],
   ["F", "seguir la reproducción (el segmento que suena, siempre arriba)"],
+  ["V", "mostrar u ocultar el video original"],
   ["1 / 2 / 3", "en Revisión: ok / mal / dudosa"],
   ["?", "mostrar u ocultar esta ayuda"],
 ];

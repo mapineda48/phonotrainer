@@ -1008,6 +1008,26 @@ button {
   display: block;
 }
 
+/* El video flota sobre la transcripción, esquina inferior derecha: se ve
+ * mientras el scroll sigue la frase que suena. */
+.video-dock {
+  position: absolute;
+  right: 22px;
+  bottom: 14px;
+  width: min(320px, 45%);
+  z-index: 6;
+  border-radius: var(--radius);
+  box-shadow: 0 8px 28px rgb(0 0 0 / 0.35);
+}
+
+.video-dock__close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: rgb(0 0 0 / 0.55);
+  color: #fff;
+}
+
 .legend {
   display: flex;
   flex-wrap: wrap;
