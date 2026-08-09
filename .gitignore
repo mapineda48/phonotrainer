@@ -1,5 +1,12 @@
 .venv/
-references/*/
+
+# Clones de terceros para consultar (ver references/NOTES.md). NO se distribuyen:
+# cada uno tiene su propia licencia y wav2vec2mdd no tiene ninguna. El patrón
+# ignora también los archivos sueltos, no solo los directorios; NOTES.md es
+# nuestro y se versiona aparte.
+references/*
+!references/NOTES.md
+
 out/
 out_*/
 workspace/
@@ -23,3 +30,13 @@ web/coverage/
 downloads/
 data/
 *.db
+
+# secretos y ruido local (aún no existen: el guardia va antes que el problema)
+.env
+.env.*
+!.env.example
+*.log
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

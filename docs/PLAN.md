@@ -1,6 +1,7 @@
-# PLAN.md — "PhonoTrainer": Analizador fonético de habla nativa
+# Plan de implementación — "PhonoTrainer": Analizador fonético de habla nativa
 
-> Documento de implementación para Claude Code. Entorno: **Fedora 44**, CPU (GPU opcional).
+> Documento de diseño original del proyecto; se conserva como registro de las
+> decisiones y de su procedencia. Entorno de referencia: **Fedora 44**, CPU (GPU opcional).
 > Objetivo: dado un video/audio en inglés, producir una línea de tiempo alineada con:
 > (1) transcripción, (2) fonos REALMENTE pronunciados, (3) pronunciación canónica alineada en tiempo,
 > (4) diff etiquetado de fenómenos de connected speech (wanna, gotcha, flapping, schwa, th-stopping…),
@@ -41,6 +42,11 @@ Modelos preentrenados (HuggingFace, descargar una vez):
 - **Fonos reales**: `facebook/wav2vec2-lv-60-espeak-cv-ft` (CTC → fonemas estilo eSpeak/IPA).
   Fallback ligero: `allosaurus eng2102`.
 - **Forced alignment canónico**: `torchaudio.pipelines.MMS_FA` o el aligner de whisperX
+  > **Descartado en la Fase 0, y no reintroducir.** Por lo técnico, `MMS_FA` alinea
+  > *caracteres*, no fonemas (ver `align_canonical.py`). Por lo legal, es
+  > **CC-BY-NC 4.0**: adoptarlo impondría una restricción no comercial a todos los
+  > usuarios del proyecto. Lo que se usa es `torchaudio.functional.forced_align`,
+  > que es algoritmo puro (BSD-2-Clause) y no descarga pesos.
   (ambos pip-instalables; evitamos conda/MFA salvo que la calidad lo exija).
 - **Distancia fonética para el diff**: `panphon` (vectores de rasgos articulatorios → costos de
   sustitución fundados lingüísticamente, en vez de matriz ad-hoc).

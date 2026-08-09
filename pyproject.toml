@@ -2,7 +2,31 @@
 name = "phonotrainer"
 version = "0.1.0"
 description = "Analizador fonético de habla nativa en inglés: fonos reales vs canónicos + fenómenos de connected speech + prosodia"
+readme = "README.md"
 requires-python = ">=3.11"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+authors = [{ name = "Miguel Pineda" }]
+keywords = [
+    "phonetics", "connected-speech", "pronunciation", "forced-alignment",
+    "speech-recognition", "wav2vec2", "whisper", "ipa", "prosody", "linguistics",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Environment :: Web Environment",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "Natural Language :: English",
+    "Natural Language :: Spanish",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Topic :: Education",
+    "Topic :: Multimedia :: Sound/Audio :: Speech",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Text Processing :: Linguistic",
+]
+
 dependencies = [
     "faster-whisper>=1.0",
     "transformers>=4.40",
@@ -24,6 +48,11 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "httpx>=0.27"]
+
+[project.urls]
+Homepage = "https://github.com/mapineda48/phonotrainer"
+Repository = "https://github.com/mapineda48/phonotrainer"
+Issues = "https://github.com/mapineda48/phonotrainer/issues"
 
 [project.scripts]
 phonotrainer = "phonotrainer.cli:main"

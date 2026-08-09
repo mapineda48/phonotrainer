@@ -4,6 +4,40 @@
 > en tiempo + fenómenos de connected speech). Rutas relativas a `references/`.
 > Convención de citas: `repo/archivo.py::funcion` (número de línea aproximado al commit clonado).
 
+## Cómo reproducir `references/`
+
+Los clones **no se distribuyen** con este repositorio (`.gitignore`): cada uno
+tiene su licencia y uno de ellos no tiene ninguna. Para seguir las citas de
+abajo, clónalos tú en los commits que se consultaron:
+
+```bash
+mkdir -p references && cd references
+git clone https://github.com/Halleck45/OpenPronounce   && git -C OpenPronounce   checkout 759ab4c
+git clone https://github.com/m-bain/whisperX           && git -C whisperX        checkout 2cfd7b7
+git clone https://github.com/SYSTRAN/faster-whisper    && git -C faster-whisper  checkout ed9a06c
+git clone https://github.com/rhss10/joint-apa-mdd-mtl  && git -C joint-apa-mdd-mtl checkout 5fbc315
+git clone https://github.com/vocaliodmiku/wav2vec2mdd  && git -C wav2vec2mdd     checkout 760ccca
+```
+
+| Repo | Commit | Licencia |
+|---|---|---|
+| OpenPronounce | `759ab4c` | MIT — Copyright (c) 2025 Jean-François Lépine |
+| whisperX | `2cfd7b7` | BSD-2-Clause — Copyright (c) 2024, Max Bain |
+| faster-whisper | `ed9a06c` | MIT — Copyright (c) 2023 SYSTRAN |
+| joint-apa-mdd-mtl | `5fbc315` | MIT — Copyright 2023 Hyungshin Ryu |
+| wav2vec2mdd | `760ccca` | ⚠️ **SIN LICENCIA** — todos los derechos reservados |
+
+> ⚠️ **`wav2vec2mdd` no tiene licencia** en ningún punto de su historial, y sus
+> datos derivan de L2-ARCTIC y TIMIT (corpus con sus propias restricciones). Es
+> **material de lectura**: nunca copiar de ahí código, tablas ni datos a
+> `phonotrainer/`. Lo mismo vale, con más margen, para el resto: lo que se tomó
+> de todos ellos son **ideas**, reimplementadas de cero —se verificó por
+> contenido que no hay código copiado (ver `THIRD-PARTY-NOTICES.md` §6)—.
+>
+> Este documento cita fragmentos cortos (unas 5 líneas en total) con fines de
+> **comentario crítico e identificación**. Cada repositorio se rige por su
+> propia licencia.
+
 ---
 
 ## 1. OpenPronounce (`references/OpenPronounce/`)

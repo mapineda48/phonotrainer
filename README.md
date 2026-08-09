@@ -1,10 +1,45 @@
 # PhonoTrainer
 
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3%2B-blue.svg)](LICENSE)
+
 Analizador fonético de habla nativa en inglés. Dado un **video o audio**, produce una
 línea de tiempo alineada con: transcripción, fonos realmente pronunciados, pronunciación
 canónica alineada en tiempo, diff etiquetado de fenómenos de *connected speech*
-(wanna, gotcha, flapping, schwa…) y prosodia (F0, énfasis, contorno). Ver `task.md`
-para el plan completo y `references/NOTES.md` para las decisiones de la Fase 0.
+(wanna, gotcha, flapping, schwa…) y prosodia (F0, énfasis, contorno).
+Ver [`docs/PLAN.md`](docs/PLAN.md) para el plan completo y
+[`references/NOTES.md`](references/NOTES.md) para las decisiones de la Fase 0.
+
+La pregunta que contesta no es "¿lo pronuncias bien?" sino **"¿qué hace de verdad
+un nativo aquí, y en qué se aparta de la forma de diccionario?"**. Las
+herramientas de detección de errores (MDD) miden esa desviación para corregir a
+un alumno; PhonoTrainer la mide con el signo invertido, para enseñar el fenómeno.
+
+> **English summary.** PhonoTrainer analyses native English speech. Given a video
+> or audio file it produces a time-aligned view of what was *actually*
+> pronounced (wav2vec2 phone CTC) against the time-aligned canonical
+> pronunciation (forced alignment over the same acoustic pass), labels the
+> differences as connected-speech phenomena (flapping, t-deletion, vowel
+> reduction, linking, palatalisation…), and adds prosody (F0, stress, final
+> contour). CLI + local React web UI. Docs and code comments are in Spanish;
+> the subject matter is English phonetics.
+
+## Uso aceptable
+
+PhonoTrainer es una herramienta de **análisis lingüístico personal** sobre
+material al que ya tienes derecho a acceder.
+
+- **No se distribuye ningún material con copyright** con este proyecto: ni
+  audio, ni vídeo, ni transcripciones derivadas. Los tests usan fixtures 100 %
+  sintéticos (tonos de numpy y media generada con ffmpeg).
+- La descarga desde plataformas externas (`yt-dlp`) **puede infringir sus
+  términos de servicio**, y esa responsabilidad es de quien la usa. Es una vía
+  de entrada más, no la función del programa: lo normal es apuntarlo a archivos
+  que ya tienes.
+- El flujo previsto son **fragmentos cortos para estudio privado** (cita / *fair
+  use*), no archivar obras completas ni redistribuirlas.
+- El modelo Whisper que hay debajo pide explícitamente no transcribir a personas
+  **sin su consentimiento**, no usarlo para decisiones de alto riesgo y no
+  inferir atributos de quien habla. Se traslada tal cual.
 
 ## Interfaz web (recomendado)
 
@@ -33,6 +68,11 @@ CLI. Los atajos están dentro (botón `?`).
 
 Por seguridad la interfaz solo abre archivos bajo `$HOME` y el directorio de
 trabajo; para un disco externo, `phonotrainer ui --allow-dir /mnt/videos`.
+
+> ⚠️ **El servidor no tiene autenticación de ningún tipo.** Escucha en
+> `127.0.0.1` a propósito. `--host 0.0.0.0` publica en la red local un navegador
+> de archivos de tu `$HOME` que cualquiera puede leer sin credenciales: no lo
+> expongas nunca a una interfaz pública.
 
 ## Material: de YouTube al análisis
 
@@ -73,8 +113,10 @@ Salidas en `out/`: `audio.wav`, `transcript.json`, `canonical.json`,
 `phones_real.json`, `analysis.json` y `report.html` (autocontenido, con modo oscuro).
 
 Opciones: `--whisper-model tiny|base|small|medium` (default `small`),
-`--phone-engine wav2vec2|allosaurus` (default `wav2vec2`), `--language en`,
-`--no-attraction` (desactiva la atracción fonética, para comparar salidas).
+`--language en`, `--no-attraction` (desactiva la atracción fonética, para
+comparar salidas). `--phone-engine` acepta `wav2vec2` (el único implementado, y
+el default) y `allosaurus`, que está reservado como punto de extensión y hoy
+falla con `NotImplementedError`.
 
 Validación humana muestreada (prioriza palabras atraídas/baja confianza/diff alto):
 
@@ -84,8 +126,21 @@ phonotrainer review out/analysis.json -n 20 --seed 48   # → out/review.json
 
 ## Setup desde cero
 
+Dos programas del sistema que `pip` no puede instalar. **ffmpeg** se invoca como
+proceso aparte (extraer y remuxar audio); **espeak-ng** lo carga `phonemizer`
+para fonemizar el canónico. Sin ellos el pipeline no arranca.
+
+| Sistema | Comando |
+|---|---|
+| Fedora / RHEL | `sudo dnf install -y ffmpeg espeak-ng` |
+| Debian / Ubuntu | `sudo apt install -y ffmpeg espeak-ng` |
+| macOS (Homebrew) | `brew install ffmpeg espeak-ng` |
+| Windows | Vía WSL2 con las órdenes de Debian/Ubuntu |
+
+Los dos son software libre con licencia propia (GPL) y **no se distribuyen con
+este proyecto**: los instalas tú.
+
 ```bash
-sudo dnf install -y ffmpeg espeak-ng      # requisitos de sistema (Fedora)
 uv venv --python 3.12 .venv
 uv pip install --python .venv/bin/python torch torchaudio --index-url https://download.pytorch.org/whl/cpu
 uv pip install --python .venv/bin/python -r requirements.txt -e .
@@ -155,3 +210,41 @@ Fixtures 100 % sintéticos (tonos numpy + media generada con ffmpeg): no hay aud
 con copyright en el repo; los episodios se procesan solo localmente. Los tests del
 servidor sustituyen el pipeline por un doble (`tests/conftest.py::fake_analyze`),
 así que corren en segundos y sin cargar modelos.
+
+## Licencia
+
+**GPL-3.0-or-later** ([`LICENSE`](LICENSE)).
+
+No es una preferencia estética: el camino principal del programa carga en el
+mismo proceso dos bibliotecas GPL-3.0-or-later, y eso fija la licencia de la
+obra combinada.
+
+- **`phonemizer`** (+ `espeak-ng`, cargado con `dlopen`) — el tokenizer del
+  modelo fonemiza **cada palabra canónica** en `align_canonical.py`. Es
+  invisible en los `import` del proyecto, pero es imprescindible: sin él la
+  alineación canónica devuelve `<unk>`.
+- **`praat-parselmouth`** — `import parselmouth` directo en `prosody.py`, sin
+  ruta alternativa.
+
+Publicar esto como MIT o Apache sería engañoso: nadie podría redistribuir el
+resultado bajo esos términos. El desglose completo —qué se descarga, qué se
+redistribuye y qué no— está en
+[`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md).
+
+## Créditos
+
+No se copió código de ningún proyecto de referencia (se verificó por contenido,
+no por nombre de archivo: 5 líneas coincidentes de ~5.900, todas `import` de la
+stdlib). Lo que se tomó son ideas, y se agradecen igual:
+
+- **[whisperX](https://github.com/m-bain/whisperX)** (BSD-2-Clause, Max Bain) —
+  alinear dentro de la ventana de cada segmento, `blank` = token `<pad>`,
+  interpolar huecos y degradar sin abortar.
+- **[OpenPronounce](https://github.com/Halleck45/OpenPronounce)** (MIT,
+  Jean-François Lépine) — el enfoque de prosodia: F0 acotada, interpolación de
+  tramos sordos, energía coescalada.
+- **[faster-whisper](https://github.com/SYSTRAN/faster-whisper)** (MIT, SYSTRAN)
+  y **[joint-apa-mdd-mtl](https://github.com/rhss10/joint-apa-mdd-mtl)** (MIT,
+  Hyungshin Ryu) — ASR con timestamps y la receta de decodificación CTC de fonemas.
+- **panphon** (Mortensen et al., *COLING 2016*) — los rasgos articulatorios que
+  dan sentido a los costes del diff.
