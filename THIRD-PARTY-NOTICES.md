@@ -1,8 +1,11 @@
 # Third-party notices — PhonoTrainer
 
 PhonoTrainer se distribuye bajo **GPL-3.0-or-later** (ver [`LICENSE`](LICENSE)).
-Este archivo acredita todo lo que el proyecto usa, referencia o descarga, y deja
-explícito qué se redistribuye y qué no.
+Este archivo acredita las **dependencias directas y las transitivas relevantes**
+—las que imponen alguna obligación o condicionan la licencia— junto con los
+proyectos de referencia y los modelos que se descargan. No es un inventario
+exhaustivo del entorno: importar el pipeline completo carga del orden de 60
+distribuciones, casi todas permisivas y sin más obligación que existir.
 
 **Este repositorio no redistribuye código, pesos ni corpus de terceros.** Todo lo
 que aparece abajo se instala con `pip`/`npm` o se descarga en el primer análisis
@@ -22,20 +25,44 @@ enlaza en su camino principal.
 | `phonemizer` 3.3.0 | **GPL-3.0-or-later** | El tokenizer del modelo (`Wav2Vec2PhonemeCTCTokenizer`, `phonemizer_backend="espeak"`) fonemiza **cada palabra canónica** en `align_canonical.py`. No aparece en ningún `import` nuestro, pero se carga siempre. |
 | `praat-parselmouth` 0.4.7 | **GPL-3.0-or-later** | `import parselmouth` directo en `prosody.py`: F0, intensidad y contorno. |
 | `espeak-ng` (sistema) | GPL-3.0-only AND GPL-3.0-or-later AND Apache-2.0 AND BSD-2-Clause AND Unicode-DFS-2016 AND CC-BY-SA-3.0 | `phonemizer` lo carga con `dlopen`. Binario del sistema, no se redistribuye. |
+| `av` (PyAV) 18.0.0 → **libx264**, **libx265** | GPL-2.0-or-later (los códecs); LGPL-3.0-or-later (las libs FFmpeg incrustadas) | `faster_whisper/audio.py` hace `import av` al cargar el módulo, así que basta `from faster_whisper import WhisperModel` para meter en el proceso el FFmpeg empaquetado dentro del *wheel* de PyAV, con `libx264-*.so` y `libx265-*.so` incluidos. |
 
-Ambas bibliotecas se importan en el mismo proceso, así que el trabajo combinado
+Las tres cadenas se cargan **en el mismo proceso**, así que el trabajo combinado
 que se distribuye es GPL-3.0. Una licencia permisiva (MIT/Apache) sería
 engañosa: nadie podría redistribuir el resultado bajo esos términos.
+GPL-2.0-or-later y LGPL-3.0-or-later son compatibles con GPL-3.0-or-later (por
+la cláusula «o posterior»), así que no hay conflicto, solo obligación.
 
-Para hacer PhonoTrainer permisivo habría que eliminar las dos rutas —fonemización
-canónica y prosodia— y sustituirlas por equivalentes no copyleft. Es trabajo de
-ingeniería real, no un cambio de metadatos.
+> Ese FFmpeg **no es** el `ffmpeg` de §5. Aquel es un proceso aparte —mera
+> agregación—; este viaja dentro de un *wheel* de PyPI y se enlaza en proceso.
+> La distinción es justo la que decide si hay obra combinada.
+
+Para hacer PhonoTrainer permisivo habría que neutralizar **tres** rutas, no dos:
+la prosodia (sustituir parselmouth), el decodificado de audio (evitar el `av` que
+arrastra faster-whisper) y la fonemización canónica. Esta última **no es un
+borrado sino una sustitución**: el tokenizer del modelo funciona con
+`do_phonemize=False` si se le dan fonemas IPA ya hechos, así que haría falta un
+G2P no copyleft (`g2p_en` + CMUdict ya está en el repo). El precio no es
+cosmético: el canónico de espeak y el de CMUdict difieren en cerca de la mitad
+de las palabras comunes (longitud vocálica `uː`/`u`, unidades rotizadas —espeak
+da *for* = `f ɔːɹ`, un token; CMUdict da `f ɔ ɹ`, dos—), y el modelo acústico se
+entrenó con etiquetas espeak: partir en dos lo que emite como uno genera
+inserciones y borrados falsos, y con ellos fenómenos inventados. Es un rediseño
+con recalibración y ~60 tests detrás, no un cambio de metadatos.
 
 **Compatibilidad verificada.** `distance` 0.1.3 (dependencia declarada por
-`g2p-en`) es **GPL-2.0-only**, que sería incompatible con GPL-3.0 — pero **no lo
-importa nadie**: ni `g2p_en` ni ningún otro paquete del entorno. Al no combinarse
-nunca con el programa, es mera agregación y no afecta. Si algún día algo empieza
-a importarlo, esta decisión hay que rehacerla.
+`g2p-en`) **se lee conservadoramente como GPL-2.0-only** —el autor adjunta el
+texto de la GPL-2 sin elegir versión; su §9 permitiría discutir que el licenciado
+puede elegir cualquier versión—, y GPL-2.0-only sí sería incompatible con
+GPL-3.0. Es discusión ociosa: **no lo importa nadie**, ni `g2p_en` ni ningún otro
+paquete del entorno (`'distance' in sys.modules` es `False` tras usar `G2p()`).
+Al no combinarse nunca con el programa, es mera agregación. Si algún día algo
+empieza a importarlo, esta decisión hay que rehacerla.
+
+También se revisó lo que habría sido fatal y no lo es: el `libsndfile` que
+incrusta el *wheel* de `soundfile` es **LGPL-2.1-or-later** (sus cabeceras
+conceden «or, at your option, any later version»); si fuera LGPL-2.1-*only* sería
+incompatible con GPL-3.0. No hay ningún LGPL-2.1-only ni GPL-2.0-only enlazado.
 
 ---
 
@@ -70,8 +97,9 @@ se nombran por familia en CSS; **no se incrustan**, así que no generan obligaci
 |---|---|---|---|
 | faster-whisper | 1.2.1 | MIT | Copyright (c) 2023 SYSTRAN |
 | CTranslate2 | 4.8.1 | MIT | OpenNMT |
+| `av` (PyAV) | 18.0.0 | BSD-3-Clause (el envoltorio) — su *wheel* incrusta FFmpeg (LGPL-3.0-or-later), **libx264** y **libx265** (GPL-2.0-or-later), libmp3lame, libopus, libdav1d, libSvtAv1Enc, libopencore-amr… | Mike Boers y colaboradores de PyAV; los códecs, sus respectivos proyectos (VideoLAN, MulticoreWare…) |
 | transformers | 5.14.1 | Apache-2.0 | Copyright 2018– The Hugging Face team |
-| torch | 2.13.0 | BSD-3-Clause | Meta Platforms / PyTorch contributors |
+| torch | 2.13.0 | Apache-2.0 AND Apache-2.0 WITH LLVM-exception AND BSD-2-Clause AND BSD-3-Clause AND BSL-1.0 AND MIT | Meta Platforms y muchos otros (Idiap / Ronan Collobert, DeepMind / Koray Kavukcuoglu…; ver su `LICENSE`) |
 | torchaudio | 2.11.0 | BSD-2-Clause | Copyright (c) 2017 Facebook Inc. (Soumith Chintala) |
 | **phonemizer** | 3.3.0 | **GPL-3.0-or-later** | Mathieu Bernard, Hadrien Titeux (CNRS / bootphon) |
 | **praat-parselmouth** | 0.4.7 | **GPL-3.0-or-later** | Yannick Jadoul — envoltorio de Praat (Boersma & Weenink) |
@@ -79,7 +107,7 @@ se nombran por familia en CSS; **no se incrustan**, así que no generan obligaci
 | panphon | 0.22.2 | MIT | Copyright (c) 2015 Carnegie Mellon University (David R. Mortensen) |
 | nltk | 3.10.0 | Apache-2.0 | NLTK Project |
 | numpy | 2.5.1 | BSD-3-Clause | NumPy Developers |
-| soundfile | 0.14.0 | BSD-3-Clause (su *wheel* incrusta libsndfile, LGPL-2.1) | Copyright (c) 2013 Bastian Bechtold |
+| soundfile | 0.14.0 | BSD-3-Clause (su *wheel* incrusta libsndfile 1.2.2, **LGPL-2.1-or-later**) | Copyright (c) 2013 Bastian Bechtold |
 | click | 8.4.2 | BSD-3-Clause | Pallets |
 | rich | 15.0.0 | MIT | Will McGugan |
 | fastapi | 0.140.0 | MIT | Sebastián Ramírez |
@@ -112,8 +140,24 @@ Nada de esto viaja en el repositorio.
 | `Systran/faster-whisper-small` | MIT | SYSTRAN (conversión CTranslate2) | ASR con timestamps por palabra |
 | `openai/whisper-small` (pesos originales) | Apache-2.0 | OpenAI | Base de la conversión anterior |
 | `facebook/wav2vec2-lv-60-espeak-cv-ft` | Apache-2.0 | Meta AI — Xu, Baevski, Auli ([arXiv:2109.11680](https://arxiv.org/abs/2109.11680)) | Fonos reales (CTC) **y** alineación forzada del canónico, en la misma pasada |
-| CMU Pronouncing Dictionary `cmudict.0.7a` (vía NLTK) | BSD-2-Clause | Copyright (C) 1993-2008 Carnegie Mellon University | Forma de cita y detección de OOV |
-| NLTK `averaged_perceptron_tagger(_eng)` | MIT | NLTK Project (tagger original de Matthew Honnibal) | POS para homógrafos en `g2p_en` |
+| CMU Pronouncing Dictionary `cmudict.0.7a` (vía NLTK) | BSD-2-Clause *con una cláusula propia*, ver abajo | Copyright (C) 1993-2008 Carnegie Mellon University. All rights reserved. | Forma de cita y detección de OOV |
+| NLTK `averaged_perceptron_tagger(_eng)` | MIT | Copyright 2013 Matthew Honnibal (NLTK lo redistribuye, no es el titular) | POS para homógrafos en `g2p_en` |
+
+**Excepción: un modelo que sí se redistribuye —pero no por nosotros.** El *wheel*
+de `faster-whisper` trae dentro `assets/silero_vad_v6.onnx` (Silero VAD, MIT,
+Silero Team). No se descarga: viaja en el paquete, y está **activo** —`asr.py`
+pasa `vad_filter=True`—, así que el silencio nunca entra al ASR. Llega por `pip`,
+o sea que este repositorio sigue sin redistribuir nada; se documenta porque es el
+único modelo del pipeline que no se baja de la red.
+
+Sobre CMUdict: su aviso añade a la cláusula 1 la frase **«The contents of this
+file are deemed to be source code»**. Esa frase es la operativa: convierte los
+*datos* del diccionario en código a efectos de la licencia, de modo que quien
+redistribuya el archivo debe conservar el aviso, las condiciones y el descargo.
+Aquí no se redistribuye —se descarga con `nltk.download("cmudict")`—, pero si
+alguna vez se incrusta en el repo, hay que copiar su README íntegro al lado.
+(El índice de NLTK describe este paquete como «0.6 / Copyright 1998 / completely
+unrestricted»: está desactualizado. Manda el README que se instala.)
 
 **Cautelas del modelo Whisper**, que su ficha pide trasladar: no está pensado
 para transcribir a personas sin su consentimiento, ni para decisiones de alto

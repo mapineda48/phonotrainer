@@ -58,7 +58,7 @@ Issues = "https://github.com/mapineda48/phonotrainer/issues"
 phonotrainer = "phonotrainer.cli:main"
 
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]  # PEP 639: license como expresión SPDX + license-files
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]

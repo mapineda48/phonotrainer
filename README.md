@@ -215,20 +215,23 @@ así que corren en segundos y sin cargar modelos.
 
 **GPL-3.0-or-later** ([`LICENSE`](LICENSE)).
 
-No es una preferencia estética: el camino principal del programa carga en el
-mismo proceso dos bibliotecas GPL-3.0-or-later, y eso fija la licencia de la
+No es una preferencia estética: el camino principal del programa carga **en el
+mismo proceso** tres cadenas de código copyleft, y eso fija la licencia de la
 obra combinada.
 
 - **`phonemizer`** (+ `espeak-ng`, cargado con `dlopen`) — el tokenizer del
   modelo fonemiza **cada palabra canónica** en `align_canonical.py`. Es
-  invisible en los `import` del proyecto, pero es imprescindible: sin él la
-  alineación canónica devuelve `<unk>`.
-- **`praat-parselmouth`** — `import parselmouth` directo en `prosody.py`, sin
-  ruta alternativa.
+  invisible en los `import` del proyecto, pero está siempre ahí.
+- **`praat-parselmouth`** — envoltorio de Praat, se carga en `prosody.py` y el
+  pipeline lo instancia siempre.
+- **`av` (PyAV)**, que arrastra `faster-whisper` al importarse: su *wheel* trae
+  un FFmpeg propio con **libx264 y libx265** (GPL-2.0-or-later) que se enlazan
+  en proceso. Distinto del `ffmpeg` del sistema, que sí se invoca como proceso
+  aparte y por eso no cuenta.
 
 Publicar esto como MIT o Apache sería engañoso: nadie podría redistribuir el
 resultado bajo esos términos. El desglose completo —qué se descarga, qué se
-redistribuye y qué no— está en
+redistribuye y qué no, y qué haría falta para volverlo permisivo— está en
 [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md).
 
 ## Créditos
