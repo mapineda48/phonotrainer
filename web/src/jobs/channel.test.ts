@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FakeJobsSocket, job } from "../test/fixtures";
 import { JobsChannel, type JobsState } from "./channel";
 
-/** Canal con sockets manuales: el test decide cuándo abrir y cuándo caer. */
+/** Channel with manual sockets: the test decides when to open and when to drop. */
 function manualChannel(snapshot = [job]) {
   const sockets: FakeJobsSocket[] = [];
   const channel = new JobsChannel("ws://test", () => {
@@ -11,22 +11,22 @@ function manualChannel(snapshot = [job]) {
     sockets.push(socket);
     return socket;
   });
-  channel.subscribe(() => undefined); // arranca la conexión
+  channel.subscribe(() => undefined); // starts the connection
   return { channel, sockets };
 }
 
-let canal: JobsChannel | null = null;
+let live: JobsChannel | null = null;
 
 beforeEach(() => vi.useRealTimers());
 afterEach(() => {
-  canal?.dispose();
-  canal = null;
+  live?.dispose();
+  live = null;
 });
 
 describe("JobsChannel", () => {
-  it("arranca al primer suscriptor y el snapshot llena la lista", () => {
+  it("starts on the first subscriber and the snapshot fills the list", () => {
     const { channel, sockets } = manualChannel();
-    canal = channel;
+    live = channel;
 
     expect(channel.getSnapshot().loaded).toBe(false);
     sockets[0].open();
@@ -38,80 +38,80 @@ describe("JobsChannel", () => {
     expect(state.error).toBeNull();
   });
 
-  it("un evento «job» reemplaza solo ese análisis y uno nuevo va delante", () => {
+  it("a “job” event replaces only that analysis, and a new one goes in front", () => {
     const { channel, sockets } = manualChannel();
-    canal = channel;
+    live = channel;
     sockets[0].open();
 
-    const actualizado = { ...job, status: "running" as const, percent: 40 };
-    sockets[0].push({ type: "job", job: actualizado });
-    expect(channel.getSnapshot().jobs).toEqual([actualizado]);
+    const updated = { ...job, status: "running" as const, percent: 40 };
+    sockets[0].push({ type: "job", job: updated });
+    expect(channel.getSnapshot().jobs).toEqual([updated]);
 
-    const nuevo = { ...job, id: "otro", source: "nuevo.wav" };
-    sockets[0].push({ type: "job", job: nuevo });
-    expect(channel.getSnapshot().jobs.map((j) => j.id)).toEqual(["otro", job.id]);
+    const created = { ...job, id: "other", source: "new.wav" };
+    sockets[0].push({ type: "job", job: created });
+    expect(channel.getSnapshot().jobs.map((j) => j.id)).toEqual(["other", job.id]);
   });
 
-  it("«deleted» quita el análisis de la lista", () => {
+  it("“deleted” removes the analysis from the list", () => {
     const { channel, sockets } = manualChannel();
-    canal = channel;
+    live = channel;
     sockets[0].open();
 
     sockets[0].push({ type: "deleted", id: job.id });
     expect(channel.getSnapshot().jobs).toEqual([]);
   });
 
-  it("upsert aplica al momento lo que acabamos de crear por REST", () => {
-    canal = new JobsChannel("ws://test", () => new FakeJobsSocket());
-    expect(canal.getSnapshot().jobs).toEqual([]);
+  it("upsert immediately applies what we just created over REST", () => {
+    live = new JobsChannel("ws://test", () => new FakeJobsSocket());
+    expect(live.getSnapshot().jobs).toEqual([]);
 
-    canal.upsert(job);
-    expect(canal.getSnapshot().jobs).toEqual([job]);
+    live.upsert(job);
+    expect(live.getSnapshot().jobs).toEqual([job]);
   });
 
-  it("un mensaje que no es JSON del servidor no tumba el canal", () => {
+  it("a message that is not JSON from the server does not take the channel down", () => {
     const { channel, sockets } = manualChannel();
-    canal = channel;
+    live = channel;
     sockets[0].open();
 
-    sockets[0].onmessage?.({ data: "esto no es json" });
+    sockets[0].onmessage?.({ data: "this is not json" });
     expect(channel.getSnapshot().jobs).toEqual([job]);
   });
 
-  it("avisos a los suscriptores solo cuando cambia el estado", () => {
+  it("notifies subscribers only when the state changes", () => {
     const { channel, sockets } = manualChannel();
-    canal = channel;
-    const estados: JobsState[] = [];
-    channel.subscribe(() => estados.push(channel.getSnapshot()));
+    live = channel;
+    const states: JobsState[] = [];
+    channel.subscribe(() => states.push(channel.getSnapshot()));
     sockets[0].open();
 
-    expect(estados.length).toBeGreaterThan(0);
-    const trasSnapshot = estados.length;
+    expect(states.length).toBeGreaterThan(0);
+    const afterSnapshot = states.length;
     sockets[0].push({ type: "job", job });
-    expect(estados.length).toBe(trasSnapshot + 1);
+    expect(states.length).toBe(afterSnapshot + 1);
   });
 
-  it("si cae la conexión lo dice y reconecta con backoff", async () => {
+  it("reports a dropped connection and reconnects with backoff", async () => {
     vi.useFakeTimers();
     const { channel, sockets } = manualChannel();
-    canal = channel;
+    live = channel;
     sockets[0].open();
     expect(channel.getSnapshot().connected).toBe(true);
 
     sockets[0].onclose?.();
     expect(channel.getSnapshot().connected).toBe(false);
-    expect(channel.getSnapshot().error).toMatch(/reintentando/);
+    expect(channel.getSnapshot().error).toMatch(/retrying/);
 
-    await vi.advanceTimersByTimeAsync(1000); // primer reintento: 1 s
+    await vi.advanceTimersByTimeAsync(1000); // first retry: 1 s
     expect(sockets).toHaveLength(2);
 
-    sockets[1].onclose?.();                  // cae otra vez: backoff ×2
+    sockets[1].onclose?.();                  // drops again: backoff ×2
     await vi.advanceTimersByTimeAsync(1999);
     expect(sockets).toHaveLength(2);
     await vi.advanceTimersByTimeAsync(1);
     expect(sockets).toHaveLength(3);
 
-    sockets[2].open();                       // al recuperar, error fuera
+    sockets[2].open();                       // on recovery, the error clears
     expect(channel.getSnapshot().connected).toBe(true);
     expect(channel.getSnapshot().error).toBeNull();
   });

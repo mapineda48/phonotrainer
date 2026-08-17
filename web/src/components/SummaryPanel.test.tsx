@@ -6,27 +6,27 @@ import { analysis, renderWith } from "../test/fixtures";
 import { SummaryPanel } from "./SummaryPanel";
 
 describe("SummaryPanel", () => {
-  it("lista los fenómenos con su recuento y la leyenda de familias", () => {
+  it("lists the phenomena with their counts and the family legend", () => {
     renderWith(
       <SummaryPanel analysis={analysis} filter={new Set()} onToggle={vi.fn()} onClear={vi.fn()} />,
     );
 
-    expect(screen.getByRole("button", { name: /reducción vocálica/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /t\/d elidida/ })).toBeInTheDocument();
-    expect(screen.getByText("Procesos de t/d")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /vowel reduction/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /t\/d deletion/ })).toBeInTheDocument();
+    expect(screen.getByText("t/d processes")).toBeInTheDocument();
   });
 
-  it("cada barra alterna el filtro", async () => {
+  it("each bar toggles the filter", async () => {
     const onToggle = vi.fn();
     renderWith(
       <SummaryPanel analysis={analysis} filter={new Set()} onToggle={onToggle} onClear={vi.fn()} />,
     );
 
-    await userEvent.click(screen.getByRole("button", { name: /t\/d elidida/ }));
+    await userEvent.click(screen.getByRole("button", { name: /t\/d deletion/ }));
     expect(onToggle).toHaveBeenCalledWith("t_deletion");
   });
 
-  it("marca el filtro activo y ofrece quitarlo", async () => {
+  it("marks the active filter and offers to clear it", async () => {
     const onClear = vi.fn();
     renderWith(
       <SummaryPanel
@@ -37,19 +37,19 @@ describe("SummaryPanel", () => {
       />,
     );
 
-    expect(screen.getByRole("button", { name: /t\/d elidida/ })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: /t\/d deletion/ })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
-    await userEvent.click(screen.getByRole("button", { name: "Quitar filtro" }));
+    await userEvent.click(screen.getByRole("button", { name: "Clear filter" }));
     expect(onClear).toHaveBeenCalled();
   });
 
-  it("resume el análisis y si hubo atracción", () => {
+  it("summarizes the analysis and whether attraction was applied", () => {
     renderWith(
       <SummaryPanel analysis={analysis} filter={new Set()} onToggle={vi.fn()} onClear={vi.fn()} />,
     );
-    expect(screen.getByText(/activada/)).toBeInTheDocument();
+    expect(screen.getByText(/enabled/)).toBeInTheDocument();
     expect(screen.getByText("faster-whisper small (int8)")).toBeInTheDocument();
   });
 });

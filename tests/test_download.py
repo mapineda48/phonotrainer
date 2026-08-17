@@ -1,21 +1,21 @@
-"""Descarga con yt-dlp. El doble de `ydl_factory` evita tocar la red."""
+"""Downloading with yt-dlp. The `ydl_factory` double keeps the network out of it."""
 
 from pathlib import Path
 
-import pytest  # noqa: F401  (lo usan las pruebas de errores)
+import pytest  # noqa: F401  (used by the error tests)
 
 from phonotrainer.download import DownloadError, download, is_url
 
 
 class FakeYDL:
-    """Imita lo justo de yt_dlp.YoutubeDL: hooks de progreso y archivo final."""
+    """Imitates just enough of yt_dlp.YoutubeDL: progress hooks and final file."""
 
-    def __init__(self, options, *, escribe=True, remuxa_a: str | None = None,
-                 revienta: Exception | None = None):
+    def __init__(self, options, *, writes=True, remuxes_to: str | None = None,
+                 blows_up: Exception | None = None):
         self.options = options
-        self.escribe = escribe
-        self.remuxa_a = remuxa_a
-        self.revienta = revienta
+        self.writes = writes
+        self.remuxes_to = remuxes_to
+        self.blows_up = blows_up
 
     def __enter__(self):
         return self
@@ -24,21 +24,21 @@ class FakeYDL:
         return False
 
     def extract_info(self, url, download=True):
-        if self.revienta:
-            raise self.revienta
+        if self.blows_up:
+            raise self.blows_up
         for hook in self.options.get("progress_hooks", []):
             hook({"status": "downloading", "downloaded_bytes": 0, "total_bytes": 100})
             hook({"status": "downloading", "downloaded_bytes": 50, "total_bytes": 100})
             hook({"status": "downloading", "downloaded_bytes": 100, "total_bytes": 100})
             hook({"status": "finished"})
-        plantilla = self.options["outtmpl"]
-        destino = Path(plantilla.replace("%(title).80s", "Un vídeo")
-                                .replace("%(id)s", "abc123")
-                                .replace("%(ext)s", self.remuxa_a or "webm"))
-        if self.escribe:
-            destino.write_bytes(b"fake media")
-        self.info = {"id": "abc123", "title": "Un vídeo", "ext": "webm",
-                     "requested_downloads": [{"filepath": str(destino)}]}
+        template = self.options["outtmpl"]
+        dest = Path(template.replace("%(title).80s", "A video")
+                            .replace("%(id)s", "abc123")
+                            .replace("%(ext)s", self.remuxes_to or "webm"))
+        if self.writes:
+            dest.write_bytes(b"fake media")
+        self.info = {"id": "abc123", "title": "A video", "ext": "webm",
+                     "requested_downloads": [{"filepath": str(dest)}]}
         return self.info
 
     def prepare_filename(self, info):
@@ -50,122 +50,122 @@ def factory(**kwargs):
     return lambda options: FakeYDL(options, **kwargs)
 
 
-def test_distingue_url_de_ruta():
+def test_tells_a_url_from_a_path():
     assert is_url("https://www.youtube.com/watch?v=abc")
     assert is_url("http://youtu.be/abc")
-    assert not is_url("/home/yo/video.webm")
+    assert not is_url("/home/me/video.webm")
     assert not is_url("video.mp4")
 
 
-def test_descarga_y_devuelve_la_ruta(tmp_path):
-    mensajes = []
+def test_downloads_and_returns_the_path(tmp_path):
+    messages = []
     path = download("https://youtu.be/abc123", tmp_path,
-                    progress=mensajes.append, ydl_factory=factory())
+                    progress=messages.append, ydl_factory=factory())
 
     assert path.is_file()
     assert path.parent == tmp_path
     assert "abc123" in path.name
-    assert any("50 %" in m for m in mensajes)          # progreso para la barra
-    assert mensajes[-1].startswith("Descargado:")
+    assert any("50%" in m for m in messages)           # progress for the bar
+    assert messages[-1].startswith("Downloaded:")
 
 
-def test_el_progreso_no_repite_el_mismo_porcentaje(tmp_path):
-    class Repetitivo(FakeYDL):
+def test_progress_does_not_repeat_the_same_percentage(tmp_path):
+    class Repetitive(FakeYDL):
         def extract_info(self, url, download=True):
             for hook in self.options["progress_hooks"]:
                 for _ in range(5):
                     hook({"status": "downloading", "downloaded_bytes": 10, "total_bytes": 100})
             return super().extract_info(url, download)
 
-    mensajes = []
-    download("https://youtu.be/abc123", tmp_path, progress=mensajes.append,
-             ydl_factory=lambda options: Repetitivo(options))
-    assert sum(1 for m in mensajes if "10 %" in m) == 1
+    messages = []
+    download("https://youtu.be/abc123", tmp_path, progress=messages.append,
+             ydl_factory=lambda options: Repetitive(options))
+    assert sum(1 for m in messages if "10%" in m) == 1
 
 
-def test_audio_only_cambia_el_formato(tmp_path):
-    visto = {}
+def test_audio_only_changes_the_format(tmp_path):
+    seen = {}
 
-    def espia(options):
-        visto.update(options)
+    def spy(options):
+        seen.update(options)
         return FakeYDL(options)
 
-    download("https://youtu.be/abc123", tmp_path, audio_only=True, ydl_factory=espia)
-    assert visto["format"] == "ba/b"
-    assert "merge_output_format" not in visto
+    download("https://youtu.be/abc123", tmp_path, audio_only=True, ydl_factory=spy)
+    assert seen["format"] == "ba/b"
+    assert "merge_output_format" not in seen
 
-    download("https://youtu.be/abc123", tmp_path, ydl_factory=espia)
-    assert "height<=720" in visto["format"]
-    assert visto["merge_output_format"] == "mp4"
-    assert visto["noplaylist"] is True                 # una URL, un vídeo
-
-
-def test_una_ruta_local_no_es_una_descarga(tmp_path):
-    with pytest.raises(DownloadError, match="no parece una URL"):
-        download("/home/yo/video.webm", tmp_path)
+    download("https://youtu.be/abc123", tmp_path, ydl_factory=spy)
+    assert "height<=720" in seen["format"]
+    assert seen["merge_output_format"] == "mp4"
+    assert seen["noplaylist"] is True                  # one URL, one video
 
 
-def test_el_fallo_de_yt_dlp_se_traduce(tmp_path):
-    with pytest.raises(DownloadError, match="vídeo privado"):
+def test_a_local_path_is_not_a_download(tmp_path):
+    with pytest.raises(DownloadError, match="does not look like a URL"):
+        download("/home/me/video.webm", tmp_path)
+
+
+def test_a_yt_dlp_failure_is_translated(tmp_path):
+    with pytest.raises(DownloadError, match="private video"):
         download("https://youtu.be/x", tmp_path,
-                 ydl_factory=factory(revienta=RuntimeError("vídeo privado")))
+                 ydl_factory=factory(blows_up=RuntimeError("private video")))
 
 
-def test_si_no_aparece_el_archivo_falla_claro(tmp_path):
-    with pytest.raises(DownloadError, match="no encuentro el archivo"):
-        download("https://youtu.be/x", tmp_path, ydl_factory=factory(escribe=False))
+def test_a_missing_file_fails_clearly(tmp_path):
+    with pytest.raises(DownloadError, match="file could not be found"):
+        download("https://youtu.be/x", tmp_path, ydl_factory=factory(writes=False))
 
 
-def test_encuentra_el_archivo_aunque_se_remuxe(tmp_path):
-    """Tras juntar vídeo y audio la extensión cambia: hay que localizarlo igual."""
+def test_finds_the_file_even_after_a_remux(tmp_path):
+    """Once video and audio are merged the extension changes: it still has to be
+    located."""
 
-    class SinFilepath(FakeYDL):
+    class NoFilepath(FakeYDL):
         def extract_info(self, url, download=True):
             info = super().extract_info(url, download)
-            info.pop("requested_downloads")            # yt-dlp antiguo
+            info.pop("requested_downloads")            # older yt-dlp
             return info
 
     path = download("https://youtu.be/abc123", tmp_path,
-                    ydl_factory=lambda options: SinFilepath(options))
+                    ydl_factory=lambda options: NoFilepath(options))
     assert path.is_file() and "abc123" in path.name
 
 
-def test_crea_el_directorio_de_destino(tmp_path):
-    destino = tmp_path / "downloads" / "nuevo"
-    path = download("https://youtu.be/abc123", destino, ydl_factory=factory())
-    assert path.parent == destino
+def test_creates_the_destination_directory(tmp_path):
+    dest = tmp_path / "downloads" / "new"
+    path = download("https://youtu.be/abc123", dest, ydl_factory=factory())
+    assert path.parent == dest
 
 
-def test_cancelar_no_es_un_fallo_de_descarga(tmp_path):
-    """El callback de progreso lanza JobCancelled para abortar: si `download`
-    lo convierte en DownloadError, el job aparece como error en vez de
-    cancelado."""
+def test_cancelling_is_not_a_download_failure(tmp_path):
+    """The progress callback raises JobCancelled to abort: if `download` turns
+    it into a DownloadError, the job shows up as failed instead of cancelled."""
     from phonotrainer.errors import JobCancelled
 
-    def cancela(mensaje):
-        if "%" in mensaje:
-            raise JobCancelled(mensaje)
+    def cancel(message):
+        if "%" in message:
+            raise JobCancelled(message)
 
     with pytest.raises(JobCancelled):
-        download("https://youtu.be/abc123", tmp_path, progress=cancela,
+        download("https://youtu.be/abc123", tmp_path, progress=cancel,
                  ydl_factory=factory())
 
 
-def test_una_lista_de_reproduccion_se_explica(tmp_path):
+def test_a_playlist_is_explained(tmp_path):
     class Playlist(FakeYDL):
         def extract_info(self, url, download=True):
             return {"_type": "playlist", "entries": [], "id": "PL123"}
 
-    with pytest.raises(DownloadError, match="lista de reproducción"):
+    with pytest.raises(DownloadError, match="playlist"):
         download("https://youtube.com/playlist?list=PL123", tmp_path,
                  ydl_factory=lambda options: Playlist(options))
 
 
-def test_sin_tamano_conocido_informa_en_megas(tmp_path):
-    """Directos y descargas fragmentadas no saben cuánto ocupan: la barra no
-    puede quedarse muda."""
+def test_with_no_known_size_it_reports_in_megabytes(tmp_path):
+    """Live streams and fragmented downloads do not know their size: the bar
+    cannot go silent."""
 
-    class SinTotal(FakeYDL):
+    class NoTotal(FakeYDL):
         def extract_info(self, url, download=True):
             for hook in self.options["progress_hooks"]:
                 for mb in (1, 2, 5):
@@ -173,48 +173,48 @@ def test_sin_tamano_conocido_informa_en_megas(tmp_path):
                           "total_bytes": None})
             return super().extract_info(url, download)
 
-    mensajes = []
-    download("https://youtu.be/abc123", tmp_path, progress=mensajes.append,
-             ydl_factory=lambda options: SinTotal(options))
+    messages = []
+    download("https://youtu.be/abc123", tmp_path, progress=messages.append,
+             ydl_factory=lambda options: NoTotal(options))
 
-    assert [m for m in mensajes if "MB" in m] == [
-        "Descargando de YouTube… 1 MB",
-        "Descargando de YouTube… 2 MB",
-        "Descargando de YouTube… 5 MB",
+    assert [m for m in messages if "MB" in m] == [
+        "Downloading from YouTube… 1 MB",
+        "Downloading from YouTube… 2 MB",
+        "Downloading from YouTube… 5 MB",
     ]
 
 
-def test_recorta_los_nombres_larguisimos_por_bytes(tmp_path):
-    """80 caracteres CJK son 240 bytes: ext4 no admite nombres tan largos, y
-    recortar por caracteres no evita el problema."""
+def test_very_long_names_are_truncated_by_bytes(tmp_path):
+    """80 CJK characters are 240 bytes: ext4 does not accept names that long,
+    and truncating by characters does not avoid the problem."""
     from yt_dlp import YoutubeDL
 
-    visto = {}
+    seen = {}
 
-    def espia(options):
-        visto.update(options)
+    def spy(options):
+        seen.update(options)
         return FakeYDL(options)
 
-    download("https://youtu.be/abc123", tmp_path, ydl_factory=espia)
-    assert visto["playlist_items"] == "1"
+    download("https://youtu.be/abc123", tmp_path, ydl_factory=spy)
+    assert seen["playlist_items"] == "1"
 
-    # el recorte lo hace yt-dlp de verdad, no nuestra suposición
-    nombre = Path(YoutubeDL({"outtmpl": visto["outtmpl"], "quiet": True}).prepare_filename(
+    # the truncation is done by the real yt-dlp, not by our assumptions
+    name = Path(YoutubeDL({"outtmpl": seen["outtmpl"], "quiet": True}).prepare_filename(
         {"title": "あ" * 80, "id": "dQw4w9WgXcQ", "ext": "mp4"})).name
-    assert len(nombre.encode("utf-8")) <= 255
+    assert len(name.encode("utf-8")) <= 255
 
 
-def test_la_cli_no_se_come_el_id_del_video(tmp_path):
-    """El nombre lleva el id entre corchetes y rich los trata como marcado:
-    sin escapar, la ruta que se imprime no existe."""
+def test_the_cli_does_not_eat_the_video_id(tmp_path):
+    """The name carries the id in brackets and rich treats those as markup:
+    unescaped, the path it prints does not exist."""
     from unittest.mock import patch
 
     from click.testing import CliRunner
 
     from phonotrainer.cli import main
 
-    ruta = tmp_path / "Un vídeo [abc123].m4a"
-    with patch("phonotrainer.download.download", return_value=ruta):
+    path = tmp_path / "A video [abc123].m4a"
+    with patch("phonotrainer.download.download", return_value=path):
         result = CliRunner().invoke(main, ["download", "https://youtu.be/abc123"])
 
     assert result.exit_code == 0

@@ -1,4 +1,4 @@
-/** Armazón: lista de análisis a la izquierda, lo elegido a la derecha. */
+/** App shell: the analysis list on the left, whatever is selected on the right. */
 
 import { useEffect, useState } from "react";
 
@@ -25,9 +25,9 @@ export default function App() {
   const [referenceError, setReferenceError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [screen, setScreen] = useState<Screen>("job");
-  /** Palabra a abrir al saltar desde el corpus. */
+  /** Word to open when jumping in from the corpus. */
   const [jumpTo, setJumpTo] = useState<Selection | null>(null);
-  /** Filtros del corpus: sobreviven al ir y volver de un análisis. */
+  /** Corpus filters: they survive a round trip into an analysis and back. */
   const [corpusFilters, setCorpusFilters] = useState<CorpusFilters>({
     phenomenon: null,
     word: "",
@@ -43,7 +43,7 @@ export default function App() {
       );
   }, []);
 
-  // Al abrir: recuperamos el último análisis visto, si sigue existiendo.
+  // On open: restore the last analysis viewed, if it still exists.
   useEffect(() => {
     if (!loaded || selectedId !== null || jobs.length === 0) return;
     const remembered = window.localStorage.getItem(LAST_JOB_KEY);
@@ -60,7 +60,7 @@ export default function App() {
   };
 
   const onCreated = (job: Job) => {
-    // La respuesta del POST se aplica ya; el evento del servidor la confirma.
+    // The POST response is applied right away; the server event confirms it.
     channel.upsert(job);
     select(job.id);
   };
@@ -71,25 +71,25 @@ export default function App() {
   if (referenceError) {
     return (
       <div className="empty">
-        <p className="error">No se pudo hablar con el backend: {referenceError}</p>
-        <p className="tiny muted">Arranca el servidor con «phonotrainer ui».</p>
+        <p className="error">Could not reach the backend: {referenceError}</p>
+        <p className="tiny muted">Start the server with “phonotrainer ui”.</p>
       </div>
     );
   }
-  if (!reference) return <div className="empty">Cargando…</div>;
-  // La interfaz se sirve desde disco y siempre está al día; el proceso que
-  // responde puede ser uno viejo que quedó abierto en ese puerto. Sin este
-  // aviso, la interfaz pedía rutas que ese servidor no tiene y el usuario solo
-  // veía «Method Not Allowed».
+  if (!reference) return <div className="empty">Loading…</div>;
+  // The UI is served from disk and is always up to date; the process answering
+  // may be an old one left running on that port. Without this warning, the UI
+  // would request routes that server does not have and the user would only see
+  // "Method Not Allowed".
   if ((reference.api_version ?? 0) < REQUIRED_API_VERSION) {
     return (
       <div className="empty">
         <p className="error">
-          El servidor que responde en este puerto es más antiguo que esta interfaz.
+          The server answering on this port is older than this interface.
         </p>
         <p className="tiny muted">
-          Seguramente quedó abierto un <code>phonotrainer ui</code> de antes. Párralo (Ctrl-C) y
-          vuelve a arrancarlo, o usa el puerto del nuevo.
+          An earlier <code>phonotrainer ui</code> was probably left running. Stop it (Ctrl-C) and
+          start it again, or use the new one's port.
         </p>
       </div>
     );

@@ -10,49 +10,49 @@ const runningJob: Job = {
   ...job,
   status: "running",
   percent: 8,
-  last_message: "Descargando de YouTube… 8 %",
+  last_message: "Downloading from YouTube… 8%",
   progress: [
-    { at: "2026-07-26T12:00:01+00:00", message: "En cola → arrancando…" },
-    { at: "2026-07-26T12:00:02+00:00", message: "Consultando la URL…" },
-    { at: "2026-07-26T12:00:03+00:00", message: "Descargando de YouTube… 8 %" },
+    { at: "2026-07-26T12:00:01+00:00", message: "Queued → starting…" },
+    { at: "2026-07-26T12:00:02+00:00", message: "Querying the URL…" },
+    { at: "2026-07-26T12:00:03+00:00", message: "Downloading from YouTube… 8%" },
   ],
 };
 
-let canal: ReturnType<typeof fakeJobsChannel> | null = null;
+let channel: ReturnType<typeof fakeJobsChannel> | null = null;
 
 afterEach(() => {
-  canal?.channel.dispose();
-  canal = null;
+  channel?.channel.dispose();
+  channel = null;
 });
 
 describe("JobProgress", () => {
-  it("muestra el registro con la línea más reciente primero", async () => {
+  it("shows the log with the most recent line first", async () => {
     renderWith(<JobProgress job={runningJob} />);
 
-    await screen.findByText("Registro");
+    await screen.findByText("Log");
     const log = document.querySelector(".log")!;
     const lines = [...log.querySelectorAll("div")].map((div) => div.textContent);
 
     expect(lines).toEqual([
-      "Descargando de YouTube… 8 %",
-      "Consultando la URL…",
-      "En cola → arrancando…",
+      "Downloading from YouTube… 8%",
+      "Querying the URL…",
+      "Queued → starting…",
     ]);
   });
 
-  it("se actualiza cuando el servidor empuja por el canal, sin sondeo", async () => {
-    canal = fakeJobsChannel([{ ...runningJob, percent: 8 }]);
+  it("updates when the server pushes over the channel, with no polling", async () => {
+    channel = fakeJobsChannel([{ ...runningJob, percent: 8 }]);
     renderWith(<JobProgress job={{ ...runningJob, progress: [], last_message: null }} />, {
-      jobsChannel: canal.channel,
+      jobsChannel: channel.channel,
     });
 
-    // el snapshot ya trae el job completo: el registro aparece sin pedir nada
-    expect((await screen.findAllByText("Descargando de YouTube… 8 %")).length).toBeGreaterThan(0);
+    // the snapshot already carries the full job: the log appears unprompted
+    expect((await screen.findAllByText("Downloading from YouTube… 8%")).length).toBeGreaterThan(0);
 
     act(() =>
-      canal!.socket.push({
+      channel!.socket.push({
         type: "job",
-        job: { ...runningJob, percent: 20, last_message: "Descargando de YouTube… 20 %" },
+        job: { ...runningJob, percent: 20, last_message: "Downloading from YouTube… 20%" },
       }),
     );
     expect(await screen.findByText("20%")).toBeInTheDocument();

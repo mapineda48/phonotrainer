@@ -1,20 +1,20 @@
-/** Canal en vivo con el servidor: la lista de análisis llega por WebSocket
- *  (snapshot inicial + eventos) en vez de sondear /api/jobs cada segundo.
+/** Live channel to the server: the analysis list arrives over a WebSocket
+ *  (initial snapshot + events) instead of polling /api/jobs every second.
  *
- *  Es un store externo como `player/clock.ts`: la UI se suscribe con
- *  useSyncExternalStore y solo re-renderiza lo que cambia. Cada evento "job"
- *  lleva el estado COMPLETO y fresco del análisis (el servidor lo relee al
- *  enviar), así que aplicarlo es idempotente.
+ *  It is an external store like `player/clock.ts`: the UI subscribes with
+ *  useSyncExternalStore and only re-renders what changes. Every "job" event
+ *  carries the COMPLETE, fresh state of the analysis (the server re-reads it
+ *  when sending), so applying one is idempotent.
  *
- *  Una sola conexión por app, abierta al primer suscriptor; si cae, se
- *  reconecta con backoff exponencial. El socket es inyectable para los tests.
+ *  One connection per app, opened on the first subscriber; if it drops, it
+ *  reconnects with exponential backoff. The socket is injectable for tests.
  */
 
 import type { Job } from "../types";
 
 export interface JobsState {
   jobs: Job[];
-  /** true tras el primer snapshot: ya sabemos qué hay en el servidor. */
+  /** true after the first snapshot: we now know what the server holds. */
   loaded: boolean;
   connected: boolean;
   error: string | null;
@@ -22,13 +22,13 @@ export interface JobsState {
 
 const INITIAL: JobsState = { jobs: [], loaded: false, connected: false, error: null };
 
-/** Mensajes que emite el servidor (ver `server.jobs_ws`). */
+/** Messages the server emits (see `server.jobs_ws`). */
 export type JobsMessage =
   | { type: "snapshot"; jobs: Job[] }
   | { type: "job"; job: Job }
   | { type: "deleted"; id: string };
 
-/** Lo mínimo que necesita el canal de un WebSocket (inyectable en tests). */
+/** The minimum the channel needs from a WebSocket (injectable in tests). */
 export interface JobsSocket {
   onopen: (() => void) | null;
   onmessage: ((event: { data: string }) => void) | null;
@@ -66,8 +66,8 @@ export class JobsChannel {
     };
   };
 
-  /** Aplica ya un job que acabamos de crear o tocar por REST: sin esto la
-   *  vista parpadearía hasta que llegara el evento del servidor. */
+  /** Immediately apply a job we just created or touched over REST: without
+   *  this the view would flicker until the server event arrived. */
   upsert(job: Job): void {
     this.apply({ type: "job", job });
   }
@@ -83,12 +83,12 @@ export class JobsChannel {
       try {
         this.apply(JSON.parse(event.data) as JobsMessage);
       } catch {
-        /* un mensaje que no es JSON del servidor no nos tumba */
+        /* a message that is not JSON from the server does not take us down */
       }
     };
     socket.onclose = () => {
-      if (this.socket !== socket) return; // conexión ya reemplazada o cerrada a propósito
-      this.patch({ connected: false, error: "Sin conexión con el servidor; reintentando…" });
+      if (this.socket !== socket) return; // connection already replaced, or closed on purpose
+      this.patch({ connected: false, error: "No connection to the server; retrying…" });
       const delay = Math.min(RETRY_BASE_MS * 2 ** this.attempts, RETRY_MAX_MS);
       this.attempts += 1;
       this.timer = setTimeout(() => this.connect(), delay);
@@ -102,7 +102,7 @@ export class JobsChannel {
         break;
       case "job": {
         const exists = this.state.jobs.some((job) => job.id === message.job.id);
-        // Los análisis nuevos van primero (la lista viene ordenada por fecha).
+        // New analyses go first (the list arrives sorted by date).
         const jobs = exists
           ? this.state.jobs.map((job) => (job.id === message.job.id ? message.job : job))
           : [message.job, ...this.state.jobs];
@@ -120,11 +120,11 @@ export class JobsChannel {
     for (const listener of this.listeners) listener();
   }
 
-  /** Cierra el canal sin reconectar (tests y apagado). */
+  /** Close the channel without reconnecting (tests and shutdown). */
   dispose(): void {
     clearTimeout(this.timer);
     const socket = this.socket;
-    this.socket = null; // así su onclose no programa otra reconexión
+    this.socket = null; // so its onclose does not schedule another reconnect
     socket?.close();
   }
 }

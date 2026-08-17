@@ -1,7 +1,7 @@
-"""Pronunciación canónica de diccionario (CMUdict vía g2p_en) para mostrar y para OOV.
+"""Canonical dictionary pronunciation (CMUdict via g2p_en) for display and for OOV.
 
-La alineación temporal canónica NO sale de aquí (ver align_canonical.py); este módulo
-da la "forma de diccionario" en IPA y marca palabras fuera de vocabulario.
+The time-aligned canonical sequence does NOT come from here (see align_canonical.py);
+this module provides the "dictionary form" in IPA and flags out-of-vocabulary words.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ _WORD_RE = re.compile(r"[a-z']+")
 
 
 def clean_word(word: str) -> str:
-    """Normaliza una palabra del ASR para búsquedas: minúsculas, sin puntuación."""
+    """Normalize an ASR word for lookups: lowercased, punctuation stripped."""
     m = _WORD_RE.findall(word.lower())
     return "".join(m)
 
@@ -40,7 +40,7 @@ def _cmudict():
 
 @lru_cache(maxsize=4096)
 def dict_pronunciation(word: str) -> dict:
-    """Devuelve {'ipa': str, 'arpabet': [..], 'oov': bool} para una palabra."""
+    """Return {'ipa': str, 'arpabet': [..], 'oov': bool} for a word."""
     w = clean_word(word)
     if not w:
         return {"ipa": "", "arpabet": [], "oov": True}
@@ -51,8 +51,8 @@ def dict_pronunciation(word: str) -> dict:
     else:
         arpabet = [p for p in _g2p()(w) if p.strip() and p != " "]
         oov = True
-    # Con acento: /bˈɛtɚ/ enseña que el flap vive en la sílaba átona, que es la
-    # regla. Las reglas de phenomena.py miran `arpabet` (con dígitos de acento),
-    # no esta cadena, que es solo para mostrar.
+    # Keeping stress: /bˈɛtɚ/ teaches that the flap lives in the unstressed syllable,
+    # which is exactly the rule. The rules in phenomena.py look at `arpabet` (with its
+    # stress digits), not at this string, which is for display only.
     ipa = "".join(arpabet_to_ipa(arpabet, with_stress=True))
     return {"ipa": ipa, "arpabet": arpabet, "oov": oov}

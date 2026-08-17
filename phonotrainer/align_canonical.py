@@ -1,9 +1,10 @@
-"""Fonemas canónicos ALINEADOS EN TIEMPO vía forced alignment CTC.
+"""Canonical phonemes TIME-ALIGNED through CTC forced alignment.
 
-Estrategia (decisión de Fase 0): en vez de MMS_FA (alinea caracteres), forzamos la
-secuencia canónica — fonemizada con el propio tokenizer espeak del modelo — contra
-las emisiones del mismo wav2vec2-espeak usando torchaudio.functional.forced_align.
-Canónico y real comparten así alfabeto y pasada acústica.
+Strategy (a Phase 0 decision): instead of MMS_FA (which aligns characters), we force
+the canonical sequence — phonemized with the model's own espeak tokenizer — against
+the emissions of that same wav2vec2-espeak model, using
+torchaudio.functional.forced_align. Canonical and real therefore share both an
+alphabet and a single acoustic pass.
 """
 
 from __future__ import annotations
@@ -22,7 +23,7 @@ class AlignmentError(RuntimeError):
 
 @lru_cache(maxsize=4096)
 def _word_phone_ids(tokenizer_id: int, word: str) -> tuple:
-    """ids de fonemas canónicos (espeak) para una palabra; cachea por texto."""
+    """Canonical (espeak) phoneme ids for a word; cached by text."""
     tokenizer = _TOKENIZERS[tokenizer_id]
     w = clean_word(word)
     if not w:
@@ -43,10 +44,10 @@ def canonical_phone_ids(tokenizer, word: str) -> list[int]:
 
 def align_words(engine, audio: np.ndarray, words: list[dict],
                 t_offset: float = 0.0, log_probs=None) -> list[dict]:
-    """Alinea los fonemas canónicos de `words` contra el audio del segmento.
+    """Align the canonical phonemes of `words` against the segment audio.
 
-    words: [{'word', 'start', 'end', …}] (tiempos absolutos, solo informativos aquí).
-    Devuelve por palabra: {'word', 'phones': [{'phone','start','end','score'}, …],
+    words: [{'word', 'start', 'end', …}] (absolute times, informational only here).
+    Returns, per word: {'word', 'phones': [{'phone','start','end','score'}, …],
     'canonical_espeak': 'dʌz', 'fallback': bool}.
     """
     import torch
@@ -75,7 +76,7 @@ def align_words(engine, audio: np.ndarray, words: list[dict],
     try:
         if lp.size(0) < len(targets):
             raise AlignmentError(
-                f"segmento con {lp.size(0)} frames para {len(targets)} fonemas"
+                f"segment with {lp.size(0)} frames for {len(targets)} phonemes"
             )
         aligned, scores = F.forced_align(
             lp.unsqueeze(0),
@@ -85,10 +86,10 @@ def align_words(engine, audio: np.ndarray, words: list[dict],
         spans = F.merge_tokens(aligned[0], scores[0].exp(), blank=engine.blank_id)
         if len(spans) != len(targets):
             raise AlignmentError(
-                f"merge_tokens devolvió {len(spans)} spans para {len(targets)} targets"
+                f"merge_tokens returned {len(spans)} spans for {len(targets)} targets"
             )
     except Exception:
-        # Respaldo: distribuir fonemas uniformemente dentro de la ventana Whisper.
+        # Fallback: spread the phonemes uniformly inside the Whisper window.
         for res, w, ids in zip(results, words, per_word_ids):
             res["fallback"] = True
             res["phones"] = _uniform_fallback(engine.tokenizer, w, ids)

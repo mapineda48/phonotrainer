@@ -1,9 +1,16 @@
-"""MEJORA 5: validación humana muestreada de un analysis.json.
+"""IMPROVEMENT 5: sampled human validation of an analysis.json.
 
-`phonotrainer review out/analysis.json` muestrea N palabras (con seed fija),
-priorizando las sospechosas (attracted, low_confidence, diff alto), pide veredicto
-ok/mal/dudosa por stdin y guarda review.json con el % de acierto. Sin playback:
-se incluyen timestamps para buscar el momento en cualquier reproductor.
+`phonotrainer review out/analysis.json` samples N words (with a fixed seed),
+giving priority to the suspicious ones (attracted, low_confidence, high diff),
+asks for an ok/wrong/unsure verdict on stdin and writes review.json with the
+accuracy rate. No playback: timestamps are included so the moment can be found
+in any player.
+
+The verdict values ("ok", "wrong", "unsure") are the wire format shared with
+the web interface. review.json files written before the rename carry the old
+values; nothing here reads them back, and the one place that does read a saved
+review — `server.get_review`, which serves it to the interface — drops the
+entries whose verdict is no longer part of this vocabulary.
 """
 
 from __future__ import annotations
@@ -14,12 +21,12 @@ from pathlib import Path
 
 DEFAULT_N = 20
 DEFAULT_SEED = 48
-VERDICTS = ("ok", "mal", "dudosa")
+VERDICTS = ("ok", "wrong", "unsure")
 
 
 def word_weight(w: dict) -> float:
-    """Peso de muestreo: las palabras que pasaron por manos del pipeline
-    (atracción, baja confianza) o divergen mucho pesan más."""
+    """Sampling weight: words the pipeline had a hand in (attraction, low
+    confidence) or that diverge a lot weigh more."""
     weight = 1.0
     if w.get("attracted_count", 0) > 0:
         weight += 3.0
@@ -31,8 +38,9 @@ def word_weight(w: dict) -> float:
 
 def select_sample(analysis: dict, n: int = DEFAULT_N,
                   seed: int = DEFAULT_SEED) -> list[tuple[int, int, dict]]:
-    """Muestreo ponderado sin reemplazo (Efraimidis-Spirakis), determinista con
-    seed. Devuelve [(seg_idx, word_idx, word)] en orden temporal."""
+    """Weighted sampling without replacement (Efraimidis-Spirakis), made
+    deterministic by the seed. Returns [(seg_idx, word_idx, word)] in temporal
+    order."""
     rnd = random.Random(seed)
     keyed = []
     for si, seg in enumerate(analysis.get("segments") or []):
@@ -47,10 +55,10 @@ def select_sample(analysis: dict, n: int = DEFAULT_N,
 
 def sample_for_ui(analysis: dict, n: int = DEFAULT_N,
                   seed: int = DEFAULT_SEED) -> list[dict]:
-    """Muestra para la UI: posición + la palabra completa + su segmento.
+    """Sample for the UI: position + the complete word + its segment.
 
-    La CLI usa `select_sample` directamente; aquí añadimos el contexto que la
-    interfaz necesita para mostrar y reproducir cada caso.
+    The CLI uses `select_sample` directly; here we add the context the
+    interface needs in order to display and play back each case.
     """
     out = []
     for si, wi, w in select_sample(analysis, n=n, seed=seed):
@@ -65,7 +73,7 @@ def sample_for_ui(analysis: dict, n: int = DEFAULT_N,
 
 def item_from_word(segment: int, word_idx: int, w: dict,
                    verdict: str, note: str = "") -> dict:
-    """Entrada de review.json (misma forma que la escribe la CLI)."""
+    """A review.json entry (the same shape the CLI writes)."""
     return {
         "segment": segment, "word_idx": word_idx, "word": w["word"],
         "t_start": w["start"], "t_end": w["end"],
@@ -77,37 +85,38 @@ def item_from_word(segment: int, word_idx: int, w: dict,
 
 
 def build_items(analysis: dict, verdicts: list[dict]) -> list[dict]:
-    """Convierte [{segment, word_idx, verdict, note}] en entradas de review.json,
-    leyendo la palabra del propio análisis (la UI no fabrica datos fonéticos)."""
+    """Turn [{segment, word_idx, verdict, note}] into review.json entries,
+    reading the word from the analysis itself (the UI does not make up phonetic
+    data)."""
     items = []
     for v in verdicts:
         si, wi = int(v["segment"]), int(v["word_idx"])
         try:
             w = analysis["segments"][si]["words"][wi]
         except (IndexError, KeyError) as exc:
-            raise ValueError(f"palabra fuera de rango: segmento {si}, idx {wi}") from exc
+            raise ValueError(f"word out of range: segment {si}, idx {wi}") from exc
         verdict = v.get("verdict")
         if verdict not in VERDICTS:
-            raise ValueError(f"veredicto inválido: {verdict!r} (usa {'/'.join(VERDICTS)})")
+            raise ValueError(f"invalid verdict: {verdict!r} (use {'/'.join(VERDICTS)})")
         items.append(item_from_word(si, wi, w, verdict, v.get("note", "") or ""))
     return items
 
 
 def summarize(items: list[dict]) -> dict:
-    """Conteos y % de acierto de una lista de veredictos."""
+    """Counts and accuracy rate for a list of verdicts."""
     ok = sum(1 for i in items if i.get("verdict") == "ok")
-    mal = sum(1 for i in items if i.get("verdict") == "mal")
-    dudosa = sum(1 for i in items if i.get("verdict") == "dudosa")
+    wrong = sum(1 for i in items if i.get("verdict") == "wrong")
+    unsure = sum(1 for i in items if i.get("verdict") == "unsure")
     return {
-        "ok": ok, "mal": mal, "dudosa": dudosa,
+        "ok": ok, "wrong": wrong, "unsure": unsure,
         "sampled": len(items),
-        "accuracy": round(ok / (ok + mal), 3) if (ok + mal) else None,
+        "accuracy": round(ok / (ok + wrong), 3) if (ok + wrong) else None,
     }
 
 
 def save_review(analysis_path: str | Path, items: list[dict],
                 seed: int = DEFAULT_SEED, out_path: str | Path | None = None) -> Path:
-    """Escribe review.json junto al analysis.json (o en `out_path`)."""
+    """Write review.json next to the analysis.json (or at `out_path`)."""
     analysis_path = Path(analysis_path)
     out_path = Path(out_path) if out_path else analysis_path.parent / "review.json"
     payload = {"analysis": str(analysis_path), "seed": seed}
@@ -129,8 +138,8 @@ def run_review(analysis_path: str | Path, n: int = DEFAULT_N,
     analysis = json.loads(analysis_path.read_text(encoding="utf-8"))
     sample = select_sample(analysis, n=n, seed=seed)
 
-    console.print(f"[bold]Revisión de {len(sample)} palabras[/] "
-                  f"(seed={seed}; prioridad: atraídas/baja confianza/diff alto)\n")
+    console.print(f"[bold]Review of {len(sample)} words[/] "
+                  f"(seed={seed}; priority: attracted / low confidence / high diff)\n")
 
     items = []
     for k, (si, wi, w) in enumerate(sample, 1):
@@ -139,12 +148,13 @@ def run_review(analysis_path: str | Path, n: int = DEFAULT_N,
         real = f"{raw} → {final}" if raw and raw != final else (final or "∅")
         flags = []
         if w.get("attracted_count"):
-            flags.append(f"atraídos×{w['attracted_count']}")
+            flags.append(f"attracted×{w['attracted_count']}")
         if w.get("low_confidence"):
-            flags.append("baja conf.")
+            flags.append("low conf.")
 
         table = Table(show_header=True, header_style="dim")
-        for col in ("t (s)", "palabra", "dicc.", "canónico", "real (crudo→final)", "fenómenos"):
+        for col in ("t (s)", "word", "dict.", "canonical", "realized (raw→final)",
+                    "phenomena"):
             table.add_column(col)
         table.add_row(
             f"{w['start']:.2f}–{w['end']:.2f}",
@@ -158,16 +168,16 @@ def run_review(analysis_path: str | Path, n: int = DEFAULT_N,
                       + (f"  [yellow]{' · '.join(flags)}[/]" if flags else ""))
         console.print(table)
 
-        verdict = click.prompt("  veredicto", default="ok",
+        verdict = click.prompt("  verdict", default="ok",
                                type=click.Choice(list(VERDICTS)))
-        note = click.prompt("  nota", default="", show_default=False)
+        note = click.prompt("  note", default="", show_default=False)
         items.append(item_from_word(si, wi, w, verdict, note))
 
     counts = summarize(items)
     out_path = save_review(analysis_path, items, seed=seed)
 
     accuracy = counts["accuracy"]
-    console.print(f"\n[bold green]Guardado {out_path}[/] — "
-                  f"ok={counts['ok']} mal={counts['mal']} dudosa={counts['dudosa']}"
-                  + (f" · acierto={accuracy:.0%}" if accuracy is not None else ""))
+    console.print(f"\n[bold green]Saved {out_path}[/] — "
+                  f"ok={counts['ok']} wrong={counts['wrong']} unsure={counts['unsure']}"
+                  + (f" · accuracy={accuracy:.0%}" if accuracy is not None else ""))
     return out_path

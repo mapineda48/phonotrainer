@@ -1,7 +1,9 @@
-/** Onda del audio analizado: mapa de la grabación para orientarse y hacer seek.
+/** Waveform of the analyzed audio: a map of the recording, for orientation and
+ *  seeking.
  *
- *  Es contexto, no dato categórico: color recesivo (--wave), playhead en tinta y
- *  el fragmento activo sombreado. Click = saltar ahí; hover = tiempo bajo el ratón.
+ *  It is context, not categorical data: recessive color (--wave), the playhead
+ *  in ink and the active span shaded. Click = jump there; hover = the time under
+ *  the pointer.
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -12,10 +14,10 @@ import { usePlayer } from "../player/PlayerProvider";
 
 const BUCKETS = 1100;
 
-/** Picos (máximo absoluto por bucket) del WAV ya analizado. */
+/** Peaks (absolute maximum per bucket) of the already-analyzed WAV. */
 async function loadPeaks(url: string, signal: AbortSignal): Promise<Float32Array | null> {
   const Ctor = window.AudioContext ?? (window as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-  if (!Ctor) return null; // jsdom o navegador sin WebAudio: la onda es decorativa
+  if (!Ctor) return null; // jsdom or a browser without WebAudio: the waveform is decorative
   const response = await fetch(url, { signal });
   const buffer = await response.arrayBuffer();
   const context = new Ctor();
@@ -80,7 +82,7 @@ export function Waveform({ src, duration }: { src: string; duration: number }) {
       ctx.fillStyle = getComputedStyle(box).getPropertyValue("--wave").trim() || "#b9b8ae";
       const middle = height / 2;
       if (!peaks) {
-        ctx.fillRect(0, middle - 1, width, 2); // sin WebAudio: pista lisa, sigue sirviendo de barra
+        ctx.fillRect(0, middle - 1, width, 2); // no WebAudio: a flat track still works as a scrub bar
         return;
       }
       const step = width / peaks.length;
@@ -110,7 +112,7 @@ export function Waveform({ src, duration }: { src: string; duration: number }) {
       className="waveform"
       role="slider"
       tabIndex={0}
-      aria-label="Posición en la grabación"
+      aria-label="Position in the recording"
       aria-valuemin={0}
       aria-valuemax={Math.round(duration)}
       aria-valuenow={Math.round(progress * duration)}

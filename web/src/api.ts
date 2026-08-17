@@ -1,6 +1,6 @@
-/** Cliente HTTP de la API local. Mismo origen que la SPA; en `npm run dev`
- *  Vite hace proxy de /api al backend. La lista de análisis NO va por aquí:
- *  llega empujada por el WebSocket (`jobs/channel.ts`). */
+/** HTTP client for the local API. Same origin as the SPA; under `npm run dev`
+ *  Vite proxies /api to the backend. The analysis list does NOT come through
+ *  here: it is pushed over the WebSocket (`jobs/channel.ts`). */
 
 import type {
   Analysis,
@@ -17,8 +17,8 @@ import type {
   WordVariant,
 } from "./types";
 
-/** Versión de la API que necesita esta interfaz (ver `server.API_VERSION`). */
-export const REQUIRED_API_VERSION = 2;
+/** API version this UI requires (see `server.API_VERSION`). */
+export const REQUIRED_API_VERSION = 3;
 
 export class ApiError extends Error {
   constructor(
@@ -38,7 +38,7 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
       const body = await res.json();
       if (body?.detail) detail = typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail);
     } catch {
-      /* respuesta sin cuerpo JSON */
+      /* response with no JSON body */
     }
     throw new ApiError(detail, res.status);
   }

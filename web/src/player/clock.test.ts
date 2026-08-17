@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { Clock, useTimeSelector } from "./clock";
 
 describe("Clock", () => {
-  it("avisa solo cuando el tiempo cambia de verdad", () => {
+  it("notifies only when the time actually changes", () => {
     const clock = new Clock();
     const listener = vi.fn();
     clock.subscribe(listener);
@@ -18,7 +18,7 @@ describe("Clock", () => {
     expect(clock.getSnapshot()).toBe(2);
   });
 
-  it("deja de avisar tras desuscribirse", () => {
+  it("stops notifying after unsubscribing", () => {
     const clock = new Clock();
     const listener = vi.fn();
     clock.subscribe(listener)();
@@ -28,7 +28,7 @@ describe("Clock", () => {
 });
 
 describe("useTimeSelector", () => {
-  it("re-renderiza solo cuando cambia el valor derivado, no en cada tick", () => {
+  it("re-renders only when the derived value changes, not on every tick", () => {
     const clock = new Clock();
     const renders = vi.fn();
     const { result } = renderHook(() => {
@@ -38,7 +38,7 @@ describe("useTimeSelector", () => {
 
     const initial = renders.mock.calls.length;
     act(() => clock.set(0.1));
-    act(() => clock.set(0.9)); // mismo segundo entero: no debe re-renderizar
+    act(() => clock.set(0.9)); // same whole second: it must not re-render
     expect(renders.mock.calls.length).toBe(initial);
 
     act(() => clock.set(1.2));

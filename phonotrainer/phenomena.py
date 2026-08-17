@@ -1,8 +1,8 @@
-"""Etiquetado de fenómenos de connected speech sobre el diff real-vs-canónico.
+"""Labeling of connected-speech phenomena over the real-vs-canonical diff.
 
-Interpretamos cada desviación como fenómeno nativo a enseñar (inverso a MDD).
-Entrada por palabra: {'word','start','end','canonical':[fonos],'real':[fonos]}
-(fonos = {'phone','start','end',…} en tokens espeak/IPA con tiempos absolutos).
+Every deviation is read as a native phenomenon worth teaching (the inverse of MDD).
+Per-word input: {'word','start','end','canonical':[phones],'real':[phones]}
+(phones = {'phone','start','end',…} as espeak/IPA tokens with absolute times).
 """
 
 from __future__ import annotations
@@ -14,22 +14,24 @@ from .canonical import clean_word
 from .ipa_maps import (DIPHTHONGS, FIRST_ELEMENT, FLAP, GLOTTAL, is_consonant,
                        is_full_vowel, is_schwa_like, is_vowel)
 
-LINK_MAX_GAP = 0.10  # s entre fin de consonante y vocal siguiente para linking
+LINK_MAX_GAP = 0.10  # s between the end of a consonant and the next vowel, for linking
 
-# MEJORA 2: diptongo → vocal simple cercana a su primer elemento.
-# Umbral calibrado: positivos (a↔æ 0.17, o↔ɔ 0.08, e↔ɪ 0.25) vs negativos
+# IMPROVEMENT 2: diphthong → simple vowel close to its first element.
+# Calibrated threshold: positives (a↔æ 0.17, o↔ɔ 0.08, e↔ɪ 0.25) vs negatives
 # (a↔u 0.67, o↔i 0.50).
 MONO_MAX_COST = 0.4
 
-# MEJORA 3: cobertura mínima de fonos reales sobre la duración de la palabra;
-# por debajo, la "elisión" probablemente es silencio/risas mal segmentados (TV).
+# IMPROVEMENT 3: minimum coverage of real phones over the word's duration; below it
+# the "elision" is most likely silence/laughter that was mis-segmented (TV audio).
 WORD_ELISION_MIN_COVERAGE = 0.30
 
-# MEJORA 4: referencia contra la que se define cada regla.
-#   "aligned" = canónico espeak forzado en tiempo (comparte alfabeto con lo real);
-#   "dict"    = forma de cita CMUdict — necesaria cuando espeak en-us YA incorpora
-#               el proceso nativo (p.ej. canonical de "better" = bɛɾɚ, con flap:
-#               un match ɾ↔ɾ solo es flapping si el diccionario tiene /t/ o /d/).
+# IMPROVEMENT 4: the reference each rule is defined against.
+#   "aligned" = espeak canonical forced in time (shares its alphabet with the real
+#               phones);
+#   "dict"    = CMUdict citation form — needed when espeak en-us ALREADY bakes in the
+#               native process (e.g. the canonical of "better" is bɛɾɚ, already
+#               flapped: a ɾ↔ɾ match is only flapping if the dictionary has /t/ or
+#               /d/).
 RULE_REFERENCE = {
     "vowel_reduction": "aligned",
     "monophthongization": "aligned",
@@ -49,7 +51,7 @@ SYLLABIC = {"n̩", "l̩", "m̩", "ɹ̩"}
 
 H_DROP_WORDS = {"he", "him", "her", "his", "have", "has", "had", "em"}
 
-# Ruta (a): Whisper ya escribió la forma reducida.
+# Path (a): Whisper already wrote the reduced form.
 CONTRACTIONS = {
     "wanna": "want to", "gonna": "going to", "gotta": "got to",
     "hafta": "have to", "hasta": "has to", "gotcha": "got you",
@@ -63,7 +65,7 @@ CONTRACTIONS = {
     "cmon": "come on", "c'mon": "come on", "imma": "i'm going to",
 }
 
-# Ruta (b): el texto trae la forma plena pero los fonos muestran la reducción.
+# Path (b): the text carries the full form but the phones show the reduction.
 EXPANSIONS_2 = {
     ("want", "to"): "wanna", ("going", "to"): "gonna", ("got", "to"): "gotta",
     ("have", "to"): "hafta", ("has", "to"): "hasta", ("got", "you"): "gotcha",
@@ -81,7 +83,7 @@ EXPANSIONS_3 = {
 PALATAL_TRIGGER = {"t": "tʃ", "d": "dʒ", "s": "ʃ", "z": "ʒ"}
 PALATAL_RESULTS = {"tʃ", "dʒ", "ʃ", "ʒ"}
 
-# Etiquetas cuya presencia en el par de palabras avala una contracción léxica.
+# Labels whose presence in the word pair vouches for a lexical contraction.
 _REDUCTION_EVIDENCE = {"vowel_reduction", "t_deletion", "flapping",
                        "elision_syllable", "word_elision", "monophthongization"}
 
@@ -91,8 +93,9 @@ def _nuclei(phones: list[dict]) -> int:
 
 
 def _dict_has_td(word: dict) -> bool:
-    """¿La forma de cita (CMUdict/g2p) contiene /t/ o /d/? (referencia "dict" del
-    flapping). Sin información de diccionario se asume que sí (compatibilidad)."""
+    """Does the citation form (CMUdict/g2p) contain /t/ or /d/? (this is flapping's
+    "dict" reference). With no dictionary information we assume it does, for
+    backwards compatibility."""
     arpa = word.get("dict_arpabet")
     if arpa is None:
         return True
@@ -100,11 +103,11 @@ def _dict_has_td(word: dict) -> bool:
 
 
 def _word_elision(word: dict) -> bool:
-    """MEJORA 3: realized vacío o cubriendo <30% de la palabra.
+    """IMPROVEMENT 3: realized is empty, or covers <30% of the word.
 
-    Cobertura = EXTENSIÓN temporal (primer inicio → último fin) sobre la duración
-    de la palabra, no suma de spans: los spans CTC greedy son picos de ~20-40 ms
-    y la suma infra-estima sistemáticamente.
+    Coverage = temporal EXTENT (first start → last end) over the word's duration,
+    not the sum of the spans: greedy CTC spans are ~20-40 ms spikes, so summing them
+    underestimates coverage systematically.
     """
     if not word["real"]:
         return True
@@ -116,7 +119,7 @@ def _word_elision(word: dict) -> bool:
 
 
 def _word_rules(word: dict, ops: list[dict]) -> set[str]:
-    """Reglas intra-palabra sobre las operaciones del diff."""
+    """Intra-word rules over the diff operations."""
     labels: set[str] = set()
     canonical = word["canonical"]
     n_canon = len(canonical)
@@ -133,8 +136,9 @@ def _word_rules(word: dict, ops: list[dict]) -> set[str]:
             elif (c in DIPHTHONGS and is_vowel(r) and r not in DIPHTHONGS
                   and not is_schwa_like(r)
                   and diff.phone_cost(FIRST_ELEMENT[c], r) <= MONO_MAX_COST):
-                # precedencia: la forma débil (real schwa) ya salió arriba como
-                # vowel_reduction; aquí solo diptongos hacia su primer elemento
+                # precedence: the weak form (real schwa) has already been caught
+                # above as vowel_reduction; only diphthongs collapsing toward their
+                # first element land here
                 labels.add("monophthongization")
             if (c == "ð" and r in {"d", "d̪"}) or (c == "θ" and r in {"t", "t̪"}):
                 labels.add("th_stopping")
@@ -143,12 +147,12 @@ def _word_rules(word: dict, ops: list[dict]) -> set[str]:
 
         if op["op"] in {"sub", "match"} and r in FLAP and c in {"t", "d"} | FLAP:
             if c in FLAP and not _dict_has_td(word):
-                pass  # espeak pre-flapeado pero el diccionario no tiene t/d
+                pass  # espeak is pre-flapped but the dictionary has no t/d
             else:
                 labels.add("flapping")
 
         if op["op"] == "del" and c in {"t", "d"}:
-            # elidida en final de palabra (posición canónica final)
+            # elided word-finally (final canonical position)
             canon_idx = canonical.index(op["canonical"])
             if canon_idx == n_canon - 1:
                 labels.add("t_deletion")
@@ -162,7 +166,7 @@ def _word_rules(word: dict, ops: list[dict]) -> set[str]:
 
 
 def _boundary_rules(words: list[dict], idx: int) -> None:
-    """Reglas entre words[idx] y words[idx+1] (linking, palatalization, h_dropping)."""
+    """Rules between words[idx] and words[idx+1] (linking, palatalization, h_dropping)."""
     w, nxt = words[idx], words[idx + 1]
 
     w_real_last = w["real"][-1]["phone"] if w["real"] else None
@@ -224,7 +228,7 @@ def _contractions(words: list[dict], first_in_segment: bool) -> None:
 
 
 def detect(words: list[dict], first_in_segment: bool = True) -> list[dict]:
-    """Anota cada palabra con ops, phenomena, boundary_link_next y lexical_form."""
+    """Annotate every word with ops, phenomena, boundary_link_next and lexical_form."""
     out = []
     for w in words:
         w = dict(w)

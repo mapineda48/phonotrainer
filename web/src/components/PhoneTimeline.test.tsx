@@ -8,18 +8,19 @@ import { PhoneTimeline, splitIpa } from "./PhoneTimeline";
 describe("PhoneTimeline", () => {
   const word = makeWord("that", 0.4, "ð æ t", "ð æ", { phenomena: ["t_deletion"] });
 
-  it("muestra las tres filas: diccionario, canónico y real", () => {
+  it("shows the three rows: dictionary, canonical and actual", () => {
     renderWith(<PhoneTimeline word={word} />);
 
-    expect(screen.getByText(/diccionario/)).toBeInTheDocument();
-    expect(screen.getByText("canónico alineado")).toBeInTheDocument();
-    expect(screen.getByText("realmente pronunciado")).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "ð" })).toHaveLength(2); // filas con tiempo
+    expect(screen.getByText(/dictionary/)).toBeInTheDocument();
+    expect(screen.getByText("aligned canonical")).toBeInTheDocument();
+    expect(screen.getByText("actually pronounced")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "ð" })).toHaveLength(2); // the timed rows
   });
 
-  it("la fila de diccionario destapa el fenómeno cuando el canónico ya lo aplica", () => {
-    // espeak canoniza "better" CON flap: canónico y real son idénticos y la /t/
-    // solo existe en el diccionario. Sin esa fila el flapping sería invisible.
+  it("the dictionary row exposes the phenomenon when the canonical already applies it", () => {
+    // espeak canonicalizes "better" WITH the flap: canonical and actual are
+    // identical and the /t/ exists only in the dictionary. Without that row the
+    // flapping would be invisible.
     const better = makeWord("better", 8.9, "b ɛ ɾ ɚ", "b ɛ ɾ ɚ", {
       phenomena: ["flapping"],
       dict_ipa: "bɛtɚ",
@@ -31,27 +32,27 @@ describe("PhoneTimeline", () => {
     expect(within(dict).getByText("b")).not.toHaveClass("phone--diff");
   });
 
-  it("marca el fono que no tiene pareja en la otra fila", () => {
+  it("marks the phone that has no counterpart in the other row", () => {
     renderWith(<PhoneTimeline word={word} />);
     expect(screen.getByRole("button", { name: "t" })).toHaveClass("phone--diff");
     expect(screen.getAllByRole("button", { name: "ð" })[0]).not.toHaveClass("phone--diff");
   });
 
-  it("no marca como divergentes fonos que solo se rozan en el tiempo", () => {
-    // los tiempos son picos de un frame: el mismo fono puede aparecer 20 ms
-    // desplazado en cada fila y no por eso es una divergencia
-    const desfasado = {
+  it("does not flag as divergent phones that merely graze each other in time", () => {
+    // times are single-frame peaks: the same phone can show up 20 ms offset in
+    // each row without that being a divergence
+    const offset = {
       ...makeWord("don't", 0.6, "d oʊ n", "d oʊ n"),
       canonical_aligned: [["n", 0.684, 0.704]] as [string, number, number][],
       realized_aligned: [["n", 0.704, 0.744]] as [string, number, number][],
     };
-    renderWith(<PhoneTimeline word={desfasado} />);
-    for (const boton of screen.getAllByRole("button", { name: "n" })) {
-      expect(boton).not.toHaveClass("phone--diff");
+    renderWith(<PhoneTimeline word={offset} />);
+    for (const button of screen.getAllByRole("button", { name: "n" })) {
+      expect(button).not.toHaveClass("phone--diff");
     }
   });
 
-  it("al pulsar un fono lo reproduce con un margen", async () => {
+  it("clicking a phone plays it with some padding", async () => {
     const { player } = renderWith(<PhoneTimeline word={word} />);
 
     await userEvent.click(screen.getByRole("button", { name: "t" }));
@@ -61,18 +62,18 @@ describe("PhoneTimeline", () => {
     expect(span.end).toBeGreaterThan(span.start);
   });
 
-  it("no marca de más una palabra pronunciada tal cual", () => {
-    // "I" = /aɪ/ → [aɪ]: nada que señalar. Antes salían marcados los dos trozos
-    // del diptongo porque la fila de diccionario se tokenizaba distinto.
-    const yo = makeWord("I", 1, "aɪ", "aɪ", { dict_ipa: "aɪ" });
-    const { container } = renderWith(<PhoneTimeline word={yo} />);
+  it("does not over-mark a word pronounced exactly as written", () => {
+    // "I" = /aɪ/ → [aɪ]: nothing to point out. Both halves of the diphthong used
+    // to come out marked because the dictionary row tokenized differently.
+    const i = makeWord("I", 1, "aɪ", "aɪ", { dict_ipa: "aɪ" });
+    const { container } = renderWith(<PhoneTimeline word={i} />);
 
     const dict = container.querySelector(".phones__dict") as HTMLElement;
     expect(dict.textContent).toBe("aɪ");
     expect(dict.querySelectorAll(".phone--diff")).toHaveLength(0);
   });
 
-  it("con un fenómeno de frontera incluye la palabra siguiente, la marca y mide el hueco", () => {
+  it("with a boundary phenomenon it includes the next word, marks it and measures the gap", () => {
     const thing = makeWord("thing", 5.9, "θ ɪ ŋ", "θ ɪ ŋ", {
       phenomena: ["linking"],
       boundary_link_next: true,
@@ -80,15 +81,15 @@ describe("PhoneTimeline", () => {
     const about = makeWord("about", 6.03, "ə b aʊ t", "ə b aʊ t");
     renderWith(<PhoneTimeline word={thing} next={about} />);
 
-    expect(screen.getByText("frontera")).toBeInTheDocument();
+    expect(screen.getByText("boundary")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "aʊ" }).length).toBeGreaterThan(0);
-    // el hueco real es lo que hace visible el enlace
-    expect(screen.getByText(/Hueco en la frontera/)).toBeInTheDocument();
-    expect(screen.getByText(/eso es el enlace/)).toBeInTheDocument();
+    // the real gap is what makes the linking visible
+    expect(screen.getByText(/Gap at the boundary/)).toBeInTheDocument();
+    expect(screen.getByText(/that is the linking/)).toBeInTheDocument();
   });
 
-  it("la palabra siguiente no tapa lo que falta en la de al lado", () => {
-    // "that" pierde su /t/; "time" empieza por /t/: no debe contar como dicha
+  it("the next word does not mask what is missing from the one beside it", () => {
+    // "that" loses its /t/; "time" starts with /t/: it must not count as spoken
     const that = makeWord("that", 0.4, "ð æ t", "ð æ", {
       dict_ipa: "ðæt",
       phenomena: ["t_deletion", "linking"],
@@ -100,18 +101,18 @@ describe("PhoneTimeline", () => {
     expect(within(dict).getByText("t")).toHaveClass("phone--diff");
   });
 
-  it("avisa cuando no se reconoció nada", () => {
-    const mudo = { ...makeWord("uh", 1, "ʌ", "ʌ"), realized_aligned: [], realized_ipa: "" };
-    renderWith(<PhoneTimeline word={mudo} />);
-    expect(screen.getByText(/nada reconocido/)).toBeInTheDocument();
+  it("warns when nothing was recognized", () => {
+    const silent = { ...makeWord("uh", 1, "ʌ", "ʌ"), realized_aligned: [], realized_ipa: "" };
+    renderWith(<PhoneTimeline word={silent} />);
+    expect(screen.getByText(/nothing recognized/)).toBeInTheDocument();
   });
 
-  it("no vende duración donde solo hay un instante detectado", () => {
+  it("does not sell duration where there is only a detected instant", () => {
     renderWith(<PhoneTimeline word={word} />);
-    expect(screen.getByText(/instante detectado/)).toBeInTheDocument();
+    expect(screen.getByText(/detected instant/)).toBeInTheDocument();
   });
 
-  it("posiciona cada fono según su instante", () => {
+  it("positions each phone according to its instant", () => {
     const { container } = renderWith(<PhoneTimeline word={word} />);
     const rows = container.querySelectorAll(".phones__row");
     const first = within(rows[0] as HTMLElement).getAllByRole("button")[0];
@@ -122,13 +123,13 @@ describe("PhoneTimeline", () => {
 describe("splitIpa", () => {
   const tokens = reference.ipa_tokens;
 
-  it("mantiene los diacríticos con su símbolo base", () => {
+  it("keeps diacritics with their base symbol", () => {
     expect(splitIpa("bɛtɚ", tokens)).toEqual(["b", "ɛ", "t", "ɚ"]);
     expect(splitIpa("", tokens)).toEqual([]);
   });
 
-  it("no parte los símbolos de varios caracteres", () => {
-    // partir "aɪ" en "a" + "ɪ" marcaba como no pronunciada media palabra bien dicha
+  it("does not split multi-character symbols", () => {
+    // splitting "aɪ" into "a" + "ɪ" flagged half a correctly spoken word as unpronounced
     expect(splitIpa("baɪ", tokens)).toEqual(["b", "aɪ"]);
     expect(splitIpa("ɡoʊ", tokens)).toEqual(["ɡ", "oʊ"]);
     expect(splitIpa("bʌdʒɪt", tokens)).toEqual(["b", "ʌ", "dʒ", "ɪ", "t"]);
@@ -136,7 +137,7 @@ describe("splitIpa", () => {
     expect(splitIpa("tʃiːz", tokens)).toEqual(["tʃ", "iː", "z"]);
   });
 
-  it("pega el acento al fono que lo lleva", () => {
+  it("attaches the stress mark to the phone that carries it", () => {
     expect(splitIpa("bˈɛtɚ", tokens)).toEqual(["b", "ˈɛ", "t", "ɚ"]);
     expect(splitIpa("tənˈaɪt", tokens)).toEqual(["t", "ə", "n", "ˈaɪ", "t"]);
   });

@@ -1,4 +1,4 @@
-"""Extracción de audio: cualquier media (video o audio) → WAV 16 kHz mono."""
+"""Audio extraction: any media file (video or audio) → 16 kHz mono WAV."""
 
 from __future__ import annotations
 
@@ -14,8 +14,8 @@ class AudioExtractionError(RuntimeError):
 
 def extract_audio(media_path: str | Path, out_path: str | Path,
                   sample_rate: int = SAMPLE_RATE) -> Path:
-    """Convierte cualquier archivo con pista de audio (webm, mp4, mp3, wav…)
-    a WAV mono a `sample_rate`. Devuelve la ruta de salida."""
+    """Convert any file carrying an audio track (webm, mp4, mp3, wav…) to a mono
+    WAV at `sample_rate`. Returns the output path."""
     media_path = Path(media_path)
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -28,13 +28,13 @@ def extract_audio(media_path: str | Path, out_path: str | Path,
     proc = subprocess.run(cmd, capture_output=True, text=True)
     if proc.returncode != 0:
         raise AudioExtractionError(
-            f"ffmpeg falló ({proc.returncode}) con {media_path.name}: {proc.stderr[-800:]}"
+            f"ffmpeg failed ({proc.returncode}) on {media_path.name}: {proc.stderr[-800:]}"
         )
     return out_path
 
 
 def load_wav(wav_path: str | Path):
-    """Carga un WAV como float32 mono. Devuelve (samples, sample_rate)."""
+    """Load a WAV file as mono float32. Returns (samples, sample_rate)."""
     import numpy as np
     import soundfile as sf
 

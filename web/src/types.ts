@@ -1,6 +1,6 @@
-/** Formas que devuelve la API (espejo de analysis.json y de jobs.Job). */
+/** Shapes returned by the API (mirrors analysis.json and jobs.Job). */
 
-/** [fono, inicio, fin] en segundos absolutos. */
+/** [phone, start, end] in absolute seconds. */
 export type AlignedPhone = [string, number, number];
 
 export interface Word {
@@ -19,9 +19,9 @@ export interface Word {
   phenomena: string[];
   low_confidence: boolean;
   boundary_link_next: boolean;
-  /** Forma reducida realmente dicha ("wanna", "dunno"). */
+  /** The reduced form actually spoken ("wanna", "dunno"). */
   lexical_form: string | null;
-  /** Forma plena correspondiente ("want to"). Ausente en análisis antiguos. */
+  /** The corresponding full form ("want to"). Absent in older analyses. */
   lexical_expansion?: string | null;
   alignment_fallback: boolean;
 }
@@ -37,7 +37,7 @@ export interface Segment {
   end: number;
   text: string;
   f0_stats: F0Stats;
-  /** [t, Hz] cada 10 ms. */
+  /** [t, Hz] every 10 ms. */
   f0_track: [number, number][];
   emphasis_word_idx: number | null;
   words: Word[];
@@ -70,9 +70,9 @@ export interface JobOptions {
 
 export interface CorpusStats {
   analyses: number;
-  /** Nombres de archivo distintos. */
+  /** Distinct file names. */
   sources: number;
-  /** Grabaciones distintas: si es menor que `analyses`, algo está contado dos veces. */
+  /** Distinct recordings: if lower than `analyses`, something is counted twice. */
   materials: number;
   words: number;
   segments: number;
@@ -94,13 +94,13 @@ export interface CorpusAnalysis {
 }
 
 export interface Occurrence {
-  /** Identidad estable del análisis (su directorio). */
+  /** Stable identity of the analysis (its directory). */
   analysis_id: string;
-  /** Job de la interfaz, si lo hay: con esto se puede saltar. */
+  /** The UI job, if there is one: this is what makes jumping possible. */
   job_id: string | null;
   analysis_source: string;
   analysis_attraction: boolean;
-  /** La palabra siguiente: en linking el fenómeno ocurre entre las dos. */
+  /** The following word: with linking the phenomenon happens between the two. */
   next_word: string | null;
   segment: number;
   word_idx: number;
@@ -117,7 +117,7 @@ export interface Occurrence {
   oov: boolean;
   lexical_form: string | null;
   phenomena: string[];
-  /** Dura menos de 60 ms: casi siempre un fallo de alineación, no un fenómeno. */
+  /** Shorter than 60 ms: almost always an alignment failure, not a phenomenon. */
   too_short: boolean;
 }
 
@@ -131,7 +131,7 @@ export interface WordVariant {
 export interface Job {
   id: string;
   source: string;
-  /** Presente si el análisis empezó descargando un vídeo. */
+  /** Present if the analysis started by downloading a video. */
   source_url?: string | null;
   status: JobStatus;
   options: Partial<JobOptions>;
@@ -167,14 +167,14 @@ export interface Family {
 }
 
 export interface Reference {
-  /** Contrato de la API. Ausente = servidor anterior a que existiera. */
+  /** API contract. Absent = server older than the field itself. */
   api_version?: number;
   families: Family[];
   family_of: Record<string, string>;
   labels: Record<string, string>;
-  /** Qué es cada fenómeno, en una frase y con ejemplo. */
+  /** What each phenomenon is, in one sentence and with an example. */
   descriptions: Record<string, string>;
-  /** Símbolos IPA de más de un carácter, de mayor a menor longitud. */
+  /** Multi-character IPA symbols, longest first. */
   ipa_tokens: string[];
   verdicts: VerdictValue[];
   options: {
@@ -200,7 +200,7 @@ export interface Browse {
   files: BrowseEntry[];
 }
 
-export type VerdictValue = "ok" | "mal" | "dudosa";
+export type VerdictValue = "ok" | "wrong" | "unsure";
 
 export interface SampleItem {
   segment: number;
@@ -228,8 +228,8 @@ export interface Review {
   seed: number;
   sampled: number;
   ok: number;
-  mal: number;
-  dudosa: number;
+  wrong: number;
+  unsure: number;
   accuracy: number | null;
   items: ReviewItem[];
 }

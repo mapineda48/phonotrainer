@@ -1,6 +1,6 @@
-/** Recorrido de la app: REST simulado a nivel de fetch y estado de los
- *  análisis empujado por un canal WebSocket de mentira (como en producción,
- *  aquí tampoco se sondea /api/jobs). */
+/** Walkthrough of the app: REST stubbed at the fetch level, and analysis state
+ *  pushed by a fake WebSocket channel (just as in production, /api/jobs is not
+ *  polled here either). */
 
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -30,7 +30,7 @@ function mockFetch(routes: Record<string, Handler>) {
   return fetchMock;
 }
 
-/** La app con su canal: los análisis llegan por el snapshot del WebSocket. */
+/** The app with its channel: analyses arrive via the WebSocket snapshot. */
 function renderApp(jobs: Job[]) {
   const tools = fakeJobsChannel(jobs);
   render(
@@ -46,15 +46,15 @@ beforeEach(() => {
 });
 
 describe("App", () => {
-  it("sin análisis previos ofrece crear uno", async () => {
+  it("offers to create one when there are no previous analyses", async () => {
     mockFetch({ "GET /api/reference": () => reference });
     renderApp([]);
 
-    expect(await screen.findByText("Analizar habla nativa")).toBeInTheDocument();
-    expect(screen.getByText(/Todavía no hay análisis/)).toBeInTheDocument();
+    expect(await screen.findByText("Analyze native speech")).toBeInTheDocument();
+    expect(screen.getByText(/No analyses yet/)).toBeInTheDocument();
   });
 
-  it("abre el último análisis y muestra la transcripción", async () => {
+  it("opens the last analysis and shows the transcript", async () => {
     mockFetch({
       "GET /api/reference": () => reference,
       [`GET /api/jobs/${job.id}/analysis`]: () => analysis,
@@ -64,51 +64,51 @@ describe("App", () => {
     await screen.findByRole("button", { name: /^does/ });
     expect(wordButton("does")).toBeInTheDocument();
     expect(wordButton("wanna")).toBeInTheDocument();
-    expect(screen.getByText(/2 segmentos/)).toBeInTheDocument();
+    expect(screen.getByText(/2 segments/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "report.html" })).toHaveAttribute(
       "href",
       `/api/jobs/${job.id}/report`,
     );
   });
 
-  it("un análisis en curso muestra progreso y registro", async () => {
+  it("shows progress and the log for an analysis in flight", async () => {
     const running: Job = {
       ...job,
       status: "running",
       percent: 40,
-      last_message: "Segmento 3/10: fonos + alineación…",
+      last_message: "Segment 3/10: phones + alignment…",
       has_analysis: false,
-      progress: [{ at: "2026-07-26T12:00:02+00:00", message: "Transcribiendo…" }],
+      progress: [{ at: "2026-07-26T12:00:02+00:00", message: "Transcribing…" }],
     };
     mockFetch({ "GET /api/reference": () => reference });
     renderApp([running]);
 
-    expect(await screen.findByText("Analizando…")).toBeInTheDocument();
+    expect(await screen.findByText("Analyzing…")).toBeInTheDocument();
     expect(screen.getByText("40%")).toBeInTheDocument();
-    expect(screen.getByText(/Segmento 3\/10/)).toBeInTheDocument();
-    expect(await screen.findByText("Transcribiendo…")).toBeInTheDocument();
+    expect(screen.getByText(/Segment 3\/10/)).toBeInTheDocument();
+    expect(await screen.findByText("Transcribing…")).toBeInTheDocument();
   });
 
-  it("lanza un análisis nuevo con la ruta y las opciones elegidas", async () => {
+  it("launches a new analysis with the chosen path and options", async () => {
     const fetchMock = mockFetch({
       "GET /api/reference": () => reference,
-      "POST /api/jobs": () => ({ ...job, id: "nuevo", status: "queued", percent: 0 }),
+      "POST /api/jobs": () => ({ ...job, id: "new", status: "queued", percent: 0 }),
     });
     renderApp([]);
-    await screen.findByText("Analizar habla nativa");
+    await screen.findByText("Analyze native speech");
 
     await userEvent.type(
-      screen.getByPlaceholderText(/ruta local/),
-      "/home/yo/videos/ep1.webm",
+      screen.getByPlaceholderText(/local path/),
+      "/home/me/videos/ep1.webm",
     );
-    await userEvent.selectOptions(screen.getByLabelText(/Modelo de Whisper/), "medium");
-    await userEvent.click(screen.getByRole("button", { name: "Analizar" }));
+    await userEvent.selectOptions(screen.getByLabelText(/Whisper model/), "medium");
+    await userEvent.click(screen.getByRole("button", { name: "Analyze" }));
 
     await waitFor(() => {
       const call = fetchMock.mock.calls.find(([, init]) => init?.method === "POST");
       expect(call).toBeDefined();
       expect(JSON.parse(String(call![1]!.body))).toEqual({
-        path: "/home/yo/videos/ep1.webm",
+        path: "/home/me/videos/ep1.webm",
         options: {
           whisper_model: "medium",
           phone_engine: "wav2vec2",
@@ -118,30 +118,30 @@ describe("App", () => {
       });
     });
 
-    // la respuesta del POST se aplica al canal al momento: se abre su progreso
-    expect(await screen.findByText("En cola…")).toBeInTheDocument();
+    // the POST response is applied to the channel at once: its progress opens
+    expect(await screen.findByText("Queued…")).toBeInTheDocument();
   });
 
-  it("analiza una URL de YouTube sin pasar por el disco", async () => {
-    const descargando: Job = {
+  it("analyzes a YouTube URL without going through disk", async () => {
+    const downloading: Job = {
       ...job, id: "yt", status: "running", percent: 8, has_analysis: false,
       source_url: "https://youtu.be/abc123",
-      last_message: "Descargando de YouTube… 45 %",
-      progress: [{ at: "2026-07-26T12:00:02+00:00", message: "Descargando de YouTube… 45 %" }],
+      last_message: "Downloading from YouTube… 45%",
+      progress: [{ at: "2026-07-26T12:00:02+00:00", message: "Downloading from YouTube… 45%" }],
     };
     const fetchMock = mockFetch({
       "GET /api/reference": () => reference,
-      "POST /api/jobs/youtube": () => ({ ...descargando, status: "queued", percent: 0 }),
+      "POST /api/jobs/youtube": () => ({ ...downloading, status: "queued", percent: 0 }),
     });
     const { socket } = renderApp([]);
-    await screen.findByText("Analizar habla nativa");
+    await screen.findByText("Analyze native speech");
 
     await userEvent.type(
-      screen.getByLabelText("URL de YouTube"),
+      screen.getByLabelText("YouTube URL"),
       "https://youtu.be/abc123",
     );
-    await userEvent.click(screen.getByRole("checkbox", { name: /solo audio/ }));
-    await userEvent.click(screen.getByRole("button", { name: "Descargar y analizar" }));
+    await userEvent.click(screen.getByRole("checkbox", { name: /audio only/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Download and analyze" }));
 
     await waitFor(() => {
       const call = fetchMock.mock.calls.find(([url]) => String(url).includes("youtube"));
@@ -153,12 +153,12 @@ describe("App", () => {
       });
     });
 
-    // el progreso de la descarga llega empujado por el canal (estado y registro)
-    act(() => socket.push({ type: "job", job: descargando }));
-    expect(await screen.findAllByText(/Descargando de YouTube/)).toHaveLength(2);
+    // download progress arrives pushed by the channel (status and log)
+    act(() => socket.push({ type: "job", job: downloading }));
+    expect(await screen.findAllByText(/Downloading from YouTube/)).toHaveLength(2);
   });
 
-  it("desde el corpus se abre un análisis en la palabra elegida", async () => {
+  it("opens an analysis on the chosen word when coming from the corpus", async () => {
     const fetchMock = mockFetch({
       "GET /api/reference": () => reference,
       [`GET /api/jobs/${job.id}/analysis`]: () => analysis,
@@ -190,40 +190,40 @@ describe("App", () => {
     await screen.findByRole("button", { name: /^does/ });
 
     await userEvent.click(screen.getByRole("button", { name: /^Corpus/ }));
-    const fila = await screen.findByText("wanna");
-    await userEvent.click(fila);
+    const row = await screen.findByText("wanna");
+    await userEvent.click(row);
 
-    // vuelve al análisis con esa palabra ya seleccionada y su detalle abierto
+    // returns to the analysis with that word already selected and its detail open
     await waitFor(() => expect(wordButton("wanna")).toHaveAttribute("aria-pressed", "true"));
-    expect(screen.getByText("forma reducida")).toBeInTheDocument();
-    // y solo una vez: el efecto no debe reengancharse consigo mismo
-    const antes = fetchMock.mock.calls.length;
+    expect(screen.getByText("reduced form")).toBeInTheDocument();
+    // and only once: the effect must not re-trigger itself
+    const before = fetchMock.mock.calls.length;
     await new Promise((resolve) => setTimeout(resolve, 250));
     expect(wordButton("wanna")).toHaveAttribute("aria-pressed", "true");
-    expect(fetchMock.mock.calls.length - antes).toBeLessThan(5);
+    expect(fetchMock.mock.calls.length - before).toBeLessThan(5);
   });
 
-  it("avisa si el servidor es más viejo que la interfaz", async () => {
-    // El caso real: queda abierto un `phonotrainer ui` de antes en ese puerto.
-    // Sirve el dist/ nuevo desde disco, así que la interfaz carga y luego pide
-    // rutas que ese servidor no tiene («Method Not Allowed»).
-    const { api_version: _omitido, ...viejo } = reference;
-    mockFetch({ "GET /api/reference": () => viejo });
+  it("warns when the server is older than the interface", async () => {
+    // The real case: an earlier `phonotrainer ui` is left running on that port.
+    // It serves the new dist/ from disk, so the UI loads and then requests
+    // routes that server does not have ("Method Not Allowed").
+    const { api_version: _omitted, ...old } = reference;
+    mockFetch({ "GET /api/reference": () => old });
     renderApp([]);
 
-    expect(await screen.findByText(/más antiguo que esta interfaz/)).toBeInTheDocument();
-    expect(screen.getByText(/Párralo \(Ctrl-C\)/)).toBeInTheDocument();
+    expect(await screen.findByText(/older than this interface/)).toBeInTheDocument();
+    expect(screen.getByText(/Stop it \(Ctrl-C\)/)).toBeInTheDocument();
   });
 
-  it("avisa si el backend no responde", async () => {
+  it("warns when the backend does not respond", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => {
-        throw new Error("conexión rechazada");
+        throw new Error("connection refused");
       }),
     );
     renderApp([]);
 
-    expect(await screen.findByText(/No se pudo hablar con el backend/)).toBeInTheDocument();
+    expect(await screen.findByText(/Could not reach the backend/)).toBeInTheDocument();
   });
 });

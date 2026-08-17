@@ -1,5 +1,5 @@
-/** Booleano guardado en localStorage: preferencias de la interfaz que deben
- *  sobrevivir a cambios de análisis y a recargas (p. ej. mostrar el video). */
+/** A boolean persisted in localStorage: interface preferences that must
+ *  survive switching analyses and reloading (e.g. showing the video). */
 
 import { useCallback, useState } from "react";
 
@@ -9,7 +9,7 @@ export function usePersistentFlag(key: string, initial = false): [boolean, () =>
       const saved = window.localStorage.getItem(key);
       return saved === null ? initial : saved === "1";
     } catch {
-      return initial; // almacenamiento bloqueado (modo privado estricto…)
+      return initial; // storage blocked (strict private browsing…)
     }
   });
 
@@ -19,7 +19,7 @@ export function usePersistentFlag(key: string, initial = false): [boolean, () =>
       try {
         window.localStorage.setItem(key, next ? "1" : "0");
       } catch {
-        /* sin almacenamiento la preferencia dura lo que dure la pestaña */
+        /* with no storage the preference lasts only as long as the tab */
       }
       return next;
     });

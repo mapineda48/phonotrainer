@@ -1,6 +1,6 @@
-/** Datos y envoltorios compartidos por los tests.
- *  El análisis es el mismo que produce `tests/conftest.py::mk_analysis`, así los
- *  tests de las dos mitades hablan del mismo material. */
+/** Data and wrappers shared by the tests.
+ *  The analysis is the same one `tests/conftest.py::mk_analysis` produces, so
+ *  the tests on both halves talk about the same material. */
 
 import { render, screen, type RenderOptions } from "@testing-library/react";
 import type { ReactElement, ReactNode } from "react";
@@ -14,63 +14,63 @@ import { ReferenceProvider } from "../reference";
 import type { AlignedPhone, Analysis, Job, Reference, Word } from "../types";
 
 export const reference: Reference = {
-  api_version: 2,
+  api_version: 3,
   families: [
     {
-      key: "red",
-      label: "Reducción",
+      key: "reduction",
+      label: "Reduction",
       members: ["vowel_reduction", "monophthongization", "elision_syllable"],
-      member_labels: ["reducción vocálica", "monoptongación", "sílaba elidida"],
+      member_labels: ["vowel reduction", "monophthongization", "elided syllable"],
     },
     {
       key: "td",
-      label: "Procesos de t/d",
+      label: "t/d processes",
       members: ["flapping", "t_deletion", "glottalization"],
-      member_labels: ["flapping", "t/d elidida", "glotalización"],
+      member_labels: ["flapping", "t/d deletion", "glottalization"],
     },
     {
-      key: "asim",
-      label: "Asimilación",
+      key: "assimilation",
+      label: "Assimilation",
       members: ["th_stopping", "palatalization"],
-      member_labels: ["th-stopping", "palatalización"],
+      member_labels: ["th-stopping", "palatalization"],
     },
     {
-      key: "fron",
-      label: "Frontera de palabra",
+      key: "boundary",
+      label: "Word boundary",
       members: ["linking", "h_dropping"],
-      member_labels: ["linking", "h muda"],
+      member_labels: ["linking", "h-dropping"],
     },
   ],
   family_of: {
-    vowel_reduction: "red",
-    monophthongization: "red",
-    elision_syllable: "red",
+    vowel_reduction: "reduction",
+    monophthongization: "reduction",
+    elision_syllable: "reduction",
     flapping: "td",
     t_deletion: "td",
     glottalization: "td",
-    th_stopping: "asim",
-    palatalization: "asim",
-    linking: "fron",
-    h_dropping: "fron",
+    th_stopping: "assimilation",
+    palatalization: "assimilation",
+    linking: "boundary",
+    h_dropping: "boundary",
   },
   labels: {
-    vowel_reduction: "reducción vocálica",
-    t_deletion: "t/d elidida",
-    contraction_lex: "contracción léxica",
+    vowel_reduction: "vowel reduction",
+    t_deletion: "t/d deletion",
+    contraction_lex: "lexical contraction",
     flapping: "flapping",
     linking: "linking",
   },
   descriptions: {
-    vowel_reduction: "Una vocal plena se reduce a schwa en sílaba átona. does → dəz",
-    t_deletion: "La /t/ o /d/ final no llega a pronunciarse. that → ðæ",
-    contraction_lex: "Forma reducida lexicalizada. want to → wanna",
-    flapping: "/t/ o /d/ entre vocales suenan como una erre suave. water → wɔɾɚ",
-    linking: "La consonante final se enlaza con la vocal siguiente. does it → dʌ‿zɪt",
+    vowel_reduction: "A full vowel reduces to schwa in an unstressed syllable. does → dəz",
+    t_deletion: "A word-final /t/ or /d/ is never actually pronounced. that → ðæ",
+    contraction_lex: "Lexicalized reduced form. want to → wanna",
+    flapping: "/t/ or /d/ between vowels sounds like a soft r. water → wɔɾɚ",
+    linking: "The final consonant links onto the following vowel. does it → dʌ‿zɪt",
   },
-  // Los mismos que publica el backend desde ipa_maps.ENGLISH_INVENTORY.
+  // The same ones the backend publishes from ipa_maps.ENGLISH_INVENTORY.
   ipa_tokens: ["ɑːɹ", "ɔːɹ", "aɪə", "aɪɚ", "oːɹ", "aɪ", "aʊ", "eɪ", "oʊ", "ɔɪ", "tʃ", "dʒ",
                "iː", "uː", "ɑː", "ɔː", "ɜː", "ɪɹ", "ʊɹ", "ɛɹ", "iə", "eə", "əl", "ju"],
-  verdicts: ["ok", "mal", "dudosa"],
+  verdicts: ["ok", "wrong", "unsure"],
   options: {
     whisper_models: ["tiny", "base", "small", "medium"],
     phone_engines: ["wav2vec2", "allosaurus"],
@@ -176,7 +176,7 @@ export const analysis: Analysis = {
     },
   ],
   summary: {
-    // Recuentos distintos a propósito: así los tests de orden prueban algo.
+    // Deliberately distinct counts, so the ordering tests actually prove something.
     phenomena_counts: { linking: 7, vowel_reduction: 4, t_deletion: 2, contraction_lex: 1 },
   },
 };
@@ -193,7 +193,7 @@ export const job: Job = {
   imported: false,
   result_dir: "/tmp/workspace/20260726-120000-abcd",
   percent: 100,
-  last_message: "Generando report.html…",
+  last_message: "Generating report.html…",
   has_analysis: true,
   has_audio: true,
   has_report: true,
@@ -204,12 +204,12 @@ export const job: Job = {
   summary: { segments: 2, words: 5, duration: 3, phenomena_counts: analysis.summary.phenomena_counts },
 };
 
-/** Botón de una palabra de la transcripción. Su nombre accesible incluye los
- *  fenómenos ("that, t/d elidida"), así que buscamos por prefijo. */
+/** A word button from the transcript. Its accessible name includes the
+ *  phenomena ("that, t/d deletion"), so we match on the prefix. */
 export const wordButton = (word: string): HTMLElement =>
   screen.getByRole("button", { name: new RegExp(`^${word}(,|$)`) });
 
-/** Reproductor de mentira: registra las llamadas sin tocar el DOM de audio. */
+/** Fake player: records the calls without touching the audio DOM. */
 export function fakePlayer(overrides: Partial<PlayerApi> = {}): PlayerApi {
   return {
     clock: new Clock(),
@@ -229,9 +229,9 @@ export function fakePlayer(overrides: Partial<PlayerApi> = {}): PlayerApi {
   };
 }
 
-/** WebSocket de mentira para el canal de jobs: al "abrirse" entrega el
- *  snapshot y luego el test empuja eventos con push(). La apertura va en un
- *  microtask, como el open real: para entonces el canal ya asignó handlers. */
+/** Fake WebSocket for the jobs channel: on "open" it delivers the snapshot,
+ *  and then the test pushes events with push(). Opening happens in a microtask,
+ *  like the real open: by then the channel has already wired up its handlers. */
 export class FakeJobsSocket implements JobsSocket {
   onopen: (() => void) | null = null;
   onmessage: ((event: { data: string }) => void) | null = null;
@@ -254,12 +254,12 @@ export class FakeJobsSocket implements JobsSocket {
   }
 
   close(): void {
-    /* el canal cierra al desecharse: aquí no hay nada que cerrar */
+    /* the channel closes on dispose: there is nothing to close here */
   }
 }
 
-/** Canal con el socket de mentira dentro. El socket nace al suscribirse
- *  (como el real), así que se pide con el getter, no antes. */
+/** Channel with the fake socket inside. The socket is born on subscribe (like
+ *  the real one), so it is requested through the getter, not before. */
 export function fakeJobsChannel(jobs: Job[] = []) {
   let socket: FakeJobsSocket | null = null;
   const channel = new JobsChannel("ws://test", () => {
@@ -269,7 +269,7 @@ export function fakeJobsChannel(jobs: Job[] = []) {
   return {
     channel,
     get socket(): FakeJobsSocket {
-      if (!socket) throw new Error("nadie se ha suscrito todavía: no hay socket");
+      if (!socket) throw new Error("nobody has subscribed yet: there is no socket");
       return socket;
     },
   };

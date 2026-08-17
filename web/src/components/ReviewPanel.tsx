@@ -1,8 +1,8 @@
-/** Validación humana muestreada (la MEJORA 5 de la CLI, aquí con audio).
+/** Sampled human validation (IMPROVEMENT 5 from the CLI, here with audio).
  *
- *  Muestra las palabras que el pipeline tocó más (atraídas, baja confianza,
- *  divergencia alta), las reproduce una a una y recoge el veredicto con el
- *  teclado. Guarda el mismo review.json que escribe `phonotrainer review`.
+ *  Shows the words the pipeline touched the most (attracted, low confidence,
+ *  high divergence), plays them one by one and collects the verdict from the
+ *  keyboard. Writes the same review.json that `phonotrainer review` writes.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -19,7 +19,7 @@ const key = (item: { segment: number; word_idx: number }) => `${item.segment}:${
 
 export function ReviewPanel({ jobId }: { jobId: string }) {
   const player = usePlayer();
-  // Veredictos y valores por defecto vienen del backend (review.py).
+  // Verdicts and default values come from the backend (review.py).
   const reference = useReference();
   const [n, setN] = useState(reference.review.default_n);
   const [seed, setSeed] = useState(reference.review.default_seed);
@@ -49,7 +49,7 @@ export function ReviewPanel({ jobId }: { jobId: string }) {
     [jobId],
   );
 
-  // Al abrir: recuperamos la revisión previa (si la hay) y muestreamos con su seed.
+  // On open: recover the previous review (if any) and sample with its seed.
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -84,7 +84,7 @@ export function ReviewPanel({ jobId }: { jobId: string }) {
   useEffect(() => {
     if (!autoplay || !item) return;
     player.play(wordSpan(item.word));
-    // Solo al cambiar de ficha: reproducir cada vez que cambia el estado sería ruido.
+    // Only when the card changes: playing on every state change would be noise.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current, items]);
 
@@ -102,8 +102,8 @@ export function ReviewPanel({ jobId }: { jobId: string }) {
 
   useHotkeys({
     "1": () => setVerdict("ok"),
-    "2": () => setVerdict("mal"),
-    "3": () => setVerdict("dudosa"),
+    "2": () => setVerdict("wrong"),
+    "3": () => setVerdict("unsure"),
     j: () => move(1),
     k: () => move(-1),
     ArrowDown: () => move(1),
@@ -131,7 +131,7 @@ export function ReviewPanel({ jobId }: { jobId: string }) {
           verdict: verdicts[key(each)].verdict,
           note: verdicts[key(each)].note,
         }));
-      // Al guardar, el servidor avisa por el canal: has_review se actualiza solo.
+      // On save the server announces it over the channel: has_review updates itself.
       setSaved(await api.saveReview(jobId, seed, payload));
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -171,22 +171,25 @@ export function ReviewPanel({ jobId }: { jobId: string }) {
             void sample(Math.min(Math.max(1, n || 1), reference.review.max_n), seed || 0)
           }
         >
-          Muestrear
+          Sample
         </button>
       </div>
 
       <p className="tiny muted" style={{ margin: "0 0 10px" }}>
-        Prioriza palabras atraídas, de baja confianza o muy divergentes. Teclas:{" "}
-        <span className="kbd">1</span> ok · <span className="kbd">2</span> mal ·{" "}
-        <span className="kbd">3</span> dudosa · <span className="kbd">j</span>/
-        <span className="kbd">k</span> moverse.
+        Prioritizes attracted, low-confidence or highly divergent words. Keys:{" "}
+        {/* ok / wrong / unsure are the verdict values the backend defines and
+            stores in review.json; the buttons render them verbatim, so the
+            hint names the very same keys. */}
+        <span className="kbd">1</span> ok · <span className="kbd">2</span> wrong ·{" "}
+        <span className="kbd">3</span> unsure · <span className="kbd">j</span>/
+        <span className="kbd">k</span> to move.
       </p>
 
       {error && <p className="error">{error}</p>}
 
       <div className="row tiny" style={{ marginBottom: 10 }}>
         <strong>
-          {decided}/{items.length} revisadas
+          {decided}/{items.length} reviewed
         </strong>
         <span className="spacer" />
         <label className="row tiny" style={{ gap: 4 }}>
@@ -195,7 +198,7 @@ export function ReviewPanel({ jobId }: { jobId: string }) {
             checked={autoplay}
             onChange={(event) => setAutoplay(event.target.checked)}
           />
-          reproducir al avanzar
+          play on advance
         </label>
         <button
           type="button"
@@ -203,14 +206,14 @@ export function ReviewPanel({ jobId }: { jobId: string }) {
           disabled={busy || decided === 0}
           onClick={() => void save()}
         >
-          Guardar
+          Save
         </button>
       </div>
 
       {saved && (
         <p className="tiny dim">
-          Guardado: {saved.ok} ok · {saved.mal} mal · {saved.dudosa} dudosa
-          {saved.accuracy != null && ` · acierto ${Math.round(saved.accuracy * 100)}%`}
+          Saved: {saved.ok} ok · {saved.wrong} wrong · {saved.unsure} unsure
+          {saved.accuracy != null && ` · accuracy ${Math.round(saved.accuracy * 100)}%`}
         </p>
       )}
 
@@ -246,14 +249,14 @@ export function ReviewPanel({ jobId }: { jobId: string }) {
               <span className="ipa">[{word.canonical_ipa}]</span> vs{" "}
               <span className="ipa">[{word.realized_ipa || "∅"}]</span>
               {word.realized_raw_ipa && (
-                <span className="ipa muted"> (crudo [{word.realized_raw_ipa}])</span>
+                <span className="ipa muted"> (raw [{word.realized_raw_ipa}])</span>
               )}
             </div>
 
             <div className="tiny muted" style={{ marginBottom: 6 }}>
-              {word.phenomena.map((p) => phenomenonLabel(reference, p)).join(", ") || "sin fenómenos"}
-              {word.attracted_count > 0 && ` · ${word.attracted_count} atraído(s)`}
-              {word.low_confidence && " · baja confianza"}
+              {word.phenomena.map((p) => phenomenonLabel(reference, p)).join(", ") || "no phenomena"}
+              {word.attracted_count > 0 && ` · ${word.attracted_count} attracted`}
+              {word.low_confidence && " · low confidence"}
             </div>
 
             <div className="verdicts">
@@ -279,13 +282,13 @@ export function ReviewPanel({ jobId }: { jobId: string }) {
               <input
                 type="text"
                 className="input"
-                placeholder="nota…"
+                placeholder="note…"
                 value={state?.note ?? ""}
                 onChange={(event) =>
                   setVerdicts((current_) => ({
                     ...current_,
                     [key(each)]: {
-                      verdict: current_[key(each)]?.verdict ?? "dudosa",
+                      verdict: current_[key(each)]?.verdict ?? "unsure",
                       note: event.target.value,
                     },
                   }))

@@ -1,15 +1,16 @@
-/** Diccionario vs canónico vs real, fono a fono, sobre el mismo eje de tiempo.
+/** Dictionary vs canonical vs actual, phone by phone, on one shared time axis.
  *
- *  Es la vista que justifica el proyecto. Tres filas porque hacen falta tres:
+ *  This is the view that justifies the project. Three rows because three are
+ *  needed:
  *
- *  - **diccionario** (CMUdict, sin tiempos): la forma de cita. Imprescindible
- *    porque espeak-ng ya aplica procesos nativos —el canónico de *better* es
- *    [bɛɾɚ], con flap—, así que sin esta fila el flapping es invisible.
- *  - **canónico alineado**: lo que el alineador forzado esperaba, en el tiempo.
- *  - **realmente pronunciado**: lo que reconoció el modelo acústico.
+ *  - **dictionary** (CMUdict, untimed): the citation form. Indispensable
+ *    because espeak-ng already applies native processes — the canonical form of
+ *    *better* is [bɛɾɚ], with a flap — so without this row flapping is invisible.
+ *  - **aligned canonical**: what the forced aligner expected, placed in time.
+ *  - **actually pronounced**: what the acoustic model recognized.
  *
- *  Los tiempos son picos de CTC (un frame de 20 ms), no segmentaciones: por eso
- *  las cajas se anotan como *instante detectado* y no como duración.
+ *  The times are CTC peaks (a single 20 ms frame), not segmentations: that is
+ *  why the boxes are annotated as a *detected instant* and not as a duration.
  */
 
 import { useMemo } from "react";
@@ -19,13 +20,13 @@ import { usePlayer } from "../player/PlayerProvider";
 import { useReference } from "../reference";
 import type { AlignedPhone, Word } from "../types";
 
-const PAD = 0.02; // s de margen al reproducir un fono suelto
-/** Los tiempos son picos de un frame: dos fonos "a la vez" pueden no solaparse. */
+const PAD = 0.02; // s of padding when playing a single phone
+/** Times are single-frame peaks: two phones "at once" may not actually overlap. */
 const FRAME = 0.04;
 
 interface Props {
   word: Word;
-  /** Palabra siguiente, si el fenómeno cruza la frontera (linking, palatalización…). */
+  /** The following word, when the phenomenon crosses the boundary (linking, palatalization…). */
   next?: Word | null;
 }
 
@@ -36,23 +37,23 @@ function markDiff(own: AlignedPhone[], other: AlignedPhone[]): boolean[] {
   return own.map((phone) => !other.some((peer) => peer[0] === phone[0] && overlaps(phone, peer)));
 }
 
-/** Marcas que no son un fono: acento y longitud. */
+/** Marks that are not a phone: stress and length. */
 const STRESS = /[ˈˌ]/;
-/** Para comparar filas: /uː/ y /u/, /ˈɛ/ y /ɛ/ son el mismo fono. */
+/** For comparing rows: /uː/ and /u/, /ˈɛ/ and /ɛ/ are the same phone. */
 export const bareSymbol = (symbol: string): string => symbol.replace(/[ˈˌː]/g, "");
 
 /**
- * Trocea una cadena IPA sin tiempos (la forma de diccionario) en fonos.
+ * Split an untimed IPA string (the dictionary form) into phones.
  *
- * `tokens` son los símbolos de más de un carácter del inventario inglés, que
- * publica el backend: sin ellos "aɪ" se partiría en dos y la fila de
- * diccionario marcaría como no pronunciada media palabra bien dicha.
+ * `tokens` are the multi-character symbols of the English inventory, published
+ * by the backend: without them "aɪ" would be split in two and the dictionary
+ * row would flag half of a correctly spoken word as unpronounced.
  */
 export function splitIpa(ipa: string, tokens: readonly string[] = []): string[] {
   const COMBINING = /[ʰ-˿̀-ͯ᷀-᷿ⁿːˑ]/;
   const multi = [...tokens].sort((a, b) => b.length - a.length);
   const out: string[] = [];
-  let pending = "";                       // acento a la espera de su fono
+  let pending = "";                       // a stress mark waiting for its phone
   let i = 0;
   while (i < ipa.length) {
     const char = ipa[i];
@@ -89,8 +90,8 @@ export function PhoneTimeline({ word, next }: Props) {
     const end = Math.max(...words.map((w) => w.end), ...phones.map((p) => p[2]));
     const span = Math.max(end - start, 1e-3);
     const dictionary = splitIpa(word.dict_ipa, reference.ipa_tokens);
-    // Solo contra lo pronunciado de ESTA palabra: si contáramos la siguiente,
-    // su /t/ taparía la /t/ elidida de la nuestra.
+    // Only against what THIS word realized: counting the next one would let
+    // its /t/ mask our own deleted /t/.
     const saidHere = new Set(word.realized_aligned.map((p) => bareSymbol(p[0])));
     const lastReal = word.realized_aligned.at(-1);
     const firstNext = next?.realized_aligned[0];
@@ -101,14 +102,14 @@ export function PhoneTimeline({ word, next }: Props) {
       canonical,
       real,
       dictionary,
-      // Un símbolo del diccionario que no aparece en lo pronunciado es justo lo
-      // que el estudiante busca (la /t/ de "better", la /d/ de "and").
+      // A dictionary symbol absent from what was pronounced is exactly what the
+      // learner is looking for (the /t/ in "better", the /d/ in "and").
       dictionaryDiff: dictionary.map((symbol) => !saidHere.has(bareSymbol(symbol))),
       canonicalDiff: markDiff(canonical, real),
       realDiff: markDiff(real, canonical),
       boundary: next ? (next.start - start) / span : null,
-      // Hueco real en la frontera: es la medida del enlace (con linking ronda
-      // los 20 ms; una frontera normal, los 60).
+      // The real gap at the boundary: this is the measure of linking (around
+      // 20 ms when linked; a plain boundary sits nearer 60).
       gapMs: lastReal && firstNext ? Math.round((firstNext[1] - lastReal[2]) * 1000) : null,
       tie:
         lastReal && firstNext
@@ -128,7 +129,7 @@ export function PhoneTimeline({ word, next }: Props) {
       <div className="phones__row">
         {phones.length === 0 && (
           <span className="tiny muted" style={{ position: "absolute", top: 4 }}>
-            ∅ nada reconocido
+            ∅ nothing recognized
           </span>
         )}
         {phones.map(([symbol, start, end], index) => (
@@ -140,8 +141,8 @@ export function PhoneTimeline({ word, next }: Props) {
               left: `${((start - view.start) / view.span) * 100}%`,
               width: `${Math.max(((end - start) / view.span) * 100, 3)}%`,
             }}
-            title={`${symbol} · detectado en ${start.toFixed(2)} s${
-              diff[index] ? " · sin equivalente en la otra fila" : ""
+            title={`${symbol} · detected at ${start.toFixed(2)} s${
+              diff[index] ? " · no counterpart in the other row" : ""
             }`}
             onClick={() => player.play({ start: start - PAD, end: end + PAD })}
           >
@@ -154,7 +155,7 @@ export function PhoneTimeline({ word, next }: Props) {
 
   return (
     <div className="phones">
-      <div className="phones__label">diccionario (forma de cita, sin tiempos)</div>
+      <div className="phones__label">dictionary (citation form, untimed)</div>
       <div className="phones__dict">
         {view.dictionary.map((symbol, index) => (
           <span
@@ -162,7 +163,7 @@ export function PhoneTimeline({ word, next }: Props) {
             className={`phone phone--static ${view.dictionaryDiff[index] ? "phone--diff" : ""}`}
             title={
               view.dictionaryDiff[index]
-                ? `${symbol}: en el diccionario pero no en lo pronunciado`
+                ? `${symbol}: in the dictionary but not in what was pronounced`
                 : symbol
             }
           >
@@ -172,14 +173,14 @@ export function PhoneTimeline({ word, next }: Props) {
       </div>
 
       <div className="phones__timed">
-        {row(view.canonical, view.canonicalDiff, "canónico alineado", "can")}
-        {row(view.real, view.realDiff, "realmente pronunciado", "real")}
+        {row(view.canonical, view.canonicalDiff, "aligned canonical", "can")}
+        {row(view.real, view.realDiff, "actually pronounced", "real")}
 
         {view.tie !== null && view.gapMs !== null && (
           <span
             className="phones__tie"
             style={{ left: `${((view.tie - view.start) / view.span) * 100}%` }}
-            title={`${view.gapMs} ms entre las dos palabras`}
+            title={`${view.gapMs} ms between the two words`}
           >
             ‿
           </span>
@@ -191,7 +192,7 @@ export function PhoneTimeline({ word, next }: Props) {
           </span>
           {view.boundary !== null && (
             <span className="phones__tick" style={{ left: `${view.boundary * 100}%` }}>
-              frontera
+              boundary
             </span>
           )}
           <span className="phones__tick" style={{ right: 0, transform: "none" }}>
@@ -207,15 +208,15 @@ export function PhoneTimeline({ word, next }: Props) {
       </div>
       {view.gapMs !== null && (
         <p className="tiny dim" style={{ margin: "10px 0 0" }}>
-          Hueco en la frontera: <strong>{view.gapMs} ms</strong>
+          Gap at the boundary: <strong>{view.gapMs} ms</strong>
           {view.gapMs <= 30
-            ? " — van pegadas, eso es el enlace (una frontera sin enlazar ronda los 60 ms)."
-            : " — sin enlace apreciable."}
+            ? " — they run together, and that is the linking (an unlinked boundary sits nearer 60 ms)."
+            : " — no appreciable linking."}
         </p>
       )}
       <p className="tiny muted" style={{ margin: "10px 0 0" }}>
-        Cada caja marca el <strong>instante detectado</strong> (pico CTC de 20 ms), no la duración
-        del fono. Pulsa una para oírla.
+        Each box marks the <strong>detected instant</strong> (a 20 ms CTC peak), not the duration
+        of the phone. Click one to hear it.
       </p>
     </div>
   );

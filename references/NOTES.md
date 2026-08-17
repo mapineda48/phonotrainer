@@ -1,14 +1,14 @@
-# NOTES.md — Fase 0: hallazgos de los repos de referencia
+# NOTES.md — Phase 0: findings from the reference repositories
 
-> Objetivo: extraer lo reutilizable para PhonoTrainer (diff fonos reales vs canónicos alineados
-> en tiempo + fenómenos de connected speech). Rutas relativas a `references/`.
-> Convención de citas: `repo/archivo.py::funcion` (número de línea aproximado al commit clonado).
+> Goal: extract whatever is reusable for PhonoTrainer (diff of real phones vs time-aligned
+> canonical phones + connected-speech phenomena). Paths are relative to `references/`.
+> Citation convention: `repo/file.py::function` (line number approximate to the cloned commit).
 
-## Cómo reproducir `references/`
+## How to reproduce `references/`
 
-Los clones **no se distribuyen** con este repositorio (`.gitignore`): cada uno
-tiene su licencia y uno de ellos no tiene ninguna. Para seguir las citas de
-abajo, clónalos tú en los commits que se consultaron:
+The clones are **not distributed** with this repository (`.gitignore`): each one
+has its own license and one of them has none at all. To follow the citations
+below, clone them yourself at the commits that were consulted:
 
 ```bash
 mkdir -p references && cd references
@@ -19,87 +19,87 @@ git clone https://github.com/rhss10/joint-apa-mdd-mtl  && git -C joint-apa-mdd-m
 git clone https://github.com/vocaliodmiku/wav2vec2mdd  && git -C wav2vec2mdd     checkout 760ccca
 ```
 
-| Repo | Commit | Licencia |
+| Repo | Commit | License |
 |---|---|---|
 | OpenPronounce | `759ab4c` | MIT — Copyright (c) 2025 Jean-François Lépine |
 | whisperX | `2cfd7b7` | BSD-2-Clause — Copyright (c) 2024, Max Bain |
 | faster-whisper | `ed9a06c` | MIT — Copyright (c) 2023 SYSTRAN |
 | joint-apa-mdd-mtl | `5fbc315` | MIT — Copyright 2023 Hyungshin Ryu |
-| wav2vec2mdd | `760ccca` | ⚠️ **SIN LICENCIA** — todos los derechos reservados |
+| wav2vec2mdd | `760ccca` | ⚠️ **NO LICENSE** — all rights reserved |
 
-> ⚠️ **`wav2vec2mdd` no tiene licencia** en ningún punto de su historial, y sus
-> datos derivan de L2-ARCTIC y TIMIT (corpus con sus propias restricciones). Es
-> **material de lectura**: nunca copiar de ahí código, tablas ni datos a
-> `phonotrainer/`. Lo mismo vale, con más margen, para el resto: lo que se tomó
-> de todos ellos son **ideas**, reimplementadas de cero —se verificó por
-> contenido que no hay código copiado (ver `THIRD-PARTY-NOTICES.md` §6)—.
+> ⚠️ **`wav2vec2mdd` has no license** at any point in its history, and its data
+> derives from L2-ARCTIC and TIMIT (corpora with their own restrictions). It is
+> **reading material**: never copy code, tables or data from there into
+> `phonotrainer/`. The same holds, with more slack, for the rest of them: what was
+> taken from all of them are **ideas**, reimplemented from scratch — it was
+> verified by content that there is no copied code (see `THIRD-PARTY-NOTICES.md` §6).
 >
-> Este documento cita fragmentos cortos (unas 5 líneas en total) con fines de
-> **comentario crítico e identificación**. Cada repositorio se rige por su
-> propia licencia.
+> This document quotes short fragments (about 5 lines in total) for the purposes of
+> **critical commentary and identification**. Each repository is governed by its
+> own license.
 
 ---
 
 ## 1. OpenPronounce (`references/OpenPronounce/`)
 
-Repo plano, sin `src/`: toda la lógica vive en `speech.py` (raíz). Entradas: `cli.py`,
-`server.py` (FastAPI), `streamlit_app.py`. Licencia MIT.
+A flat repo, no `src/`: all the logic lives in `speech.py` (at the root). Entry points: `cli.py`,
+`server.py` (FastAPI), `streamlit_app.py`. MIT licensed.
 
-### 1.1 Pipeline real (¡ojo: NO es wav2vec2→fonemas!)
+### 1.1 The actual pipeline (careful: it is NOT wav2vec2→phonemes!)
 
-- Checkpoint: `facebook/wav2vec2-large-960h` (`OpenPronounce/speech.py` línea 18, `MODEL_NAME`),
-  cargado dos veces: `Wav2Vec2Model` (embeddings crudos) y `Wav2Vec2ForCTC` (transcripción a TEXTO).
-- `OpenPronounce/speech.py::transcribe` (l. 417): CTC greedy — `torch.argmax(logits, -1)` +
-  `processor.batch_decode`. Salida = texto ortográfico en mayúsculas.
-- Los "fonemas dichos" NO salen del audio: salen de fonemizar la transcripción con
+- Checkpoint: `facebook/wav2vec2-large-960h` (`OpenPronounce/speech.py` line 18, `MODEL_NAME`),
+  loaded twice: `Wav2Vec2Model` (raw embeddings) and `Wav2Vec2ForCTC` (transcription to TEXT).
+- `OpenPronounce/speech.py::transcribe` (l. 417): greedy CTC — `torch.argmax(logits, -1)` +
+  `processor.batch_decode`. Output = orthographic text in upper case.
+- The "spoken phonemes" do NOT come from the audio: they come from phonemizing the transcription with
   `phonemizer.phonemize(word, language="en-us", backend="espeak", strip=True)` (fallback
-  `backend="festival"`), palabra por palabra, en
-  `OpenPronounce/speech.py::get_phonemes_with_word_mapping` (l. 50). Devuelve
-  `(phonemes, phoneme_to_word)` donde `phoneme_to_word[idx_fonema] = palabra`.
-- Consecuencia: OpenPronounce hereda la normalización del ASR (si el hablante dice "gonna",
-  wav2vec2-960h transcribe lo que oye como texto y el phonemizer lo canoniza). Para PhonoTrainer
-  esto valida nuestra decisión de usar un modelo CTC de FONOS (`wav2vec2-lv-60-espeak-cv-ft`)
-  para la vía "real": es la única forma de ver reducciones.
+  `backend="festival"`), word by word, in
+  `OpenPronounce/speech.py::get_phonemes_with_word_mapping` (l. 50). It returns
+  `(phonemes, phoneme_to_word)` where `phoneme_to_word[phoneme_idx] = word`.
+- Consequence: OpenPronounce inherits the ASR's normalization (if the speaker says "gonna",
+  wav2vec2-960h transcribes what it hears as text and the phonemizer canonicalizes it). For PhonoTrainer
+  this validates our decision to use a PHONE CTC model (`wav2vec2-lv-60-espeak-cv-ft`)
+  for the "real" route: it is the only way to see reductions.
 
-### 1.2 Alineación fonema-a-fonema (la función que buscábamos)
+### 1.2 Phoneme-to-phoneme alignment (the function we were after)
 
-- **Función central**: `OpenPronounce/speech.py::compare_transcriptions` (l. 78–306).
-  - Alineación por **edit-distance, no DTW**: `Levenshtein.opcodes(expected_phonemes,
-    transcribed_phonemes)` (l. 108) → opcodes `equal/replace/delete/insert`.
-  - Construye `alignment_map: list[set[int]]` (idx fonema esperado → idxs transcritos). En
-    `replace` reparte el rango **proporcionalmente** (l. 114–130) para manejar mapeos 1-a-N
-    ("I'm" 3 fonemas ↔ "I M" 4 fonemas).
-  - Agrupa por palabra re-fonemizando cada palabra para conocer su nº de fonemas (l. 177–194)
-    → ventanas de palabra sobre la secuencia plana de fonemas.
-  - Umbral de error por palabra: `Levenshtein.distance(expected_seg, actual_seg) >
-    len(expected_seg) * 0.4` (l. 253). Sin costos fonéticos: sustituir ð→d cuesta igual que p→s.
-- **DTW existe pero es secundario y débil**:
-  - `OpenPronounce/speech.py::compare_audio_with_text` (l. 350): `fastdtw` entre embeddings
-    wav2vec2 del alumno y de un audio TTS de referencia (`gTTS`, generado por
-    `OpenPronounce/audio.py::text2speech` l. 51) → un escalar de distancia global.
-  - El "DTW de fonemas" del score global usa `get_phoneme_embeddings` (l. 74):
-    `np.array([ord(c) for c in string_de_fonemas])` — DTW sobre codepoints Unicode. Sin ningún
-    fundamento fonético. **No reutilizar**; es el argumento empírico para panphon.
-  - `OpenPronounce/speech.py::align_sequences_dtw` (l. 308): fastdtw 1-D para igualar longitudes
-    de dos curvas (solo para graficar).
-- Score: `OpenPronounce/speech.py::compute_pronunciation_score` (l. 329): 0.4·DTW + 0.3·fonemas
-  + 0.3·palabras, normalizado ad-hoc (capa "error del alumno", no la usamos).
+- **Central function**: `OpenPronounce/speech.py::compare_transcriptions` (l. 78–306).
+  - Alignment by **edit distance, not DTW**: `Levenshtein.opcodes(expected_phonemes,
+    transcribed_phonemes)` (l. 108) → `equal/replace/delete/insert` opcodes.
+  - It builds `alignment_map: list[set[int]]` (expected phoneme idx → transcribed idxs). On
+    `replace` it distributes the range **proportionally** (l. 114–130) to handle 1-to-N mappings
+    ("I'm" 3 phonemes ↔ "I M" 4 phonemes).
+  - It groups by word by re-phonemizing each word to learn its phoneme count (l. 177–194)
+    → word windows over the flat phoneme sequence.
+  - Per-word error threshold: `Levenshtein.distance(expected_seg, actual_seg) >
+    len(expected_seg) * 0.4` (l. 253). No phonetic costs: substituting ð→d costs the same as p→s.
+- **DTW is there, but it is secondary and weak**:
+  - `OpenPronounce/speech.py::compare_audio_with_text` (l. 350): `fastdtw` between the wav2vec2
+    embeddings of the learner and those of a reference TTS audio (`gTTS`, generated by
+    `OpenPronounce/audio.py::text2speech` l. 51) → a single global distance scalar.
+  - The "phoneme DTW" of the global score uses `get_phoneme_embeddings` (l. 74):
+    `np.array([ord(c) for c in phoneme_string])` — DTW over Unicode codepoints. With no phonetic
+    grounding whatsoever. **Do not reuse**; it is the empirical argument for panphon.
+  - `OpenPronounce/speech.py::align_sequences_dtw` (l. 308): 1-D fastdtw to equalize the lengths
+    of two curves (only for plotting).
+- Score: `OpenPronounce/speech.py::compute_pronunciation_score` (l. 329): 0.4·DTW + 0.3·phonemes
+  + 0.3·words, normalized ad hoc (a "learner error" layer, which we do not use).
 
-### 1.3 Prosodia (el enfoque a adaptar con parselmouth)
+### 1.3 Prosody (the approach to adapt with parselmouth)
 
-Tres funciones en `OpenPronounce/speech.py`, librería **librosa** (no parselmouth):
+Three functions in `OpenPronounce/speech.py`, using the **librosa** library (not parselmouth):
 
-| Función | Qué hace |
+| Function | What it does |
 |---|---|
-| `extract_f0` (l. 396) | `librosa.pyin(y, fmin=50, fmax=300)`; `np.nan_to_num` en frames sordos |
-| `interpolate_f0` (l. 409) | interpolación lineal `np.interp` sobre los huecos sordos (máscara `f0 > 0`) para una curva continua |
-| `extract_energy` (l. 402) | `librosa.feature.rms` + `MinMaxScaler(feature_range=(0, 250))` para co-graficar energía y F0 en la misma escala |
+| `extract_f0` (l. 396) | `librosa.pyin(y, fmin=50, fmax=300)`; `np.nan_to_num` on unvoiced frames |
+| `interpolate_f0` (l. 409) | linear interpolation (`np.interp`) over the unvoiced gaps (mask `f0 > 0`) for a continuous curve |
+| `extract_energy` (l. 402) | `librosa.feature.rms` + `MinMaxScaler(feature_range=(0, 250))` to plot energy and F0 together on the same scale |
 
-- Ventanas: defaults de librosa a 16 kHz → `frame_length=2048` (128 ms), `hop=512` (32 ms) tanto
-  para pyin como para rms. Es decir: **un punto de F0/energía cada ~32 ms**.
-- Salida: dos curvas por utterance (`prosody.f0`, `prosody.energy` en el JSON de
-  `compare_audio_with_text`). **No** calcula stats por palabra, ni énfasis, ni contorno final —
-  eso es capa nueva de PhonoTrainer.
+- Windows: librosa's defaults at 16 kHz → `frame_length=2048` (128 ms), `hop=512` (32 ms), for both
+  pyin and rms. In other words: **one F0/energy point every ~32 ms**.
+- Output: two curves per utterance (`prosody.f0`, `prosody.energy` in the JSON of
+  `compare_audio_with_text`). It does **not** compute per-word stats, nor stress, nor final contour —
+  that is PhonoTrainer's new layer.
 
 ---
 
@@ -107,117 +107,117 @@ Tres funciones en `OpenPronounce/speech.py`, librería **librosa** (no parselmou
 
 ### 2.1 Forced alignment
 
-- **Función central**: `whisperX/whisperx/alignment.py::align` (l. 117). Alinea el texto de cada
-  segmento Whisper contra las emisiones CTC de un wav2vec2, a nivel de **CARÁCTER** (luego agrega
-  a palabra). No hay fonemas en ningún punto.
-- Modelo: `whisperX/whisperx/alignment.py::load_align_model` (l. 80). Para inglés
-  `DEFAULT_ALIGN_MODELS_TORCH["en"] = "WAV2VEC2_ASR_BASE_960H"` (pipeline de torchaudio, l. 32–38);
-  otros idiomas vía checkpoints HF (l. 40–77). El diccionario de alineación es
-  `{caracter.lower(): id}` del vocab del tokenizer — letras, `|` como espacio.
-- Mecánica (copiada del tutorial de forced alignment de torchaudio, así lo declara el comentario
-  en l. 426–428):
-  - `alignment.py::get_trellis` (l. 431): trellis CTC (quedarse en blank vs avanzar al token).
-  - `alignment.py::backtrack` (l. 461): retro-trazado con probabilidad por frame.
-  - `alignment.py::merge_repeats` (l. 514): colapsa frames consecutivos del mismo token →
+- **Central function**: `whisperX/whisperx/alignment.py::align` (l. 117). It aligns the text of each
+  Whisper segment against the CTC emissions of a wav2vec2, at the **CHARACTER** level (aggregating
+  to words afterwards). There are no phonemes anywhere in it.
+- Model: `whisperX/whisperx/alignment.py::load_align_model` (l. 80). For English,
+  `DEFAULT_ALIGN_MODELS_TORCH["en"] = "WAV2VEC2_ASR_BASE_960H"` (a torchaudio pipeline, l. 32–38);
+  other languages via HF checkpoints (l. 40–77). The alignment dictionary is
+  `{character.lower(): id}` from the tokenizer's vocab — letters, with `|` as the space.
+- Mechanics (copied from torchaudio's forced alignment tutorial, as the comment at
+  l. 426–428 states):
+  - `alignment.py::get_trellis` (l. 431): CTC trellis (stay on blank vs advance to the token).
+  - `alignment.py::backtrack` (l. 461): backtracking with a per-frame probability.
+  - `alignment.py::merge_repeats` (l. 514): collapses consecutive frames of the same token →
     `Segment(label, start_frame, end_frame, score)`.
-  - `alignment.py::merge_words` (l. 532): agrupa segments por separador `|`.
-  - Conversión frames→segundos: `ratio = duration / (trellis.size(0) - 1)` (l. 302) dentro de la
-    ventana del segmento. `torchaudio.functional.forced_align` implementa exactamente este trellis
-    en nativo; no hace falta portar este código.
+  - `alignment.py::merge_words` (l. 532): groups segments by the `|` separator.
+  - Frames→seconds conversion: `ratio = duration / (trellis.size(0) - 1)` (l. 302) within the
+    segment's window. `torchaudio.functional.forced_align` implements exactly this trellis
+    natively; there is no need to port this code.
 
-### 2.2 Manejo de segmentos y huecos (lo que sí copiamos)
+### 2.2 Segment and gap handling (what we did take)
 
-- **Alineación local por ventana**: recorta el audio al segmento Whisper
-  (`f1 = int(t1*SAMPLE_RATE); f2 = int(t2*SAMPLE_RATE)`, l. 248–252) y alinea solo ahí. Convierte
-  un problema global en muchos locales y robustos — misma filosofía que nuestro diff por palabra.
-- **Padding mínimo**: si la ventana tiene <400 muestras, pad a 400 (mínimo de wav2vec2, l. 254–258).
-- **blank_id**: se localiza buscando `'[pad]'`/`'<pad>'` en el diccionario (l. 273–276) — con
-  modelos HF el blank de CTC es el pad token, no siempre el índice 0. Aplica igual a
+- **Local alignment per window**: it crops the audio to the Whisper segment
+  (`f1 = int(t1*SAMPLE_RATE); f2 = int(t2*SAMPLE_RATE)`, l. 248–252) and aligns only there. It turns
+  a global problem into many local, robust ones — the same philosophy as our per-word diff.
+- **Minimum padding**: if the window has <400 samples, pad to 400 (wav2vec2's minimum, l. 254–258).
+- **blank_id**: it is located by searching for `'[pad]'`/`'<pad>'` in the dictionary (l. 273–276) — with
+  HF models the CTC blank is the pad token, not always index 0. This applies equally to
   wav2vec2-espeak.
-- **Wildcard para tokens fuera de vocabulario** (l. 278–289): añade a la emisión una columna
-  sintética = `max` por frame de los scores no-blank, y mapea ahí los chars desconocidos
-  (dígitos, símbolos). Elegante para OOV; adaptable si algún fono canónico no existiera en el
-  vocab del modelo.
-- **Degradación elegante**: si un segmento no tiene chars alineables o `backtrack` devuelve
-  `None`, conserva los timestamps originales del segmento y sigue (l. 236–244 y 294–297). Nunca
-  aborta el pipeline por un segmento malo.
-- **Interpolación de huecos**: palabras sin ningún carácter alineable reciben tiempos
-  interpolados de sus vecinas — `whisperX/whisperx/utils.py::interpolate_nans` (l. 470;
+- **Wildcard for out-of-vocabulary tokens** (l. 278–289): it appends a synthetic column to the
+  emission = the per-frame `max` of the non-blank scores, and maps unknown chars there
+  (digits, symbols). Elegant for OOV; adaptable if some canonical phone did not exist in the
+  model's vocab.
+- **Graceful degradation**: if a segment has no alignable chars or `backtrack` returns
+  `None`, it keeps the segment's original timestamps and carries on (l. 236–244 and 294–297). It never
+  aborts the pipeline because of one bad segment.
+- **Gap interpolation**: words with no alignable character get times interpolated
+  from their neighbors — `whisperX/whisperx/utils.py::interpolate_nans` (l. 470;
   `interpolate(method='nearest').ffill().bfill()`).
-- **VAD antes del ASR**: `whisperX/whisperx/vads/pyannote.py::Pyannote.merge_chunks` (l. 248)
-  binariza y fusiona turnos de voz en chunks ≤30 s; el silencio nunca entra al modelo. (Nosotros
-  cubrimos esto con `vad_filter=True` de faster-whisper.)
+- **VAD before the ASR**: `whisperX/whisperx/vads/pyannote.py::Pyannote.merge_chunks` (l. 248)
+  binarizes and merges speech turns into chunks of ≤30 s; silence never reaches the model. (We
+  cover this with faster-whisper's `vad_filter=True`.)
 
-**Conclusión para PhonoTrainer**: whisperX es la referencia del *mecanismo* (trellis CTC por
-ventana, blank=pad, interpolación de huecos, fallback) pero su *alfabeto* es ortográfico. No
-sirve como aligner canónico de fonemas; sí como manual de manejo de casos borde.
+**Conclusion for PhonoTrainer**: whisperX is the reference for the *mechanism* (CTC trellis per
+window, blank=pad, gap interpolation, fallback) but its *alphabet* is orthographic. It does not
+work as a canonical phoneme aligner; it does work as a manual for handling edge cases.
 
 ---
 
-## 3. Repos MDD: decodificación CTC y evaluación fonema-nivel
+## 3. MDD repos: CTC decoding and phoneme-level evaluation
 
 ### 3.1 wav2vec2mdd (`references/wav2vec2mdd/`) — fairseq + Kaldi
 
-- No trae código de inferencia propio. Receta (README, sección "Evaluating a CTC model"):
+- It ships no inference code of its own. The recipe (README, "Evaluating a CTC model" section):
   `fairseq examples/speech_recognition/infer.py --w2l-decoder viterbi --lm-weight 0
-  --criterion ctc --labels phn` → **decodificación Viterbi/greedy sin LM** = argmax por frame +
-  colapso de repeticiones + eliminación de blank. Nadie usa beam search para fonos; greedy basta.
-- `wav2vec2mdd/result.py::Result.align` (l. 63): genera los 3 textos del protocolo MDD por
-  utterance — `ref.txt` (canónico), `annotation.txt` (lo que el humano anotó que se dijo),
-  `hypo.txt` (predicción CTC) — filtrando `sil`/`sp`. Después, Kaldi:
-  `align-text ark:ref.txt ark:hypo.txt | wer_per_utt_details.pl` para cada par
-  (ref↔anno, anno↔hypo, ref↔hypo) y `ins_del_sub_cor_analysis.py` cuenta I/D/S/C.
-- **PER = WER sobre strings de fonemas separados por espacio.** Ese es todo el formato.
-- Preparación de datos: `wav2vec2mdd/l2_label.py::split_ref_err` (l. 203) parsea el tier de
-  L2-ARCTIC con marcas `canónico,percibido,tipo`; `l2_label.py::get_phn` (l. 233) limpia dígitos
-  de stress y sufijos (`` ` ``, `*`, `_`).
-- **Tablas reutilizables**:
-  - `wav2vec2mdd/phone39.table`: mapeo TIMIT 61→39/41 fonos (closures `bcl/dcl/...`→`sil`,
-    `q`→None, `ix`→`ih`, `ax-h`→`ax`, `axr`→`er`, `ux`→`uw`…). Cuidado: la línea `sh zh` parece
-    un bug del repo (debería ser `sh sh`); verificar antes de copiar.
-  - `wav2vec2mdd/data/dict.phn.txt`: vocabulario CTC = 40 unidades ARPAbet en minúscula +
+  --criterion ctc --labels phn` → **Viterbi/greedy decoding without an LM** = per-frame argmax +
+  collapsing of repeats + removal of blanks. Nobody uses beam search for phones; greedy is enough.
+- `wav2vec2mdd/result.py::Result.align` (l. 63): generates the 3 texts of the MDD protocol per
+  utterance — `ref.txt` (canonical), `annotation.txt` (what a human annotated as said),
+  `hypo.txt` (the CTC prediction) — filtering out `sil`/`sp`. Then Kaldi:
+  `align-text ark:ref.txt ark:hypo.txt | wer_per_utt_details.pl` for each pair
+  (ref↔anno, anno↔hypo, ref↔hypo), and `ins_del_sub_cor_analysis.py` counts I/D/S/C.
+- **PER = WER over space-separated phoneme strings.** That is the whole format.
+- Data preparation: `wav2vec2mdd/l2_label.py::split_ref_err` (l. 203) parses the L2-ARCTIC tier
+  with `canonical,perceived,type` marks; `l2_label.py::get_phn` (l. 233) strips stress digits
+  and suffixes (`` ` ``, `*`, `_`).
+- **Reusable tables**:
+  - `wav2vec2mdd/phone39.table`: TIMIT 61→39/41 phone mapping (closures `bcl/dcl/...`→`sil`,
+    `q`→None, `ix`→`ih`, `ax-h`→`ax`, `axr`→`er`, `ux`→`uw`…). Careful: the `sh zh` line looks like
+    a bug in the repo (it should be `sh sh`); verify before copying.
+  - `wav2vec2mdd/data/dict.phn.txt`: CTC vocabulary = 40 lower-case ARPAbet units +
     `sil`, `sp`, `err`.
 
-### 3.2 joint-apa-mdd-mtl (`references/joint-apa-mdd-mtl/`) — HF transformers (la receta que copiamos)
+### 3.2 joint-apa-mdd-mtl (`references/joint-apa-mdd-mtl/`) — HF transformers (the recipe we copied)
 
-- **Tokenizer** — la línea más útil del repo,
+- **Tokenizer** — the single most useful line in the repo,
   `joint-apa-mdd-mtl/auxiliary-phone-recognition/trainer_train.py` l. 191:
   ```python
   Wav2Vec2PhonemeCTCTokenizer(VOCAB, unk_token="[UNK]", pad_token="[PAD]",
                               phone_delimiter_token=" ", do_phonemize=False)
   ```
-  Es la misma clase de tokenizer que usa `facebook/wav2vec2-lv-60-espeak-cv-ft`
-  (`do_phonemize=False` porque sus labels ya son fonemas; en el modelo espeak,
-  `do_phonemize=True` con backend espeak-ng fonemiza texto → mismo alfabeto que la salida CTC).
-- **Decodificación CTC = greedy**, en tres sitios idénticos:
-  - `auxiliary-phone-recognition/trainer_train.py::compute_wer` (l. 90–95) y
+  It is the same tokenizer class that `facebook/wav2vec2-lv-60-espeak-cv-ft` uses
+  (`do_phonemize=False` because its labels are already phonemes; in the espeak model,
+  `do_phonemize=True` with the espeak-ng backend phonemizes text → the same alphabet as the CTC output).
+- **CTC decoding = greedy**, in three identical places:
+  - `auxiliary-phone-recognition/trainer_train.py::compute_wer` (l. 90–95) and
     `auxiliary-phone-recognition/trainer_test.py::compute_wer` (l. 89–99):
     `pred_ids = np.argmax(logits, -1)` → `processor.batch_decode(pred_ids)`.
   - `multi-task-learning/test/test.py` l. 119: `processor.batch_decode(torch.argmax(ctc_logits, -1))`.
-  - Detalle clave: `batch_decode` con `group_tokens=True` (default) colapsa repeticiones y quita
-    blank/pad; para las REFERENCIAS usan `group_tokens=False` (l. 95–96 de trainer_train) porque
-    ahí las repeticiones son fonemas legítimos, no frames repetidos. Recordarlo en
+  - Key detail: `batch_decode` with `group_tokens=True` (the default) collapses repeats and removes
+    blank/pad; for the REFERENCES they use `group_tokens=False` (l. 95–96 of trainer_train) because
+    there the repeats are legitimate phonemes, not repeated frames. Remember this in
     `phones_real.py`.
-- **PER**: `evaluate.load("wer")` aplicado a fonemas espacio-separados
-  (`multi-task-learning/test/test.py` l. 127–129 y 150, `per_metric.add_batch(...)`).
-- **Evaluación 3-vías canónico/anotado/predicho** (el "diff" de MDD, nuestro diff con signo
-  invertido):
-  - `multi-task-learning/test/test.py` l. 103–105 y 144–148 escribe `PREDS_*`, `ANNOT_*`,
-    `CANON_*` (una utterance por línea: `id\tfonemas`).
+- **PER**: `evaluate.load("wer")` applied to space-separated phonemes
+  (`multi-task-learning/test/test.py` l. 127–129 and 150, `per_metric.add_batch(...)`).
+- **Three-way canonical/annotated/predicted evaluation** (the MDD "diff", our diff with the sign
+  flipped):
+  - `multi-task-learning/test/test.py` l. 103–105 and 144–148 writes `PREDS_*`, `ANNOT_*`,
+    `CANON_*` (one utterance per line: `id\tphonemes`).
   - `multi-task-learning/test/kaldi-align.sh`: `align-text --special-symbol='***'` +
-    `utils/scoring/wer_per_utt_details.pl` para CANON↔ANNOT, ANNOT↔PREDS, CANON↔PREDS.
-  - `multi-task-learning/test/ins_del_sub_cor_analysis.py`: parsea las líneas `ref`/`hyp`/`op`
-    y cuenta `I/D/S/C` → jerarquía True-Accept/False-Rejection/False-Accept/True-Rejection.
-    PhonoTrainer hace lo mismo pero renombra cada op a fenómeno (S: ʌ→ə = vowel_reduction;
-    D de /t/ final = t_deletion; …).
-- **Vocab**: `joint-apa-mdd-mtl/vocab/vocab.json` — 49 tokens: ARPAbet mayúscula + unidades de
-  error L2-ARCTIC (`ERR`, `AR`, `IR`, `DZ`, `TS`, `TR`, `DR`) + `[UNK]`/`[PAD]`; `" "` = id 0.
-- **Mapeo TIMIT→39 en Python** (alternativa a phone39.table):
-  `joint-apa-mdd-mtl/data/preprocess_datasets.py::preprocess_timit_phones` (l. 46): descarta
-  `h#/epi/pau/q` y closures; mapea `em→m, el→l, en→n, nx→n, eng→ng, ux→uw, axr→er, ix→ih,
-  ax→ah, hv→hh`… **y `dx→t`**: colapsa el flap en /t/. Es exactamente la normalización que
-  PhonoTrainer NO debe aplicar — el flap ɾ es un fenómeno a detectar, no ruido. Buen recordatorio
-  de que las tablas MDD borran lo que nosotros queremos medir.
+    `utils/scoring/wer_per_utt_details.pl` for CANON↔ANNOT, ANNOT↔PREDS, CANON↔PREDS.
+  - `multi-task-learning/test/ins_del_sub_cor_analysis.py`: parses the `ref`/`hyp`/`op` lines
+    and counts `I/D/S/C` → a True-Accept/False-Rejection/False-Accept/True-Rejection hierarchy.
+    PhonoTrainer does the same thing but renames each op to a phenomenon (S: ʌ→ə = vowel_reduction;
+    a D of final /t/ = t_deletion; …).
+- **Vocab**: `joint-apa-mdd-mtl/vocab/vocab.json` — 49 tokens: upper-case ARPAbet + L2-ARCTIC
+  error units (`ERR`, `AR`, `IR`, `DZ`, `TS`, `TR`, `DR`) + `[UNK]`/`[PAD]`; `" "` = id 0.
+- **TIMIT→39 mapping in Python** (an alternative to phone39.table):
+  `joint-apa-mdd-mtl/data/preprocess_datasets.py::preprocess_timit_phones` (l. 46): discards
+  `h#/epi/pau/q` and the closures; maps `em→m, el→l, en→n, nx→n, eng→ng, ux→uw, axr→er, ix→ih,
+  ax→ah, hv→hh`… **and `dx→t`**: it collapses the flap into /t/. That is exactly the normalization
+  PhonoTrainer must NOT apply — the flap ɾ is a phenomenon to detect, not noise. A good reminder
+  that the MDD tables erase precisely what we want to measure.
 
 ---
 
@@ -225,145 +225,146 @@ sirve como aligner canónico de fonemas; sí como manual de manejo de casos bord
 
 - **`WhisperModel.transcribe`** (l. 747): `word_timestamps: bool = False` (l. 778),
   `vad_filter: bool = False` (l. 782), `vad_parameters: dict | VadOptions | None` (l. 783).
-- **`BatchedInferencePipeline.transcribe`** (l. 254): `word_timestamps=False` (l. 285) pero
-  **`vad_filter=True` por defecto** (l. 289). Ojo al default distinto entre las dos clases;
-  en PhonoTrainer pasamos ambos explícitos: `transcribe(wav, word_timestamps=True, vad_filter=True)`.
-- Word timestamps: dataclass `Word` (l. 32: `start, end, word, probability`) rellenada por
-  `WhisperModel.add_word_timestamps` (l. 1567) vía DTW sobre cross-attention.
-- VAD: Silero; opciones en `faster_whisper/vad.py::VadOptions` (l. 15): `threshold=0.5`,
+- **`BatchedInferencePipeline.transcribe`** (l. 254): `word_timestamps=False` (l. 285) but
+  **`vad_filter=True` by default** (l. 289). Mind the differing default between the two classes;
+  in PhonoTrainer we pass both explicitly: `transcribe(wav, word_timestamps=True, vad_filter=True)`.
+- Word timestamps: the `Word` dataclass (l. 32: `start, end, word, probability`), filled in by
+  `WhisperModel.add_word_timestamps` (l. 1567) via DTW over cross-attention.
+- VAD: Silero; options in `faster_whisper/vad.py::VadOptions` (l. 15): `threshold=0.5`,
   `neg_threshold`, `min_speech_duration_ms`, `max_speech_duration_s`, etc.
 
 ---
 
-## 5. Decisiones para PhonoTrainer
+## 5. Decisions for PhonoTrainer
 
-### (a) Alineación canónica: `torchaudio.functional.forced_align` sobre el MISMO modelo espeak
+### (a) Canonical alignment: `torchaudio.functional.forced_align` over the SAME espeak model
 
-- Usamos **`torchaudio.functional.forced_align`** sobre las emisiones (log-softmax de logits) de
-  **`facebook/wav2vec2-lv-60-espeak-cv-ft`** — el mismo modelo que produce los fonos reales.
-- La secuencia canónica se fonemiza con **el propio tokenizer del modelo**
-  (`Wav2Vec2PhonemeCTCTokenizer`, backend espeak-ng, `do_phonemize=True`), de modo que
-  **canónico y real comparten exactamente el mismo alfabeto y los mismos ids** — cero tablas de
-  conversión en el camino crítico, y un solo modelo grande en memoria (una sola pasada de
-  inferencia por ventana sirve para ambas vías).
-- El `blank` a pasar a `forced_align` es el id del pad token del tokenizer (lección de whisperX
-  l. 273–276: en modelos HF blank = `<pad>`, no asumir 0).
-- **`torchaudio.pipelines.MMS_FA` queda descartado**: su diccionario es de caracteres
-  (ortografía romanizada), no de fonemas — mismo problema que el aligner de whisperX. Alinearía
-  letras de "does" y no /d ʌ z/.
-- **MFA queda descartado salvo que la calidad lo exija**: requiere entorno conda propio (contra
-  el criterio pip-only del plan). Se reconsidera solo si la validación manual de Fase 3 muestra
-  fronteras inaceptables.
-- Del manejo de segmentos de whisperX copiamos: alineación por ventana (segmento/palabra del
-  ASR), padding a ≥400 muestras, timestamps interpolados para huecos, y fallback a los tiempos
-  del ASR si la alineación de una ventana falla.
+- We use **`torchaudio.functional.forced_align`** over the emissions (log-softmax of the logits) of
+  **`facebook/wav2vec2-lv-60-espeak-cv-ft`** — the same model that produces the real phones.
+- The canonical sequence is phonemized with **the model's own tokenizer**
+  (`Wav2Vec2PhonemeCTCTokenizer`, espeak-ng backend, `do_phonemize=True`), so that
+  **canonical and real share exactly the same alphabet and the same ids** — zero conversion
+  tables on the critical path, and a single large model in memory (one inference pass per window
+  serves both routes).
+- The `blank` to pass to `forced_align` is the id of the tokenizer's pad token (the lesson from whisperX
+  l. 273–276: in HF models blank = `<pad>`, do not assume 0).
+- **`torchaudio.pipelines.MMS_FA` is discarded**: its dictionary is one of characters
+  (romanized orthography), not of phonemes — the same problem as whisperX's aligner. It would align
+  the letters of "does" and not /d ʌ z/.
+- **MFA is discarded unless quality demands it**: it requires a conda environment of its own (against
+  the plan's pip-only criterion). It is only reconsidered if the manual validation of Phase 3 shows
+  unacceptable boundaries.
+- From whisperX's segment handling we take: per-window alignment (ASR segment/word),
+  padding to ≥400 samples, interpolated timestamps for gaps, and a fallback to the ASR's
+  times if a window's alignment fails.
 
-### (b) Diff: Needleman-Wunsch por ventana de palabra con costos panphon
+### (b) Diff: Needleman-Wunsch per word window with panphon costs
 
-- Alineamiento global **Needleman-Wunsch** entre fonos reales y canónicos, pero **dentro de la
-  ventana temporal de cada palabra** (ambas secuencias ya traen tiempos → el problema es local,
-  como los segmentos de whisperX).
-- Costos de sustitución = distancia de rasgos articulatorios de **panphon**
-  (`panphon.distance.Distance().feature_edit_distance` o pesos derivados): ð↔d y ʌ↔ə baratos,
-  p↔s caro. Justificación empírica: OpenPronounce usa `ord()`+DTW y Levenshtein sin pesos
-  (§1.2) y eso no distingue una reducción natural de un error grosero.
-- Las operaciones I/D/S del alineamiento se etiquetan como fenómenos (tabla de Fase 5 del plan)
-  — es el pipeline `align-text` + `ins_del_sub_cor_analysis.py` de los repos MDD (§3) con la
-  interpretación invertida: la desviación es fenómeno nativo a enseñar, no error.
+- **Needleman-Wunsch** global alignment between real and canonical phones, but **inside the
+  time window of each word** (both sequences already carry times → the problem is local,
+  like whisperX's segments).
+- Substitution costs = articulatory feature distance from **panphon**
+  (`panphon.distance.Distance().feature_edit_distance` or weights derived from it): ð↔d and ʌ↔ə cheap,
+  p↔s expensive. Empirical justification: OpenPronounce uses `ord()`+DTW and unweighted Levenshtein
+  (§1.2), and that does not distinguish a natural reduction from a gross error.
+- The I/D/S operations of the alignment are labeled as phenomena (the table in Phase 5 of the plan)
+  — it is the `align-text` + `ins_del_sub_cor_analysis.py` pipeline of the MDD repos (§3) with the
+  interpretation inverted: the deviation is a native phenomenon to teach, not an error.
 
-### (c) Prosodia: parselmouth adaptando el enfoque de OpenPronounce
+### (c) Prosody: parselmouth, adapting OpenPronounce's approach
 
-El enfoque exacto de OpenPronounce (§1.3) que conservamos, traducido a parselmouth:
+The exact OpenPronounce approach (§1.3) that we keep, translated to parselmouth:
 
-1. **Curva de F0 acotada a banda de voz** — ellos: `librosa.pyin(fmin=50, fmax=300)`, un frame
-   cada ~32 ms. Nosotros: `parselmouth.Sound(...).to_pitch(time_step=0.01, pitch_floor=75,
-   pitch_ceiling=400)` (10 ms como pide el plan; floor/ceiling ajustables por hablante).
-2. **Interpolación de huecos sordos** — su `interpolate_f0` (np.interp sobre frames con f0>0)
-   se replica igual sobre `pitch.selected_array['frequency']` (0 = sordo) para tener contorno
-   continuo graficable.
-3. **Energía co-escalada con F0** — su `extract_energy` (RMS + MinMax a [0,250]) se replica con
-   `snd.to_intensity()` + reescalado Min-Max, para superponer ambas curvas en el report HTML.
+1. **F0 curve bounded to the voice band** — theirs: `librosa.pyin(fmin=50, fmax=300)`, one frame
+   every ~32 ms. Ours: `parselmouth.Sound(...).to_pitch(time_step=0.01, pitch_floor=75,
+   pitch_ceiling=400)` (10 ms, as the plan requires; floor/ceiling adjustable per speaker).
+2. **Interpolation of unvoiced gaps** — their `interpolate_f0` (np.interp over frames with f0>0)
+   is replicated identically over `pitch.selected_array['frequency']` (0 = unvoiced) to get a
+   continuous, plottable contour.
+3. **Energy co-scaled with F0** — their `extract_energy` (RMS + MinMax to [0,250]) is replicated with
+   `snd.to_intensity()` + Min-Max rescaling, so both curves can be superimposed in the HTML report.
 
-Lo que OpenPronounce NO hace y añadimos en `prosody.py`: stats por segmento (media/rango F0),
-palabra enfatizada (pico conjunto F0+intensidad dentro del segmento) y contorno final
-rising/falling (pendiente de F0 en el último tramo sonoro).
+What OpenPronounce does NOT do and we add in `prosody.py`: per-segment stats (F0 mean/range),
+stressed word (joint F0+intensity peak within the segment) and rising/falling final contour
+(F0 slope over the last voiced stretch).
 
 ---
 
-## 6. Mejoras post-validación externa (julio 2026)
+## 6. Post-external-validation improvements (July 2026)
 
-Motivadas por la revisión palabra-por-palabra de `out/analysis.json` del clip de
-2 Broke Girls (42.7 s). Detalle de implementación en `ipa_maps.py`, `phones_real.py`,
-`diff.py` y `phenomena.py`; tests sintéticos por cambio en `tests/`.
+Prompted by the word-by-word review of the `out/analysis.json` of the 2 Broke Girls
+clip (42.7 s). Implementation details in `ipa_maps.py`, `phones_real.py`,
+`diff.py` and `phenomena.py`; synthetic tests per change in `tests/`.
 
-### 6.1 Referencia de cada regla (RULE_REFERENCE, Mejora 4)
+### 6.1 Reference for each rule (RULE_REFERENCE, Improvement 4)
 
-El canónico espeak en-us **ya incorpora procesos nativos**: fonemiza "better" como
-`bɛɾɚ` (flap incluido) y "landed" con `ᵻ`. Eso obliga a ser explícito sobre contra
-qué se define cada fenómeno. `phenomena.RULE_REFERENCE` lo registra:
+The espeak en-us canonical form **already incorporates native processes**: it phonemizes "better" as
+`bɛɾɚ` (flap included) and "landed" with `ᵻ`. That forces us to be explicit about what each
+phenomenon is defined against. `phenomena.RULE_REFERENCE` records it:
 
-| Regla | Referencia | Por qué |
+| Rule | Reference | Why |
 |---|---|---|
-| flapping | **dict** | espeak pre-flapea: un match ɾ↔ɾ solo es flapping si la forma de cita CMUdict tiene /T/ o /D/ (si no, ɾ sería fonema propio de la palabra y no habría proceso). Detección: match/sub sobre aligned + veto por `dict_arpabet`. |
-| el resto | **aligned** | El canónico forzado en tiempo comparte alfabeto y pasada acústica con lo real; espeak en-us da formas fuertes por palabra (fonemiza palabra a palabra, sin contexto), así que la desviación real-vs-aligned ES el fenómeno (reducción, elisión, th-stopping, palatalización, linking…). |
+| flapping | **dict** | espeak pre-flaps: a ɾ↔ɾ match is only flapping if the CMUdict citation form has /T/ or /D/ (otherwise ɾ would be a phoneme of the word in its own right and there would be no process). Detection: match/sub over aligned + a veto via `dict_arpabet`. |
+| everything else | **aligned** | The time-forced canonical shares its alphabet and its acoustic pass with the real one; espeak en-us gives strong per-word forms (it phonemizes word by word, without context), so the real-vs-aligned deviation IS the phenomenon (reduction, elision, th-stopping, palatalization, linking…). |
 
-`dict` = forma de cita (CMUdict/g2p_en, mostrada como `/…/` en el reporte);
-`aligned` = canónico espeak con tiempos (mostrado como `[…]`).
+`dict` = citation form (CMUdict/g2p_en, shown as `/…/` in the report);
+`aligned` = time-aligned espeak canonical (shown as `[…]`).
 
-### 6.2 Saneamiento del inventario (Mejora 0)
+### 6.2 Sanitizing the inventory (Improvement 0)
 
-El checkpoint es multilingüe (392 tokens): en audio inglés filtra dígitos de tono
-de mandarín (`ai5`, `ɑu5`), aspiradas (`kʰ`/`kh`), palatalizadas (`nʲ`), SAMPA crudo
-(`dZ`, `tS`) y `ᵻ`. `ipa_maps.normalize_espeak` lleva todo token a un inventario
-inglés cerrado (`ENGLISH_INVENTORY`, 64 símbolos): tabla explícita + limpieza
-(tonos/diacríticos/aspiración) + vecino más cercano por rasgos panphon con warning.
-El token crudo se conserva SIEMPRE en `raw_phone`. Cobertura verificada por test
-sobre el vocabulario completo del tokenizer. Detalle no obvio: los monoptongos
-crudos `o`/`e`/`a` mapean a `ɔ`/`ɛ`/`æ` (monoptongo vecino), NUNCA al diptongo
-inglés — mapearlos a `oʊ`/`eɪ` ocultaría la monoptongación que queremos detectar.
+The checkpoint is multilingual (392 tokens): on English audio it leaks Mandarin tone
+digits (`ai5`, `ɑu5`), aspirates (`kʰ`/`kh`), palatalized consonants (`nʲ`), raw SAMPA
+(`dZ`, `tS`) and `ᵻ`. `ipa_maps.normalize_espeak` brings every token into a closed English
+inventory (`ENGLISH_INVENTORY`, 64 symbols): an explicit table + cleanup
+(tones/diacritics/aspiration) + nearest neighbor by panphon features, with a warning.
+The raw token is ALWAYS preserved in `raw_phone`. Coverage verified by a test
+over the tokenizer's complete vocabulary. A non-obvious detail: the raw monophthongs
+`o`/`e`/`a` map to `ɔ`/`ɛ`/`æ` (the neighboring monophthong), NEVER to the English
+diphthong — mapping them to `oʊ`/`eɪ` would hide the very monophthongization we want to detect.
 
-### 6.3 Atracción fonética (Mejora 1)
+### 6.3 Phonetic attraction (Improvement 1)
 
-`phones_real.attract_to_canonical` corre tras el reconocimiento y antes del diff:
-si un fono real no coincide con su contraparte canónica, la distancia panphon
-escalada es ≤ 1.3 y el par NO es variación nativa, se sustituye por el canónico
-(`attracted: true`, crudo en `raw_phone`). La contraparte sale del alineamiento
-NW (con solape temporal como condición extra), NO del solape máximo: la primera
-versión por solape absorbía deleciones reales ("don't"→[doʊn] se volvía [doʊt],
-matando t_deletion y el dunno) — cazado comparando con/sin atracción. Protegidos:
-`NATIVE_SHIFTS` (ampliada con ʊɹ→ɔːɹ/ɔɹ/oːɹ/ɚ/ə, la variación "yor/yer" de *your*
-×5 en el clip), reducciones a schwa/ɪ, candidatos a monoptongación (diptongo
-canónico + vocal simple real) y flaps/glotales. j→t (costo 1.5, tope C↔C) va en
-`EXTRA_ATTRACT` explícita. Umbral calibrado con pares reales: atraer b→v 0.42,
-n→l 0.67, l→d 1.17, h→f 1.25; nunca atraer t→ɾ 0.25, ð→d 0.30, ʌ→ə 0.08.
-Riesgo aceptado y documentado: θ→f (th-fronting, 0.46) se atraería — no está en
-nuestro inventario de etiquetas; si algún día se etiqueta, añadirlo a NATIVE_SHIFTS.
-De paso se corrigió un bug en `phone_cost`: el lookup en NATIVE_SHIFTS ocurría tras
-`normalize_for_panphon`, así que pares con ɚ (→ə) jamás matcheaban; ahora se busca
-primero el par crudo.
+`phones_real.attract_to_canonical` runs after recognition and before the diff:
+if a real phone does not match its canonical counterpart, the scaled panphon distance
+is ≤ 1.3 and the pair is NOT native variation, it is replaced by the canonical one
+(`attracted: true`, raw value in `raw_phone`). The counterpart comes from the NW
+alignment (with temporal overlap as an extra condition), NOT from maximum overlap: the first
+version, based on overlap, absorbed real deletions ("don't"→[doʊn] became [doʊt],
+killing t_deletion and the dunno) — caught by comparing with and without attraction. Protected:
+`NATIVE_SHIFTS` (extended with ʊɹ→ɔːɹ/ɔɹ/oːɹ/ɚ/ə, the "yor/yer" variation of *your*
+×5 in the clip), reductions to schwa/ɪ, monophthongization candidates (canonical
+diphthong + simple real vowel) and flaps/glottals. j→t (cost 1.5, the C↔C ceiling) goes in
+an explicit `EXTRA_ATTRACT`. The threshold was calibrated with real pairs: attract b→v 0.42,
+n→l 0.67, l→d 1.17, h→f 1.25; never attract t→ɾ 0.25, ð→d 0.30, ʌ→ə 0.08.
+Accepted and documented risk: θ→f (th-fronting, 0.46) would be attracted — it is not in
+our label inventory; if it is ever labeled, add it to NATIVE_SHIFTS.
+Along the way a bug in `phone_cost` was fixed: the NATIVE_SHIFTS lookup happened after
+`normalize_for_panphon`, so pairs with ɚ (→ə) never matched; now the raw pair is looked up
+first.
 
-### 6.4 Números de la validación sobre el clip (42.7 s, 2 Broke Girls)
+### 6.4 Validation figures for the clip (42.7 s, 2 Broke Girls)
 
-Comparación `out/` (con atracción) vs `out_noattr/` (--no-attraction), misma
-transcripción (182 palabras, 545 fonos reales):
+Comparison of `out/` (with attraction) vs `out_noattr/` (--no-attraction), same
+transcript (182 words, 545 real phones):
 
-- **Mejora 0**: 13 fonos crudos saneados al inventario (ᵻ, monoptongos crudos
-  a/e/o, tonos/aspiradas residuales).
-- **Mejora 1**: 36 fonos atraídos al canónico (~7% de los fonos reales);
-  p.ej. blowing [vloʊɪŋ]→[bloʊɪŋ], know [lɔ]→[nɔ], him [fæ]→[hɪ].
-- **Cero etiquetas perdidas por atracción** (diff palabra a palabra con/sin):
-  contraction_lex 3=3 (dunno intacto), t_deletion 17=17, linking 30=30,
+- **Improvement 0**: 13 raw phones sanitized into the inventory (ᵻ, raw monophthongs
+  a/e/o, residual tones/aspirates).
+- **Improvement 1**: 36 phones attracted to the canonical (~7% of the real phones);
+  e.g. blowing [vloʊɪŋ]→[bloʊɪŋ], know [lɔ]→[nɔ], him [fæ]→[hɪ].
+- **Zero labels lost to attraction** (word-by-word diff with and without):
+  contraction_lex 3=3 (dunno intact), t_deletion 17=17, linking 30=30,
   flapping 6=6, vowel_reduction 13=13, monophthongization 6=6,
   elision_syllable 10=10, word_elision 6=6.
-  La PRIMERA versión (emparejamiento por solape máximo) sí borraba 4 etiquetas
-  (don't/and absorbían su t/d elidida); se rediseñó a emparejamiento NW (§6.3)
-  antes de dar por buena la mejora.
-- **Mejora 2**: 6 monoptongaciones directas (I→æ, know→nɔ, cupcakes eɪ→ɪ,
-  I'll→æl/ɑːl, kind→kæd) + 3 casos eɪ→ɐ que van a vowel_reduction por la regla
-  de precedencia ≈ los ~9 observados en la validación externa.
-- **Mejora 3**: 6 word_elision (6 palabras low_confidence en total):
-  3 con realized vacío (And, to, I'm) y 3 con extensión <30% (that., you, downs).
-  elision_syllable bajó de 14 (pre-mejoras) a 10. El criterio se corrigió de
-  suma-de-spans a extensión temporal: los spans CTC son picos de ~20-40 ms y la
-  suma marcaba 32 falsos positivos.
-- Umbral de atracción 1.3 sin ajustes tras el rediseño: no borra fenómenos.
+  The FIRST version (pairing by maximum overlap) did erase 4 labels
+  (don't/and absorbed their elided t/d); it was redesigned to NW pairing (§6.3)
+  before the improvement was accepted.
+- **Improvement 2**: 6 direct monophthongizations (I→æ, know→nɔ, cupcakes eɪ→ɪ,
+  I'll→æl/ɑːl, kind→kæd) + 3 eɪ→ɐ cases that go to vowel_reduction because of the
+  precedence rule ≈ the ~9 observed in the external validation.
+- **Improvement 3**: 6 word_elision (6 low_confidence words in total):
+  3 with an empty realized form (And, to, I'm) and 3 with <30% extension (that., you, downs).
+  elision_syllable dropped from 14 (pre-improvements) to 10. The criterion was corrected from
+  a sum-of-spans to temporal extension: the CTC spans are peaks of ~20-40 ms and the
+  sum flagged 32 false positives.
+- Attraction threshold of 1.3 left unchanged after the redesign: it erases no phenomena.
+</content>

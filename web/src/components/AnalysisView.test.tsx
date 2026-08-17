@@ -1,5 +1,5 @@
-/** El video sobre la transcripción: preferencia persistente, por defecto
- *  apagado y solo disponible cuando el análisis tiene video. */
+/** The video over the transcript: a persistent preference, off by default and
+ *  only available when the analysis actually has video. */
 
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -17,67 +17,67 @@ vi.mock("../api", async (importOriginal) => {
 
 const videoJob: Job = { ...job, is_video: true, has_media: true };
 const FLAG = "phonotrainer:show-video";
-const hayVideo = () => document.querySelector("video") !== null;
+const hasVideo = () => document.querySelector("video") !== null;
 
 beforeEach(() => {
   window.localStorage.clear();
   vi.mocked(api.analysis).mockResolvedValue(analysis);
 });
 
-describe("AnalysisView — video configurable", () => {
-  it("por defecto el video está oculto y el botón lo ofrece", async () => {
+describe("AnalysisView — configurable video", () => {
+  it("hides the video by default and offers it through the button", async () => {
     renderWith(<AnalysisView job={videoJob} />);
     await screen.findByRole("button", { name: /^does/ });
 
-    expect(hayVideo()).toBe(false);
+    expect(hasVideo()).toBe(false);
     expect(screen.getByRole("button", { name: "Video" })).toHaveAttribute(
       "aria-pressed",
       "false",
     );
   });
 
-  it("el botón lo muestra y la preferencia sobrevive al remontaje", async () => {
+  it("the button shows it and the preference survives a remount", async () => {
     const tools = renderWith(<AnalysisView job={videoJob} />);
     await screen.findByRole("button", { name: /^does/ });
 
     await userEvent.click(screen.getByRole("button", { name: "Video" }));
-    expect(hayVideo()).toBe(true);
+    expect(hasVideo()).toBe(true);
     expect(window.localStorage.getItem(FLAG)).toBe("1");
 
-    // Al abrir otro análisis con video, la preferencia se recuerda.
+    // Opening another analysis with video, the preference is remembered.
     tools.unmount();
-    renderWith(<AnalysisView job={{ ...videoJob, id: "otro" }} />);
+    renderWith(<AnalysisView job={{ ...videoJob, id: "other" }} />);
     await screen.findByRole("button", { name: /^does/ });
-    expect(hayVideo()).toBe(true);
+    expect(hasVideo()).toBe(true);
   });
 
-  it("la tecla V alterna igual que el botón", async () => {
+  it("the V key toggles it just like the button", async () => {
     renderWith(<AnalysisView job={videoJob} />);
     await screen.findByRole("button", { name: /^does/ });
 
     await userEvent.keyboard("v");
-    expect(hayVideo()).toBe(true);
+    expect(hasVideo()).toBe(true);
     await userEvent.keyboard("v");
-    expect(hayVideo()).toBe(false);
+    expect(hasVideo()).toBe(false);
   });
 
-  it("el botón ✕ del dock lo oculta y apaga la preferencia", async () => {
+  it("the dock's ✕ button hides it and turns the preference off", async () => {
     window.localStorage.setItem(FLAG, "1");
     renderWith(<AnalysisView job={videoJob} />);
     await screen.findByRole("button", { name: /^does/ });
-    expect(hayVideo()).toBe(true);
+    expect(hasVideo()).toBe(true);
 
-    await userEvent.click(screen.getByRole("button", { name: "Ocultar video" }));
-    expect(hayVideo()).toBe(false);
+    await userEvent.click(screen.getByRole("button", { name: "Hide video" }));
+    expect(hasVideo()).toBe(false);
     expect(window.localStorage.getItem(FLAG)).toBe("0");
   });
 
-  it("sin video disponible no hay botón, aunque la preferencia esté activa", async () => {
+  it("with no video available there is no button, even if the preference is on", async () => {
     window.localStorage.setItem(FLAG, "1");
     renderWith(<AnalysisView job={{ ...videoJob, is_video: false }} />);
     await screen.findByRole("button", { name: /^does/ });
 
     expect(screen.queryByRole("button", { name: "Video" })).toBeNull();
-    expect(hayVideo()).toBe(false);
+    expect(hasVideo()).toBe(false);
   });
 });

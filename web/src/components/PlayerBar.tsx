@@ -1,4 +1,4 @@
-/** Controles de reproducción: lo que se toca cada pocos segundos al estudiar. */
+/** Playback controls: what gets touched every few seconds while studying. */
 
 import { fmtTime } from "../lib/format";
 import { useTime } from "../player/clock";
@@ -8,11 +8,11 @@ const RATES = [0.5, 0.75, 1];
 
 interface Props {
   duration: number;
-  /** Descripción de lo que está acotado ahora mismo ("palabra «does»"). */
+  /** Description of what is currently bounded ("word “does”"). */
   spanLabel: string | null;
-  /** Falso cuando el análisis se importó sin audio.wav: nada que reproducir. */
+  /** False when the analysis was imported without audio.wav: nothing to play. */
   enabled: boolean;
-  /** La onda: se inyecta para que la barra no dependa de cómo se dibuja. */
+  /** The waveform: injected so the bar does not depend on how it is drawn. */
   children?: React.ReactNode;
 }
 
@@ -25,7 +25,7 @@ export function PlayerBar({ duration, spanLabel, enabled, children }: Props) {
       <button
         type="button"
         className="btn btn--icon btn--play"
-        aria-label={player.playing ? "Pausa" : "Reproducir"}
+        aria-label={player.playing ? "Pause" : "Play"}
         disabled={!enabled}
         onClick={() => player.toggle()}
       >
@@ -43,22 +43,22 @@ export function PlayerBar({ duration, spanLabel, enabled, children }: Props) {
         className="btn btn--sm"
         aria-pressed={player.loop}
         disabled={!enabled}
-        title="Repetir el fragmento seleccionado (tecla L)"
+        title="Repeat the selected span (L key)"
         onClick={() => player.setLoop(!player.loop)}
       >
-        ⟳ Bucle
+        ⟳ Loop
       </button>
 
       <label className="row tiny" style={{ gap: 4 }}>
-        <span className="sr-only">Velocidad</span>
+        <span className="sr-only">Speed</span>
         <select
           className="input"
           style={{ width: "auto", padding: "3px 6px" }}
-          aria-label="Velocidad de reproducción"
+          aria-label="Playback speed"
           disabled={!enabled}
           value={player.rate}
           onChange={(event) => player.setRate(Number(event.target.value))}
-          title="Velocidad de reproducción (mantiene el tono)"
+          title="Playback speed (preserves pitch)"
         >
           {RATES.map((rate) => (
             <option key={rate} value={rate}>
@@ -69,12 +69,12 @@ export function PlayerBar({ duration, spanLabel, enabled, children }: Props) {
       </label>
 
       {spanLabel && (
-        <span className="chip" title="Fragmento acotado">
+        <span className="chip" title="Bounded span">
           {spanLabel}
           <button
             type="button"
             className="btn btn--ghost btn--sm"
-            aria-label="Reproducir todo"
+            aria-label="Play everything"
             onClick={() => player.clearSpan()}
           >
             ✕

@@ -1,10 +1,10 @@
-"""MEJORA 5: muestreo priorizado del comando review."""
+"""IMPROVEMENT 5: prioritized sampling of the review command."""
 
 from phonotrainer import review
 
 
 def _analysis(words_spec):
-    """words_spec: lista de dicts parciales de palabra."""
+    """words_spec: list of partial word dicts."""
     words = []
     for i, spec in enumerate(words_spec):
         w = {
@@ -18,7 +18,7 @@ def _analysis(words_spec):
     return {"segments": [{"start": 0, "end": 99, "text": "t", "words": words}]}
 
 
-def test_peso_prioriza_palabras_sospechosas():
+def test_weight_prioritizes_suspicious_words():
     plain = review.word_weight({"diff_cost": 0.0, "attracted_count": 0, "low_confidence": False})
     attracted = review.word_weight({"diff_cost": 0.0, "attracted_count": 2, "low_confidence": False})
     lowconf = review.word_weight({"diff_cost": 0.0, "attracted_count": 0, "low_confidence": True})
@@ -28,7 +28,7 @@ def test_peso_prioriza_palabras_sospechosas():
     assert costly > plain
 
 
-def test_muestreo_deterministico_con_seed():
+def test_sampling_is_deterministic_for_a_given_seed():
     analysis = _analysis([{} for _ in range(40)])
     s1 = review.select_sample(analysis, n=10, seed=48)
     s2 = review.select_sample(analysis, n=10, seed=48)
@@ -37,16 +37,16 @@ def test_muestreo_deterministico_con_seed():
     assert s1 != s3
 
 
-def test_muestreo_respeta_n_y_orden_temporal():
+def test_sampling_respects_n_and_temporal_order():
     analysis = _analysis([{} for _ in range(8)])
     sample = review.select_sample(analysis, n=20, seed=48)
-    assert len(sample) == 8                    # n > total → todas
+    assert len(sample) == 8                    # n > total → all of them
     idxs = [(si, wi) for si, wi, _ in sample]
-    assert idxs == sorted(idxs)                # orden temporal para revisar cómodo
+    assert idxs == sorted(idxs)                # temporal order makes reviewing easier
 
 
-def test_muestreo_prioriza_atraidas():
-    # 1 palabra muy sospechosa entre 50 planas: debe entrar en la muestra
+def test_sampling_prioritizes_attracted_words():
+    # 1 highly suspicious word among 50 plain ones: it must make the sample
     spec = [{} for _ in range(50)]
     spec[25] = {"attracted_count": 3, "low_confidence": True, "diff_cost": 1.5}
     analysis = _analysis(spec)

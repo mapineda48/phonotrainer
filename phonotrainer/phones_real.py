@@ -1,8 +1,8 @@
-"""Fonos REALMENTE pronunciados: wav2vec2-espeak CTC → tokens fonéticos con tiempos.
+"""Phones ACTUALLY pronounced: wav2vec2-espeak CTC → phonetic tokens with timings.
 
-El mismo motor expone las emisiones (log-probs) para que align_canonical.py haga
-forced alignment de la secuencia canónica con el MISMO modelo: real y canónico
-quedan en el mismo alfabeto (espeak/IPA) y comparten una sola pasada acústica.
+The same engine also exposes the emissions (log-probs) so that align_canonical.py can
+force-align the canonical sequence with the SAME model: real and canonical then live
+in the same alphabet (espeak/IPA) and share a single acoustic pass.
 """
 
 from __future__ import annotations
@@ -15,32 +15,33 @@ from .ipa_maps import (DIPHTHONGS, FLAP, GLOTTAL, is_full_vowel, is_schwa_like,
 MODEL_ID = "facebook/wav2vec2-lv-60-espeak-cv-ft"
 SAMPLE_RATE = 16000
 
-# MEJORA 1: atracción fonética hacia el canónico.
-# Umbral calibrado: las confusiones acústicas (b→v 0.42, n→l 0.67, l→d 1.17,
-# h→f 1.25) quedan debajo; V↔C (1.5) queda fuera. j→t da 1.5 (tope C↔C) pero es
-# confusión típica del modelo ("you"→[tuː]): va en tabla explícita.
+# IMPROVEMENT 1: phonetic attraction toward the canonical form.
+# Calibrated threshold: the acoustic confusions (b→v 0.42, n→l 0.67, l→d 1.17,
+# h→f 1.25) fall below it; V↔C (1.5) stays out. j→t scores 1.5 (the C↔C ceiling) yet
+# it is a typical confusion for this model ("you"→[tuː]): it goes into an explicit
+# table.
 DEFAULT_ATTRACTION_MAX_COST = 1.3
 EXTRA_ATTRACT = {frozenset(("j", "t")), frozenset(("j", "d"))}
 
 
 def attract_to_canonical(realized: list[dict], canonical: list[dict],
                          max_cost: float = DEFAULT_ATTRACTION_MAX_COST) -> list[dict]:
-    """Sustituye fonos reales por su contraparte canónica cuando la confusión es
-    acústica y sin valor didáctico. Nunca inserta ni borra; nunca toca variación
-    nativa (NATIVE_SHIFTS, reducciones, monoptongaciones, flaps/glotales).
-    Marca "attracted": True y conserva raw_phone.
+    """Replace real phones with their canonical counterpart whenever the confusion is
+    acoustic and has no teaching value. Never inserts or deletes; never touches native
+    variation (NATIVE_SHIFTS, reductions, monophthongizations, flaps/glottals).
+    Marks "attracted": True and preserves raw_phone.
 
-    La contraparte sale del alineamiento NW, no del solape máximo: un fono
-    canónico ELIDIDO queda como `del` y no puede absorber al fono real vecino
-    (bug detectado en validación: "don't"→[doʊn] se volvía [doʊt]). El solape
-    temporal se mantiene como condición adicional.
+    The counterpart comes from the NW alignment, not from maximum overlap: an ELIDED
+    canonical phone stays a `del` and cannot swallow the neighboring real phone (a
+    bug caught in validation: "don't"→[doʊn] was turning into [doʊt]). Temporal
+    overlap is kept as an additional condition.
     """
     from .diff import align_word, phone_cost
 
     if not realized or not canonical:
         return [dict(p) for p in realized]
 
-    attract: dict[int, str] = {}  # id(fono real) → fono canónico
+    attract: dict[int, str] = {}  # id(real phone) → canonical phone
     for op in align_word(realized, canonical, cost_fn=_attraction_cost):
         if op["op"] != "sub":
             continue
@@ -54,7 +55,7 @@ def attract_to_canonical(realized: list[dict], canonical: list[dict],
         overlap = min(r["end"], c["end"]) - max(r["start"], c["start"])
         mid_dist = abs((r["start"] + r["end"]) - (c["start"] + c["end"])) / 2
         if overlap <= 0 and mid_dist > 0.15:
-            continue  # emparejados por secuencia pero temporalmente ajenos
+            continue  # paired by sequence but temporally unrelated
         attract[id(r)] = cp
 
     out = []
@@ -69,8 +70,8 @@ def attract_to_canonical(realized: list[dict], canonical: list[dict],
 
 
 def _attraction_cost(canon: str, real: str) -> float:
-    """Costo para el NW de atracción: las confusiones de EXTRA_ATTRACT deben
-    emparejarse como sustitución (su costo real 1.5 haría preferir del+ins)."""
+    """Cost function for the attraction NW: the EXTRA_ATTRACT confusions have to pair
+    up as substitutions (their real cost of 1.5 would make del+ins preferable)."""
     from .diff import phone_cost
 
     if frozenset((canon, real)) in EXTRA_ATTRACT:
@@ -79,17 +80,18 @@ def _attraction_cost(canon: str, real: str) -> float:
 
 
 def _protected(canon: str, real: str) -> bool:
-    """Cambios que son fenómeno (o candidatos a serlo): la atracción no los toca."""
+    """Changes that are a phenomenon (or a candidate to be one): attraction leaves
+    them alone."""
     from .diff import is_native_shift
 
     if is_native_shift(canon, real):
         return True
     if real in FLAP or real in GLOTTAL:
         return True
-    # reducción vocálica (mismo criterio que phenomena._word_rules)
+    # vowel reduction (same criterion as phenomena._word_rules)
     if is_full_vowel(canon) and (is_schwa_like(real) or real == "ɪ"):
         return True
-    # candidato a monophthongization: diptongo canónico + vocal simple real
+    # monophthongization candidate: canonical diphthong + real simple vowel
     if canon in DIPHTHONGS and is_vowel(real) and real not in DIPHTHONGS:
         return True
     return False
@@ -109,7 +111,7 @@ class Wav2Vec2PhoneEngine:
         self.device = device
 
     def log_probs(self, audio: np.ndarray):
-        """Emisiones CTC log-softmax [T, C] para un fragmento mono 16 kHz."""
+        """CTC log-softmax emissions [T, C] for a mono 16 kHz chunk."""
         torch = self.torch
         with torch.inference_mode():
             inputs = self.processor(audio, sampling_rate=SAMPLE_RATE, return_tensors="pt")
@@ -122,15 +124,15 @@ class Wav2Vec2PhoneEngine:
 
     def greedy_phones(self, audio: np.ndarray, t_offset: float = 0.0,
                       log_probs=None) -> list[dict]:
-        """Decodificación CTC greedy con colapso de repeticiones y spans de frames.
+        """Greedy CTC decoding, collapsing repeats and keeping frame spans.
 
-        Devuelve [{'phone', 'start', 'end', 'score'}, …] en segundos absolutos.
+        Returns [{'phone', 'start', 'end', 'score'}, …] in absolute seconds.
         """
         lp = self.log_probs(audio) if log_probs is None else log_probs
         ids = lp.argmax(dim=-1).tolist()
         frame_dur = self.frame_duration(len(audio), len(ids))
 
-        spans: list[list] = []  # [token_id, frame_ini, frame_fin, score_acum, n]
+        spans: list[list] = []  # [token_id, first_frame, last_frame, score_sum, n]
         prev_id = None
         for i, tid in enumerate(ids):
             if tid == self.blank_id:
@@ -152,7 +154,7 @@ class Wav2Vec2PhoneEngine:
             raw = self.tokenizer.convert_ids_to_tokens(tid)
             norm = normalize_espeak(raw)
             if norm is None:
-                continue  # token sin equivalente inglés (ya se logueó el warning)
+                continue  # token with no English equivalent (the warning was logged)
             phones.append({
                 "phone": norm,
                 "raw_phone": raw,
@@ -164,12 +166,12 @@ class Wav2Vec2PhoneEngine:
 
 
 def build_engine(name: str = "wav2vec2", device: str = "cpu"):
-    """Fábrica de motores de fonos (flag --phone-engine)."""
+    """Factory for phone engines (the --phone-engine flag)."""
     if name == "wav2vec2":
         return Wav2Vec2PhoneEngine(device=device)
     if name == "allosaurus":
         raise NotImplementedError(
-            "Motor allosaurus no instalado. `pip install allosaurus` y ver task.md; "
-            "el motor por defecto (wav2vec2) no lo requiere."
+            "The allosaurus engine is not installed. Run `pip install allosaurus` and "
+            "see task.md; the default engine (wav2vec2) does not need it."
         )
-    raise ValueError(f"Motor de fonos desconocido: {name}")
+    raise ValueError(f"Unknown phone engine: {name}")

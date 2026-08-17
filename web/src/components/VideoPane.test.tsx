@@ -7,7 +7,7 @@ import { VideoPane } from "./VideoPane";
 const video = (): HTMLVideoElement => document.querySelector("video")!;
 
 describe("VideoPane", () => {
-  it("va mudo y sigue la velocidad del reproductor", () => {
+  it("stays muted and follows the player speed", () => {
     const player = fakePlayer({ rate: 0.5 });
     renderWith(<VideoPane src="/x.mp4" />, { player });
 
@@ -15,7 +15,7 @@ describe("VideoPane", () => {
     expect(video().playbackRate).toBe(0.5);
   });
 
-  it("reproduce y pausa a la orden del reproductor", () => {
+  it("plays and pauses on the player's command", () => {
     const playSpy = vi.fn(() => Promise.resolve());
     const pauseSpy = vi.fn(() => undefined);
     Object.defineProperty(window.HTMLMediaElement.prototype, "play", {
@@ -36,17 +36,17 @@ describe("VideoPane", () => {
     expect(playSpy).toHaveBeenCalled();
   });
 
-  it("corrige la posición solo si se desfasa más de 200 ms", () => {
+  it("corrects the position only when drift exceeds 200 ms", () => {
     const player = fakePlayer();
     renderWith(<VideoPane src="/x.mp4" />, { player });
 
     act(() => player.clock.set(5.9));
     expect(video().currentTime).toBeCloseTo(5.9);
 
-    act(() => player.clock.set(6.05)); // deriva de 150 ms: dentro de la tolerancia
+    act(() => player.clock.set(6.05)); // 150 ms of drift: within tolerance
     expect(video().currentTime).toBeCloseTo(5.9);
 
-    act(() => player.clock.set(6.5)); // deriva de 600 ms: se corrige
+    act(() => player.clock.set(6.5)); // 600 ms of drift: corrected
     expect(video().currentTime).toBeCloseTo(6.5);
   });
 });

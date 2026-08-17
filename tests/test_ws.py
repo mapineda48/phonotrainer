@@ -1,4 +1,4 @@
-"""WebSocket /ws/jobs: la interfaz recibe el estado empujado, sin sondeo."""
+"""WebSocket /ws/jobs: the interface gets the state pushed to it, with no polling."""
 
 import pytest
 from conftest import fake_analyze
@@ -20,7 +20,7 @@ def store(tmp_path):
 
 @pytest.fixture
 def client(store, tmp_path):
-    app = create_app(store=store, web_dist=tmp_path / "sin-compilar",
+    app = create_app(store=store, web_dist=tmp_path / "not-built",
                      allowed_roots=[tmp_path])
     with TestClient(app) as c:
         yield c
@@ -33,7 +33,7 @@ def media(tmp_path):
     return path
 
 
-def test_snapshot_y_eventos_del_ciclo_completo(client, media):
+def test_snapshot_and_events_of_the_whole_lifecycle(client, media):
     with client.websocket_connect("/ws/jobs") as ws:
         assert ws.receive_json() == {"type": "snapshot", "jobs": []}
 
@@ -41,25 +41,26 @@ def test_snapshot_y_eventos_del_ciclo_completo(client, media):
         assert resp.status_code == 201
         job_id = resp.json()["id"]
 
-        # Los eventos llegan solos: creado → corriendo → progreso → terminado.
-        # Cada uno trae el job COMPLETO y fresco (idempotente).
-        vistos = []
+        # The events arrive on their own: created → running → progress → done.
+        # Each carries the COMPLETE, fresh job (idempotent).
+        seen = []
         for _ in range(60):
             msg = ws.receive_json()
             assert msg["type"] == "job" and msg["job"]["id"] == job_id
-            vistos.append(msg["job"])
+            seen.append(msg["job"])
             if msg["job"]["status"] == "done":
                 break
         else:
-            pytest.fail("no llegó el evento 'done' del análisis")
+            pytest.fail("the 'done' event of the analysis never arrived")
 
-        assert vistos[0]["status"] in ("queued", "running")
-        assert vistos[-1]["percent"] == 100
-        assert vistos[-1]["has_analysis"] is True
-        # y el log de progreso crece dentro del propio evento
-        assert vistos[-1]["progress"][-1]["message"].startswith("Generando report")
+        assert seen[0]["status"] in ("queued", "running")
+        assert seen[-1]["percent"] == 100
+        assert seen[-1]["has_analysis"] is True
+        # and the progress log grows inside the event itself: the last stage of
+        # the pipeline is generating the report
+        assert "report.html" in seen[-1]["progress"][-1]["message"]
 
-        # Guardar una revisión toca el job por fuera del store: también avisa
+        # Saving a review touches the job outside the store: it also notifies
         resp = client.put(f"/api/jobs/{job_id}/review", json={"verdicts": []})
         assert resp.status_code == 200
         msg = ws.receive_json()
@@ -69,9 +70,10 @@ def test_snapshot_y_eventos_del_ciclo_completo(client, media):
         assert ws.receive_json() == {"type": "deleted", "id": job_id}
 
 
-def test_el_snapshot_llega_con_lo_que_ya_habia(client, media):
+def test_the_snapshot_arrives_with_what_was_already_there(client, media):
     resp = client.post("/api/jobs/import", json={"path": str(media.parent)})
-    assert resp.status_code == 400    # sin analysis.json no se importa: creamos uno
+    # without an analysis.json there is nothing to import: we create one below
+    assert resp.status_code == 400
     import json
     from conftest import mk_analysis
     (media.parent / "analysis.json").write_text(json.dumps(mk_analysis()),
@@ -82,19 +84,19 @@ def test_el_snapshot_llega_con_lo_que_ya_habia(client, media):
         snap = ws.receive_json()
         assert snap["type"] == "snapshot"
         assert [j["id"] for j in snap["jobs"]] == [job_id]
-        assert snap["jobs"][0]["progress"] == []        # full=True pero vacío
+        assert snap["jobs"][0]["progress"] == []        # full=True but empty
 
 
-def test_un_origen_ajeno_no_puede_leer_el_canal(client):
-    """Un WebSocket no pasa por CORS: una página de internet no debe poder
-    leer tu lista de análisis aunque el servidor sea localhost."""
+def test_a_foreign_origin_cannot_read_the_channel(client):
+    """A WebSocket does not go through CORS: a page on the internet must not be
+    able to read your list of analyses even though the server is localhost."""
     with pytest.raises(WebSocketDisconnect):
         with client.websocket_connect(
             "/ws/jobs", headers={"Origin": "https://evil.example"}
         ):
             pass
 
-    # la SPA (mismo host) y el proxy de Vite (loopback) sí pasan
+    # the SPA (same host) and Vite's proxy (loopback) do get through
     with client.websocket_connect(
         "/ws/jobs", headers={"Origin": "http://localhost:5173"}
     ) as ws:

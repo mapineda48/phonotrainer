@@ -1,5 +1,5 @@
-/** Una palabra de la transcripción: color por familia de fenómeno, marcas no
- *  cromáticas (punteado, negrita, opacidad) y clic para oírla. */
+/** A word in the transcript: colored by phenomenon family, with non-chromatic
+ *  marks (dotted underline, bold, opacity) and a click to hear it. */
 
 import { memo } from "react";
 
@@ -12,7 +12,7 @@ export interface WordButtonProps {
   selected: boolean;
   playing: boolean;
   emphasis: boolean;
-  /** Fuera del filtro activo: se atenúa, no se oculta (el texto sigue leyéndose). */
+  /** Outside the active filter: dimmed, not hidden (the text stays readable). */
   dimmed: boolean;
   onSelect: () => void;
 }
@@ -38,19 +38,19 @@ function WordButtonImpl({
   if (selected) classes.push("w--selected");
   if (playing) classes.push("w--playing");
 
-  // Diccionario → real: el par que enseña algo. El canónico solo cuando aporta
-  // (si coincide con el real, repetirlo hacía que la mitad de los tooltips
-  // dijeran "[X] vs [X]" justo en las palabras más interesantes).
+  // Dictionary → actual: the pair that teaches something. The canonical form
+  // only when it adds anything (when it matches the actual one, repeating it
+  // made half the tooltips read "[X] vs [X]" on the most interesting words).
   const realized = word.realized_ipa || "∅";
   const parts = [`${word.word} · /${word.dict_ipa}/ → [${realized}]`];
   if (word.canonical_ipa !== word.realized_ipa && word.canonical_ipa !== word.dict_ipa) {
-    parts.push(`canónico [${word.canonical_ipa}]`);
+    parts.push(`canonical [${word.canonical_ipa}]`);
   }
   if (names.length) parts.push(names.join(", "));
   const title = parts.join(" — ");
 
-  // El color no puede ser el único portador de la identidad del fenómeno:
-  // aquí va en el nombre accesible, no solo en el tooltip del ratón.
+  // Color cannot be the sole carrier of the phenomenon's identity: it goes into
+  // the accessible name here, not only into the mouse tooltip.
   const label = names.length ? `${word.word}, ${names.join(", ")}` : word.word;
 
   return (

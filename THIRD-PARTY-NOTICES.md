@@ -1,113 +1,115 @@
 # Third-party notices — PhonoTrainer
 
-PhonoTrainer se distribuye bajo **GPL-3.0-or-later** (ver [`LICENSE`](LICENSE)).
-Este archivo acredita las **dependencias directas y las transitivas relevantes**
-—las que imponen alguna obligación o condicionan la licencia— junto con los
-proyectos de referencia y los modelos que se descargan. No es un inventario
-exhaustivo del entorno: importar el pipeline completo carga del orden de 60
-distribuciones, casi todas permisivas y sin más obligación que existir.
+PhonoTrainer is distributed under **GPL-3.0-or-later** (see [`LICENSE`](LICENSE)).
+This file credits the **direct dependencies and the relevant transitive ones**
+— those that impose some obligation or that constrain the license — together with
+the reference projects and the models that get downloaded. It is not an
+exhaustive inventory of the environment: importing the full pipeline loads on the
+order of 60 distributions, almost all of them permissive and with no obligation
+beyond existing.
 
-**Este repositorio no redistribuye código, pesos ni corpus de terceros.** Todo lo
-que aparece abajo se instala con `pip`/`npm` o se descarga en el primer análisis
-a la caché del usuario (`~/.cache/huggingface`, `~/nltk_data`). Por eso la
-obligación aquí es *informar*, no incluir los textos de licencia — salvo los del
-bundle de la interfaz, que sí viaja compilado (ver §2).
+**This repository redistributes no third-party code, weights or corpora.**
+Everything listed below is installed with `pip`/`npm` or downloaded on the first
+analysis into the user's cache (`~/.cache/huggingface`, `~/nltk_data`). That is
+why the obligation here is to *inform*, not to include the license texts — except
+for those of the web interface bundle, which does ship compiled (see §2).
 
 ---
 
-## 1. Por qué GPL-3.0-or-later
+## 1. Why GPL-3.0-or-later
 
-No es una preferencia: es la única licencia coherente con lo que el programa
-enlaza en su camino principal.
+It is not a preference: it is the only license consistent with what the program
+links on its main path.
 
-| Dependencia | Licencia | Dónde entra |
+| Dependency | License | Where it comes in |
 |---|---|---|
-| `phonemizer` 3.3.0 | **GPL-3.0-or-later** | El tokenizer del modelo (`Wav2Vec2PhonemeCTCTokenizer`, `phonemizer_backend="espeak"`) fonemiza **cada palabra canónica** en `align_canonical.py`. No aparece en ningún `import` nuestro, pero se carga siempre. |
-| `praat-parselmouth` 0.4.7 | **GPL-3.0-or-later** | `import parselmouth` directo en `prosody.py`: F0, intensidad y contorno. |
-| `espeak-ng` (sistema) | GPL-3.0-only AND GPL-3.0-or-later AND Apache-2.0 AND BSD-2-Clause AND Unicode-DFS-2016 AND CC-BY-SA-3.0 | `phonemizer` lo carga con `dlopen`. Binario del sistema, no se redistribuye. |
-| `av` (PyAV) 18.0.0 → **libx264**, **libx265** | GPL-2.0-or-later (los códecs); LGPL-3.0-or-later (las libs FFmpeg incrustadas) | `faster_whisper/audio.py` hace `import av` al cargar el módulo, así que basta `from faster_whisper import WhisperModel` para meter en el proceso el FFmpeg empaquetado dentro del *wheel* de PyAV, con `libx264-*.so` y `libx265-*.so` incluidos. |
+| `phonemizer` 3.3.0 | **GPL-3.0-or-later** | The model's tokenizer (`Wav2Vec2PhonemeCTCTokenizer`, `phonemizer_backend="espeak"`) phonemizes **every canonical word** in `align_canonical.py`. It appears in none of our `import` statements, but it is always loaded. |
+| `praat-parselmouth` 0.4.7 | **GPL-3.0-or-later** | A direct `import parselmouth` in `prosody.py`: F0, intensity and contour. |
+| `espeak-ng` (system) | GPL-3.0-only AND GPL-3.0-or-later AND Apache-2.0 AND BSD-2-Clause AND Unicode-DFS-2016 AND CC-BY-SA-3.0 | `phonemizer` loads it with `dlopen`. A system binary; it is not redistributed. |
+| `av` (PyAV) 18.0.0 → **libx264**, **libx265** | GPL-2.0-or-later (the codecs); LGPL-3.0-or-later (the embedded FFmpeg libs) | `faster_whisper/audio.py` does `import av` when the module loads, so a plain `from faster_whisper import WhisperModel` is enough to pull into the process the FFmpeg packaged inside PyAV's *wheel*, `libx264-*.so` and `libx265-*.so` included. |
 
-Las tres cadenas se cargan **en el mismo proceso**, así que el trabajo combinado
-que se distribuye es GPL-3.0. Una licencia permisiva (MIT/Apache) sería
-engañosa: nadie podría redistribuir el resultado bajo esos términos.
-GPL-2.0-or-later y LGPL-3.0-or-later son compatibles con GPL-3.0-or-later (por
-la cláusula «o posterior»), así que no hay conflicto, solo obligación.
+All three chains are loaded **in the same process**, so the combined work that is
+distributed is GPL-3.0. A permissive license (MIT/Apache) would be misleading:
+nobody could redistribute the result under those terms.
+GPL-2.0-or-later and LGPL-3.0-or-later are compatible with GPL-3.0-or-later
+(thanks to the "or later" clause), so there is no conflict, only an obligation.
 
-> Ese FFmpeg **no es** el `ffmpeg` de §5. Aquel es un proceso aparte —mera
-> agregación—; este viaja dentro de un *wheel* de PyPI y se enlaza en proceso.
-> La distinción es justo la que decide si hay obra combinada.
+> That FFmpeg is **not** the `ffmpeg` of §5. That one is a separate process — mere
+> aggregation; this one travels inside a PyPI *wheel* and is linked in-process.
+> The distinction is precisely what decides whether there is a combined work.
 
-Para hacer PhonoTrainer permisivo habría que neutralizar **tres** rutas, no dos:
-la prosodia (sustituir parselmouth), el decodificado de audio (evitar el `av` que
-arrastra faster-whisper) y la fonemización canónica. Esta última **no es un
-borrado sino una sustitución**: el tokenizer del modelo funciona con
-`do_phonemize=False` si se le dan fonemas IPA ya hechos, así que haría falta un
-G2P no copyleft (`g2p_en` + CMUdict ya está en el repo). El precio no es
-cosmético: el canónico de espeak y el de CMUdict difieren en cerca de la mitad
-de las palabras comunes (longitud vocálica `uː`/`u`, unidades rotizadas —espeak
-da *for* = `f ɔːɹ`, un token; CMUdict da `f ɔ ɹ`, dos—), y el modelo acústico se
-entrenó con etiquetas espeak: partir en dos lo que emite como uno genera
-inserciones y borrados falsos, y con ellos fenómenos inventados. Es un rediseño
-con recalibración y ~60 tests detrás, no un cambio de metadatos.
+Making PhonoTrainer permissive would require neutralizing **three** routes, not two:
+prosody (replacing parselmouth), audio decoding (avoiding the `av` that
+faster-whisper drags in) and canonical phonemization. This last one **is not a
+deletion but a substitution**: the model's tokenizer works with
+`do_phonemize=False` if it is handed ready-made IPA phonemes, so a non-copyleft
+G2P would be needed (`g2p_en` + CMUdict is already in the repo). The price is not
+cosmetic: espeak's canonical form and CMUdict's differ on close to half of the
+common words (vowel length `uː`/`u`, rhotic units — espeak gives *for* = `f ɔːɹ`,
+a single token; CMUdict gives `f ɔ ɹ`, two of them), and the acoustic model was
+trained on espeak labels: splitting in two what it emits as one produces spurious
+insertions and deletions, and with them invented phenomena. It is a redesign with
+recalibration and ~60 tests behind it, not a metadata change.
 
-**Compatibilidad verificada.** `distance` 0.1.3 (dependencia declarada por
-`g2p-en`) **se lee conservadoramente como GPL-2.0-only** —el autor adjunta el
-texto de la GPL-2 sin elegir versión; su §9 permitiría discutir que el licenciado
-puede elegir cualquier versión—, y GPL-2.0-only sí sería incompatible con
-GPL-3.0. Es discusión ociosa: **no lo importa nadie**, ni `g2p_en` ni ningún otro
-paquete del entorno (`'distance' in sys.modules` es `False` tras usar `G2p()`).
-Al no combinarse nunca con el programa, es mera agregación. Si algún día algo
-empieza a importarlo, esta decisión hay que rehacerla.
+**Compatibility verified.** `distance` 0.1.3 (a dependency declared by
+`g2p-en`) **is read conservatively as GPL-2.0-only** — the author attaches the
+GPL-2 text without choosing a version; its §9 would allow one to argue that the
+licensee may pick any version — and GPL-2.0-only would indeed be incompatible with
+GPL-3.0. It is an idle debate: **nobody imports it**, neither `g2p_en` nor any other
+package in the environment (`'distance' in sys.modules` is `False` after using `G2p()`).
+Since it is never combined with the program, it is mere aggregation. If something ever
+starts importing it, this decision has to be redone.
 
-También se revisó lo que habría sido fatal y no lo es: el `libsndfile` que
-incrusta el *wheel* de `soundfile` es **LGPL-2.1-or-later** (sus cabeceras
-conceden «or, at your option, any later version»); si fuera LGPL-2.1-*only* sería
-incompatible con GPL-3.0. No hay ningún LGPL-2.1-only ni GPL-2.0-only enlazado.
+We also reviewed what would have been fatal and is not: the `libsndfile` embedded
+in the `soundfile` *wheel* is **LGPL-2.1-or-later** (its headers grant "or, at
+your option, any later version"); had it been LGPL-2.1-*only* it would be
+incompatible with GPL-3.0. Nothing LGPL-2.1-only or GPL-2.0-only is linked in
+anywhere.
 
 ---
 
-## 2. Interfaz web — sí se redistribuye compilada
+## 2. Web interface — this one is redistributed compiled
 
-`web/dist/` no está versionado, pero el backend lo sirve, así que el bundle se
-distribuye a quien despliegue la aplicación. Estos tres paquetes acaban dentro:
+`web/dist/` is not version-controlled, but the backend serves it, so the bundle is
+distributed to whoever deploys the application. These three packages end up inside it:
 
-| Paquete | Versión | Licencia | Copyright |
+| Package | Version | License | Copyright |
 |---|---|---|---|
 | `react` | 19.2.8 | MIT | Copyright (c) Meta Platforms, Inc. and affiliates |
 | `react-dom` | 19.2.8 | MIT | Copyright (c) Meta Platforms, Inc. and affiliates |
 | `scheduler` | 0.27.0 | MIT | Copyright (c) Meta Platforms, Inc. and affiliates |
 
-El minificador borra los banners `@license`, así que `web/vite.config.ts` repone
-la nota MIT en la cabecera del bundle (plugin `phonotrainer:license-banner`).
-Texto completo: <https://github.com/facebook/react/blob/main/LICENSE>.
+The minifier strips the `@license` banners, so `web/vite.config.ts` restores the
+MIT notice in the bundle header (the `phonotrainer:license-banner` plugin).
+Full text: <https://github.com/facebook/react/blob/main/LICENSE>.
 
-El resto de `node_modules` (vite, vitest, typescript, testing-library, jsdom…)
-es solo de desarrollo: no se compila ni se distribuye. `lightningcss` (MPL-2.0)
-entra como transitiva de vite pero no se activa (`css.transformer` sin definir)
-y aporta cero bytes al bundle.
+The rest of `node_modules` (vite, vitest, typescript, testing-library, jsdom…)
+is development-only: it is neither compiled in nor distributed. `lightningcss` (MPL-2.0)
+comes in as a transitive dependency of vite but is never activated
+(`css.transformer` is left undefined) and contributes zero bytes to the bundle.
 
-Las tipografías IPA (`Charis SIL`, `Doulos SIL`, `Gentium Plus`, `DejaVu Sans`)
-se nombran por familia en CSS; **no se incrustan**, así que no generan obligación.
+The IPA typefaces (`Charis SIL`, `Doulos SIL`, `Gentium Plus`, `DejaVu Sans`)
+are named by family in CSS; they are **not embedded**, so they create no obligation.
 
 ---
 
-## 3. Dependencias Python (se instalan con pip, no se redistribuyen)
+## 3. Python dependencies (installed with pip, not redistributed)
 
-| Paquete | Versión | Licencia | Titular |
+| Package | Version | License | Rights holder |
 |---|---|---|---|
 | faster-whisper | 1.2.1 | MIT | Copyright (c) 2023 SYSTRAN |
 | CTranslate2 | 4.8.1 | MIT | OpenNMT |
-| `av` (PyAV) | 18.0.0 | BSD-3-Clause (el envoltorio) — su *wheel* incrusta FFmpeg (LGPL-3.0-or-later), **libx264** y **libx265** (GPL-2.0-or-later), libmp3lame, libopus, libdav1d, libSvtAv1Enc, libopencore-amr… | Mike Boers y colaboradores de PyAV; los códecs, sus respectivos proyectos (VideoLAN, MulticoreWare…) |
+| `av` (PyAV) | 18.0.0 | BSD-3-Clause (the wrapper) — its *wheel* embeds FFmpeg (LGPL-3.0-or-later), **libx264** and **libx265** (GPL-2.0-or-later), libmp3lame, libopus, libdav1d, libSvtAv1Enc, libopencore-amr… | Mike Boers and the PyAV contributors; the codecs, their respective projects (VideoLAN, MulticoreWare…) |
 | transformers | 5.14.1 | Apache-2.0 | Copyright 2018– The Hugging Face team |
-| torch | 2.13.0 | Apache-2.0 AND Apache-2.0 WITH LLVM-exception AND BSD-2-Clause AND BSD-3-Clause AND BSL-1.0 AND MIT | Meta Platforms y muchos otros (Idiap / Ronan Collobert, DeepMind / Koray Kavukcuoglu…; ver su `LICENSE`) |
+| torch | 2.13.0 | Apache-2.0 AND Apache-2.0 WITH LLVM-exception AND BSD-2-Clause AND BSD-3-Clause AND BSL-1.0 AND MIT | Meta Platforms and many others (Idiap / Ronan Collobert, DeepMind / Koray Kavukcuoglu…; see its `LICENSE`) |
 | torchaudio | 2.11.0 | BSD-2-Clause | Copyright (c) 2017 Facebook Inc. (Soumith Chintala) |
 | **phonemizer** | 3.3.0 | **GPL-3.0-or-later** | Mathieu Bernard, Hadrien Titeux (CNRS / bootphon) |
-| **praat-parselmouth** | 0.4.7 | **GPL-3.0-or-later** | Yannick Jadoul — envoltorio de Praat (Boersma & Weenink) |
+| **praat-parselmouth** | 0.4.7 | **GPL-3.0-or-later** | Yannick Jadoul — a wrapper around Praat (Boersma & Weenink) |
 | g2p-en | 2.1.0 | Apache-2.0 | Kyubyong Park & Jongseok Kim |
 | panphon | 0.22.2 | MIT | Copyright (c) 2015 Carnegie Mellon University (David R. Mortensen) |
 | nltk | 3.10.0 | Apache-2.0 | NLTK Project |
 | numpy | 2.5.1 | BSD-3-Clause | NumPy Developers |
-| soundfile | 0.14.0 | BSD-3-Clause (su *wheel* incrusta libsndfile 1.2.2, **LGPL-2.1-or-later**) | Copyright (c) 2013 Bastian Bechtold |
+| soundfile | 0.14.0 | BSD-3-Clause (its *wheel* embeds libsndfile 1.2.2, **LGPL-2.1-or-later**) | Copyright (c) 2013 Bastian Bechtold |
 | click | 8.4.2 | BSD-3-Clause | Pallets |
 | rich | 15.0.0 | MIT | Will McGugan |
 | fastapi | 0.140.0 | MIT | Sebastián Ramírez |
@@ -115,113 +117,114 @@ se nombran por familia en CSS; **no se incrustan**, así que no generan obligaci
 | python-multipart | 0.0.32 | Apache-2.0 | Andrew Dunham |
 | yt-dlp | 2026.7.4 | Unlicense | yt-dlp contributors |
 
-Transitivas que también piden aviso: `huggingface_hub`, `safetensors` y
-`tokenizers` (Apache-2.0, Hugging Face), `certifi` (MPL-2.0) y `tqdm`
-(MPL-2.0 AND MIT). MPL-2.0 es copyleft por archivo y su §3.3 permite
-expresamente combinar con GPL-3.0; como no modificamos ninguno de sus archivos,
-solo corresponde acreditarlos.
+Transitive dependencies that also call for a notice: `huggingface_hub`,
+`safetensors` and `tokenizers` (Apache-2.0, Hugging Face), `certifi` (MPL-2.0) and
+`tqdm` (MPL-2.0 AND MIT). MPL-2.0 is per-file copyleft and its §3.3 expressly
+permits combination with GPL-3.0; since we modify none of its files, all that is
+required is to credit them.
 
-`praat-parselmouth` es un envoltorio de **Praat**, de Paul Boersma y David
-Weenink (Universidad de Ámsterdam); el envoltorio es de Yannick Jadoul.
+`praat-parselmouth` is a wrapper around **Praat**, by Paul Boersma and David
+Weenink (University of Amsterdam); the wrapper itself is by Yannick Jadoul.
 
-`panphon` pide cita académica: Mortensen, Littell, Bharadwaj, Goyal, Dyer,
+`panphon` asks for an academic citation: Mortensen, Littell, Bharadwaj, Goyal, Dyer,
 Levin — *PanPhon: A Resource for Mapping IPA Segments to Articulatory Feature
-Vectors*, COLING 2016. Sus tablas (`ipa_all.csv`) son el sustrato de todos los
-costes del diff, así que la cita es justa además de barata.
+Vectors*, COLING 2016. Its tables (`ipa_all.csv`) are the substrate of every one of
+the diff's costs, so the citation is fair as well as cheap.
 
 ---
 
-## 4. Modelos y datos lingüísticos (se descargan en el primer uso)
+## 4. Models and linguistic data (downloaded on first use)
 
-Nada de esto viaja en el repositorio.
+None of this travels in the repository.
 
-| Recurso | Licencia | Titular | Uso |
+| Resource | License | Rights holder | Use |
 |---|---|---|---|
-| `Systran/faster-whisper-small` | MIT | SYSTRAN (conversión CTranslate2) | ASR con timestamps por palabra |
-| `openai/whisper-small` (pesos originales) | Apache-2.0 | OpenAI | Base de la conversión anterior |
-| `facebook/wav2vec2-lv-60-espeak-cv-ft` | Apache-2.0 | Meta AI — Xu, Baevski, Auli ([arXiv:2109.11680](https://arxiv.org/abs/2109.11680)) | Fonos reales (CTC) **y** alineación forzada del canónico, en la misma pasada |
-| CMU Pronouncing Dictionary `cmudict.0.7a` (vía NLTK) | BSD-2-Clause *con una cláusula propia*, ver abajo | Copyright (C) 1993-2008 Carnegie Mellon University. All rights reserved. | Forma de cita y detección de OOV |
-| NLTK `averaged_perceptron_tagger(_eng)` | MIT | Copyright 2013 Matthew Honnibal (NLTK lo redistribuye, no es el titular) | POS para homógrafos en `g2p_en` |
+| `Systran/faster-whisper-small` | MIT | SYSTRAN (CTranslate2 conversion) | ASR with per-word timestamps |
+| `openai/whisper-small` (original weights) | Apache-2.0 | OpenAI | The basis of the conversion above |
+| `facebook/wav2vec2-lv-60-espeak-cv-ft` | Apache-2.0 | Meta AI — Xu, Baevski, Auli ([arXiv:2109.11680](https://arxiv.org/abs/2109.11680)) | Real phones (CTC) **and** forced alignment of the canonical, in the same pass |
+| CMU Pronouncing Dictionary `cmudict.0.7a` (via NLTK) | BSD-2-Clause *with a clause of its own*, see below | Copyright (C) 1993-2008 Carnegie Mellon University. All rights reserved. | Citation form and OOV detection |
+| NLTK `averaged_perceptron_tagger(_eng)` | MIT | Copyright 2013 Matthew Honnibal (NLTK redistributes it; it is not the rights holder) | POS tagging for homographs in `g2p_en` |
 
-**Excepción: un modelo que sí se redistribuye —pero no por nosotros.** El *wheel*
-de `faster-whisper` trae dentro `assets/silero_vad_v6.onnx` (Silero VAD, MIT,
-Silero Team). No se descarga: viaja en el paquete, y está **activo** —`asr.py`
-pasa `vad_filter=True`—, así que el silencio nunca entra al ASR. Llega por `pip`,
-o sea que este repositorio sigue sin redistribuir nada; se documenta porque es el
-único modelo del pipeline que no se baja de la red.
+**Exception: one model that is redistributed — though not by us.** The
+`faster-whisper` *wheel* carries `assets/silero_vad_v6.onnx` inside it (Silero VAD, MIT,
+Silero Team). It is not downloaded: it travels in the package, and it is **active** — `asr.py`
+passes `vad_filter=True` — so silence never reaches the ASR. It arrives via `pip`,
+which means this repository still redistributes nothing; it is documented because it is the
+only model in the pipeline that is not fetched from the network.
 
-Sobre CMUdict: su aviso añade a la cláusula 1 la frase **«The contents of this
-file are deemed to be source code»**. Esa frase es la operativa: convierte los
-*datos* del diccionario en código a efectos de la licencia, de modo que quien
-redistribuya el archivo debe conservar el aviso, las condiciones y el descargo.
-Aquí no se redistribuye —se descarga con `nltk.download("cmudict")`—, pero si
-alguna vez se incrusta en el repo, hay que copiar su README íntegro al lado.
-(El índice de NLTK describe este paquete como «0.6 / Copyright 1998 / completely
-unrestricted»: está desactualizado. Manda el README que se instala.)
+About CMUdict: its notice adds to clause 1 the sentence **"The contents of this
+file are deemed to be source code"**. That sentence is the operative one: it turns
+the dictionary's *data* into code for licensing purposes, so that anyone
+redistributing the file must retain the notice, the conditions and the disclaimer.
+Here it is not redistributed — it is downloaded with `nltk.download("cmudict")` — but if
+it is ever embedded in the repo, its README must be copied in full alongside it.
+(The NLTK index describes this package as "0.6 / Copyright 1998 / completely
+unrestricted": that is out of date. The README that gets installed is what governs.)
 
-**Cautelas del modelo Whisper**, que su ficha pide trasladar: no está pensado
-para transcribir a personas sin su consentimiento, ni para decisiones de alto
-riesgo, ni para inferir atributos de quien habla. Quien use PhonoTrainer es
-responsable de tener derecho a procesar el material que le da.
+**Whisper model caveats**, which its model card asks to pass on: it is not intended
+for transcribing people without their consent, nor for high-stakes decisions, nor for
+inferring attributes about the speaker. Whoever uses PhonoTrainer is
+responsible for having the right to process the material they feed it.
 
-**No usado a propósito:** `torchaudio.pipelines.MMS_FA` es **CC-BY-NC 4.0**
-(no comercial). Alinea caracteres, no fonemas, así que se descartó por razones
-técnicas — pero adoptarlo más adelante impondría una restricción no comercial a
-todos los usuarios. No sustituir el aligner por él.
+**Deliberately not used:** `torchaudio.pipelines.MMS_FA` is **CC-BY-NC 4.0**
+(non-commercial). It aligns characters, not phonemes, so it was discarded for technical
+reasons — but adopting it later would impose a non-commercial restriction on
+every user. Do not replace the aligner with it.
 
 ---
 
-## 5. Requisitos del sistema (procesos externos, no enlazados)
+## 5. System requirements (external processes, not linked)
 
-| Programa | Licencia | Uso |
+| Program | License | Use |
 |---|---|---|
-| `ffmpeg` | GPL-3.0-or-later (según empaquetado) | Extracción y remuxado de audio/vídeo (`audio.py`, `download.py`) |
-| `espeak-ng` | GPL-3.0 y otras (ver §1) | Backend de fonemización de `phonemizer` |
+| `ffmpeg` | GPL-3.0-or-later (depending on the packaging) | Extraction and remuxing of audio/video (`audio.py`, `download.py`) |
+| `espeak-ng` | GPL-3.0 and others (see §1) | Phonemization backend for `phonemizer` |
 
-Los instala el usuario y no se redistribuyen aquí, pero la diferencia entre los
-dos importa y conviene no "optimizarla" luego:
+The user installs them and they are not redistributed here, but the difference
+between the two matters and should not be "optimized away" later:
 
-- **ffmpeg se invoca como proceso aparte** (`subprocess.run` con una lista de
-  argumentos, `audio.py`). Cruzar la frontera de proceso es mera agregación: no
-  crea obra combinada. El ffmpeg de esta máquina está compilado con
-  `--enable-gpl` y `--enable-libfdk-aac`, cuya licencia **no** es compatible con
-  GPL — razón de más para no enlazarlo nunca en proceso ni empaquetar un binario
-  suyo en una release.
-- **espeak-ng se carga con `dlopen`** dentro del mismo proceso, vía `ctypes`
-  desde `phonemizer`. Eso sí es enlace, y es parte de por qué el resultado es
+- **ffmpeg is invoked as a separate process** (`subprocess.run` with an argument
+  list, `audio.py`). Crossing the process boundary is mere aggregation: it does not
+  create a combined work. The ffmpeg on this machine is compiled with
+  `--enable-gpl` and `--enable-libfdk-aac`, whose license is **not** compatible with
+  the GPL — all the more reason never to link it in-process or to package a binary
+  of it in a release.
+- **espeak-ng is loaded with `dlopen`** inside the same process, via `ctypes`
+  from `phonemizer`. That is linking, and it is part of why the result is
   GPL-3.0.
 
 ---
 
-## 6. Proyectos de referencia — estudiados, **no** copiados
+## 6. Reference projects — studied, **not** copied
 
-`references/` contiene clones de cinco repositorios que sirvieron para decidir la
-arquitectura (el análisis está en [`references/NOTES.md`](references/NOTES.md)).
-**Están en `.gitignore` y no se distribuyen.**
+`references/` contains clones of five repositories that were used to decide the
+architecture (the analysis is in [`references/NOTES.md`](references/NOTES.md)).
+**They are in `.gitignore` and are not distributed.**
 
-Se verificó por contenido, no por nombre de archivo: de las ~5.900 líneas largas
-del código versionado, solo 5 coinciden con alguna de las ~6.400 líneas de los
-clones, y las cinco son `import` de la stdlib o llamadas documentadas a
-dependencias declaradas. Ninguna función, tabla o vocabulario de esos repos está
-en `phonotrainer/`. Lo que se tomó son **ideas de diseño**, reimplementadas con
-otras bibliotecas y otros parámetros — no expresión protegida. Por eso PhonoTrainer
-no hereda de ellos ninguna obligación de aviso; el crédito de abajo es voluntario
-y merecido.
+Verification was done by content, not by file name: of the ~5,900 long lines of
+version-controlled code, only 5 coincide with any of the ~6,400 lines of the
+clones, and all five are stdlib `import`s or documented calls to declared
+dependencies. No function, table or vocabulary from those repos is in
+`phonotrainer/`. What was taken are **design ideas**, reimplemented with
+different libraries and different parameters — not protected expression. That is why
+PhonoTrainer inherits no notice obligation from them; the credit below is voluntary
+and deserved.
 
-| Proyecto | Commit consultado | Licencia | Qué aportó |
+| Project | Commit consulted | License | What it contributed |
 |---|---|---|---|
-| [whisperX](https://github.com/m-bain/whisperX) | `2cfd7b7` | BSD-2-Clause · Copyright (c) 2024, Max Bain | Alinear dentro de la ventana de cada segmento; `blank` = token `<pad>`; interpolar huecos y degradar sin abortar |
-| [OpenPronounce](https://github.com/Halleck45/OpenPronounce) | `759ab4c` | MIT · Copyright (c) 2025 Jean-François Lépine | Enfoque de prosodia: F0 acotada, interpolación de tramos sordos, energía coescalada |
-| [faster-whisper](https://github.com/SYSTRAN/faster-whisper) | `ed9a06c` | MIT · Copyright (c) 2023 SYSTRAN | Además de dependencia: defaults de `word_timestamps` / `vad_filter` |
-| [joint-apa-mdd-mtl](https://github.com/rhss10/joint-apa-mdd-mtl) | `5fbc315` | MIT · Copyright 2023 Hyungshin Ryu | Receta de decodificación CTC de fonemas y evaluación a nivel de fonema |
-| [wav2vec2mdd](https://github.com/vocaliodmiku/wav2vec2mdd) | `760ccca` | **SIN LICENCIA** (todos los derechos reservados) | Solo lectura: protocolo de evaluación MDD de tres vías |
+| [whisperX](https://github.com/m-bain/whisperX) | `2cfd7b7` | BSD-2-Clause · Copyright (c) 2024, Max Bain | Aligning within each segment's window; `blank` = `<pad>` token; interpolating gaps and degrading without aborting |
+| [OpenPronounce](https://github.com/Halleck45/OpenPronounce) | `759ab4c` | MIT · Copyright (c) 2025 Jean-François Lépine | The approach to prosody: bounded F0, interpolation over unvoiced stretches, co-scaled energy |
+| [faster-whisper](https://github.com/SYSTRAN/faster-whisper) | `ed9a06c` | MIT · Copyright (c) 2023 SYSTRAN | Besides being a dependency: the `word_timestamps` / `vad_filter` defaults |
+| [joint-apa-mdd-mtl](https://github.com/rhss10/joint-apa-mdd-mtl) | `5fbc315` | MIT · Copyright 2023 Hyungshin Ryu | The phoneme CTC decoding recipe and phoneme-level evaluation |
+| [wav2vec2mdd](https://github.com/vocaliodmiku/wav2vec2mdd) | `760ccca` | **NO LICENSE** (all rights reserved) | Reading only: the three-way MDD evaluation protocol |
 
-> ⚠️ **wav2vec2mdd no tiene licencia** — ni ahora ni en ningún punto de su
-> historial. Se comprobó que no se copió nada de él (ni `phone39.table`, ni
-> `dict.phn.txt`, ni ninguno de sus identificadores). Sus datos derivan además de
-> L2-ARCTIC y TIMIT, con sus propias restricciones de corpus. **Es material de
-> lectura: nunca copiar código, tablas ni datos de ahí a `phonotrainer/`.**
+> ⚠️ **wav2vec2mdd has no license** — neither now nor at any point in its
+> history. It was checked that nothing was copied from it (not `phone39.table`, not
+> `dict.phn.txt`, not a single one of its identifiers). Its data also derives from
+> L2-ARCTIC and TIMIT, with their own corpus restrictions. **It is reading
+> material: never copy code, tables or data from there into `phonotrainer/`.**
 
-`references/NOTES.md` cita fragmentos cortos de estos repos (unas 5 líneas en
-total, la más larga ~120 caracteres) con fines de comentario crítico e
-identificación. Cada repositorio se rige por su propia licencia.
+`references/NOTES.md` quotes short fragments from these repos (about 5 lines in
+total, the longest ~120 characters) for the purposes of critical commentary and
+identification. Each repository is governed by its own license.
+</content>

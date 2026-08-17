@@ -1,10 +1,10 @@
-/** Reloj de reproducción: canal de alta frecuencia separado del estado de React.
+/** Playback clock: a high-frequency channel kept out of React state.
  *
- *  El tiempo del audio cambia 60 veces por segundo; meterlo en un useState
- *  volvería a renderizar toda la transcripción en cada frame. Aquí lo publicamos
- *  como store externo y cada componente se suscribe a lo que necesita (el índice
- *  de la palabra activa, la posición del playhead…), de modo que solo re-renderiza
- *  cuando *su* valor cambia.
+ *  The audio time changes 60 times per second; putting it in a useState would
+ *  re-render the entire transcript on every frame. Here we publish it as an
+ *  external store and each component subscribes to just what it needs (the
+ *  index of the active word, the playhead position…), so it only re-renders
+ *  when *its* value changes.
  */
 
 import { useSyncExternalStore } from "react";
@@ -29,14 +29,14 @@ export class Clock {
   }
 }
 
-/** Tiempo actual en segundos (re-renderiza en cada frame: úsalo con moderación). */
+/** Current time in seconds (re-renders on every frame: use sparingly). */
 export function useTime(clock: Clock): number {
   return useSyncExternalStore(clock.subscribe, clock.getSnapshot, clock.getSnapshot);
 }
 
 /**
- * Deriva un valor del tiempo y re-renderiza solo cuando ese valor cambia.
- * `select` debe ser puro y devolver primitivos (Object.is decide el re-render).
+ * Derive a value from the time and re-render only when that value changes.
+ * `select` must be pure and return primitives (Object.is decides the re-render).
  */
 export function useTimeSelector<T>(clock: Clock, select: (time: number) => T): T {
   const snapshot = () => select(clock.getSnapshot());

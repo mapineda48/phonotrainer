@@ -1,64 +1,64 @@
-# Plan de implementación — "PhonoTrainer": Analizador fonético de habla nativa
+# Implementation plan — "PhonoTrainer": phonetic analyzer for native speech
 
-> Documento de diseño original del proyecto; se conserva como registro de las
-> decisiones y de su procedencia. Entorno de referencia: **Fedora 44**, CPU (GPU opcional).
-> Objetivo: dado un video/audio en inglés, producir una línea de tiempo alineada con:
-> (1) transcripción, (2) fonos REALMENTE pronunciados, (3) pronunciación canónica alineada en tiempo,
-> (4) diff etiquetado de fenómenos de connected speech (wanna, gotcha, flapping, schwa, th-stopping…),
-> (5) prosodia (F0, énfasis, contorno).
+> The project's original design document; kept as a record of the decisions and
+> of where they came from. Reference environment: **Fedora 44**, CPU (GPU optional).
+> Goal: given a video/audio file in English, produce a time-aligned timeline with:
+> (1) the transcript, (2) the phones ACTUALLY pronounced, (3) the canonical pronunciation aligned in time,
+> (4) a labeled diff of connected-speech phenomena (wanna, gotcha, flapping, schwa, th-stopping…),
+> (5) prosody (F0, stress, contour).
 >
-> **Estrategia central: apoyarse en lo ya hecho.** No reinventar alineadores ni reconocedores de
-> fonos. Reutilizamos componentes de proyectos MDD/CAPT existentes (que hacen este mismo diff pero
-> para "corregir alumnos") y solo escribimos la capa nueva: etiquetado de fenómenos nativos + reporte.
+> **Core strategy: build on what already exists.** Do not reinvent aligners or phone
+> recognizers. We reuse components from existing MDD/CAPT projects (which perform this very diff, but
+> in order to "correct learners") and only write the new layer: labeling of native phenomena + report.
 
 ---
 
-## 0. Principio de diseño (leer antes de codear)
+## 0. Design principle (read before coding)
 
-- Texto (ASR) y fonética real NO salen del mismo modelo. El ASR normaliza, el diccionario normaliza.
-  Las reducciones reales solo aparecen con un reconocedor acústico de fonos.
-- 3 fuentes de verdad alineadas por tiempo:
-  1. Palabras + timestamps → `faster-whisper`.
-  2. Fonos canónicos ALINEADOS EN TIEMPO → forced alignment (torchaudio / MFA), no solo diccionario.
-  3. Fonos reales → wav2vec2 fine-tuneado a fonemas (estándar de facto en los repos MDD).
-- El producto = diff (3) vs (2) por ventana temporal + prosodia. Interpretamos la desviación como
-  *fenómeno nativo a enseñar*, no como error (inverso a las herramientas MDD).
+- Text (ASR) and real phonetics do NOT come out of the same model. The ASR normalizes, the dictionary normalizes.
+  Real reductions only show up with an acoustic phone recognizer.
+- 3 sources of truth aligned by time:
+  1. Words + timestamps → `faster-whisper`.
+  2. Canonical phones ALIGNED IN TIME → forced alignment (torchaudio / MFA), not just a dictionary.
+  3. Real phones → wav2vec2 fine-tuned to phonemes (the de facto standard in MDD repos).
+- The product = diff of (3) vs (2) per time window + prosody. We read the deviation as a
+  *native phenomenon to be taught*, not as an error (the inverse of what MDD tools do).
 
-## 1. Trabajo previo a reutilizar (Fase 0 — estudiar antes de codear)
+## 1. Prior work to reuse (Phase 0 — study before coding)
 
-Clonar en `references/` (solo lectura, para extraer patrones y código adaptable con licencia compatible):
+Clone into `references/` (read-only, to extract patterns and adaptable code under a compatible license):
 
-| Repo | Qué reutilizamos | Qué NO |
+| Repo | What we reuse | What we do NOT |
 |---|---|---|
-| `Halleck45/OpenPronounce` | Pipeline wav2vec2→fonemas, alineación DTW fonema-a-fonema, extracción de prosodia, estructura CLI+web | Su capa de scoring "error del alumno" |
-| `openai/whisper` ecosistema: `SYSTRAN/faster-whisper`, `m-bain/whisperX` | ASR con word timestamps; whisperX además trae forced alignment con wav2vec2 ya resuelto | Su diarización (no la necesitamos) |
-| Repos MDD wav2vec2 (`vocaliodmiku/wav2vec2mdd`, `rhss10/joint-apa-mdd-mtl`) | Recetas de decodificación CTC de fonemas, evaluación fonema-nivel | Fine-tuning (usamos checkpoints públicos) |
-| `Montreal Forced Aligner` (docs) | Referencia de calidad de alineación canónica | Instalación conda si torchaudio basta |
-| `yt-dlp/yt-dlp` | Obtención del material: descarga del vídeo/audio y remuxado con ffmpeg (`phonotrainer/download.py`) | Su post-procesado (subtítulos, miniaturas, playlists) |
-| `sqlite3` (stdlib) | Índice entre análisis: palabras y fenómenos consultables como corpus (`phonotrainer/db.py`) | ORM o servidor de base de datos: el fichero es derivado y desechable |
+| `Halleck45/OpenPronounce` | wav2vec2→phonemes pipeline, phoneme-to-phoneme DTW alignment, prosody extraction, CLI+web structure | Its "learner error" scoring layer |
+| `openai/whisper` ecosystem: `SYSTRAN/faster-whisper`, `m-bain/whisperX` | ASR with word timestamps; whisperX additionally brings forced alignment with wav2vec2 already solved | Its diarization (we do not need it) |
+| wav2vec2 MDD repos (`vocaliodmiku/wav2vec2mdd`, `rhss10/joint-apa-mdd-mtl`) | Phoneme CTC decoding recipes, phoneme-level evaluation | Fine-tuning (we use public checkpoints) |
+| `Montreal Forced Aligner` (docs) | Quality reference for canonical alignment | The conda install, if torchaudio is enough |
+| `yt-dlp/yt-dlp` | Getting the material: downloading the video/audio and remuxing with ffmpeg (`phonotrainer/download.py`) | Its post-processing (subtitles, thumbnails, playlists) |
+| `sqlite3` (stdlib) | A cross-analysis index: words and phenomena queryable as a corpus (`phonotrainer/db.py`) | An ORM or a database server: the file is derived and disposable |
 
-Modelos preentrenados (HuggingFace, descargar una vez):
+Pretrained models (HuggingFace, downloaded once):
 - **ASR**: `faster-whisper small` (int8, CPU).
-- **Fonos reales**: `facebook/wav2vec2-lv-60-espeak-cv-ft` (CTC → fonemas estilo eSpeak/IPA).
-  Fallback ligero: `allosaurus eng2102`.
-- **Forced alignment canónico**: `torchaudio.pipelines.MMS_FA` o el aligner de whisperX
-  > **Descartado en la Fase 0, y no reintroducir.** Por lo técnico, `MMS_FA` alinea
-  > *caracteres*, no fonemas (ver `align_canonical.py`). Por lo legal, es
-  > **CC-BY-NC 4.0**: adoptarlo impondría una restricción no comercial a todos los
-  > usuarios del proyecto. Lo que se usa es `torchaudio.functional.forced_align`,
-  > que es algoritmo puro (BSD-2-Clause) y no descarga pesos.
-  (ambos pip-instalables; evitamos conda/MFA salvo que la calidad lo exija).
-- **Distancia fonética para el diff**: `panphon` (vectores de rasgos articulatorios → costos de
-  sustitución fundados lingüísticamente, en vez de matriz ad-hoc).
+- **Real phones**: `facebook/wav2vec2-lv-60-espeak-cv-ft` (CTC → eSpeak/IPA-style phonemes).
+  Lightweight fallback: `allosaurus eng2102`.
+- **Canonical forced alignment**: `torchaudio.pipelines.MMS_FA` or whisperX's aligner
+  > **Discarded in Phase 0, and not to be reintroduced.** On technical grounds, `MMS_FA` aligns
+  > *characters*, not phonemes (see `align_canonical.py`). On legal grounds, it is
+  > **CC-BY-NC 4.0**: adopting it would impose a non-commercial restriction on every
+  > user of the project. What is used instead is `torchaudio.functional.forced_align`,
+  > which is pure algorithm (BSD-2-Clause) and downloads no weights.
+  (both pip-installable; we avoid conda/MFA unless quality demands it).
+- **Phonetic distance for the diff**: `panphon` (articulatory feature vectors → linguistically
+  grounded substitution costs, instead of an ad-hoc matrix).
 
-Entregable de Fase 0: `references/NOTES.md` con: función exacta de OpenPronounce que hace DTW,
-formato de salida del modelo espeak-phoneme, y decisión torchaudio-FA vs MFA (probar ambos en un clip).
+Phase 0 deliverable: `references/NOTES.md` containing: the exact OpenPronounce function that does DTW,
+the output format of the espeak-phoneme model, and the torchaudio-FA vs MFA decision (test both on a clip).
 
-## 2. Setup del entorno (Fedora 44)
+## 2. Environment setup (Fedora 44)
 
 ```bash
 sudo dnf install -y ffmpeg python3.11 python3.11-devel gcc gcc-c++ make git espeak-ng
-# RPM Fusion si falta ffmpeg:
+# RPM Fusion if ffmpeg is missing:
 # sudo dnf install -y https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm
 
 mkdir -p ~/phonotrainer && cd ~/phonotrainer
@@ -73,7 +73,7 @@ faster-whisper>=1.0
 transformers>=4.40
 torch --index-url https://download.pytorch.org/whl/cpu
 torchaudio --index-url https://download.pytorch.org/whl/cpu
-phonemizer>=3.2        # backend espeak-ng, requerido por el modelo wav2vec2-espeak
+phonemizer>=3.2        # espeak-ng backend, required by the wav2vec2-espeak model
 g2p-en>=2.1
 panphon>=0.20
 praat-parselmouth>=0.4
@@ -84,87 +84,87 @@ rich
 pytest
 ```
 
-Notas:
-- `phonemizer` necesita `espeak-ng` del sistema (ya en dnf arriba).
-- Script `scripts/download_models.py` que baje y cachee: whisper-small, wav2vec2-espeak, cmudict/NLTK.
-- Si CPU resulta lenta con wav2vec2-lv-60: probar el checkpoint base o Allosaurus como fallback (flag `--phone-engine`).
+Notes:
+- `phonemizer` needs the system `espeak-ng` (already in the dnf line above).
+- A `scripts/download_models.py` script to download and cache: whisper-small, wav2vec2-espeak, cmudict/NLTK.
+- If the CPU turns out to be slow with wav2vec2-lv-60: try the base checkpoint or Allosaurus as a fallback (`--phone-engine` flag).
 
-## 3. Estructura del proyecto
+## 3. Project structure
 
 ```
 phonotrainer/
 ├── PLAN.md
 ├── requirements.txt
-├── references/            # repos clonados de Fase 0 + NOTES.md (gitignored)
+├── references/            # Phase 0 cloned repos + NOTES.md (gitignored)
 ├── scripts/download_models.py
 ├── phonotrainer/
 │   ├── cli.py             # phonotrainer analyze <media> -o out/ [--phone-engine wav2vec2|allosaurus]
 │   ├── audio.py           # ffmpeg → WAV 16kHz mono
-│   ├── asr.py             # faster-whisper: palabras + timestamps
-│   ├── phones_real.py     # wav2vec2-espeak CTC → fonos reales + timestamps (offsets CTC)
-│   ├── align_canonical.py # forced alignment: fonemas canónicos con tiempos (torchaudio MMS_FA)
-│   ├── canonical.py       # g2p_en/CMUdict como respaldo y para OOV; ARPAbet→IPA
-│   ├── diff.py            # alineamiento real-vs-canónico con costos panphon + etiquetado
-│   ├── phenomena.py       # reglas y tabla léxica (wanna, gonna, gotcha…)
-│   ├── prosody.py         # parselmouth: F0, énfasis, contorno (adaptar enfoque OpenPronounce)
-│   ├── report.py          # analysis.json + report.html estático
+│   ├── asr.py             # faster-whisper: words + timestamps
+│   ├── phones_real.py     # wav2vec2-espeak CTC → real phones + timestamps (CTC offsets)
+│   ├── align_canonical.py # forced alignment: canonical phonemes with times (torchaudio MMS_FA)
+│   ├── canonical.py       # g2p_en/CMUdict as a backup and for OOV; ARPAbet→IPA
+│   ├── diff.py            # real-vs-canonical alignment with panphon costs + labeling
+│   ├── phenomena.py       # rules and lexical table (wanna, gonna, gotcha…)
+│   ├── prosody.py         # parselmouth: F0, stress, contour (adapt the OpenPronounce approach)
+│   ├── report.py          # analysis.json + static report.html
 │   └── ipa_maps.py        # espeak↔IPA↔ARPAbet
-├── tests/                 # fixtures propios (NO audio con copyright en el repo)
+├── tests/                 # our own fixtures (NO copyrighted audio in the repo)
 └── out/
 ```
 
-## 4. Fases
+## 4. Phases
 
-### Fase 0 — Reconocimiento del terreno 
-Clonar los repos de la tabla, correr el notebook/CLI de OpenPronounce sobre un clip propio,
-documentar en `references/NOTES.md` qué funciones se adaptan. Decidir torchaudio-FA vs MFA.
+### Phase 0 — Surveying the ground
+Clone the repos in the table, run OpenPronounce's notebook/CLI on a clip of our own,
+document in `references/NOTES.md` which functions can be adapted. Decide torchaudio-FA vs MFA.
 
-### Fase 1 — Esqueleto + audio 
-`audio.py` (ffmpeg `-ac 1 -ar 16000`), `cli.py` con click. Éxito: media → `out/audio.wav`.
+### Phase 1 — Skeleton + audio
+`audio.py` (ffmpeg `-ac 1 -ar 16000`), `cli.py` with click. Success: media → `out/audio.wav`.
 
-### Fase 2 — ASR 
-faster-whisper, `word_timestamps=True`, `vad_filter=True`. Guardar `out/transcript.json` SIN
-postprocesar (si Whisper escribe "gonna", se conserva). 
+### Phase 2 — ASR
+faster-whisper, `word_timestamps=True`, `vad_filter=True`. Save `out/transcript.json` WITHOUT
+post-processing (if Whisper writes "gonna", it stays).
 
-### Fase 3 — Canónico alineado en tiempo 
-`align_canonical.py` con `torchaudio.pipelines.MMS_FA` (o wav2vec2-aligner de whisperX): por cada
-palabra del ASR, fonemas canónicos con [start, end] reales. `canonical.py` (g2p_en) solo para OOV
-y para mostrar la forma de diccionario. Éxito: tabla palabra → fonemas canónicos con tiempos.
+### Phase 3 — Time-aligned canonical
+`align_canonical.py` with `torchaudio.pipelines.MMS_FA` (or whisperX's wav2vec2 aligner): for each
+ASR word, canonical phonemes with real [start, end]. `canonical.py` (g2p_en) only for OOV
+and to display the dictionary form. Success: a word → canonical phonemes with times table.
 
-### Fase 4 — Fonos reales 
-`phones_real.py`: wav2vec2-espeak vía transformers con `output_char_offsets=True` para timestamps
-por fono; mapear alfabeto espeak→IPA en `ipa_maps.py`. Flag para Allosaurus como motor alternativo.
-Éxito: para un "does that" relajado, ver algo como `d ə d ə` / `d ə z ð ə`.
+### Phase 4 — Real phones
+`phones_real.py`: wav2vec2-espeak via transformers with `output_char_offsets=True` for per-phone
+timestamps; map the espeak→IPA alphabet in `ipa_maps.py`. A flag for Allosaurus as an alternative engine.
+Success: for a relaxed "does that", see something like `d ə d ə` / `d ə z ð ə`.
 
-### Fase 5 — Diff + etiquetado 
-- Alineamiento Needleman-Wunsch entre secuencia real y canónica **dentro de cada ventana de palabra**
-  (ya tenemos ambas con tiempos, el problema se vuelve local y robusto).
-- Costos de sustitución = distancia de rasgos de `panphon` (vocal↔ə barato, ð↔d barato, p↔s caro).
-- `phenomena.py` etiqueta sobre las operaciones:
+### Phase 5 — Diff + labeling
+- Needleman-Wunsch alignment between the real and canonical sequences **inside each word window**
+  (we already have both with times, so the problem becomes local and robust).
+- Substitution costs = `panphon` feature distance (vowel↔ə cheap, ð↔d cheap, p↔s expensive).
+- `phenomena.py` labels on top of the operations:
 
-| Etiqueta | Regla | Ejemplo |
+| Label | Rule | Example |
 |---|---|---|
-| vowel_reduction | vocal plena→ə/ɪ átona | does→dəz |
-| t_deletion / glottalization | t final elidida / t→ʔ | that→ðæ, button→bʌʔn̩ |
+| vowel_reduction | full vowel→ə/ɪ when unstressed | does→dəz |
+| t_deletion / glottalization | final t elided / t→ʔ | that→ðæ, button→bʌʔn̩ |
 | th_stopping | ð→d, θ→t | that→dat |
-| flapping | t,d intervocálica→ɾ | water→wɔɾɚ |
-| palatalization | t+j→tʃ, d+j→dʒ, s+j→ʃ, z+j→ʒ en frontera | got you→gotcha |
-| elision_syllable | sílaba omitida | probably→prɒbli |
-| linking | consonante re-siliabificada | does‿it |
-| h_dropping | h átona omitida | tell 'im |
-| contraction_lex | tabla léxica directa | wanna, gonna, gotta, hafta, whaddya, didja, lemme, gimme, kinda, sorta, outta, shoulda… |
+| flapping | intervocalic t,d→ɾ | water→wɔɾɚ |
+| palatalization | t+j→tʃ, d+j→dʒ, s+j→ʃ, z+j→ʒ across a boundary | got you→gotcha |
+| elision_syllable | omitted syllable | probably→prɒbli |
+| linking | resyllabified consonant | does‿it |
+| h_dropping | unstressed h omitted | tell 'im |
+| contraction_lex | direct lexical table | wanna, gonna, gotta, hafta, whaddya, didja, lemme, gimme, kinda, sorta, outta, shoulda… |
 
-- Doble vía para `contraction_lex`: (a) el texto de Whisper ya trae la forma reducida, o
-  (b) el texto dice "want to" pero los fonos reales no tienen /t/ ni /u/ → es wanna igual.
-- TDD: tests sintéticos por regla ANTES de implementar.
+- Two routes for `contraction_lex`: (a) Whisper's text already contains the reduced form, or
+  (b) the text says "want to" but the real phones have neither /t/ nor /u/ → it is wanna all the same.
+- TDD: synthetic tests per rule BEFORE implementing.
 
-### Fase 6 — Prosodia
-`prosody.py` con parselmouth (adaptar el enfoque de prosodia de OpenPronounce): F0 cada 10 ms,
-media/rango por segmento, palabra enfatizada (pico F0+intensidad), contorno final rising/falling.
+### Phase 6 — Prosody
+`prosody.py` with parselmouth (adapting OpenPronounce's prosody approach): F0 every 10 ms,
+mean/range per segment, stressed word (peak of F0+intensity), rising/falling final contour.
 
-### Fase 7 — Reporte
-`out/analysis.json` (esquema abajo) + `out/report.html` autocontenido: transcripción coloreada por
-fenómeno, tooltip canónico vs real, mini-SVG de F0, leyenda.
+### Phase 7 — Report
+`out/analysis.json` (schema below) + a self-contained `out/report.html`: transcript colored by
+phenomenon, canonical vs real tooltip, F0 mini-SVG, legend.
 
 ```json
 {
@@ -183,26 +183,27 @@ fenómeno, tooltip canónico vs real, mini-SVG de F0, leyenda.
 }
 ```
 
-## 5. Testing y validación
-- pytest; fixture = clip corto grabado por el usuario o TTS (NO commitear audio con copyright;
-  los episodios se procesan solo localmente).
-- Tests: mapeos espeak↔IPA↔ARPAbet completos, cada regla de phenomena con secuencias sintéticas,
-  alineación con fonos en fronteras de palabra.
-- Validación manual: 2–3 min de un episodio, revisar 20 palabras al azar contra el oído.
+## 5. Testing and validation
+- pytest; fixture = a short clip recorded by the user or TTS (do NOT commit copyrighted audio;
+  episodes are processed locally only).
+- Tests: complete espeak↔IPA↔ARPAbet mappings, every phenomena rule with synthetic sequences,
+  alignment with phones at word boundaries.
+- Manual validation: 2–3 min of an episode, checking 20 random words against the ear.
 
-## 6. Riesgos y mitigaciones
-- **Música/efectos de fondo** degradan el reconocedor de fonos → VAD de Whisper primero; fase
-  opcional 8 con `demucs` para separar voz (pesado en CPU, solo si hace falta).
-- **wav2vec2-lv-60 lento en CPU** → checkpoint base o Allosaurus (`--phone-engine`), o procesar
-  por lotes nocturnos.
-- **El modelo espeak-phoneme emite alfabeto espeak, no IPA puro** → tabla de mapeo en ipa_maps.py
-  con test de cobertura total del vocabulario del modelo.
-- **Whisper normaliza reducciones** → doble vía léxica de Fase 5.
-- **OOV (nombres propios)** → g2p_en predice; marcar `oov: true`.
+## 6. Risks and mitigations
+- **Background music/effects** degrade the phone recognizer → Whisper's VAD first; optional
+  phase 8 with `demucs` to separate the voice (heavy on CPU, only if needed).
+- **wav2vec2-lv-60 slow on CPU** → base checkpoint or Allosaurus (`--phone-engine`), or process
+  in overnight batches.
+- **The espeak-phoneme model emits the espeak alphabet, not pure IPA** → a mapping table in ipa_maps.py
+  with a test covering the model's full vocabulary.
+- **Whisper normalizes reductions** → the two lexical routes of Phase 5.
+- **OOV (proper nouns)** → g2p_en predicts them; mark `oov: true`.
 
-## 7. Orden de trabajo para Claude Code
-1. Fase 0 completa (clonar, correr OpenPronounce en un clip, NOTES.md con decisiones).
-2. Fases 1+2 en una sesión; verificar con WAV propio.
-3. Fase 3 y 4 en paralelo conceptual; punto de control: tabla palabra | canónico(t) | real(t).
-4. Fase 5 con TDD estricto.
-5. Fases 6+7. Opcional: demucs y modo batch de carpetas.
+## 7. Order of work for Claude Code
+1. Phase 0 in full (clone, run OpenPronounce on a clip, NOTES.md with the decisions).
+2. Phases 1+2 in a single session; verify with a WAV of our own.
+3. Phases 3 and 4 conceptually in parallel; checkpoint: a word | canonical(t) | real(t) table.
+4. Phase 5 with strict TDD.
+5. Phases 6+7. Optional: demucs and a folder batch mode.
+</content>

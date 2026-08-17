@@ -1,8 +1,8 @@
-"""Diff real-vs-canónico: Needleman-Wunsch por ventana de palabra, costos panphon.
+"""Real-vs-canonical diff: Needleman-Wunsch per word window, panphon costs.
 
-Los costos crudos de panphon invierten el orden deseado en pares clave (t↔ɾ sale
-más caro que p↔s; t↔ʔ carísimo), así que los cambios nativos atestiguados de
-connected speech llevan costo bajo fijo en NATIVE_SHIFTS y panphon cubre el resto.
+Raw panphon costs invert the ordering we want on key pairs (t↔ɾ comes out pricier
+than p↔s; t↔ʔ is wildly expensive), so the attested native connected-speech shifts
+get a fixed low cost in NATIVE_SHIFTS and panphon covers everything else.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ GAP_COST = 0.7
 _SCALE = 3.0
 _MAX_COST = 1.5
 
-# Cambios alofónicos/nativos atestiguados (simétricos): costo << GAP_COST·2
+# Attested allophonic/native shifts (symmetric): cost << GAP_COST·2
 NATIVE_SHIFTS = {
     frozenset(p): c for p, c in [
         (("t", "ɾ"), 0.25), (("d", "ɾ"), 0.25), (("ɾ", "ɾ̃"), 0.15),
@@ -25,8 +25,8 @@ NATIVE_SHIFTS = {
         (("t", "tʃ"), 0.40), (("d", "dʒ"), 0.40), (("s", "ʃ"), 0.30), (("z", "ʒ"), 0.30),
         (("n", "ŋ"), 0.35), (("n", "m"), 0.40), (("n", "ɾ̃"), 0.25),
         (("l", "ɫ"), 0.10), (("ɹ", "ɚ"), 0.45),
-        # variación nativa de "your"/"sure" observada en validación externa
-        # (yor/yer): jamás atraer hacia el canónico ʊɹ
+        # native "your"/"sure" variation seen during external validation
+        # (yor/yer): never pull these back toward the canonical ʊɹ
         (("ʊɹ", "ɔːɹ"), 0.25), (("ʊɹ", "oːɹ"), 0.25), (("ʊɹ", "ɔɹ"), 0.25),
         (("ʊɹ", "ɚ"), 0.35), (("ʊɹ", "ə"), 0.40),
     ]
@@ -34,7 +34,7 @@ NATIVE_SHIFTS = {
 
 
 def is_native_shift(a: str, b: str) -> bool:
-    """¿Es (a, b) un cambio nativo atestiguado (en crudo o normalizado)?"""
+    """Is (a, b) an attested native shift (either raw or normalized)?"""
     if frozenset((a, b)) in NATIVE_SHIFTS:
         return True
     na, nb = normalize_for_panphon(a), normalize_for_panphon(b)
@@ -50,11 +50,11 @@ def _panphon_distance():
 
 @lru_cache(maxsize=65536)
 def phone_cost(a: str, b: str) -> float:
-    """Costo de sustituir el fono canónico `a` por el real `b`."""
+    """Cost of substituting the real phone `b` for the canonical phone `a`."""
     if a == b:
         return 0.0
-    # lookup crudo ANTES de normalizar: pares como (ɹ, ɚ) o (ʊɹ, ɚ) se perderían
-    # tras normalize_for_panphon (ɚ→ə)
+    # raw lookup BEFORE normalizing: pairs such as (ɹ, ɚ) or (ʊɹ, ɚ) would be lost
+    # after normalize_for_panphon (ɚ→ə)
     key = frozenset((a, b))
     if key in NATIVE_SHIFTS:
         return NATIVE_SHIFTS[key]
@@ -77,18 +77,18 @@ def phone_cost(a: str, b: str) -> float:
         return 1.0
     cost = raw / _SCALE
     if va and vb:
-        # las vocales derivan mucho en habla rápida: nunca prohibitivo
+        # vowels drift a lot in fast speech: never make this prohibitive
         return min(cost, 0.9)
     return min(max(cost, 0.15), _MAX_COST)
 
 
 def align_word(real: list[dict], canonical: list[dict],
                gap_cost: float = GAP_COST, cost_fn=None) -> list[dict]:
-    """NW entre fonos reales y canónicos de UNA palabra.
+    """NW alignment between the real and canonical phones of ONE word.
 
-    Devuelve ops [{'op': match|sub|del|ins, 'canonical': dict|None,
-    'real': dict|None, 'cost': float}] en orden canónico/temporal.
-    `cost_fn(canónico, real)` permite un costo alternativo (lo usa la atracción).
+    Returns ops [{'op': match|sub|del|ins, 'canonical': dict|None,
+    'real': dict|None, 'cost': float}] in canonical/temporal order.
+    `cost_fn(canonical, real)` allows an alternative cost (attraction uses it).
     """
     if cost_fn is None:
         cost_fn = phone_cost
@@ -96,7 +96,7 @@ def align_word(real: list[dict], canonical: list[dict],
     if n == 0 and m == 0:
         return []
 
-    # dp[i][j]: costo de alinear real[:i] con canonical[:j]
+    # dp[i][j]: cost of aligning real[:i] with canonical[:j]
     dp = [[0.0] * (m + 1) for _ in range(n + 1)]
     back = [[""] * (m + 1) for _ in range(n + 1)]
     for i in range(1, n + 1):
@@ -140,11 +140,12 @@ def align_word(real: list[dict], canonical: list[dict],
 
 def assign_real_to_words(real_phones: list[dict], word_spans: list[dict],
                          max_orphan_gap: float = 0.12) -> list[list[dict]]:
-    """Reparte los fonos reales (orden temporal) entre ventanas de palabra.
+    """Distribute the real phones (in temporal order) across the word windows.
 
-    Un fono cae en la palabra cuyo [start, end] contiene su punto medio; si queda
-    en un hueco entre palabras se asigna a la más cercana (si está a menos de
-    `max_orphan_gap` s), y si no, se descarta como ruido inter-palabra.
+    A phone falls into the word whose [start, end] contains its midpoint; if it lands
+    in a gap between words it is assigned to the closest one (provided that one is
+    less than `max_orphan_gap` s away), and otherwise it is dropped as inter-word
+    noise.
     """
     buckets: list[list[dict]] = [[] for _ in word_spans]
     if not word_spans:

@@ -1,4 +1,4 @@
-"""MEJORA 0: saneamiento del inventario de fonos (vocabulario multilingüe → inglés)."""
+"""IMPROVEMENT 0: phone inventory sanitization (multilingual vocabulary → English)."""
 
 import pytest
 
@@ -6,23 +6,23 @@ from phonotrainer.canonical import dict_pronunciation
 from phonotrainer.ipa_maps import ENGLISH_INVENTORY, normalize_espeak
 
 
-def test_la_forma_de_diccionario_conserva_el_acento():
-    """El acento explica la reducción: /bˈɛtɚ/ enseña que el flap cae en la
-    sílaba átona. Las reglas siguen mirando el ARPAbet, no esta cadena."""
-    entrada = dict_pronunciation("better")
-    assert entrada["ipa"] == "bˈɛtɚ"
-    assert entrada["arpabet"] == ["B", "EH1", "T", "ER0"]
-    # y AH0 es schwa: la sílaba átona se ve como tal
+def test_the_dictionary_form_keeps_the_stress_mark():
+    """Stress explains the reduction: /bˈɛtɚ/ teaches that the flap falls in the
+    unstressed syllable. The rules keep looking at the ARPAbet, not at this string."""
+    entry = dict_pronunciation("better")
+    assert entry["ipa"] == "bˈɛtɚ"
+    assert entry["arpabet"] == ["B", "EH1", "T", "ER0"]
+    # and AH0 is schwa: the unstressed syllable is visible as such
     assert dict_pronunciation("tonight")["ipa"] == "tənˈaɪt"
     assert dict_pronunciation("the")["ipa"] == "ðə"
 
 
-def test_tokens_ingleses_pasan_intactos():
+def test_english_tokens_pass_through_untouched():
     for tok in ["ɾ", "ʔ", "oʊ", "aɪ", "ə", "ɚ", "θ", "ð", "ŋ", "iː", "n̩", "əl", "ʊɹ", "ɔːɹ"]:
         assert normalize_espeak(tok) == tok, tok
 
 
-def test_digitos_de_tono_mandarin():
+def test_mandarin_tone_digits():
     assert normalize_espeak("ai5") == "aɪ"
     assert normalize_espeak("ɑu5") == "aʊ"
     assert normalize_espeak("ei2") == "eɪ"
@@ -31,8 +31,8 @@ def test_digitos_de_tono_mandarin():
     assert normalize_espeak("a5") == "æ"
 
 
-def test_aspiradas_a_simples():
-    # ambas grafías del vocab: con modificador (kʰ) y con h plana (kh)
+def test_aspirates_become_plain_stops():
+    # both spellings found in the vocab: with a modifier (kʰ) and with a plain h (kh)
     assert normalize_espeak("kʰ") == "k"
     assert normalize_espeak("kh") == "k"
     assert normalize_espeak("th") == "t"
@@ -42,35 +42,35 @@ def test_aspiradas_a_simples():
     assert normalize_espeak("tʃʰ") == "tʃ"
 
 
-def test_simbolos_fuera_de_inventario():
+def test_symbols_outside_the_inventory():
     assert normalize_espeak("ᵻ") == "ɪ"
-    assert normalize_espeak("dZ") == "dʒ"   # SAMPA crudo
+    assert normalize_espeak("dZ") == "dʒ"   # raw SAMPA
     assert normalize_espeak("tS") == "tʃ"
     assert normalize_espeak("S") == "ʃ"
     assert normalize_espeak("N") == "ŋ"
     assert normalize_espeak("r") == "ɹ"
     assert normalize_espeak("ɫ") == "l"
     assert normalize_espeak("t̪") == "t"
-    assert normalize_espeak("nʲ") == "n"    # palatalizadas → simples
+    assert normalize_espeak("nʲ") == "n"    # palatalized → plain
 
 
-def test_monoptongos_crudos_no_se_diptongan():
-    # un [o] o [e] escueto es una realización monoptongada: NO mapear al diptongo
+def test_raw_monophthongs_are_not_diphthongized():
+    # a bare [o] or [e] is a monophthongized realization: do NOT map it to the diphthong
     assert normalize_espeak("o") == "ɔ"
     assert normalize_espeak("e") == "ɛ"
     assert normalize_espeak("a") == "æ"
 
 
-def test_vecino_mas_cercano_para_exoticos():
-    # sin entrada explícita: caen al vecino panphon dentro del inventario
+def test_nearest_neighbor_for_exotic_symbols():
+    # with no explicit entry: they fall back to the panphon neighbor inside the inventory
     for tok in ["ʂ", "ɖ", "œ", "ɯ", "χ", "ɴ"]:
         res = normalize_espeak(tok)
         assert res in ENGLISH_INVENTORY, f"{tok} → {res}"
 
 
 @pytest.mark.slow
-def test_cobertura_total_del_vocabulario():
-    """TODO el vocab del tokenizer debe mapear a inventario inglés (o descartarse)."""
+def test_full_vocabulary_coverage():
+    """EVERY token in the tokenizer vocab must map to the English inventory (or be dropped)."""
     from transformers import AutoTokenizer
 
     tok = AutoTokenizer.from_pretrained("facebook/wav2vec2-lv-60-espeak-cv-ft")
@@ -85,6 +85,6 @@ def test_cobertura_total_del_vocabulario():
             dropped.append(t)
         elif res not in ENGLISH_INVENTORY:
             unmapped.append((t, res))
-    assert not unmapped, f"tokens que no mapean a inventario: {unmapped}"
-    # los descartados deben ser residuales (basura tipo '??', 'ʲ' suelto, '1')
-    assert len(dropped) < 12, f"demasiados tokens descartados: {dropped}"
+    assert not unmapped, f"tokens that do not map to the inventory: {unmapped}"
+    # the dropped ones must be residual junk (things like '??', a stray 'ʲ', '1')
+    assert len(dropped) < 12, f"too many tokens dropped: {dropped}"

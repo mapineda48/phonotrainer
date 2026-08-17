@@ -1,7 +1,7 @@
-/** Transcripción navegable: la vista principal del análisis.
+/** Navigable transcript: the main view of an analysis.
  *
- *  Cada segmento se suscribe por su cuenta al reloj del reproductor, así el
- *  resaltado de la palabra que suena solo re-renderiza ese segmento.
+ *  Each segment subscribes to the player clock on its own, so highlighting the
+ *  sounding word only re-renders that one segment.
  */
 
 import { useEffect, useRef } from "react";
@@ -56,9 +56,9 @@ interface SegmentProps {
 }
 
 const ARROW: Record<string, string> = {
-  rising: "↗ ascendente",
-  falling: "↘ descendente",
-  flat: "→ plano",
+  rising: "↗ rising",
+  falling: "↘ falling",
+  flat: "→ flat",
 };
 
 function SegmentCard({ segment, index, selected, onSelect, filter, follow }: SegmentProps) {
@@ -77,7 +77,7 @@ function SegmentCard({ segment, index, selected, onSelect, filter, follow }: Seg
     if (!follow || !isActive) return;
     const node = ref.current;
     if (node && typeof node.scrollIntoView === "function") {
-      // "start": el segmento que suena se ancla arriba, no solo "que se vea".
+      // "start": the sounding segment is pinned to the top, not merely "visible".
       node.scrollIntoView({ block: "start", behavior: "smooth" });
     }
   }, [follow, isActive]);
@@ -88,20 +88,20 @@ function SegmentCard({ segment, index, selected, onSelect, filter, follow }: Seg
     <section
       ref={ref}
       className={`segment ${isActive ? "segment--active" : ""}`}
-      aria-label={`Segmento ${index + 1}`}
+      aria-label={`Segment ${index + 1}`}
     >
       <div className="segment__head">
         <button
           type="button"
           className="btn btn--ghost btn--sm num"
-          title="Reproducir este segmento"
+          title="Play this segment"
           onClick={() => player.play({ start: segment.start, end: segment.end })}
         >
           ▶ {fmtTime(segment.start)}–{fmtTime(segment.end)}
         </button>
         {stats.mean != null && (
           <span>
-            F0 {stats.mean.toFixed(0)} Hz · rango {stats.range?.toFixed(0)} Hz ·{" "}
+            F0 {stats.mean.toFixed(0)} Hz · range {stats.range?.toFixed(0)} Hz ·{" "}
             {ARROW[stats.final_contour] ?? stats.final_contour}
           </span>
         )}
@@ -126,14 +126,14 @@ function SegmentCard({ segment, index, selected, onSelect, filter, follow }: Seg
       </p>
 
       <details className="phrase">
-        <summary className="tiny muted">Transcripción fonética de la frase</summary>
+        <summary className="tiny muted">Phonetic transcription of the phrase</summary>
         <div className="tiny" style={{ marginTop: 4 }}>
           <div>
-            <span className="phones__label">real</span>{" "}
+            <span className="phones__label">actual</span>{" "}
             <span className="ipa">[{joinIpa(segment, "realized_ipa")}]</span>
           </div>
           <div>
-            <span className="phones__label">canónico</span>{" "}
+            <span className="phones__label">canonical</span>{" "}
             <span className="ipa">/{joinIpa(segment, "canonical_ipa")}/</span>
           </div>
         </div>
@@ -144,7 +144,7 @@ function SegmentCard({ segment, index, selected, onSelect, filter, follow }: Seg
   );
 }
 
-/** La frase entera en IPA, con ‿ donde el análisis detectó enlace. */
+/** The whole phrase in IPA, with ‿ wherever the analysis detected linking. */
 function joinIpa(segment: Segment, field: "realized_ipa" | "canonical_ipa"): string {
   return segment.words
     .map((word, index) => {

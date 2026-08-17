@@ -1,9 +1,9 @@
-/** Formateos compartidos (tiempos siempre con dígitos tabulares en la UI). */
+/** Shared formatters (times always render with tabular figures in the UI). */
 
 /** 12.34 → "0:12.3" */
 export function fmtTime(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) seconds = 0;
-  // Redondear ANTES de partir en minutos: si no, 59.96 s sale como "0:60.0".
+  // Round BEFORE splitting into minutes: otherwise 59.96 s comes out as "0:60.0".
   const tenths = Math.round(seconds * 10);
   const min = Math.floor(tenths / 600);
   const rest = (tenths - min * 600) / 10;
@@ -18,12 +18,12 @@ export function fmtDuration(seconds: number | null | undefined): string {
   return `${min} min ${Math.round(seconds - min * 60)} s`;
 }
 
-/** ISO → "26 jul, 15:40" */
+/** ISO → "Jul 26, 03:40 PM" */
 export function fmtDate(iso: string | null): string {
   if (!iso) return "—";
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleString("es", {
+  return date.toLocaleString("en", {
     day: "numeric",
     month: "short",
     hour: "2-digit",

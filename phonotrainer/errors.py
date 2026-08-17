@@ -1,12 +1,13 @@
-"""Excepciones compartidas.
+"""Shared exceptions.
 
-`JobCancelled` vive aquí, y no en `jobs.py`, porque la lanza el callback de
-progreso y tiene que atravesar módulos que no saben nada de jobs (la descarga,
-por ejemplo, no debe confundirla con un fallo de red).
+`JobCancelled` lives here rather than in `jobs.py` because it is raised by the
+progress callback and therefore has to travel through modules that know nothing
+about jobs (the downloader, for instance, must not mistake it for a network
+failure).
 """
 
 from __future__ import annotations
 
 
 class JobCancelled(RuntimeError):
-    """El usuario canceló: no es un error, es una orden."""
+    """The user cancelled: this is not an error, it is an order."""

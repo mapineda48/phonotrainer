@@ -1,5 +1,5 @@
-/** Contorno de F0 del segmento: una sola serie, eje recesivo, crosshair al pasar
- *  el ratón y playhead sincronizado con la reproducción. */
+/** F0 contour of the segment: a single series, a recessive axis, a crosshair on
+ *  hover and a playhead synced to playback. */
 
 import { useMemo, useState } from "react";
 
@@ -53,7 +53,7 @@ export function F0Chart({ segment, width = 340 }: { segment: Segment; width?: nu
   if (!chart) {
     return (
       <p className="tiny muted" style={{ margin: "6px 0" }}>
-        Sin F0 medible en este segmento (voz sorda, música o silencio).
+        No measurable F0 in this segment (voiceless speech, music or silence).
       </p>
     );
   }
@@ -74,7 +74,7 @@ export function F0Chart({ segment, width = 340 }: { segment: Segment; width?: nu
         width={width}
         height={HEIGHT}
         role="img"
-        aria-label={`Contorno de F0 entre ${chart.lo.toFixed(0)} y ${chart.hi.toFixed(0)} Hz`}
+        aria-label={`F0 contour between ${chart.lo.toFixed(0)} and ${chart.hi.toFixed(0)} Hz`}
         onMouseMove={onMove}
         onMouseLeave={() => setHover(null)}
         onClick={() => hover && player.seek(hover.t)}

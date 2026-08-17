@@ -1,4 +1,4 @@
-"""ASR con faster-whisper: palabras + timestamps, texto SIN postprocesar."""
+"""ASR with faster-whisper: words + timestamps, text left UNPOSTPROCESSED."""
 
 from __future__ import annotations
 
@@ -7,9 +7,9 @@ from pathlib import Path
 
 def transcribe(wav_path: str | Path, model_size: str = "small",
                language: str = "en", device: str = "cpu") -> dict:
-    """Transcribe y devuelve segmentos con palabras y tiempos.
+    """Transcribe and return segments with their words and timings.
 
-    El texto se conserva tal como lo emite Whisper (si escribe "gonna", se queda).
+    The text is kept exactly as Whisper emits it (if it writes "gonna", "gonna" stays).
     """
     from faster_whisper import WhisperModel
 

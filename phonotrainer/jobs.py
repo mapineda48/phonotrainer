@@ -1,19 +1,19 @@
-"""Store de trabajos de análisis para la interfaz web.
+"""Analysis job store for the web interface.
 
-Un *job* es una ejecución de `pipeline.analyze` (o la importación de un
-directorio de salida ya existente, p. ej. el `out/` que dejó la CLI). Los jobs
-se ejecutan de uno en uno en un hilo aparte —el pipeline es CPU-bound y carga
-~1.8 GB de modelos— y el progreso textual que emite el pipeline se guarda con
-marca de tiempo para que la UI lo muestre en vivo.
+A *job* is one run of `pipeline.analyze` (or the import of an already existing
+output directory, e.g. the `out/` left behind by the CLI). Jobs run one at a
+time in a separate thread —the pipeline is CPU-bound and loads ~1.8 GB of
+models— and the textual progress the pipeline emits is stored with a timestamp
+so the UI can show it live.
 
-Cada job vive en `<root>/<id>/`:
+Each job lives in `<root>/<id>/`:
 
-    job.json                metadatos + progreso (fuente de verdad al reiniciar)
-    media/<archivo>         solo si el archivo se subió por la UI
+    job.json                metadata + progress (source of truth on restart)
+    media/<file>            only if the file was uploaded through the UI
     audio.wav, analysis.json, canonical.json, phones_real.json, report.html
 
-Los archivos locales indicados por ruta NO se copian: se referencian. Los jobs
-importados guardan `result_dir` apuntando fuera del workspace.
+Local files given by path are NOT copied: they are referenced. Imported jobs
+store a `result_dir` pointing outside the workspace.
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
 
-from .errors import JobCancelled   # se lanza en el callback de progreso
+from .errors import JobCancelled   # raised from the progress callback
 
 __all__ = ["JobCancelled", "JobError", "JobNotFound", "JobStore", "Job"]
 
@@ -43,22 +43,22 @@ MEDIA_SUFFIXES = {".webm", ".mp4", ".mkv", ".mov", ".avi", ".m4v",
                   ".mp3", ".wav", ".m4a", ".flac", ".ogg", ".opus", ".aac"}
 VIDEO_SUFFIXES = {".webm", ".mp4", ".mkv", ".mov", ".avi", ".m4v"}
 
-# job.json es solo el registro para sobrevivir a un reinicio: la fuente de
-# verdad en caliente es la memoria. Volcarlo en cada mensaje de progreso haría
-# I/O dentro del lock y retrasaría, entre otras cosas, las cancelaciones.
+# job.json is only the record that survives a restart: the hot source of truth
+# is memory. Dumping it on every progress message would do I/O inside the lock
+# and delay, among other things, cancellations.
 SAVE_INTERVAL = 1.0  # s
 
-# Los vídeos descargados van aquí (ignorada por git: cada clon empieza limpio).
+# Downloaded videos go here (git-ignored: every clone starts clean).
 DOWNLOAD_DIR = Path("downloads")
 
 
 class JobError(RuntimeError):
-    """Petición inválida sobre el store (ruta inexistente, directorio sin
-    analysis.json…). El servidor la traduce a 400."""
+    """Invalid request against the store (non-existent path, directory without
+    an analysis.json…). The server turns it into a 400."""
 
 
 class JobNotFound(JobError):
-    """El job no existe. El servidor la traduce a 404."""
+    """The job does not exist. The server turns it into a 404."""
 
 
 def _now() -> str:
@@ -66,39 +66,40 @@ def _now() -> str:
 
 
 def analysis_key(result_dir: str | Path) -> str:
-    """Identidad de un análisis en el corpus: dónde vive su analysis.json.
+    """Identity of an analysis within the corpus: where its analysis.json lives.
 
-    Así el mismo `out/` analizado por la CLI e importado luego en la interfaz es
-    una sola entrada, en vez de contarse dos veces.
+    This way the same `out/` analyzed by the CLI and later imported into the
+    interface is a single entry instead of being counted twice.
     """
     return str(Path(result_dir).resolve())
 
 
-# El pipeline emite "Segmento 3/27: …" en el bucle largo y la descarga
-# "Descargando de YouTube… 40 %"; el resto de etapas son hitos fijos. Con eso
-# estimamos un porcentaje sin tocar pipeline.py ni download.py.
-_SEG_RE = re.compile(r"Segmento (\d+)/(\d+)")
-_DOWNLOAD_RE = re.compile(r"Descargando de YouTube… (\d+) %")
+# The pipeline emits "Segment 3/27: …" inside the long loop and the download
+# "Downloading from YouTube… 40%"; the remaining stages are fixed milestones.
+# With those we estimate a percentage without touching pipeline.py or
+# download.py.
+_SEG_RE = re.compile(r"Segment (\d+)/(\d+)")
+_DOWNLOAD_RE = re.compile(r"Downloading from YouTube… (\d+)%")
 _STAGE_PERCENT = (
-    ("Consultando la URL", 1),
-    # Sin tamaño conocido la descarga informa en MB: sin esta entrada el
-    # porcentaje volvía a 0 y la barra retrocedía.
-    ("Descargando de YouTube", 2),
-    ("Descarga terminada", 15),
-    ("Descargado:", 16),
-    ("Extrayendo audio", 17),
-    ("Transcribiendo", 21),
-    ("Cargando motor", 27),
-    ("Cargando prosodia", 31),
-    ("Guardando salidas", 96),
-    ("Generando report", 98),
+    ("Looking up the URL", 1),
+    # With no known size the download reports in MB: without this entry the
+    # percentage dropped back to 0 and the bar went backwards.
+    ("Downloading from YouTube", 2),
+    ("Download finished", 15),
+    ("Downloaded:", 16),
+    ("Extracting audio", 17),
+    ("Transcribing", 21),
+    ("Loading phone engine", 27),
+    ("Loading prosody", 31),
+    ("Saving outputs", 96),
+    ("Generating report", 98),
 )
 _SEG_FLOOR, _SEG_SPAN = 33, 62
 _DL_FLOOR, _DL_SPAN = 2, 13
 
 
 def estimate_percent(message: str | None) -> int:
-    """Porcentaje aproximado a partir del último mensaje de progreso."""
+    """Approximate percentage derived from the latest progress message."""
     if not message:
         return 0
     m = _SEG_RE.search(message)
@@ -122,9 +123,9 @@ class Job:
     status: str = QUEUED
     options: dict = field(default_factory=dict)
     media_path: str | None = None
-    source_url: str | None = None            # jobs que empiezan descargando
-    audio_only: bool = False                 # opción de la descarga, no del pipeline
-    result_dir_override: str | None = None   # jobs importados: salida fuera del workspace
+    source_url: str | None = None            # jobs that start by downloading
+    audio_only: bool = False                 # a download option, not a pipeline one
+    result_dir_override: str | None = None   # imported jobs: output outside the workspace
     created: str = field(default_factory=_now)
     started: str | None = None
     finished: str | None = None
@@ -133,7 +134,7 @@ class Job:
     meta: dict | None = None
     summary: dict | None = None
 
-    # --- runtime (no se serializa) -----------------------------------------
+    # --- runtime (not serialized) ------------------------------------------
     cancel_requested: bool = field(default=False, repr=False)
     delete_when_done: bool = field(default=False, repr=False)
     last_saved: float = field(default=0.0, repr=False)
@@ -158,7 +159,7 @@ class Job:
         return path if path.is_file() else None
 
     def to_dict(self) -> dict:
-        """Forma persistida en job.json."""
+        """The shape persisted in job.json."""
         return {
             "id": self.id,
             "source": self.source,
@@ -171,14 +172,14 @@ class Job:
             "created": self.created,
             "started": self.started,
             "finished": self.finished,
-            "progress": list(self.progress),   # copia: se serializa fuera del lock
+            "progress": list(self.progress),   # copy: serialized outside the lock
             "error": self.error,
             "meta": self.meta,
             "summary": self.summary,
         }
 
     def to_public(self, full: bool = False) -> dict:
-        """Forma que consume la UI. `full=False` omite el log de progreso."""
+        """The shape the UI consumes. `full=False` omits the progress log."""
         media = Path(self.media_path) if self.media_path else None
         data = {
             "id": self.id,
@@ -204,8 +205,8 @@ class Job:
             "summary": self.summary,
         }
         if full:
-            # Copia: el trabajador puede estar añadiendo líneas mientras el
-            # WebSocket serializa esto para enviarlo.
+            # Copy: the worker may be appending lines while the WebSocket
+            # serializes this to send it.
             data["progress"] = list(self.progress)
         return data
 
@@ -233,34 +234,34 @@ def _load_job(job_dir: Path) -> Job | None:
         meta=raw.get("meta"),
         summary=raw.get("summary"),
     )
-    # Un job "corriendo" en disco significa que el server murió a mitad.
+    # A job left "running" on disk means the server died halfway through.
     if job.status in (RUNNING, QUEUED):
         job.status = ERROR
-        job.error = "Interrumpido: el servidor se detuvo durante el análisis."
+        job.error = "Interrupted: the server stopped during the analysis."
     return job
 
 
 class JobStore:
-    """Registro de jobs con ejecución serializada en un hilo trabajador.
+    """Job registry whose runs are serialized on a single worker thread.
 
-    El hilo es *daemon* y consume una cola: así `Ctrl-C` en el servidor cierra
-    el proceso en el acto aunque haya un análisis a medias (que puede tardar
-    minutos en llegar a su siguiente punto de cancelación).
+    The thread is a *daemon* consuming a queue: that way `Ctrl-C` on the server
+    closes the process immediately even with an analysis half done (which can
+    take minutes to reach its next cancellation point).
     """
 
     def __init__(self, root: str | Path, analyze_fn=None, corpus=None,
                  download_dir: str | Path | None = None, download_fn=None):
         self.root = Path(root)
         self.root.mkdir(parents=True, exist_ok=True)
-        self.corpus = corpus                 # índice SQLite (opcional)
+        self.corpus = corpus                 # SQLite index (optional)
         self.download_dir = Path(download_dir) if download_dir else DOWNLOAD_DIR
         self._analyze_fn = analyze_fn
         self._download_fn = download_fn
         self._lock = threading.RLock()
         self._jobs: dict[str, Job] = {}
         self._listeners: set[Callable[[str, str], None]] = set()
-        # La cola lleva el Job, no su id: si lo borran mientras está encolado,
-        # el trabajador sigue teniéndolo y puede limpiar su directorio.
+        # The queue carries the Job, not its id: if it is deleted while queued,
+        # the worker still holds it and can clean up its directory.
         self._queue: queue.SimpleQueue[Job | None] = queue.SimpleQueue()
         self._worker = threading.Thread(target=self._worker_loop,
                                         name="phonotrainer-job", daemon=True)
@@ -268,7 +269,7 @@ class JobStore:
         self._discover()
         self._reconcile_corpus()
 
-    # --- ciclo de vida -------------------------------------------------------
+    # --- lifecycle -----------------------------------------------------------
     def _discover(self) -> None:
         for job_dir in sorted(p for p in self.root.iterdir() if p.is_dir()):
             job = _load_job(job_dir)
@@ -276,37 +277,38 @@ class JobStore:
                 self._jobs[job.id] = job
 
     def _reconcile_corpus(self) -> None:
-        """El corpus es un índice derivado: se pone al día con lo que hay en el
-        workspace, en los dos sentidos.
+        """The corpus is a derived index: it is brought up to date with what is
+        in the workspace, in both directions.
 
-        Añadir: base nueva o `data/` borrada → se reindexa lo que ya existe.
-        Purgar: un job borrado mientras corría pudo dejar su fila (o el job.json
-        se borró a mano). Solo se tocan las filas que dejó un job: las que
-        indexó la CLI no tienen job_id y no son asunto nuestro.
+        Adding: a new database or a deleted `data/` → whatever already exists is
+        reindexed. Purging: a job deleted while it was running may have left its
+        row behind (or its job.json was deleted by hand). Only rows left by a
+        job are touched: the ones the CLI indexed have no job_id and are none of
+        our business.
         """
         if self.corpus is None:
             return
         try:
-            registrados = self.corpus.analyses()
+            registered = self.corpus.analyses()
         except Exception:                             # noqa: BLE001
             return
-        conocidos = {row["id"] for row in registrados}
+        known = {row["id"] for row in registered}
 
-        # Purgar por lo que ya no existe EN DISCO, no por «no es un job mío»:
-        # con la segunda regla, abrir la interfaz con otro workspace borraba del
-        # corpus todo lo que había indexado el primero.
-        for row in registrados:
+        # Purge by what no longer exists ON DISK, not by "this is not one of my
+        # jobs": with the latter rule, opening the interface on another
+        # workspace deleted from the corpus everything the first one indexed.
+        for row in registered:
             if not row["job_id"]:
-                continue                              # lo indexó la CLI: no es asunto nuestro
+                continue                              # the CLI indexed it: not our business
             if not (Path(row["id"]) / "analysis.json").is_file():
                 try:
                     self.corpus.forget(row["id"])
-                    conocidos.discard(row["id"])
+                    known.discard(row["id"])
                 except Exception:                     # noqa: BLE001
                     pass
 
         for job in list(self._jobs.values()):
-            if job.status != DONE or analysis_key(job.result_dir) in conocidos:
+            if job.status != DONE or analysis_key(job.result_dir) in known:
                 continue
             path = job.artifact("analysis.json")
             if path is None:
@@ -314,8 +316,8 @@ class JobStore:
             try:
                 self.corpus.index_file(analysis_key(job.result_dir), path,
                                        source=job.source, job_id=job.id)
-            except Exception:                         # noqa: BLE001 — un análisis
-                continue                              # ilegible no debe impedir arrancar
+            except Exception:                         # noqa: BLE001 — an unreadable
+                continue                              # analysis must not block startup
 
     def _worker_loop(self) -> None:
         while True:
@@ -324,7 +326,7 @@ class JobStore:
                 return
             try:
                 self._run(job)
-            except Exception:      # noqa: BLE001 — el hilo nunca debe morir
+            except Exception:      # noqa: BLE001 — the thread must never die
                 pass
 
     def shutdown(self, wait: bool = False) -> None:
@@ -336,15 +338,15 @@ class JobStore:
         if wait:
             self._worker.join(timeout=5)
 
-    # --- observadores (WebSocket) --------------------------------------------
+    # --- listeners (WebSocket) -----------------------------------------------
     def subscribe(self, listener: Callable[[str, str], None]) -> Callable[[], None]:
-        """Registra un observador de cambios; devuelve la función para darlo de baja.
+        """Register a change listener; returns the function that unregisters it.
 
-        El observador recibe `(evento, job_id)` —"upsert" (creado o cambiado) o
-        "deleted"— y se invoca DESDE EL HILO que hizo el cambio (el trabajador,
-        la petición HTTP…): debe ser thread-safe y rápido. Solo lleva el id:
-        quien publica el estado lo relee fresco, así un evento viejo jamás hace
-        retroceder al cliente.
+        The listener receives `(event, job_id)` —"upsert" (created or changed)
+        or "deleted"— and is invoked FROM THE THREAD that made the change (the
+        worker, the HTTP request…): it must be thread-safe and fast. It only
+        carries the id: whoever publishes the state re-reads it fresh, so a
+        stale event can never make the client go backwards.
         """
         with self._lock:
             self._listeners.add(listener)
@@ -361,15 +363,15 @@ class JobStore:
         for listener in listeners:
             try:
                 listener(event, job_id)
-            except Exception:      # noqa: BLE001 — un observador roto no
-                pass               # puede romper el análisis
+            except Exception:      # noqa: BLE001 — a broken listener must not
+                pass               # break the analysis
 
     def touch(self, job_id: str) -> None:
-        """Avisa de que el job cambió por fuera del store (p. ej. review.json)."""
-        self.get(job_id)                       # 404 si no existe
+        """Signal that the job changed outside the store (e.g. review.json)."""
+        self.get(job_id)                       # 404 if it does not exist
         self._notify("upsert", job_id)
 
-    # --- consultas -----------------------------------------------------------
+    # --- queries -------------------------------------------------------------
     def list(self) -> list[Job]:
         with self._lock:
             return sorted(self._jobs.values(), key=lambda j: j.created, reverse=True)
@@ -378,32 +380,32 @@ class JobStore:
         with self._lock:
             job = self._jobs.get(job_id)
         if job is None:
-            raise JobNotFound(f"job desconocido: {job_id}")
+            raise JobNotFound(f"unknown job: {job_id}")
         return job
 
-    # --- creación ------------------------------------------------------------
+    # --- creation ------------------------------------------------------------
     def _new_id(self) -> str:
         stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
         return f"{stamp}-{uuid.uuid4().hex[:4]}"
 
     def create(self, media_path: str | Path, options: dict | None = None,
                source: str | None = None) -> Job:
-        """Registra un análisis y lo encola. `media_path` debe existir."""
+        """Register an analysis and queue it. `media_path` must exist."""
         media_path = Path(media_path).expanduser()
         if not media_path.is_file():
-            raise JobError(f"no existe el archivo: {media_path}")
+            raise JobError(f"file does not exist: {media_path}")
         return self._enqueue(source or media_path.name, media_path, options)
 
     def adopt_upload(self, filename: str, data_writer, options: dict | None = None) -> Job:
-        """Crea el job y deja que `data_writer(destino)` escriba el archivo subido."""
+        """Create the job and let `data_writer(destination)` write the uploaded file."""
         job_id = self._new_id()
         media_dir = self.root / job_id / "media"
         media_dir.mkdir(parents=True, exist_ok=True)
         dest = media_dir / Path(filename).name
         data_writer(dest)
         if not dest.is_file() or dest.stat().st_size == 0:
-            _rmtree(self.root / job_id)      # no dejamos restos de una subida fallida
-            raise JobError("el archivo subido llegó vacío")
+            _rmtree(self.root / job_id)      # leave no traces of a failed upload
+            raise JobError("the uploaded file arrived empty")
         return self._enqueue(dest.name, dest, options, job_id=job_id)
 
     def _enqueue(self, source: str, media_path: Path, options: dict | None,
@@ -422,10 +424,10 @@ class JobStore:
 
     def create_from_url(self, url: str, options: dict | None = None,
                         audio_only: bool = False) -> Job:
-        """Encola un análisis que empieza descargando el vídeo."""
+        """Queue an analysis that starts by downloading the video."""
         url = str(url).strip()
         if not url:
-            raise JobError("hace falta una URL")
+            raise JobError("a URL is required")
         job_id = self._new_id()
         job_dir = self.root / job_id
         job_dir.mkdir(parents=True, exist_ok=True)
@@ -439,29 +441,29 @@ class JobStore:
         return job
 
     def import_dir(self, result_dir: str | Path, source: str | None = None) -> Job:
-        """Registra un directorio de salida existente (out/) como job terminado."""
+        """Register an existing output directory (out/) as a finished job."""
         result_dir = Path(result_dir).expanduser().resolve()
         analysis_path = result_dir / "analysis.json"
         if not analysis_path.is_file():
-            raise JobError(f"no hay analysis.json en {result_dir}")
+            raise JobError(f"there is no analysis.json in {result_dir}")
         try:
             analysis = json.loads(analysis_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
-            raise JobError(f"analysis.json ilegible en {result_dir}: {exc}") from exc
-        # JSON válido no basta: cualquier archivo con ese nombre pasaría el filtro
-        # del explorador y luego reventaría al leerlo.
+            raise JobError(f"unreadable analysis.json in {result_dir}: {exc}") from exc
+        # Valid JSON is not enough: any file with that name would pass the
+        # browser's filter and then blow up when read.
         if not isinstance(analysis, dict) or not isinstance(analysis.get("segments"), list):
-            raise JobError(f"{analysis_path} no parece un análisis de PhonoTrainer "
-                           "(falta la lista «segments»)")
+            raise JobError(f"{analysis_path} does not look like a PhonoTrainer "
+                           'analysis (the "segments" list is missing)')
         meta = analysis.get("meta") or {}
 
-        # Buscar y registrar bajo el mismo lock: si no, dos importaciones
-        # simultáneas del mismo directorio crean dos jobs.
+        # Look up and register under the same lock: otherwise two simultaneous
+        # imports of the same directory create two jobs.
         with self._lock:
             for job in self._jobs.values():
                 if job.imported and job.result_dir == result_dir:
-                    # Ya importado (idempotente), pero puede que su contenido haya
-                    # cambiado o que no esté en el corpus: se reindexa igual.
+                    # Already imported (idempotent), but its contents may have
+                    # changed or it may be missing from the corpus: reindex anyway.
                     self._index(job, analysis)
                     self._notify("upsert", job.id)
                     return job
@@ -485,38 +487,39 @@ class JobStore:
         return job
 
     def cancel(self, job_id: str) -> Job:
-        """Pide la cancelación. Si aún no había arrancado, `_run` la ve al entrar."""
+        """Request cancellation. If it had not started yet, `_run` sees it on entry."""
         job = self.get(job_id)
         if job.status in (QUEUED, RUNNING):
             job.cancel_requested = True
         return job
 
     def delete(self, job_id: str) -> None:
-        """Elimina el job. Los datos importados (fuera del workspace) no se tocan.
+        """Remove the job. Imported data (outside the workspace) is left alone.
 
-        Si está en curso no se borra el directorio en el acto: el trabajador
-        todavía escribe dentro. Se marca para que lo limpie al terminar.
+        If it is running, the directory is not deleted right away: the worker is
+        still writing inside it. It is flagged so the worker cleans it up when
+        it finishes.
         """
         job = self.get(job_id)
         with self._lock:
             self._jobs.pop(job_id, None)
-            # Antes de tocar el corpus: si el trabajador termina justo ahora, ya
-            # sabe que no debe indexar.
+            # Before touching the corpus: if the worker finishes right now, it
+            # already knows it must not index.
             if job.status in (QUEUED, RUNNING):
                 job.cancel_requested = True
                 job.delete_when_done = True
         self._notify("deleted", job_id)
         if self.corpus is not None:
             try:
-                # Un análisis importado sigue en disco y puede haberlo indexado
-                # la CLI: se queda en el corpus, solo pierde su job.
+                # An imported analysis is still on disk and the CLI may have
+                # indexed it: it stays in the corpus and merely loses its job.
                 self.corpus.forget_job(job_id, keep_analysis=job.imported)
-            except Exception:                 # noqa: BLE001 — el borrado del job
-                pass                          # no puede fallar por el índice
+            except Exception:                 # noqa: BLE001 — deleting the job
+                pass                          # must not fail because of the index
         if job.delete_when_done:
-            # La baja tiene que ser durable ya: si el proceso muere antes de que
-            # el trabajador llegue a su punto de cancelación, sin esto el job
-            # borrado reaparecería al reiniciar (job.json sigue en disco).
+            # The removal has to be durable right now: if the process dies
+            # before the worker reaches its cancellation point, without this the
+            # deleted job would reappear on restart (job.json is still on disk).
             (job.dir / "job.json").unlink(missing_ok=True)
             return
         self._cleanup(job)
@@ -525,17 +528,17 @@ class JobStore:
         if job.dir.is_dir() and job.dir.parent == self.root:
             _rmtree(job.dir)
 
-    # --- ejecución -----------------------------------------------------------
+    # --- execution -----------------------------------------------------------
     def _run(self, job: Job) -> None:
         if job.cancel_requested:
-            self._finish(job, CANCELLED, error="Cancelado antes de empezar.")
+            self._finish(job, CANCELLED, error="Cancelled before starting.")
             return
 
         job.status = RUNNING
         job.started = _now()
         self._save(job)
         self._notify("upsert", job.id)
-        self._append_progress(job, "En cola → arrancando…")
+        self._append_progress(job, "Queued → starting…")
 
         def progress(message: str) -> None:
             if job.cancel_requested:
@@ -547,8 +550,8 @@ class JobStore:
                 self._download(job, progress)
             analysis = self._analyze(job, progress)
         except JobCancelled:
-            self._finish(job, CANCELLED, error="Cancelado durante el análisis.")
-        except Exception as exc:                      # noqa: BLE001 — se reporta a la UI
+            self._finish(job, CANCELLED, error="Cancelled during the analysis.")
+        except Exception as exc:                      # noqa: BLE001 — reported to the UI
             self._finish(job, ERROR, error=f"{type(exc).__name__}: {exc}")
         else:
             job.meta = analysis.get("meta")
@@ -559,31 +562,33 @@ class JobStore:
     def _download(self, job: Job, progress) -> None:
         download_fn = self._download_fn
         if download_fn is None:
-            from .download import download as download_fn   # import perezoso
+            from .download import download as download_fn   # lazy import
         path = download_fn(job.source_url, self.download_dir,
                            audio_only=job.audio_only, progress=progress)
         job.media_path = str(Path(path).resolve())
-        job.source = Path(path).name        # ya no es la URL: el título del vídeo
+        job.source = Path(path).name        # no longer the URL: the video's title
         self._save(job)
         self._notify("upsert", job.id)
 
     def _index(self, job: Job, analysis: dict) -> None:
-        """Vuelca el análisis al corpus. Que falle el índice no invalida el
-        análisis: se avisa en el progreso y se sigue."""
+        """Dump the analysis into the corpus. A failing index does not
+        invalidate the analysis: it is reported in the progress log and we
+        carry on."""
         if self.corpus is None or job.delete_when_done:
-            return              # lo están borrando: no lo metamos en el corpus
+            return              # it is being deleted: let's not put it in the corpus
         try:
             self.corpus.index_analysis(analysis_key(job.result_dir), analysis,
                                        source=job.source,
                                        result_dir=str(job.result_dir.resolve()),
                                        job_id=job.id)
         except Exception as exc:                      # noqa: BLE001
-            self._append_progress(job, f"Aviso: no se pudo indexar en el corpus ({exc})")
+            self._append_progress(
+                job, f"Warning: could not index into the corpus ({exc})")
 
     def _analyze(self, job: Job, progress) -> dict:
         analyze_fn = self._analyze_fn
         if analyze_fn is None:
-            from .pipeline import analyze as analyze_fn   # import perezoso: torch tarda
+            from .pipeline import analyze as analyze_fn   # lazy import: torch is slow
         return analyze_fn(job.media_path, job.dir, progress=progress, **job.options)
 
     def _append_progress(self, job: Job, message: str) -> None:
@@ -599,17 +604,17 @@ class JobStore:
             job.status = status
             job.error = error
             job.finished = _now()
-        if job.delete_when_done:      # lo borraron mientras corría
+        if job.delete_when_done:      # it was deleted while running
             self._cleanup(job)
             return
         self._save(job)
         self._notify("upsert", job.id)
 
     def _save(self, job: Job) -> None:
-        """Vuelca job.json. Solo el snapshot se toma bajo el lock; serializar y
-        escribir se hace fuera para no bloquear a la UI ni a `cancel`."""
+        """Dump job.json. Only the snapshot is taken under the lock; serializing
+        and writing happen outside it so as not to block the UI or `cancel`."""
         if job.delete_when_done:
-            return                      # está de baja: no lo resucitemos
+            return                      # it is on its way out: let's not revive it
         with self._lock:
             payload = job.to_dict()
             job.last_saved = time.monotonic()
@@ -620,7 +625,7 @@ class JobStore:
                            encoding="utf-8")
             tmp.replace(path)
         except OSError:
-            # El job se borró bajo nuestros pies: no hay nada que persistir.
+            # The job was deleted from under our feet: there is nothing to persist.
             pass
 
 

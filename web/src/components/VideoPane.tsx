@@ -1,7 +1,7 @@
-/** Video original sincronizado con el reproductor.
+/** The original video, synced to the player.
  *
- *  El audio manda siempre (es el WAV que se analizó); el video va mudo detrás y
- *  se corrige si se desfasa más de 200 ms. */
+ *  Audio is always in charge (it is the WAV that was analyzed); the video runs
+ *  muted behind it and is corrected whenever it drifts by more than 200 ms. */
 
 import { useEffect, useRef } from "react";
 
@@ -14,7 +14,7 @@ export function VideoPane({ src }: { src: string }) {
   const player = usePlayer();
   const ref = useRef<HTMLVideoElement | null>(null);
 
-  // Comprobamos el desfase 4 veces por segundo, no en cada frame.
+  // Check the drift 4 times per second, not on every frame.
   const checkpoint = useTimeSelector(player.clock, (time) => Math.floor(time * 4));
 
   useEffect(() => {

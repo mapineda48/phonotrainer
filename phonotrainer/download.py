@@ -1,12 +1,12 @@
-"""Descarga de material desde YouTube (y de todo lo que soporte yt-dlp).
+"""Downloading material from YouTube (and from anything else yt-dlp supports).
 
-El habla nativa que interesa a este proyecto vive en vídeos: bajarlos a mano y
-arrastrarlos sobraba un paso. Los archivos caen en `downloads/` (ignorada por
-git: cada clon empieza vacío) y se reutilizan si ya están, así que volver a
-analizar la misma URL no vuelve a descargar.
+The native speech this project cares about lives in videos: downloading them by
+hand and dragging them in was one step too many. Files land in `downloads/`
+(git-ignored: every clone starts empty) and are reused if already present, so
+re-analyzing the same URL does not download it again.
 
-Solo se descarga lo que el usuario pide explícitamente y se procesa en local;
-el reparto de los archivos no es cosa de esta herramienta.
+Only what the user explicitly asks for is downloaded, and it is processed
+locally; redistributing the files is not this tool's business.
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ from pathlib import Path
 from .errors import JobCancelled
 
 DEFAULT_DIR = Path("downloads")
-# Vídeo hasta 720p: más que suficiente para ver la cara y mucho más rápido.
+# Video up to 720p: more than enough to see the face, and much faster.
 VIDEO_FORMAT = "bv*[height<=720]+ba/b[height<=720]/b"
 AUDIO_FORMAT = "ba/b"
 
@@ -25,11 +25,11 @@ _URL_RE = re.compile(r"^https?://", re.IGNORECASE)
 
 
 class DownloadError(RuntimeError):
-    """La descarga falló (URL inválida, sin red, vídeo privado…)."""
+    """The download failed (invalid URL, no network, private video…)."""
 
 
 def is_url(text: str) -> bool:
-    """¿Esto es una URL o una ruta local?"""
+    """Is this a URL or a local path?"""
     return bool(_URL_RE.match(str(text).strip()))
 
 
@@ -40,22 +40,22 @@ def _noop(message: str) -> None:
 def _make_ydl(options: dict):
     try:
         from yt_dlp import YoutubeDL
-    except ImportError as exc:   # pragma: no cover - depende del entorno
+    except ImportError as exc:   # pragma: no cover - depends on the environment
         raise DownloadError(
-            "falta yt-dlp: instálalo con «uv pip install yt-dlp»"
+            'yt-dlp is missing: install it with "uv pip install yt-dlp"'
         ) from exc
     return YoutubeDL(options)
 
 
 def download(url: str, dest_dir: str | Path = DEFAULT_DIR, audio_only: bool = False,
              progress=_noop, ydl_factory=_make_ydl) -> Path:
-    """Descarga `url` en `dest_dir` y devuelve la ruta del archivo.
+    """Download `url` into `dest_dir` and return the path of the file.
 
-    `progress` recibe mensajes con el porcentaje, para que la interfaz los
-    muestre igual que los del pipeline. `ydl_factory` es la costura de los tests.
+    `progress` receives messages carrying the percentage, so the interface can
+    show them just like the pipeline's own. `ydl_factory` is the test seam.
     """
     if not is_url(url):
-        raise DownloadError(f"no parece una URL: {url}")
+        raise DownloadError(f"does not look like a URL: {url}")
     dest_dir = Path(dest_dir).expanduser()
     dest_dir.mkdir(parents=True, exist_ok=True)
 
@@ -69,26 +69,26 @@ def download(url: str, dest_dir: str | Path = DEFAULT_DIR, audio_only: bool = Fa
             done = status.get("downloaded_bytes") or 0
             if total:
                 percent = int(done * 100 / total)
-                if percent != last_percent:      # un mensaje por punto porcentual
+                if percent != last_percent:      # one message per percentage point
                     last_percent = percent
-                    progress(f"Descargando de YouTube… {percent} %")
+                    progress(f"Downloading from YouTube… {percent}%")
             else:
-                # Directos y descargas fragmentadas no saben cuánto ocupan:
-                # sin esto la barra se quedaba muda en el 2 % todo el rato.
+                # Live streams and fragmented downloads do not know their size:
+                # without this the bar sat silently at 2% the whole time.
                 mb = int(done / (1 << 20))
                 if mb != last_mb:
                     last_mb = mb
-                    progress(f"Descargando de YouTube… {mb} MB")
+                    progress(f"Downloading from YouTube… {mb} MB")
         elif status.get("status") == "finished":
-            progress("Descarga terminada, preparando el archivo…")
+            progress("Download finished, preparing the file…")
 
     options = {
         "format": AUDIO_FORMAT if audio_only else VIDEO_FORMAT,
-        # El corte va en BYTES (sufijo B): 80 caracteres CJK son 240 bytes y
-        # ext4 no admite nombres tan largos.
+        # The cut-off is in BYTES (the B suffix): 80 CJK characters are 240
+        # bytes, and ext4 does not accept names that long.
         "outtmpl": str(dest_dir / "%(title).120B [%(id)s].%(ext)s"),
         "noplaylist": True,
-        "playlist_items": "1",   # si la URL es una lista, solo el primer vídeo
+        "playlist_items": "1",   # if the URL is a playlist, only the first video
         "quiet": True,
         "no_warnings": True,
         "noprogress": True,
@@ -97,27 +97,28 @@ def download(url: str, dest_dir: str | Path = DEFAULT_DIR, audio_only: bool = Fa
     if not audio_only:
         options["merge_output_format"] = "mp4"
 
-    progress("Consultando la URL…")
+    progress("Looking up the URL…")
     try:
         with ydl_factory(options) as ydl:
             info = ydl.extract_info(url, download=True)
             if isinstance(info, dict) and info.get("_type") == "playlist":
                 raise DownloadError(
-                    "eso es una lista de reproducción: pega la URL de un vídeo concreto")
+                    "that is a playlist: paste the URL of a single video")
             path = _resolve_path(ydl, info)
     except (DownloadError, JobCancelled):
-        raise                           # cancelar no es fallar
-    except Exception as exc:            # noqa: BLE001 — yt-dlp lanza de todo
+        raise                           # cancelling is not failing
+    except Exception as exc:            # noqa: BLE001 — yt-dlp raises all sorts
         raise DownloadError(str(exc) or f"{type(exc).__name__}") from exc
 
     if path is None or not path.is_file():
-        raise DownloadError(f"yt-dlp terminó pero no encuentro el archivo en {dest_dir}")
-    progress(f"Descargado: {path.name}")
+        raise DownloadError(
+            f"yt-dlp finished but the file could not be found in {dest_dir}")
+    progress(f"Downloaded: {path.name}")
     return path
 
 
 def _resolve_path(ydl, info) -> Path | None:
-    """La ruta final: tras remuxar, la extensión no es la del template."""
+    """The final path: after remuxing, the extension is not the template's."""
     if not isinstance(info, dict):
         return None
     requested = info.get("requested_downloads") or []
@@ -131,6 +132,7 @@ def _resolve_path(ydl, info) -> Path | None:
         return None
     if candidate.is_file():
         return candidate
-    # Se remuxó a otra extensión: buscamos por el id del vídeo, que va en el nombre.
+    # It was remuxed to another extension: look it up by the video id, which is
+    # part of the file name.
     matches = sorted(candidate.parent.glob(f"*[[]{info.get('id', '')}[]]*"))
     return matches[0] if matches else None

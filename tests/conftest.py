@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 
 def mk_phones(spaced: str, t0: float = 0.0, dur: float = 0.06) -> list[dict]:
-    """'d ə z' → lista de dicts de fonos con tiempos sintéticos consecutivos."""
+    """'d ə z' → a list of phone dicts with synthetic consecutive timings."""
     phones = []
     t = t0
     for p in spaced.split():
@@ -19,7 +19,7 @@ def mk_phones(spaced: str, t0: float = 0.0, dur: float = 0.06) -> list[dict]:
 
 def mk_word(text: str, canonical: str, real: str, t0: float = 0.0, dur: float = 0.06,
             real_dur: float | None = None, dict_arpabet: list[str] | None = None) -> dict:
-    """Construye la entrada de palabra que consume phenomena.detect()."""
+    """Build the word entry that phenomena.detect() consumes."""
     can = mk_phones(canonical, t0, dur)
     rea = mk_phones(real, t0, real_dur if real_dur is not None else dur)
     end = max([p["end"] for p in can + rea], default=t0)
@@ -35,13 +35,13 @@ def mk_word(text: str, canonical: str, real: str, t0: float = 0.0, dur: float = 
     return word
 
 
-# --- fixtures de la interfaz web (jobs + API) --------------------------------
-# El pipeline real carga ~1.8 GB de modelos: los tests del servidor usan este
-# doble, que produce las mismas salidas en disco con datos sintéticos.
+# --- fixtures for the web interface (jobs + API) -----------------------------
+# The real pipeline loads ~1.8 GB of models: the server tests use this double,
+# which writes the same artifacts to disk from synthetic data.
 
 def mk_analysis_word(word: str, t0: float, canonical: str, realized: str,
                      **extra) -> dict:
-    """Palabra con la forma exacta que escribe pipeline.analyze en analysis.json."""
+    """A word shaped exactly the way pipeline.analyze writes it into analysis.json."""
     def aligned(ipa: str, start: float) -> list[list]:
         phones, t = [], start
         for p in ipa.split():
@@ -65,7 +65,7 @@ def mk_analysis_word(word: str, t0: float, canonical: str, realized: str,
 
 
 def mk_analysis(source: str = "clip.wav") -> dict:
-    """analysis.json mínimo pero completo (2 segmentos, fenómenos y prosodia)."""
+    """A minimal yet complete analysis.json (2 segments, phenomena and prosody)."""
     seg0 = {
         "start": 0.0, "end": 1.2, "text": "does that work",
         "f0_stats": {"mean": 118.0, "range": 62.0, "final_contour": "rising"},
@@ -108,7 +108,7 @@ def mk_analysis(source: str = "clip.wav") -> dict:
 
 
 def write_silent_wav(path: Path, seconds: float = 1.0, rate: int = 16000) -> Path:
-    """WAV mono real (sin numpy) para probar el servido con Range."""
+    """A real mono WAV (no numpy involved) for exercising Range serving."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with wave.open(str(path), "wb") as fh:
         fh.setnchannels(1)
@@ -119,30 +119,34 @@ def write_silent_wav(path: Path, seconds: float = 1.0, rate: int = 16000) -> Pat
 
 
 def fake_analyze(media_path, out_dir, progress=lambda m: None, **options):
-    """Doble de `pipeline.analyze`: mismos artefactos, sin modelos."""
+    """Double for `pipeline.analyze`: same artifacts, no models.
+
+    The progress strings must match `pipeline.analyze` word for word: jobs.py parses
+    them to derive the completion percentage.
+    """
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    progress("Extrayendo audio (ffmpeg → WAV 16 kHz mono)…")
+    progress("Extracting audio (ffmpeg → 16 kHz mono WAV)…")
     write_silent_wav(out_dir / "audio.wav")
-    progress("Transcribiendo con faster-whisper small…")
-    progress("Segmento 1/2: fonos + alineación…")
-    progress("Segmento 2/2: fonos + alineación…")
+    progress("Transcribing with faster-whisper small…")
+    progress("Segment 1/2: phones + alignment…")
+    progress("Segment 2/2: phones + alignment…")
     analysis = mk_analysis(source=Path(media_path).name)
     analysis["meta"]["options"] = options
-    progress("Guardando salidas…")
+    progress("Saving outputs…")
     (out_dir / "analysis.json").write_text(json.dumps(analysis, ensure_ascii=False),
                                            encoding="utf-8")
-    progress("Generando report.html…")
+    progress("Generating report.html…")
     (out_dir / "report.html").write_text("<html>fake</html>", encoding="utf-8")
     return analysis
 
 
 def wait_until(predicate, timeout: float = 10.0, interval: float = 0.02):
-    """Espera activa breve para jobs que corren en otro hilo."""
+    """Short busy-wait for jobs that run on another thread."""
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         value = predicate()
         if value:
             return value
         time.sleep(interval)
-    raise AssertionError(f"condición no cumplida en {timeout}s")
+    raise AssertionError(f"condition not met within {timeout}s")

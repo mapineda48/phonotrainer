@@ -1,11 +1,12 @@
-"""Mapeos entre alfabetos fonéticos: ARPAbet ↔ IPA, saneamiento del inventario
-espeak multilingüe → inglés (MEJORA 0) y normalización para panphon.
+"""Mappings between phonetic alphabets: ARPAbet ↔ IPA, sanitization of the
+multilingual espeak inventory down to English (IMPROVEMENT 0) and normalization for
+panphon.
 
-El modelo facebook/wav2vec2-lv-60-espeak-cv-ft es multilingüe: su vocabulario de 392
-tokens filtra fonos no ingleses en audio inglés (dígitos de tono de mandarín `ai5`,
-aspiradas `kʰ`/`kh`, SAMPA crudo `dZ`, `ᵻ`…). `normalize_espeak` lleva TODO token a un
-inventario inglés cerrado antes de cualquier diff; lo que no tiene entrada explícita
-cae al vecino más cercano por rasgos panphon (con warning).
+The facebook/wav2vec2-lv-60-espeak-cv-ft model is multilingual: its 392-token
+vocabulary leaks non-English phones into English audio (Mandarin tone digits `ai5`,
+aspirates `kʰ`/`kh`, raw SAMPA `dZ`, `ᵻ`…). `normalize_espeak` maps EVERY token into a
+closed English inventory before any diff runs; anything without an explicit entry
+falls back to its nearest neighbor by panphon features (with a warning).
 """
 
 from __future__ import annotations
@@ -32,11 +33,11 @@ STRESS_MARKS = {"0": "", "1": "ˈ", "2": "ˌ"}
 
 
 def arpabet_to_ipa(phones: list[str], with_stress: bool = False) -> list[str]:
-    """['DH', 'AH0', 'Z'] → ['ð', 'ə', 'z'] (opcionalmente con marca de acento).
+    """['DH', 'AH0', 'Z'] → ['ð', 'ə', 'z'] (optionally carrying the stress mark).
 
-    `AH0` es schwa por definición en CMUdict: mapearlo a /ʌ/ hacía que el
-    diccionario dijera /ðʌ/ para «the» y /ʌbaʊt/ para «about», justo al lado de
-    la reducción vocálica que la herramienta quiere enseñar.
+    `AH0` is schwa by definition in CMUdict: mapping it to /ʌ/ made the dictionary
+    claim /ðʌ/ for "the" and /ʌbaʊt/ for "about", right next to the very vowel
+    reduction this tool sets out to teach.
     """
     out = []
     for p in phones:
@@ -56,8 +57,8 @@ def arpabet_to_ipa(phones: list[str], with_stress: bool = False) -> list[str]:
     return out
 
 
-# --- Normalización de tokens espeak → símbolos que panphon conoce --------------
-# panphon no tiene vocales rotizadas ni algunos símbolos "internos" de espeak.
+# --- Normalizing espeak tokens → symbols panphon understands ------------------
+# panphon has no rhotic vowels, nor some of espeak's "internal" symbols.
 ESPEAK_TO_PANPHON = {
     "ɚ": "ə", "ɝ": "ɜ", "ᵻ": "ɪ", "ɫ": "l", "ɬ": "l",
     "ɐ": "ə", "ʔ̞": "ʔ", "ɹ̩": "ɹ", "n̩": "n", "l̩": "l", "m̩": "m",
@@ -68,27 +69,29 @@ ESPEAK_TO_PANPHON = {
 
 
 def normalize_for_panphon(token: str) -> str:
-    """Devuelve una forma del token que panphon pueda vectorizar."""
+    """Return a form of the token that panphon is able to vectorize."""
     token = token.strip("ˈˌ")
     return ESPEAK_TO_PANPHON.get(token, token)
 
 
-# --- MEJORA 0: inventario inglés cerrado y saneamiento del vocab multilingüe ----
+# --- IMPROVEMENT 0: closed English inventory, multilingual vocab sanitization ---
 ENGLISH_INVENTORY = frozenset({
-    # vocales y diptongos (espeak en-us + variantes r-coloreadas)
+    # vowels and diphthongs (espeak en-us + r-colored variants)
     "i", "iː", "ɪ", "ɛ", "æ", "ɑ", "ɑː", "ɒ", "ʌ", "ʊ", "u", "uː",
     "ə", "ɐ", "ɚ", "ɜ", "ɜː", "ɔ", "ɔː", "oʊ", "aʊ", "aɪ", "eɪ", "ɔɪ",
     "aɪɚ", "aɪə", "iə", "eə", "ɪɹ", "ɛɹ", "ʊɹ", "ɔːɹ", "oːɹ", "ɑːɹ",
     "əl", "ju",
-    # consonantes (con alófonos que SON fenómeno: ɾ, ʔ)
+    # consonants (including the allophones that ARE the phenomena: ɾ, ʔ)
     "p", "b", "t", "d", "k", "ɡ", "tʃ", "dʒ", "f", "v", "θ", "ð",
     "s", "z", "ʃ", "ʒ", "h", "m", "n", "ŋ", "l", "ɹ", "w", "j",
     "ɾ", "ʔ", "n̩", "l̩",
 })
 
-# Entradas explícitas: confusiones plausibles en audio inglés y bases de tono.
-# Ojo: "o"/"e"/"a" escuetos son realizaciones monoptongadas — mapear a monoptongo
-# vecino, NUNCA al diptongo (ocultaría monophthongization).
+# Explicit entries: confusions that are plausible in English audio, plus the bare
+# bases behind tone-marked tokens.
+# Careful: a bare "o"/"e"/"a" is a monophthongized realization — map it to the
+# neighboring monophthong, NEVER to the diphthong (that would hide
+# monophthongization).
 NORMALIZE_ESPEAK = {
     "ᵻ": "ɪ", "ɨ": "ɪ", "ɨː": "iː", "ʉ": "u", "ɵ": "ə", "ɵː": "ɜː",
     "ɘ": "ə", "ɫ": "l", "ɬ": "l", "r": "ɹ", "ʁ": "ɹ", "ɻ": "ɹ",
@@ -111,8 +114,8 @@ NORMALIZE_ESPEAK = {
 
 _STRIP_RE = re.compile(r"[0-9.^\[\]\"?]")
 _MODIFIERS = str.maketrans("", "", "ʰʲˤᵝʷ")
-# marcas combinantes a eliminar en la limpieza (dental, tilde, ATR, anillo…)
-_COMBINING_KEEP = {"̩"}  # syllabic (n̩, l̩) se conserva
+# combining marks dropped during cleanup (dental, nasal tilde, ATR, ring…)
+_COMBINING_KEEP = {"̩"}  # the syllabic mark (n̩, l̩) is kept
 
 _WARNED: set[str] = set()
 
@@ -133,7 +136,7 @@ def _cleanup(token: str) -> str:
 
 @lru_cache(maxsize=4096)
 def _nearest_english(token: str) -> str | None:
-    """Vecino más cercano en el inventario por rasgos panphon."""
+    """Nearest neighbor within the inventory, by panphon features."""
     import panphon.distance
 
     dst = panphon.distance.Distance()
@@ -161,7 +164,7 @@ def _lookup(token: str) -> str | None:
 
 @lru_cache(maxsize=4096)
 def normalize_espeak(token: str) -> str | None:
-    """Token crudo del modelo → token del inventario inglés (o None = descartar)."""
+    """Raw model token → English-inventory token (or None, meaning: discard it)."""
     found = _lookup(token)
     if found is not None:
         return found
@@ -186,15 +189,15 @@ def normalize_espeak(token: str) -> str | None:
 def _warn(token: str, mapped: str | None) -> None:
     if token not in _WARNED:
         _WARNED.add(token)
-        logger.warning("fono fuera del inventario inglés: %r → %r", token, mapped)
+        logger.warning("phone outside the English inventory: %r → %r", token, mapped)
 
 
-# Diptongos ingleses y su primer elemento (para monophthongization, MEJORA 2)
+# English diphthongs and their first element (for monophthongization, IMPROVEMENT 2)
 DIPHTHONGS = frozenset({"aɪ", "oʊ", "eɪ", "aʊ", "ɔɪ"})
 FIRST_ELEMENT = {"aɪ": "a", "oʊ": "o", "eɪ": "e", "aʊ": "a", "ɔɪ": "ɔ"}
 
 
-# --- Clasificación de fonos (sobre tokens espeak/IPA) ---------------------------
+# --- Phone classification (over espeak/IPA tokens) -----------------------------
 _VOWEL_CHARS = set("aeiouæɑɒʌɛɜɝɪʊɔəɐɚᵻyøœɶɯɤʉɨ")
 
 SCHWA_LIKE = {"ə", "ɐ", "ᵻ", "ɚ", "ɘ", "ɵ"}

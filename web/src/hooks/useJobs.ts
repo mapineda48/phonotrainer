@@ -1,5 +1,5 @@
-/** Lista de análisis y detalle de uno, en vivo por el canal WebSocket.
- *  El servidor empuja los cambios; aquí no se sondea nada. */
+/** The analysis list and the detail of one, live over the WebSocket channel.
+ *  The server pushes the changes; nothing is polled here. */
 
 import { useCallback, useSyncExternalStore } from "react";
 
@@ -15,9 +15,9 @@ export function useJobs(): JobsState {
   return useSyncExternalStore(channel.subscribe, channel.getSnapshot, channel.getSnapshot);
 }
 
-/** El job con ese id, o null si no (todavía) está en la lista. Como cada
- *  evento reemplaza solo SU objeto, esto re-renderiza únicamente cuando
- *  cambia ese análisis concreto. */
+/** The job with that id, or null if it is not (yet) in the list. Since each
+ *  event replaces only ITS own object, this re-renders only when that specific
+ *  analysis changes. */
 export function useJob(jobId: string | null): Job | null {
   const channel = useJobsChannel();
   const select = useCallback(

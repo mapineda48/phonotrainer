@@ -1,7 +1,7 @@
-/** Taxonomía de fenómenos servida por el backend (`/api/reference`).
+/** Phenomenon taxonomy served by the backend (`/api/reference`).
  *
- *  La UI no guarda su propia copia de etiquetas ni de familias: si mañana
- *  `phenomena.py` gana una regla, aparece aquí sin tocar el frontend.
+ *  The UI keeps no copy of its own for labels or families: if `phenomena.py`
+ *  gains a rule tomorrow, it shows up here without touching the frontend.
  */
 
 import { createContext, useContext } from "react";
@@ -14,11 +14,11 @@ export const ReferenceProvider = ReferenceContext.Provider;
 
 export function useReference(): Reference {
   const reference = useContext(ReferenceContext);
-  if (!reference) throw new Error("useReference() necesita un <ReferenceProvider>");
+  if (!reference) throw new Error("useReference() requires a <ReferenceProvider>");
   return reference;
 }
 
-/** Color de la familia como variable CSS (las define styles.css). */
+/** Family color as a CSS variable (styles.css defines them). */
 export const familyColor = (family: string): string => `var(--fam-${family})`;
 export const familyTint = (family: string): string => `var(--tint-${family})`;
 
@@ -28,7 +28,7 @@ export const phenomenonLabel = (reference: Reference, name: string): string =>
 export const phenomenonDescription = (reference: Reference, name: string): string =>
   reference.descriptions?.[name] ?? "";
 
-/** Primera familia con color de una palabra (el resto se nombra por texto). */
+/** A word's first color-bearing family (the rest are named in text). */
 export function primaryFamily(reference: Reference, word: Word): string | null {
   for (const phenomenon of word.phenomena) {
     const family = reference.family_of[phenomenon];

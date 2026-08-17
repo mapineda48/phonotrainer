@@ -1,9 +1,9 @@
-/** Reproductor central: un solo <audio> gobierna toda la app.
+/** Central player: a single <audio> element governs the whole app.
  *
- *  Reproduce el WAV que analizó el pipeline (no el video), así lo que se oye es
- *  exactamente aquello sobre lo que se calcularon los tiempos. Sabe reproducir
- *  un *span* (palabra, fono o segmento) y repetirlo en bucle, que es el gesto
- *  que más se repite estudiando pronunciación.
+ *  It plays the WAV the pipeline analyzed (not the video), so what you hear is
+ *  exactly what the timings were computed over. It can play a *span* (word,
+ *  phone or segment) and loop it, which is the single most repeated gesture
+ *  when studying pronunciation.
  */
 
 import {
@@ -31,15 +31,15 @@ export interface PlayerApi {
   loop: boolean;
   span: Span | null;
   duration: number;
-  /** Reproduce un fragmento (o todo, si `span` es null). */
+  /** Play a span (or everything, when `span` is null). */
   play: (span?: Span | null) => void;
   pause: () => void;
-  /** Play/pausa; si se pasa un span distinto del actual, salta a él. */
+  /** Play/pause; if a span other than the current one is passed, jump to it. */
   toggle: (span?: Span | null) => void;
   seek: (time: number) => void;
   setRate: (rate: number) => void;
   setLoop: (loop: boolean) => void;
-  /** Deja de acotar la reproducción a un fragmento. */
+  /** Stop bounding playback to a span. */
   clearSpan: () => void;
 }
 
@@ -47,14 +47,14 @@ const PlayerContext = createContext<PlayerApi | null>(null);
 
 export function usePlayer(): PlayerApi {
   const api = useContext(PlayerContext);
-  if (!api) throw new Error("usePlayer() necesita un <PlayerProvider>");
+  if (!api) throw new Error("usePlayer() requires a <PlayerProvider>");
   return api;
 }
 
-/** Para tests: inyecta un reproductor falso sin tocar el DOM de audio. */
+/** For tests: injects a fake player without touching the audio DOM. */
 export const PlayerContextProvider = PlayerContext.Provider;
 
-const SPAN_EPSILON = 0.015; // s de margen al comparar con el final del fragmento
+const SPAN_EPSILON = 0.015; // s of tolerance when comparing against the span end
 
 export function PlayerProvider({ src, children }: { src: string | null; children: ReactNode }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -85,7 +85,7 @@ export function PlayerProvider({ src, children }: { src: string | null; children
       const promise = audio.play() as Promise<void> | undefined;
       promise?.catch(() => setPlaying(false));
     } catch {
-      setPlaying(false); // jsdom y navegadores que bloquean el autoplay
+      setPlaying(false); // jsdom, and browsers that block autoplay
     }
   }, []);
 
@@ -136,7 +136,7 @@ export function PlayerProvider({ src, children }: { src: string | null; children
 
   const clearSpan = useCallback(() => setSpan(null), [setSpan]);
 
-  // Bucle de animación: publica el tiempo y hace respetar el fragmento activo.
+  // Animation loop: publishes the time and enforces the active span.
   useEffect(() => {
     if (!playing) return;
     const tick = () => {
@@ -164,9 +164,9 @@ export function PlayerProvider({ src, children }: { src: string | null; children
     };
   }, [playing, clock]);
 
-  // Al CAMBIAR de análisis: paramos y volvemos al principio. En el montaje no:
-  // si no, este efecto (del padre) pisaba al que abre una palabra concreta al
-  // entrar desde el corpus, y la palabra quedaba seleccionada pero muda.
+  // When SWITCHING analyses: stop and rewind to the start. Not on mount: this
+  // effect (the parent's) would otherwise trample the one that opens a specific
+  // word when arriving from the corpus, leaving the word selected but silent.
   const previousSrc = useRef<string | null | undefined>(undefined);
   useEffect(() => {
     if (previousSrc.current === undefined || previousSrc.current === src) {

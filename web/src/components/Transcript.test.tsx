@@ -22,36 +22,36 @@ const renderTranscript = (props: Partial<Parameters<typeof Transcript>[0]> = {},
   );
 
 describe("Transcript", () => {
-  it("pinta todas las palabras y marca las que tienen fenómeno", () => {
+  it("renders every word and marks the ones carrying a phenomenon", () => {
     renderTranscript();
 
     expect(wordButton("does")).toBeInTheDocument();
     expect(wordButton("work")).toBeInTheDocument();
-    // "does" tiene reducción vocálica → recibe color de familia
+    // "does" has vowel reduction → it gets a family color
     expect(wordButton("does")).toHaveClass("w--fam");
     expect(wordButton("work")).not.toHaveClass("w--fam");
   });
 
-  it("el nombre accesible dice el fenómeno: la identidad no depende del color", () => {
+  it("the accessible name states the phenomenon: identity does not rely on color", () => {
     renderTranscript();
-    expect(wordButton("that")).toHaveAccessibleName("that, t/d elidida");
+    expect(wordButton("that")).toHaveAccessibleName("that, t/d deletion");
     expect(wordButton("work")).toHaveAccessibleName("work");
   });
 
-  it("al pulsar una palabra la selecciona y la reproduce", async () => {
+  it("clicking a word selects it and plays it", async () => {
     const onSelect = vi.fn();
     const { player } = renderTranscript({ onSelect });
 
     await userEvent.click(wordButton("that"));
 
     expect(onSelect).toHaveBeenCalledWith({ segment: 0, index: 1 });
-    // "that" dura 110 ms: el span se estira hasta ser audible, centrado en ella
+    // "that" lasts 110 ms: the span stretches until audible, centered on it
     expect(player.play).toHaveBeenCalledWith(
       expect.objectContaining({ start: expect.closeTo(0.36, 2) }),
     );
   });
 
-  it("atenúa lo que queda fuera del filtro sin ocultarlo", () => {
+  it("dims what falls outside the filter without hiding it", () => {
     renderTranscript({ filter: new Set(["t_deletion"]) });
 
     expect(wordButton("that")).not.toHaveClass("w--muted");
@@ -59,7 +59,7 @@ describe("Transcript", () => {
     expect(wordButton("does")).toBeVisible();
   });
 
-  it("sigue la reproducción resaltando la palabra que suena", () => {
+  it("follows playback by highlighting the sounding word", () => {
     const player = fakePlayer();
     renderTranscript({}, player);
 
@@ -72,7 +72,7 @@ describe("Transcript", () => {
     expect(wordButton("that")).not.toHaveClass("w--playing");
   });
 
-  it("con «seguir» activo el segmento que suena se ancla arriba", () => {
+  it("with “follow” on, the sounding segment pins to the top", () => {
     const scrollIntoView = vi.fn();
     Object.defineProperty(window.Element.prototype, "scrollIntoView", {
       configurable: true,
@@ -82,16 +82,16 @@ describe("Transcript", () => {
     const player = fakePlayer();
     renderTranscript({ follow: true }, player);
 
-    // El primer segmento ya está activo al cargar: se ancla sin esperar.
+    // The first segment is already active on load: it pins without waiting.
     expect(scrollIntoView).toHaveBeenCalledWith({ block: "start", behavior: "smooth" });
 
-    act(() => player.clock.set(2.05)); // entra el segundo segmento
+    act(() => player.clock.set(2.05)); // the second segment comes in
 
     expect(scrollIntoView).toHaveBeenLastCalledWith({ block: "start", behavior: "smooth" });
     expect(scrollIntoView).toHaveBeenCalledTimes(2);
   });
 
-  it("con «seguir» apagado no desplaza la transcripción", () => {
+  it("with “follow” off, it does not scroll the transcript", () => {
     const scrollIntoView = vi.fn();
     Object.defineProperty(window.Element.prototype, "scrollIntoView", {
       configurable: true,
@@ -106,33 +106,33 @@ describe("Transcript", () => {
     expect(scrollIntoView).not.toHaveBeenCalled();
   });
 
-  it("el botón de tiempo reproduce el segmento entero", async () => {
+  it("the time button plays the whole segment", async () => {
     const { player } = renderTranscript();
 
     await userEvent.click(screen.getByRole("button", { name: /0:00.0–0:01.2/ }));
     expect(player.play).toHaveBeenCalledWith({ start: 0, end: 1.2 });
   });
 
-  it("muestra la forma reducida de una contracción y el enlace entre palabras", () => {
+  it("shows a contraction's reduced form and the link between words", () => {
     renderTranscript();
     expect(screen.getByText("want to")).toBeInTheDocument();
     expect(screen.getAllByText("‿").length).toBeGreaterThan(0);
   });
 
-  it("el tooltip compara diccionario con lo pronunciado, no el canónico consigo mismo", () => {
+  it("the tooltip compares dictionary with what was said, not canonical with itself", () => {
     renderTranscript();
-    // "work" se pronuncia igual que su canónico: repetirlo no enseñaba nada
+    // "work" is pronounced just like its canonical form: repeating it taught nothing
     expect(wordButton("work")).toHaveAttribute("title", "work · /wɝk/ → [wɝk]");
     expect(wordButton("that")).toHaveAttribute(
       "title",
-      "that · /ðæt/ → [ðæ] — t/d elidida",
+      "that · /ðæt/ → [ðæ] — t/d deletion",
     );
   });
 
-  it("ofrece la transcripción fonética de la frase entera", () => {
+  it("offers the phonetic transcription of the whole phrase", () => {
     renderTranscript();
-    const detalles = screen.getAllByText("Transcripción fonética de la frase");
-    expect(detalles).toHaveLength(2); // una por segmento
+    const details = screen.getAllByText("Phonetic transcription of the phrase");
+    expect(details).toHaveLength(2); // one per segment
     expect(screen.getByText("[dəz‿ðæ wɝk]")).toBeInTheDocument();
     expect(screen.getByText("/dʌz‿ðæt wɝk/")).toBeInTheDocument();
   });

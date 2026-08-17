@@ -1,16 +1,17 @@
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vitest/config";
 
-// El minificador borra los banners `@license` de React, react-dom y scheduler
-// (MIT, de Meta) y esa nota tiene que viajar con las copias, así que la
-// reponemos sobre el bundle ya generado. Va como plugin y no como
-// `rollupOptions.output.banner` porque el bundler de Vite 8 lo minifica igual.
+// The minifier strips the `@license` banners of React, react-dom and scheduler
+// (MIT, by Meta), and that notice has to travel with the copies, so we put it
+// back on top of the already-generated bundle. It runs as a plugin rather than
+// as `rollupOptions.output.banner` because Vite 8's bundler minifies that away
+// all the same.
 function licenseBanner(): Plugin {
   const notice =
-    "/*! PhonoTrainer — GPL-3.0-or-later. Incluye React, react-dom y scheduler:" +
-    " Copyright (c) Meta Platforms, Inc. y afiliadas, licencia MIT" +
+    "/*! PhonoTrainer — GPL-3.0-or-later. Includes React, react-dom and scheduler:" +
+    " Copyright (c) Meta Platforms, Inc. and affiliates, MIT license" +
     " (https://github.com/facebook/react/blob/main/LICENSE)." +
-    " Atribución completa: THIRD-PARTY-NOTICES.md. */\n";
+    " Full attribution: THIRD-PARTY-NOTICES.md. */\n";
   return {
     name: "phonotrainer:license-banner",
     apply: "build",
@@ -22,9 +23,9 @@ function licenseBanner(): Plugin {
   };
 }
 
-// El backend (phonotrainer ui) sirve dist/ en producción; en `npm run dev`
-// hacemos proxy de /api al servidor de FastAPI para tener HMR. /ws es el
-// WebSocket del estado de los análisis: también va por proxy.
+// The backend (phonotrainer ui) serves dist/ in production; under `npm run dev`
+// we proxy /api to the FastAPI server so we get HMR. /ws is the WebSocket that
+// carries analysis state: it is proxied too.
 export default defineConfig({
   plugins: [react(), licenseBanner()],
   server: {

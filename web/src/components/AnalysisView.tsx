@@ -1,4 +1,4 @@
-/** Vista de un análisis terminado: reproductor + transcripción + panel lateral. */
+/** View of a finished analysis: player + transcript + side panel. */
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -21,9 +21,9 @@ type Tab = "word" | "summary" | "review";
 
 interface Props {
   job: Job;
-  /** Palabra que hay que abrir al entrar (viene del corpus). */
+  /** Word to open on entry (comes from the corpus). */
   initialSelection?: Selection | null;
-  /** Presente si se llegó desde el corpus: permite volver sin perder el filtro. */
+  /** Present when arriving from the corpus: allows going back without losing the filter. */
   onBackToCorpus?: () => void;
 }
 
@@ -59,16 +59,16 @@ export function AnalysisView({ job, initialSelection = null,
   if (!analysis) {
     return (
       <div className="empty">
-        <p>Cargando análisis…</p>
+        <p>Loading analysis…</p>
       </div>
     );
   }
-  // Un analysis.json con otra forma tumbaría toda la app en blanco.
+  // An analysis.json with a different shape would blank out the whole app.
   if (!analysis.meta || !Array.isArray(analysis.segments)) {
     return (
       <div className="empty">
-        <p className="error">Este analysis.json no tiene la forma que espera la interfaz.</p>
-        <p className="tiny muted">Vuelve a generarlo con «phonotrainer analyze».</p>
+        <p className="error">This analysis.json is not shaped the way the interface expects.</p>
+        <p className="tiny muted">Regenerate it with “phonotrainer analyze”.</p>
       </div>
     );
   }
@@ -93,8 +93,8 @@ function AnalysisBody({
   onBackToCorpus?: () => void;
 }) {
   const player = usePlayer();
-  /** El reproductor sin su identidad cambiante, para efectos que no deben
-   *  reejecutarse cada vez que cambia el fragmento activo. */
+  /** The player without its shifting identity, for effects that must not re-run
+   *  every time the active span changes. */
   const playerRef = useRef(player);
   playerRef.current = player;
   const reference = useReference();
@@ -102,8 +102,8 @@ function AnalysisBody({
   const [tab, setTab] = useState<Tab>("summary");
   const [filter, setFilter] = useState<ReadonlySet<string>>(new Set());
   const [follow, setFollow] = useState(true);
-  // Preferencia persistente: por defecto apagado (como siempre); solo se
-  // respeta si el análisis abierto tiene video.
+  // Persistent preference: off by default (as it has always been); only honored
+  // when the open analysis actually has video.
   const [showVideo, toggleVideo] = usePersistentFlag("phonotrainer:show-video");
   const [showHelp, setShowHelp] = useState(false);
   const [query, setQuery] = useState("");
@@ -114,7 +114,7 @@ function AnalysisBody({
   const canPlay = job.has_audio;
   const flat = useMemo(() => flattenWords(analysis), [analysis]);
 
-  /** Palabras por las que navegan N / Mayús+N: las del filtro, o todas. */
+  /** The words N / Shift+N walk through: the filtered ones, or all of them. */
   const narrow = (base: FlatWord[], needle: string) =>
     needle ? base.filter((fw) => fw.word.word.toLowerCase().includes(needle.toLowerCase())) : base;
 
@@ -126,8 +126,8 @@ function AnalysisBody({
 
   const selectedWord = selected ? analysis.segments[selected.segment]?.words[selected.index] : null;
   const selectedSegment = selected ? analysis.segments[selected.segment] : null;
-  // La siguiente en la línea de tiempo, no en el segmento: el enlace también
-  // ocurre en la última palabra de un segmento.
+  // The next one on the timeline, not within the segment: linking also happens
+  // on the last word of a segment.
   const flatIndex = selected
     ? flat.findIndex((fw) => fw.segment === selected.segment && fw.index === selected.index)
     : -1;
@@ -138,7 +138,7 @@ function AnalysisBody({
     setTab("word");
   };
 
-  /** Salta a la siguiente palabra de `list` (o a la anterior) y la reproduce. */
+  /** Jump to the next word in `list` (or the previous one) and play it. */
   const jumpIn = (list: FlatWord[], delta: number) => {
     if (list.length === 0) return;
     const now = player.clock.getSnapshot();
@@ -158,10 +158,9 @@ function AnalysisBody({
 
   const jump = (delta: number) => jumpIn(walk, delta);
 
-  // Llegando desde el corpus: abrir directamente en esa palabra y oírla.
-  // Una sola vez por selección: `player` cambia de identidad al fijar el
-  // fragmento, así que sin el testigo el efecto se volvía a disparar solo y la
-  // palabra se reproducía sin fin.
+  // Arriving from the corpus: open straight on that word and play it. Once per
+  // selection only: `player` changes identity when the span is set, so without
+  // the guard the effect kept re-triggering itself and the word played forever.
   const applied = useRef<Selection | null>(null);
   useEffect(() => {
     if (!initialSelection || applied.current === initialSelection) return;
@@ -200,8 +199,8 @@ function AnalysisBody({
 
   const spanLabel = player.span
     ? selectedWord && Math.abs(player.span.start - wordSpan(selectedWord).start) < 0.01
-      ? `palabra «${selectedWord.word}»`
-      : "fragmento"
+      ? `word “${selectedWord.word}”`
+      : "span"
     : null;
 
   return (
@@ -216,23 +215,23 @@ function AnalysisBody({
           {job.source}
         </h2>
         <span className="tiny muted">
-          {analysis.meta.duration.toFixed(1)} s · {analysis.segments.length} segmentos ·{" "}
+          {analysis.meta.duration.toFixed(1)} s · {analysis.segments.length} segments ·{" "}
           {analysis.meta.language}
-          {analysis.meta.attraction ? "" : " · sin atracción"}
+          {analysis.meta.attraction ? "" : " · no attraction"}
         </span>
         <span className="spacer" />
         <input
           type="search"
           className="input"
           style={{ width: 150 }}
-          aria-label="Buscar una palabra en la transcripción"
-          placeholder="Buscar palabra…"
+          aria-label="Search for a word in the transcript"
+          placeholder="Search word…"
           value={query}
           onChange={(event) => {
             const value = event.target.value;
             setQuery(value);
-            // Ir a la primera coincidencia al teclear (sin reproducir, que
-            // sonaría en cada tecla); Intro y N pasan a la siguiente.
+            // Go to the first match as you type (without playing, which would
+            // fire on every keystroke); Enter and N move to the next one.
             const hits = narrow(
               filter.size > 0 ? filteredWords(analysis, filter) : flat,
               value.trim(),
@@ -251,7 +250,7 @@ function AnalysisBody({
         />
         {query.trim() && (
           <span className="tiny muted num">
-            {walk.length} {walk.length === 1 ? "coincidencia" : "coincidencias"}
+            {walk.length} {walk.length === 1 ? "match" : "matches"}
           </span>
         )}
         {hasVideo && (
@@ -259,7 +258,7 @@ function AnalysisBody({
             type="button"
             className="btn btn--sm"
             aria-pressed={showVideo}
-            title="Mostrar el video original sobre la transcripción (V)"
+            title="Show the original video over the transcript (V)"
             onClick={toggleVideo}
           >
             Video
@@ -269,10 +268,10 @@ function AnalysisBody({
           type="button"
           className="btn btn--sm"
           aria-pressed={follow}
-          title="Seguir la reproducción: el segmento que suena se queda arriba (F)"
+          title="Follow playback: the sounding segment stays pinned at the top (F)"
           onClick={() => setFollow((value) => !value)}
         >
-          Seguir
+          Follow
         </button>
         {job.has_report && (
           <a
@@ -288,7 +287,7 @@ function AnalysisBody({
           type="button"
           className="btn btn--sm"
           aria-pressed={showHelp}
-          title="Atajos de teclado (?)"
+          title="Keyboard shortcuts (?)"
           onClick={() => setShowHelp((value) => !value)}
         >
           ?
@@ -303,12 +302,13 @@ function AnalysisBody({
 
       {!job.has_audio && (
         <p className="tiny muted" style={{ padding: "6px 16px" }}>
-          Este análisis se importó sin <code>audio.wav</code>: se puede leer, pero no escuchar.
+          This analysis was imported without <code>audio.wav</code>: you can read it, but not
+          listen to it.
         </p>
       )}
 
       <a className="skip" href="#panel">
-        Saltar al panel de detalle
+        Skip to the detail panel
       </a>
 
       <div className="workspace">
@@ -321,14 +321,14 @@ function AnalysisBody({
             follow={follow}
           />
           {showVideo && hasVideo && (
-            /* El dock flota sobre la transcripción: acompaña al scroll que
-             * sigue la frase en vez de empujarla hacia abajo. */
+            /* The dock floats over the transcript: it rides along with the
+             * scroll that follows the phrase instead of pushing it down. */
             <div className="video-dock">
               <VideoPane src={api.mediaUrl(job.id)} />
               <button
                 type="button"
                 className="btn btn--ghost btn--sm video-dock__close"
-                aria-label="Ocultar video"
+                aria-label="Hide video"
                 onClick={toggleVideo}
               >
                 ✕
@@ -346,7 +346,7 @@ function AnalysisBody({
               aria-selected={tab === "word"}
               onClick={() => setTab("word")}
             >
-              Palabra
+              Word
             </button>
             <button
               type="button"
@@ -355,7 +355,7 @@ function AnalysisBody({
               aria-selected={tab === "summary"}
               onClick={() => setTab("summary")}
             >
-              Resumen
+              Summary
             </button>
             <button
               type="button"
@@ -364,7 +364,7 @@ function AnalysisBody({
               aria-selected={tab === "review"}
               onClick={() => setTab("review")}
             >
-              Revisión
+              Review
             </button>
           </div>
 
@@ -381,8 +381,8 @@ function AnalysisBody({
             ) : (
               <div className="panel__body">
                 <p className="muted tiny">
-                  Pulsa cualquier palabra de la transcripción para oírla y ver su comparación fono a
-                  fono. Con <span className="kbd">N</span> vas saltando de una a la siguiente.
+                  Click any word in the transcript to hear it and see its phone-by-phone
+                  comparison. <span className="kbd">N</span> jumps from one to the next.
                 </p>
               </div>
             ))}
@@ -392,11 +392,11 @@ function AnalysisBody({
               analysis={analysis}
               filter={filter}
               onToggle={(phenomenon) => {
-                const activando = !filter.has(phenomenon);
+                const turningOn = !filter.has(phenomenon);
                 toggleFilter(phenomenon);
-                // Al activar un fenómeno vamos a su primera aparición: filtrar
-                // sin moverse deja al usuario mirando un texto atenuado.
-                if (activando) {
+                // Turning a phenomenon on takes you to its first occurrence:
+                // filtering without moving leaves the user staring at dimmed text.
+                if (turningOn) {
                   const next = new Set(filter);
                   next.add(phenomenon);
                   jumpIn(filteredWords(analysis, next), 1);
@@ -411,7 +411,7 @@ function AnalysisBody({
               <ReviewPanel jobId={job.id} />
             ) : (
               <div className="panel__body">
-                <p className="muted tiny">No hay análisis que revisar.</p>
+                <p className="muted tiny">There is no analysis to review.</p>
               </div>
             ))}
         </aside>
@@ -422,17 +422,17 @@ function AnalysisBody({
           <span>
             {filter.size > 0 && (
               <>
-                Filtro: <strong>{[...filter].map((p) => reference.labels[p] ?? p).join(", ")}</strong>{" "}
+                Filter: <strong>{[...filter].map((p) => reference.labels[p] ?? p).join(", ")}</strong>{" "}
               </>
             )}
-            {query.trim() && <>Búsqueda: “{query.trim()}” </>}·{" "}
-            <strong>{walk.length}</strong> palabras.
+            {query.trim() && <>Search: “{query.trim()}” </>}·{" "}
+            <strong>{walk.length}</strong> words.
           </span>
           <button type="button" className="btn btn--sm" onClick={() => jump(1)}>
-            Siguiente (N)
+            Next (N)
           </button>
           <button type="button" className="btn btn--sm" onClick={() => jump(-1)}>
-            Anterior
+            Previous
           </button>
           <span className="spacer" />
           <button
@@ -443,7 +443,7 @@ function AnalysisBody({
               setQuery("");
             }}
           >
-            Quitar
+            Clear
           </button>
         </div>
       )}
@@ -452,24 +452,26 @@ function AnalysisBody({
 }
 
 const SHORTCUTS: [string, string][] = [
-  ["espacio", "reproducir / pausa"],
-  ["N", "siguiente palabra (o siguiente coincidencia del filtro o la búsqueda)"],
-  ["Mayús + N", "palabra anterior"],
-  ["P", "repetir la palabra seleccionada"],
-  ["S", "repetir la frase entera"],
-  ["L", "bucle: repetir el fragmento acotado"],
-  ["← / →", "retroceder / avanzar 2 s"],
-  ["F", "seguir la reproducción (el segmento que suena, siempre arriba)"],
-  ["V", "mostrar u ocultar el video original"],
-  ["1 / 2 / 3", "en Revisión: ok / mal / dudosa"],
-  ["?", "mostrar u ocultar esta ayuda"],
+  ["space", "play / pause"],
+  ["N", "next word (or next filter or search match)"],
+  ["Shift + N", "previous word"],
+  ["P", "replay the selected word"],
+  ["S", "replay the whole phrase"],
+  ["L", "loop: repeat the bounded span"],
+  ["← / →", "back / forward 2 s"],
+  ["F", "follow playback (the sounding segment stays at the top)"],
+  ["V", "show or hide the original video"],
+  // The verdict values come from the backend and are stored verbatim in
+  // review.json, so the help names the same keys the buttons carry.
+  ["1 / 2 / 3", "in Review: ok / wrong / unsure"],
+  ["?", "show or hide this help"],
 ];
 
 function Shortcuts({ onClose }: { onClose: () => void }) {
   return (
     <div className="card" style={{ margin: "12px 16px" }}>
       <div className="row">
-        <strong className="tiny">Atajos de teclado</strong>
+        <strong className="tiny">Keyboard shortcuts</strong>
         <span className="spacer" />
         <button type="button" className="btn btn--ghost btn--sm" onClick={onClose}>
           ✕

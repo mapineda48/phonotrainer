@@ -21,17 +21,17 @@ const render = (word = segment.words[1], next: Parameters<typeof WordDetail>[0][
   );
 
 describe("WordDetail", () => {
-  it("distingue diccionario, canónico y real, y lo explica a la vista", () => {
+  it("distinguishes dictionary, canonical and actual, and explains it in plain sight", () => {
     render();
 
     expect(screen.getByText("/ðæt/")).toBeInTheDocument();
     expect(screen.getByText("[ðæt]")).toBeInTheDocument();
     expect(screen.getByText("[ðæ]")).toBeInTheDocument();
-    // la diferencia entre los tres conceptos no puede vivir solo en un tooltip
-    expect(screen.getByText(/espeak ya aplica procesos nativos/)).toBeInTheDocument();
+    // the difference between the three concepts cannot live in a tooltip alone
+    expect(screen.getByText(/espeak already applies native processes/)).toBeInTheDocument();
   });
 
-  it("llama a lexical_form «forma reducida» y muestra la plena si existe", () => {
+  it("calls lexical_form “reduced form” and shows the full form when present", () => {
     const wanna = makeWord("wanna", 2, "w ɑ n ə", "w ɑ n ə", {
       phenomena: ["contraction_lex"],
       lexical_form: "wanna",
@@ -39,12 +39,12 @@ describe("WordDetail", () => {
     });
     render(wanna);
 
-    expect(screen.getByText("forma reducida")).toBeInTheDocument();
+    expect(screen.getByText("reduced form")).toBeInTheDocument();
     expect(screen.getByText(/“wanna”/)).toBeInTheDocument();
     expect(screen.getByText(/“want to”/)).toBeInTheDocument();
   });
 
-  it("con un fenómeno de frontera ofrece oír el enlace con la siguiente", async () => {
+  it("with a boundary phenomenon it offers to hear the link with the next word", async () => {
     const thing = makeWord("thing", 5.9, "θ ɪ ŋ", "θ ɪ ŋ", {
       phenomena: ["linking"],
       boundary_link_next: true,
@@ -52,16 +52,16 @@ describe("WordDetail", () => {
     const about = makeWord("about", 6.2, "ə b aʊ t", "ə b aʊ t");
     const { player } = render(thing, about);
 
-    const boton = screen.getByRole("button", { name: "▶ + about" });
-    await userEvent.click(boton);
+    const button = screen.getByRole("button", { name: "▶ + about" });
+    await userEvent.click(button);
 
     const span = (player.play as ReturnType<typeof import("vitest").vi.fn>).mock.calls[0][0];
     expect(span.start).toBeCloseTo(5.86, 2);
-    expect(span.end).toBeGreaterThan(about.end); // llega hasta después de la siguiente
+    expect(span.end).toBeGreaterThan(about.end); // reaches past the following word
   });
 
-  it("avisa de que las etiquetas no son verificables si no se reconoció ningún fono", () => {
-    const vacia = {
+  it("warns that the labels are unverifiable when no phone was recognized", () => {
+    const empty = {
       ...makeWord("and", 3, "æ n d", "æ n d", {
         phenomena: ["t_deletion", "word_elision"],
         low_confidence: true,
@@ -69,30 +69,32 @@ describe("WordDetail", () => {
       realized_aligned: [],
       realized_ipa: "",
     };
-    render(vacia);
+    render(empty);
 
-    expect(screen.getByText(/no son verificables/)).toBeInTheDocument();
+    expect(screen.getByText(/not verifiable/)).toBeInTheDocument();
   });
 
-  it("sin audio los botones de reproducción quedan deshabilitados", () => {
+  it("disables the playback buttons when there is no audio", () => {
     render(segment.words[1], null, false);
-    expect(screen.getByRole("button", { name: "▶ Palabra" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "▶ Frase" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "▶ Word" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "▶ Phrase" })).toBeDisabled();
   });
 
-  it("cada fenómeno viene explicado, no solo nombrado", () => {
+  it("explains each phenomenon rather than merely naming it", () => {
     render();
-    // "t/d elidida" no le dice nada a quien está aprendiendo
-    expect(screen.getByText(/La \/t\/ o \/d\/ final no llega a pronunciarse/)).toBeInTheDocument();
+    // "t/d deletion" means nothing to someone who is still learning
+    expect(
+      screen.getByText(/A word-final \/t\/ or \/d\/ is never actually pronounced/),
+    ).toBeInTheDocument();
   });
 
-  it("la h muda no se trata como frontera con la palabra siguiente", () => {
-    // es intra-palabra: su contexto útil es la anterior ("tell him")
+  it("does not treat h-dropping as a boundary with the following word", () => {
+    // it is word-internal: its useful context is the preceding word ("tell him")
     const him = makeWord("him", 3, "h ɪ m", "ɪ m", { phenomena: ["h_dropping"] });
     const back = makeWord("back", 3.3, "b æ k", "b æ k");
     render(him, back);
 
     expect(screen.queryByRole("button", { name: "▶ + back" })).not.toBeInTheDocument();
-    expect(screen.queryByText(/Fenómeno de frontera/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Boundary phenomenon/)).not.toBeInTheDocument();
   });
 });

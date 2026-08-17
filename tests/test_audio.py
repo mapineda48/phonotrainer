@@ -1,4 +1,4 @@
-"""Tests de extracción de audio con fixtures sintéticos (sin material con copyright)."""
+"""Audio extraction tests on synthetic fixtures (no copyrighted material)."""
 
 import subprocess
 
@@ -16,7 +16,7 @@ def _make_tone(path, sr=44100, secs=1.0, freq=440.0, channels=2):
     sf.write(str(path), data, sr)
 
 
-def test_audio_estereo_a_16k_mono(tmp_path):
+def test_stereo_audio_to_16k_mono(tmp_path):
     src = tmp_path / "tone.wav"
     _make_tone(src, sr=44100, channels=2)
     out = extract_audio(src, tmp_path / "out.wav")
@@ -26,8 +26,8 @@ def test_audio_estereo_a_16k_mono(tmp_path):
     assert abs(len(samples) - 16000) < 200
 
 
-def test_video_con_pista_de_audio(tmp_path):
-    # genera un mp4 sintético (video de color + tono) y extrae su audio
+def test_video_with_an_audio_track(tmp_path):
+    # build a synthetic mp4 (solid-color video + tone) and extract its audio
     src_wav = tmp_path / "tone.wav"
     _make_tone(src_wav, channels=1)
     video = tmp_path / "clip.mp4"
@@ -43,8 +43,8 @@ def test_video_con_pista_de_audio(tmp_path):
     assert len(samples) > 8000
 
 
-def test_archivo_sin_audio_falla_claro(tmp_path):
+def test_file_without_audio_fails_clearly(tmp_path):
     bogus = tmp_path / "not_media.txt"
-    bogus.write_text("hola")
+    bogus.write_text("hello")
     with pytest.raises(AudioExtractionError):
         extract_audio(bogus, tmp_path / "out.wav")

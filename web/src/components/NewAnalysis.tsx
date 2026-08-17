@@ -1,7 +1,7 @@
-/** Pantalla de arranque: elegir material y opciones del pipeline.
+/** Starting screen: pick the material and the pipeline options.
  *
- *  Tres vías, en el orden en que se usan de verdad: arrastrar un archivo,
- *  elegir uno del equipo por ruta, o importar un `out/` que ya generó la CLI.
+ *  Three routes, in the order they actually get used: drag a file in, pick one
+ *  from this machine by path, or import an `out/` the CLI already produced.
  */
 
 import { useState } from "react";
@@ -16,8 +16,9 @@ interface Props {
 }
 
 export function NewAnalysis({ onCreated }: Props) {
-  // Modelos, motores y valores por defecto los publica el backend: si mañana
-  // el pipeline admite otro modelo, aparece aquí sin tocar el frontend.
+  // Models, engines and defaults are published by the backend: if the pipeline
+  // supports another model tomorrow, it shows up here without touching the
+  // frontend.
   const reference = useReference();
   const [options, setOptions] = useState<JobOptions>(reference.options.defaults);
   const [path, setPath] = useState("");
@@ -52,10 +53,10 @@ export function NewAnalysis({ onCreated }: Props) {
 
   return (
     <div className="scroll" style={{ padding: "24px 28px 60px" }}>
-      <h2 style={{ margin: "0 0 4px", fontSize: 19 }}>Analizar habla nativa</h2>
+      <h2 style={{ margin: "0 0 4px", fontSize: 19 }}>Analyze native speech</h2>
       <p className="muted tiny" style={{ marginTop: 0 }}>
-        Un video o audio en inglés → transcripción, fonos realmente pronunciados frente a los
-        canónicos, fenómenos de <em>connected speech</em> y prosodia.
+        An English video or audio file → transcript, phones actually pronounced against the
+        canonical ones, <em>connected speech</em> phenomena and prosody.
       </p>
 
       {error && <p className="error">{error}</p>}
@@ -68,8 +69,8 @@ export function NewAnalysis({ onCreated }: Props) {
             type="url"
             className="input"
             style={{ flex: 1, minWidth: 200 }}
-            aria-label="URL de YouTube"
-            placeholder="Pega una URL de YouTube…"
+            aria-label="YouTube URL"
+            placeholder="Paste a YouTube URL…"
             value={url}
             onChange={(event) => setUrl(event.target.value)}
             onKeyDown={(event) => {
@@ -84,7 +85,7 @@ export function NewAnalysis({ onCreated }: Props) {
             disabled={!url.trim() || busy}
             onClick={() => void run(() => api.createFromUrl(url.trim(), options, audioOnly))}
           >
-            Descargar y analizar
+            Download and analyze
           </button>
         </div>
         <label className="row tiny" style={{ marginTop: 6, gap: 6 }}>
@@ -93,8 +94,8 @@ export function NewAnalysis({ onCreated }: Props) {
             checked={audioOnly}
             onChange={(event) => setAudioOnly(event.target.checked)}
           />
-          solo audio al descargar
-          <span className="muted">— más rápido; sin vídeo que ver junto a la transcripción</span>
+          audio only when downloading
+          <span className="muted">— faster; no video to watch alongside the transcript</span>
         </label>
 
         <div
@@ -107,9 +108,9 @@ export function NewAnalysis({ onCreated }: Props) {
           onDragLeave={() => setDragging(false)}
           onDrop={onDrop}
         >
-          <p style={{ margin: "0 0 8px" }}>Arrastra aquí un video o audio</p>
+          <p style={{ margin: "0 0 8px" }}>Drag a video or audio file here</p>
           <label className="btn btn--sm">
-            o elige un archivo
+            or choose a file
             <input
               type="file"
               accept="video/*,audio/*"
@@ -127,7 +128,7 @@ export function NewAnalysis({ onCreated }: Props) {
             type="text"
             className="input"
             style={{ flex: 1, minWidth: 180 }}
-            placeholder="…o una ruta local: ~/videos/episodio.webm"
+            placeholder="…or a local path: ~/videos/episode.webm"
             value={path}
             onChange={(event) => setPath(event.target.value)}
             onKeyDown={(event) => {
@@ -142,7 +143,7 @@ export function NewAnalysis({ onCreated }: Props) {
             onClick={() => setBrowsing(browsing === "media" ? null : "media")}
             aria-pressed={browsing === "media"}
           >
-            Explorar…
+            Browse…
           </button>
           <button
             type="button"
@@ -150,7 +151,7 @@ export function NewAnalysis({ onCreated }: Props) {
             disabled={!path.trim() || busy}
             onClick={() => void run(() => api.createJob(path.trim(), options))}
           >
-            Analizar
+            Analyze
           </button>
         </div>
 
@@ -168,10 +169,10 @@ export function NewAnalysis({ onCreated }: Props) {
       </div>
 
       <div className="card">
-        <strong>2 · Opciones</strong>
+        <strong>2 · Options</strong>
         <div className="row" style={{ marginTop: 10, alignItems: "flex-end" }}>
           <label className="field">
-            Modelo de Whisper
+            Whisper model
             <select
               value={options.whisper_model}
               onChange={(event) =>
@@ -186,7 +187,7 @@ export function NewAnalysis({ onCreated }: Props) {
             </select>
           </label>
           <label className="field">
-            Motor de fonos
+            Phone engine
             <select
               value={options.phone_engine}
               onChange={(event) =>
@@ -201,7 +202,7 @@ export function NewAnalysis({ onCreated }: Props) {
             </select>
           </label>
           <label className="field">
-            Idioma
+            Language
             <input
               type="text"
               size={4}
@@ -216,18 +217,19 @@ export function NewAnalysis({ onCreated }: Props) {
             checked={options.attraction}
             onChange={(event) => set("attraction", event.target.checked)}
           />
-          Atracción fonética hacia el canónico
+          Phonetic attraction toward the canonical form
           <span className="muted">
-            — desactívala para comparar la salida cruda del reconocedor
+            — turn it off to compare the recognizer's raw output
           </span>
         </label>
       </div>
 
       <div className="card">
-        <strong>3 · ¿Ya tienes resultados?</strong>
+        <strong>3 · Already have results?</strong>
         <p className="tiny muted" style={{ margin: "6px 0 10px" }}>
-          Importa un directorio con <code>analysis.json</code> (por ejemplo el <code>out/</code> que
-          dejó <code>phonotrainer analyze</code>) y explóralo aquí sin volver a analizar.
+          Import a directory containing <code>analysis.json</code> (for instance the{" "}
+          <code>out/</code> that <code>phonotrainer analyze</code> left behind) and explore it here
+          without analyzing again.
         </p>
         <button
           type="button"
@@ -235,7 +237,7 @@ export function NewAnalysis({ onCreated }: Props) {
           onClick={() => setBrowsing(browsing === "dir" ? null : "dir")}
           aria-pressed={browsing === "dir"}
         >
-          Importar resultados…
+          Import results…
         </button>
         {browsing === "dir" && (
           <div style={{ marginTop: 10 }}>

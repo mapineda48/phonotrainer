@@ -8,7 +8,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-// jsdom no implementa estas piezas que la app sí usa.
+// jsdom does not implement these pieces, which the app does use.
 if (!globalThis.ResizeObserver) {
   globalThis.ResizeObserver = class {
     observe() {}
@@ -17,7 +17,7 @@ if (!globalThis.ResizeObserver) {
   } as unknown as typeof ResizeObserver;
 }
 
-// El canvas de la onda no se dibuja en jsdom; devolvemos null sin ruido.
+// The waveform canvas is not drawn under jsdom; return null without any noise.
 Object.defineProperty(window.HTMLCanvasElement.prototype, "getContext", {
   configurable: true,
   value: () => null,

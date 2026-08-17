@@ -1,6 +1,6 @@
-/** Resumen del análisis: cuántas veces aparece cada fenómeno y filtro por ellos.
- *  Las barras son el índice de la clase: al pulsar una, la transcripción se queda
- *  con esas palabras y se puede saltar de una a otra con N. */
+/** Analysis summary: how often each phenomenon occurs, plus a filter over them.
+ *  The bars act as the index of the class: click one and the transcript narrows
+ *  to those words, which you can then walk through with N. */
 
 import { phenomenaByFrequency } from "../lib/analysis";
 import { familyColor, phenomenonLabel, useReference } from "../reference";
@@ -18,7 +18,7 @@ export function SummaryPanel({ analysis, filter, onToggle, onClear }: Props) {
   const counts = phenomenaByFrequency(analysis);
   const max = counts.length ? counts[0][1] : 1;
   const meta = analysis.meta;
-  // Fenómenos que no tienen color propio (se marcan con tipografía, no con tono).
+  // Phenomena with no color of their own (marked typographically, not by hue).
   const noFamily = counts
     .filter(([name]) => !reference.family_of[name])
     .map(([name]) => phenomenonLabel(reference, name));
@@ -26,16 +26,16 @@ export function SummaryPanel({ analysis, filter, onToggle, onClear }: Props) {
   return (
     <div className="panel__body">
       <div className="row" style={{ marginBottom: 8 }}>
-        <strong className="tiny">Fenómenos detectados</strong>
+        <strong className="tiny">Phenomena detected</strong>
         <span className="spacer" />
         {filter.size > 0 && (
           <button type="button" className="btn btn--sm" onClick={onClear}>
-            Quitar filtro
+            Clear filter
           </button>
         )}
       </div>
 
-      {counts.length === 0 && <p className="muted tiny">No se detectó ningún fenómeno.</p>}
+      {counts.length === 0 && <p className="muted tiny">No phenomena were detected.</p>}
 
       <div className="bars">
         {counts.map(([name, count]) => {
@@ -47,7 +47,7 @@ export function SummaryPanel({ analysis, filter, onToggle, onClear }: Props) {
               type="button"
               className="bars__row"
               aria-pressed={on}
-              title={`${count} apariciones · pulsa para ${on ? "quitar del" : "añadir al"} filtro`}
+              title={`${count} occurrences · click to ${on ? "remove from" : "add to"} the filter`}
               onClick={() => onToggle(name)}
             >
               <span style={{ fontWeight: on ? 650 : 400 }}>
@@ -68,7 +68,7 @@ export function SummaryPanel({ analysis, filter, onToggle, onClear }: Props) {
       </div>
 
       <div style={{ marginTop: 18 }}>
-        <div className="phones__label">familias de color</div>
+        <div className="phones__label">color families</div>
         <div className="legend">
           {reference.families.map((family) => (
             <span key={family.key} className="legend__item">
@@ -89,37 +89,37 @@ export function SummaryPanel({ analysis, filter, onToggle, onClear }: Props) {
               aria-hidden="true"
             />
             <span>
-              Sin familia{" "}
-              <span className="muted">({noFamily.join(", ") || "—"}): se marcan en el texto</span>
+              No family{" "}
+              <span className="muted">({noFamily.join(", ") || "—"}): marked in the text</span>
             </span>
           </span>
         </div>
         <p className="tiny muted" style={{ marginTop: 8 }}>
-          ⋯ subrayado punteado = contracción léxica · ‿ = enlace con la siguiente · negrita =
-          palabra enfatizada · atenuada = baja confianza
+          ⋯ dotted underline = lexical contraction · ‿ = linking to the next word · bold =
+          emphasized word · dimmed = low confidence
         </p>
       </div>
 
       <div style={{ marginTop: 18 }}>
-        <div className="phones__label">análisis</div>
+        <div className="phones__label">analysis</div>
         <dl className="deflist">
-          <dt>duración</dt>
+          <dt>duration</dt>
           <dd className="num">{meta.duration.toFixed(1)} s</dd>
-          <dt>segmentos</dt>
+          <dt>segments</dt>
           <dd className="num">{analysis.segments.length}</dd>
-          <dt>palabras</dt>
+          <dt>words</dt>
           <dd className="num">
             {analysis.segments.reduce((total, segment) => total + segment.words.length, 0)}
           </dd>
           <dt>ASR</dt>
           <dd>{meta.models.asr}</dd>
-          <dt>fonos</dt>
+          <dt>phones</dt>
           <dd style={{ wordBreak: "break-all" }}>{meta.models.phones}</dd>
-          <dt>atracción</dt>
+          <dt>attraction</dt>
           <dd>
-            {meta.attraction ? "activada" : "desactivada"} ·{" "}
-            {meta.phone_cleanup.attracted_phones} fonos atraídos,{" "}
-            {meta.phone_cleanup.normalized_phones} saneados
+            {meta.attraction ? "enabled" : "disabled"} ·{" "}
+            {meta.phone_cleanup.attracted_phones} phones attracted,{" "}
+            {meta.phone_cleanup.normalized_phones} cleaned up
           </dd>
         </dl>
       </div>

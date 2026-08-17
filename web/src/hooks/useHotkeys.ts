@@ -1,4 +1,4 @@
-/** Atajos de teclado globales, ignorando lo que se teclea en campos de texto. */
+/** Global keyboard shortcuts, ignoring anything typed into text fields. */
 
 import { useEffect, useRef } from "react";
 
@@ -10,7 +10,7 @@ function isTyping(target: EventTarget | null): boolean {
   return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target.isContentEditable;
 }
 
-/** Espacio y Enter activan el control enfocado: ahí manda el navegador. */
+/** Space and Enter activate the focused control: the browser wins there. */
 function activatesItself(target: EventTarget | null, key: string): boolean {
   if (key !== " " && key !== "Enter") return false;
   if (!(target instanceof HTMLElement)) return false;

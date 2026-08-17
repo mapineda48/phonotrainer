@@ -46,8 +46,8 @@ const emptyReview = {
   seed: 48,
   sampled: 0,
   ok: 0,
-  mal: 0,
-  dudosa: 0,
+  wrong: 0,
+  unsure: 0,
   accuracy: null,
   items: [],
 };
@@ -64,50 +64,50 @@ describe("ReviewPanel", () => {
     });
   });
 
-  it("muestra la muestra priorizada con su contexto fonético", async () => {
+  it("shows the prioritized sample with its phonetic context", async () => {
     renderWith(<ReviewPanel jobId="j1" />);
 
     expect(await screen.findByText("that")).toBeInTheDocument();
     expect(screen.getByText("wanna")).toBeInTheDocument();
     expect(screen.getByText("[ðæ]")).toBeInTheDocument();
-    expect(screen.getByText(/0\/2 revisadas/)).toBeInTheDocument();
+    expect(screen.getByText(/0\/2 reviewed/)).toBeInTheDocument();
   });
 
-  it("el teclado marca el veredicto y avanza", async () => {
+  it("the keyboard records the verdict and advances", async () => {
     renderWith(<ReviewPanel jobId="j1" />);
     await screen.findByText("that");
 
-    await userEvent.keyboard("1"); // ok para la primera
-    expect(screen.getByText(/1\/2 revisadas/)).toBeInTheDocument();
+    await userEvent.keyboard("1"); // ok for the first one
+    expect(screen.getByText(/1\/2 reviewed/)).toBeInTheDocument();
 
-    await userEvent.keyboard("2"); // mal para la segunda
-    expect(screen.getByText(/2\/2 revisadas/)).toBeInTheDocument();
+    await userEvent.keyboard("2"); // wrong for the second one
+    expect(screen.getByText(/2\/2 reviewed/)).toBeInTheDocument();
 
-    const malButtons = screen.getAllByRole("button", { name: "mal" });
-    expect(malButtons[1]).toHaveAttribute("aria-pressed", "true");
+    const wrongButtons = screen.getAllByRole("button", { name: "wrong" });
+    expect(wrongButtons[1]).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("guarda solo lo decidido y muestra el acierto", async () => {
+  it("saves only what was decided and shows the accuracy", async () => {
     renderWith(<ReviewPanel jobId="j1" />);
     await screen.findByText("that");
 
     await userEvent.click(screen.getAllByRole("button", { name: "ok" })[0]);
-    await userEvent.click(screen.getByRole("button", { name: "Guardar" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => expect(api.saveReview).toHaveBeenCalled());
     expect(vi.mocked(api.saveReview).mock.calls[0][2]).toEqual([
       { segment: 0, word_idx: 1, verdict: "ok", note: "" },
     ]);
-    expect(await screen.findByText(/acierto 100%/)).toBeInTheDocument();
+    expect(await screen.findByText(/accuracy 100%/)).toBeInTheDocument();
   });
 
-  it("recupera una revisión anterior con su seed", async () => {
+  it("recovers a previous review with its seed", async () => {
     vi.mocked(api.review).mockResolvedValue({
       seed: 7,
       sampled: 1,
       ok: 1,
-      mal: 0,
-      dudosa: 0,
+      wrong: 0,
+      unsure: 0,
       accuracy: 1,
       items: [
         {
@@ -120,7 +120,7 @@ describe("ReviewPanel", () => {
           attracted_count: 0,
           low_confidence: false,
           verdict: "ok",
-          note: "bien",
+          note: "good",
         },
       ],
     });
@@ -128,21 +128,21 @@ describe("ReviewPanel", () => {
     renderWith(<ReviewPanel jobId="j1" />);
 
     await waitFor(() => expect(api.reviewSample).toHaveBeenCalledWith("j1", 1, 7));
-    expect(await screen.findByDisplayValue("bien")).toBeInTheDocument();
+    expect(await screen.findByDisplayValue("good")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "ok" })[0]).toHaveAttribute(
       "aria-pressed",
       "true",
     );
   });
 
-  it("vuelve a muestrear con otra semilla", async () => {
+  it("re-samples with a different seed", async () => {
     renderWith(<ReviewPanel jobId="j1" />);
     await screen.findByText("that");
 
     const seed = screen.getByRole("spinbutton", { name: /seed/i });
     await userEvent.clear(seed);
     await userEvent.type(seed, "99");
-    await userEvent.click(screen.getByRole("button", { name: "Muestrear" }));
+    await userEvent.click(screen.getByRole("button", { name: "Sample" }));
 
     await waitFor(() => expect(api.reviewSample).toHaveBeenLastCalledWith("j1", 20, 99));
   });

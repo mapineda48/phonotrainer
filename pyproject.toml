@@ -1,7 +1,7 @@
 [project]
 name = "phonotrainer"
 version = "0.1.0"
-description = "Analizador fonético de habla nativa en inglés: fonos reales vs canónicos + fenómenos de connected speech + prosodia"
+description = "Phonetic analyzer for native English speech: real vs canonical phones + connected-speech phenomena + prosody"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "GPL-3.0-or-later"
@@ -18,7 +18,6 @@ classifiers = [
     "Intended Audience :: Education",
     "Intended Audience :: Science/Research",
     "Natural Language :: English",
-    "Natural Language :: Spanish",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
     "Topic :: Education",
@@ -58,13 +57,13 @@ Issues = "https://github.com/mapineda48/phonotrainer/issues"
 phonotrainer = "phonotrainer.cli:main"
 
 [build-system]
-requires = ["setuptools>=77"]  # PEP 639: license como expresión SPDX + license-files
+requires = ["setuptools>=77"]  # PEP 639: license as an SPDX expression + license-files
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 packages = ["phonotrainer"]
 
 [tool.pytest.ini_options]
-# Sin esto, `pytest` a secas intenta recoger los repos clonados en references/.
+# Without this, a bare `pytest` tries to collect the repos cloned into references/.
 testpaths = ["tests"]
-markers = ["slow: tests lentos (cobertura de vocabulario completo, modelos)"]
+markers = ["slow: slow tests (full vocabulary coverage, models)"]

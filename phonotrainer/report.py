@@ -1,10 +1,10 @@
-"""report.html autocontenido: transcripción coloreada por familia de fenómeno,
-tooltips canónico vs real, sparkline SVG de F0 por segmento, tabla de detalle.
+"""Self-contained report.html: transcript colored by phenomenon family,
+canonical-vs-realized tooltips, an SVG F0 sparkline per segment, detail table.
 
-Colores: 4 slots categóricos validados (all-pairs, claro/oscuro) del sistema de
-referencia; la contracción léxica se codifica sin color (subrayado punteado +
-chip con la forma reducida). La identidad nunca es solo color: leyenda, tooltip
-y tabla nombran cada fenómeno.
+Colors: 4 categorical slots validated (all-pairs, light/dark) from the
+reference system; lexical contraction is encoded without color (dotted
+underline + a chip with the reduced form). Identity is never color alone: the
+legend, the tooltip and the table all name each phenomenon.
 """
 
 from __future__ import annotations
@@ -14,64 +14,64 @@ import json
 import math
 
 FAMILY_OF = {
-    "vowel_reduction": "red",  # reducción
-    "monophthongization": "red",
-    "elision_syllable": "red",
-    "flapping": "td",          # procesos de t/d
+    "vowel_reduction": "reduction",
+    "monophthongization": "reduction",
+    "elision_syllable": "reduction",
+    "flapping": "td",          # t/d processes
     "t_deletion": "td",
     "glottalization": "td",
-    "th_stopping": "asim",     # asimilación
-    "palatalization": "asim",
-    "linking": "fron",         # frontera de palabra
-    "h_dropping": "fron",
-    # word_elision no colorea: se muestra atenuada (baja confianza)
+    "th_stopping": "assimilation",
+    "palatalization": "assimilation",
+    "linking": "boundary",
+    "h_dropping": "boundary",
+    # word_elision gets no color: it is shown dimmed (low confidence)
 }
 
 FAMILY_LABEL = {
-    "red": "Reducción",
-    "td": "Procesos de t/d",
-    "asim": "Asimilación",
-    "fron": "Frontera de palabra",
+    "reduction": "Reduction",
+    "td": "t/d processes",
+    "assimilation": "Assimilation",
+    "boundary": "Word boundary",
 }
 
 FAMILY_MEMBERS = {
-    "red": ["vowel_reduction", "monophthongization", "elision_syllable"],
+    "reduction": ["vowel_reduction", "monophthongization", "elision_syllable"],
     "td": ["flapping", "t_deletion", "glottalization"],
-    "asim": ["th_stopping", "palatalization"],
-    "fron": ["linking", "h_dropping"],
+    "assimilation": ["th_stopping", "palatalization"],
+    "boundary": ["linking", "h_dropping"],
 }
 
 PHENOMENON_LABEL = {
-    "vowel_reduction": "reducción vocálica",
-    "monophthongization": "monoptongación",
-    "elision_syllable": "sílaba elidida",
-    "word_elision": "palabra elidida",
+    "vowel_reduction": "vowel reduction",
+    "monophthongization": "monophthongization",
+    "elision_syllable": "elided syllable",
+    "word_elision": "elided word",
     "flapping": "flapping",
-    "t_deletion": "t/d elidida",
-    "glottalization": "glotalización",
+    "t_deletion": "t/d deletion",
+    "glottalization": "glottalization",
     "th_stopping": "th-stopping",
-    "palatalization": "palatalización",
+    "palatalization": "palatalization",
     "linking": "linking",
-    "h_dropping": "h muda",
-    "contraction_lex": "contracción léxica",
+    "h_dropping": "h-dropping",
+    "contraction_lex": "lexical contraction",
 }
 
-# Qué es cada fenómeno, en una frase y con el ejemplo canónico de la tabla de
-# reglas (task.md, fase 5). La interfaz los muestra junto a cada etiqueta: sin
-# esto, «glotalización» no le dice nada a quien está aprendiendo.
+# What each phenomenon is, in one sentence and with the canonical example from
+# the rules table (task.md, phase 5). The interface shows them next to every
+# label: without this, "glottalization" means nothing to someone who is learning.
 PHENOMENON_DESCRIPTION = {
-    "vowel_reduction": "Una vocal plena se reduce a schwa en sílaba átona. does → dəz",
-    "monophthongization": "Un diptongo se realiza como vocal simple. my → ma",
-    "elision_syllable": "Se pierde una sílaba entera. probably → prɒbli",
-    "word_elision": "La palabra no deja rastro acústico: el habla rápida se la come.",
-    "flapping": "/t/ o /d/ entre vocales suenan como una erre suave. water → wɔɾɚ",
-    "t_deletion": "La /t/ o /d/ final no llega a pronunciarse. that → ðæ",
-    "glottalization": "La /t/ se cierra en golpe de glotis. button → bʌʔn̩",
-    "th_stopping": "θ y ð se pronuncian como oclusivas t/d. that → dat",
-    "palatalization": "t+j y d+j se funden en tʃ/dʒ al final de palabra. got you → gotcha",
-    "linking": "La consonante final se enlaza con la vocal siguiente. does it → dʌ‿zɪt",
-    "h_dropping": "La h átona desaparece. tell him → tell im",
-    "contraction_lex": "Forma reducida lexicalizada. want to → wanna",
+    "vowel_reduction": "A full vowel reduces to schwa in an unstressed syllable. does → dəz",
+    "monophthongization": "A diphthong is realized as a plain vowel. my → ma",
+    "elision_syllable": "A whole syllable is lost. probably → prɒbli",
+    "word_elision": "The word leaves no acoustic trace: fast speech swallows it.",
+    "flapping": "/t/ or /d/ between vowels sounds like a soft r. water → wɔɾɚ",
+    "t_deletion": "The final /t/ or /d/ never gets pronounced. that → ðæ",
+    "glottalization": "/t/ closes into a glottal stop. button → bʌʔn̩",
+    "th_stopping": "θ and ð are pronounced as the stops t/d. that → dat",
+    "palatalization": "t+j and d+j merge into tʃ/dʒ at the end of a word. got you → gotcha",
+    "linking": "The final consonant links onto the following vowel. does it → dʌ‿zɪt",
+    "h_dropping": "The unstressed h disappears. tell him → tell im",
+    "contraction_lex": "A lexicalized reduced form. want to → wanna",
 }
 
 _CSS = """
@@ -85,20 +85,22 @@ body {
   --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink-2: #52514e;
   --ink-muted: #898781; --grid: #e1e0d9; --baseline: #c3c2b7;
   --border: rgba(11,11,11,0.10);
-  --fam-red: #2a78d6; --fam-td: #008300; --fam-asim: #e87ba4; --fam-fron: #eda100;
+  --fam-reduction: #2a78d6; --fam-td: #008300;
+  --fam-assimilation: #e87ba4; --fam-boundary: #eda100;
   --f0: #4a3aa7;
-  --tint-red: rgba(42,120,214,.13); --tint-td: rgba(0,131,0,.12);
-  --tint-asim: rgba(232,123,164,.16); --tint-fron: rgba(237,161,0,.15);
+  --tint-reduction: rgba(42,120,214,.13); --tint-td: rgba(0,131,0,.12);
+  --tint-assimilation: rgba(232,123,164,.16); --tint-boundary: rgba(237,161,0,.15);
 }
 @media (prefers-color-scheme: dark) {
   .viz-root {
     --page: #0d0d0d; --surface: #1a1a19; --ink: #ffffff; --ink-2: #c3c2b7;
     --ink-muted: #898781; --grid: #2c2c2a; --baseline: #383835;
     --border: rgba(255,255,255,0.10);
-    --fam-red: #3987e5; --fam-td: #008300; --fam-asim: #d55181; --fam-fron: #c98500;
+    --fam-reduction: #3987e5; --fam-td: #008300;
+    --fam-assimilation: #d55181; --fam-boundary: #c98500;
     --f0: #9085e9;
-    --tint-red: rgba(57,135,229,.22); --tint-td: rgba(0,131,0,.22);
-    --tint-asim: rgba(213,81,129,.22); --tint-fron: rgba(201,133,0,.22);
+    --tint-reduction: rgba(57,135,229,.22); --tint-td: rgba(0,131,0,.22);
+    --tint-assimilation: rgba(213,81,129,.22); --tint-boundary: rgba(201,133,0,.22);
   }
 }
 h1 { font-size: 22px; margin: 0 0 2px; }
@@ -209,7 +211,7 @@ def _sparkline(track: list[list[float]], t0: float, t1: float,
     lx, ly = xy[-1][0], xy[-1][1]
     return f"""<div class="sparkwrap">
 <svg class="spark" width="{width}" height="{height}" data-pts='{_esc(data)}' role="img"
-     aria-label="Contorno de F0 del segmento, {lo:.0f} a {hi:.0f} Hz">
+     aria-label="F0 contour of the segment, {lo:.0f} to {hi:.0f} Hz">
   <line class="axis" x1="{lab}" y1="{height - 6}" x2="{width - pad}" y2="{height - 6}"/>
   <line class="cross" x1="0" x2="0" y1="{pad}" y2="{height - 6}"/>
   <text x="{lab - 4}" y="{pad + 8}" text-anchor="end">{hi:.0f}</text>
@@ -221,7 +223,7 @@ def _sparkline(track: list[list[float]], t0: float, t1: float,
 </div>"""
 
 
-_ARROW = {"rising": "↗ ascendente", "falling": "↘ descendente", "flat": "→ plano"}
+_ARROW = {"rising": "↗ rising", "falling": "↘ falling", "flat": "→ flat"}
 
 
 def _word_html(w: dict, emphasized: bool) -> str:
@@ -241,29 +243,29 @@ def _word_html(w: dict, emphasized: bool) -> str:
         classes.append("lowconf")
 
     tip_rows = [
-        f'<span class="lbl">dicc.</span> <span class="ipa">/{_esc(w["dict_ipa"])}/</span>',
-        f'<span class="lbl">canónico</span> <span class="ipa">[{_esc(w["canonical_ipa"])}]</span>',
-        f'<span class="lbl">real</span> <span class="ipa">[{_esc(w["realized_ipa"] or "∅")}]</span>',
+        f'<span class="lbl">dict.</span> <span class="ipa">/{_esc(w["dict_ipa"])}/</span>',
+        f'<span class="lbl">canonical</span> <span class="ipa">[{_esc(w["canonical_ipa"])}]</span>',
+        f'<span class="lbl">realized</span> <span class="ipa">[{_esc(w["realized_ipa"] or "∅")}]</span>',
     ]
     if w.get("realized_raw_ipa"):
         tip_rows.append(
-            f'<span class="lbl">real (crudo)</span> <span class="ipa">[{_esc(w["realized_raw_ipa"])}]</span>'
+            f'<span class="lbl">realized (raw)</span> <span class="ipa">[{_esc(w["realized_raw_ipa"])}]</span>'
         )
     if w.get("attracted_count"):
         tip_rows.append(
-            f'<span class="lbl">{w["attracted_count"]} fono(s) atraído(s) al canónico</span>'
+            f'<span class="lbl">{w["attracted_count"]} phone(s) attracted to the canonical form</span>'
         )
     if w.get("low_confidence"):
-        tip_rows.append('<span class="lbl">baja confianza (posible silencio/risas)</span>')
+        tip_rows.append('<span class="lbl">low confidence (possibly silence/laughter)</span>')
     if w["phenomena"]:
         names = ", ".join(PHENOMENON_LABEL.get(p, p) for p in w["phenomena"])
-        tip_rows.append(f'<span class="lbl">fenómenos</span> {_esc(names)}')
+        tip_rows.append(f'<span class="lbl">phenomena</span> {_esc(names)}')
     if w.get("lexical_form"):
-        tip_rows.append(f'<span class="lbl">forma reducida</span> “{_esc(w["lexical_form"])}”')
+        tip_rows.append(f'<span class="lbl">reduced form</span> “{_esc(w["lexical_form"])}”')
     if emphasized:
-        tip_rows.append('<span class="lbl">énfasis del segmento</span>')
+        tip_rows.append('<span class="lbl">emphasized word of the segment</span>')
     if w.get("oov"):
-        tip_rows.append('<span class="lbl">fuera de diccionario (g2p)</span>')
+        tip_rows.append('<span class="lbl">out of dictionary (g2p)</span>')
     tip = f'<span class="tip">{"<br>".join(tip_rows)}</span>'
 
     chip = f'<span class="chip">{_esc(w["lexical_form"])}</span>' if w.get("lexical_form") else ""
@@ -279,7 +281,7 @@ def _segment_html(seg: dict) -> str:
     f0 = seg["f0_stats"]
     stats = "F0 —"
     if f0["mean"] is not None:
-        stats = (f"F0 media {f0['mean']:.0f} Hz · rango {f0['range']:.0f} Hz · "
+        stats = (f"mean F0 {f0['mean']:.0f} Hz · range {f0['range']:.0f} Hz · "
                  f"{_ARROW.get(f0['final_contour'], f0['final_contour'])}")
     words_html = "".join(
         _word_html(w, emphasized=(i == seg["emphasis_word_idx"]))
@@ -301,9 +303,9 @@ def _segment_html(seg: dict) -> str:
             f"<td>{_esc(phen)}</td></tr>"
         )
     table = (
-        '<details><summary>Detalle por palabra</summary><table>'
-        "<tr><th>t (s)</th><th>palabra</th><th>diccionario</th>"
-        "<th>canónico alineado</th><th>real</th><th>fenómenos</th></tr>"
+        '<details><summary>Word-by-word detail</summary><table>'
+        "<tr><th>t (s)</th><th>word</th><th>dictionary</th>"
+        "<th>aligned canonical</th><th>realized</th><th>phenomena</th></tr>"
         + "".join(rows) + "</table></details>"
     )
     return f"""<div class="card">
@@ -320,7 +322,7 @@ def _segment_html(seg: dict) -> str:
 def _summary_html(analysis: dict) -> str:
     counts = analysis["summary"]["phenomena_counts"]
     if not counts:
-        return '<div class="card">Sin fenómenos detectados.</div>'
+        return '<div class="card">No phenomena detected.</div>'
     mx = max(counts.values())
     rows = []
     for name, n in sorted(counts.items(), key=lambda kv: -kv[1]):
@@ -332,7 +334,7 @@ def _summary_html(analysis: dict) -> str:
             f'<div><div class="sumbar" style="width:{width}%;background:{color}"></div></div>'
             f'<span class="n">{n}</span></div>'
         )
-    return f'<div class="card"><strong>Fenómenos detectados</strong>{"".join(rows)}</div>'
+    return f'<div class="card"><strong>Phenomena detected</strong>{"".join(rows)}</div>'
 
 
 def _legend_html() -> str:
@@ -343,9 +345,9 @@ def _legend_html() -> str:
             f'<div class="item"><span class="dot" style="background:var(--fam-{fam})"></span>'
             f"<span>{_esc(label)} <span class='members'>({_esc(members)})</span></span></div>"
         )
-    items.append('<div class="item"><span class="marks">⋯ subrayado punteado = contracción léxica'
-                 " (“wanna”) · ‿ = linking · negrita = palabra enfatizada · "
-                 "atenuada = palabra elidida / baja confianza</span></div>")
+    items.append('<div class="item"><span class="marks">⋯ dotted underline = lexical contraction'
+                 " (“wanna”) · ‿ = linking · bold = emphasized word · "
+                 "dimmed = elided word / low confidence</span></div>")
     return f'<div class="card"><div class="legend">{"".join(items)}</div></div>'
 
 
@@ -353,7 +355,7 @@ def render_html(analysis: dict) -> str:
     meta = analysis["meta"]
     segments = "".join(_segment_html(s) for s in analysis["segments"])
     return f"""<!doctype html>
-<html lang="es">
+<html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PhonoTrainer — {_esc(meta["source"])}</title>
@@ -362,7 +364,7 @@ def render_html(analysis: dict) -> str:
 <div class="wrap">
   <h1>PhonoTrainer</h1>
   <div class="meta">
-    {_esc(meta["source"])} · {meta["duration"]:.1f} s · idioma: {_esc(meta["language"])}
+    {_esc(meta["source"])} · {meta["duration"]:.1f} s · language: {_esc(meta["language"])}
     · {_esc(meta["models"]["asr"])} + {_esc(meta["models"]["phones"])}
     · v{_esc(meta["phonotrainer_version"])}
   </div>

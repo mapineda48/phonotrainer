@@ -1,15 +1,15 @@
-/** Lista de análisis: estado en vivo, progreso y selección. */
+/** Analysis list: live status, progress and selection. */
 
 import { api } from "../api";
 import { fmtDate, fmtDuration } from "../lib/format";
 import type { Job } from "../types";
 
 const STATUS_LABEL: Record<Job["status"], string> = {
-  queued: "en cola",
-  running: "analizando",
-  done: "listo",
+  queued: "queued",
+  running: "analyzing",
+  done: "ready",
   error: "error",
-  cancelled: "cancelado",
+  cancelled: "cancelled",
 };
 
 interface Props {
@@ -25,8 +25,10 @@ interface Props {
 export function Sidebar({ jobs, selectedId, onSelect, onNew, onCorpus, corpusOpen,
                           onChanged }: Props) {
   const remove = async (job: Job) => {
-    const what = job.imported ? "quitar de la lista" : "borrar los resultados de";
-    if (!window.confirm(`¿Seguro que quieres ${what} “${job.source}”?`)) return;
+    const what = job.imported
+      ? `remove “${job.source}” from the list`
+      : `delete the results of “${job.source}”`;
+    if (!window.confirm(`Are you sure you want to ${what}?`)) return;
     await api.deleteJob(job.id);
     onChanged();
   };
@@ -36,7 +38,7 @@ export function Sidebar({ jobs, selectedId, onSelect, onNew, onCorpus, corpusOpe
       <div className="sidebar__head">
         <h1 className="sidebar__title">PhonoTrainer</h1>
         <button type="button" className="btn btn--primary btn--sm" onClick={onNew}>
-          + Analizar
+          + Analyze
         </button>
       </div>
 
@@ -49,7 +51,7 @@ export function Sidebar({ jobs, selectedId, onSelect, onNew, onCorpus, corpusOpe
         >
           <span className="job__name">Corpus</span>
           <span className="job__meta">
-            <span>todo lo analizado, junto</span>
+            <span>everything analyzed, together</span>
           </span>
         </button>
       </div>
@@ -57,7 +59,7 @@ export function Sidebar({ jobs, selectedId, onSelect, onNew, onCorpus, corpusOpe
       <div className="sidebar__list">
         {jobs.length === 0 && (
           <p className="muted tiny" style={{ padding: "8px 10px" }}>
-            Todavía no hay análisis. Empieza por “+ Analizar”.
+            No analyses yet. Start with “+ Analyze”.
           </p>
         )}
         {jobs.map((job) => (
@@ -98,8 +100,8 @@ export function Sidebar({ jobs, selectedId, onSelect, onNew, onCorpus, corpusOpe
               type="button"
               className="btn btn--ghost btn--sm"
               style={{ position: "absolute", top: 6, right: 4 }}
-              aria-label={`Borrar ${job.source}`}
-              title="Borrar"
+              aria-label={`Delete ${job.source}`}
+              title="Delete"
               onClick={() => void remove(job)}
             >
               ✕

@@ -1,9 +1,9 @@
-/** El corpus: todo lo analizado, junto.
+/** The corpus: everything analyzed so far, together.
  *
- *  Un `analysis.json` contesta «qué pasa en este vídeo». Esta vista contesta lo
- *  que un análisis suelto no puede: cuántos flapping llevas oídos, en cuántos
- *  vídeos, y cómo se ha pronunciado realmente una palabra a lo largo de todos.
- *  Cada aparición abre su análisis en esa palabra exacta.
+ *  An `analysis.json` answers "what happens in this video". This view answers
+ *  what a single analysis cannot: how many flaps you have heard, across how
+ *  many videos, and how a word has actually been pronounced across all of them.
+ *  Every occurrence opens its analysis on that exact word.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -19,9 +19,9 @@ export interface CorpusFilters {
 }
 
 interface Props {
-  /** Abrir la aparición en su análisis, en esa palabra. */
+  /** Open the occurrence in its analysis, on that word. */
   onOpen: (jobId: string, selection: { segment: number; index: number }) => void;
-  /** Filtros conservados al ir y volver del análisis. */
+  /** Filters preserved across a round trip into an analysis and back. */
   filters: CorpusFilters;
   onFilters: (filters: CorpusFilters) => void;
 }
@@ -38,14 +38,14 @@ export function CorpusView({ onOpen, filters, onFilters }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showAnalyses, setShowAnalyses] = useState(false);
-  /** Descarta respuestas de peticiones ya superadas. */
+  /** Discards responses from requests that have already been superseded. */
   const request = useRef(0);
 
   useEffect(() => {
     Promise.all([api.corpusStats(), api.corpusAnalyses()])
-      .then(([resumen, lista]) => {
-        setStats(resumen);
-        setAnalyses(lista.items);
+      .then(([summary, list]) => {
+        setStats(summary);
+        setAnalyses(list.items);
       })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : String(err)));
   }, []);
@@ -56,14 +56,14 @@ export function CorpusView({ onOpen, filters, onFilters }: Props) {
     setError(null);
     try {
       const query = { phenomenon: phenomenon ?? undefined, word: word || undefined };
-      const [occurrences, variantes] = await Promise.all([
+      const [occurrences, wordVariants] = await Promise.all([
         api.corpusOccurrences({ ...query, limit: 200 }),
         word ? api.corpusVariants(word) : Promise.resolve(null),
       ]);
-      if (token !== request.current) return;      // llegó tarde: manda la última
+      if (token !== request.current) return;      // arrived late: the newest wins
       setItems(occurrences.items);
       setTotal(occurrences.total);
-      setVariants(variantes ? variantes.variants : null);
+      setVariants(wordVariants ? wordVariants.variants : null);
       setVariantFilter(null);
     } catch (err) {
       if (token === request.current) {
@@ -85,49 +85,49 @@ export function CorpusView({ onOpen, filters, onFilters }: Props) {
       </div>
     );
   }
-  if (!stats) return <div className="empty">Cargando el corpus…</div>;
+  if (!stats) return <div className="empty">Loading the corpus…</div>;
 
   if (stats.analyses === 0) {
     return (
       <div className="empty">
-        <p>El corpus está vacío.</p>
+        <p>The corpus is empty.</p>
         <p className="tiny muted">
-          Cada análisis que termines se añade aquí y podrás compararlos entre sí.
+          Every analysis you finish is added here, and you will be able to compare them.
         </p>
       </div>
     );
   }
 
-  const visibles = variantFilter
+  const visibleItems = variantFilter
     ? items.filter((item) => (item.realized_ipa || "") === variantFilter)
     : items;
-  const duplicados = analyses.some((entry) => entry.duplicate_source);
+  const hasDuplicates = analyses.some((entry) => entry.duplicate_source);
 
   return (
     <div className="scroll" style={{ padding: "20px 24px 60px" }}>
       <h2 style={{ margin: "0 0 2px", fontSize: 19 }}>Corpus</h2>
       <p className="muted tiny" style={{ marginTop: 0 }}>
-        {stats.analyses} análisis de {stats.materials}{" "}
-        {stats.materials === 1 ? "grabación" : "grabaciones"} · {stats.words} palabras ·{" "}
-        {fmtDuration(stats.duration)} de habla ·{" "}
+        {stats.analyses} {stats.analyses === 1 ? "analysis" : "analyses"} of {stats.materials}{" "}
+        {stats.materials === 1 ? "recording" : "recordings"} · {stats.words} words ·{" "}
+        {fmtDuration(stats.duration)} of speech ·{" "}
         <button
           type="button"
           className="btn btn--ghost btn--sm"
           aria-expanded={showAnalyses}
           onClick={() => setShowAnalyses((value) => !value)}
         >
-          {showAnalyses ? "ocultar" : "ver de qué se compone"}
+          {showAnalyses ? "hide" : "see what it is made of"}
         </button>
       </p>
       <p className="tiny muted" style={{ margin: "0 0 6px" }}>
-        Índice derivado de tus análisis (<code>data/phonotrainer.db</code>): se puede borrar y se
-        reconstruye solo.
-        {duplicados && (
+        Index derived from your analyses (<code>data/phonotrainer.db</code>): you can delete it
+        and it rebuilds itself.
+        {hasDuplicates && (
           <>
             {" "}
-            <strong>Ojo:</strong> hay una misma grabación analizada más de una vez (p. ej. con y
-            sin atracción, o un recorte suyo); esas apariciones y los recuentos de arriba la
-            cuentan más de una vez.
+            <strong>Careful:</strong> the same recording has been analyzed more than once (e.g.
+            with and without attraction, or a clip of it); those occurrences and the counts above
+            each count it more than once.
           </>
         )}
       </p>
@@ -140,10 +140,10 @@ export function CorpusView({ onOpen, filters, onFilters }: Props) {
                 <tr key={entry.id}>
                   <td>{entry.source}</td>
                   <td className="num muted">{fmtDuration(entry.duration)}</td>
-                  <td className="num muted">{entry.words} palabras</td>
+                  <td className="num muted">{entry.words} words</td>
                   <td className="tiny muted">
-                    {entry.attraction ? "" : "sin atracción · "}
-                    {entry.duplicate_source ? "material repetido" : ""}
+                    {entry.attraction ? "" : "no attraction · "}
+                    {entry.duplicate_source ? "repeated material" : ""}
                   </td>
                 </tr>
               ))}
@@ -153,7 +153,7 @@ export function CorpusView({ onOpen, filters, onFilters }: Props) {
       )}
 
       <div className="card">
-        <strong className="tiny">Fenómenos en todo el corpus</strong>
+        <strong className="tiny">Phenomena across the whole corpus</strong>
         <div className="bars" style={{ marginTop: 8 }}>
           {stats.phenomena.map((row) => {
             const family = reference.family_of[row.phenomenon];
@@ -183,7 +183,10 @@ export function CorpusView({ onOpen, filters, onFilters }: Props) {
                 />
                 <span className="bars__n">
                   {row.count}
-                  <span className="muted"> · {row.analyses} an.</span>
+                  <span className="muted">
+                    {" · "}
+                    {row.analyses} {row.analyses === 1 ? "analysis" : "analyses"}
+                  </span>
                 </span>
               </button>
             );
@@ -203,13 +206,13 @@ export function CorpusView({ onOpen, filters, onFilters }: Props) {
             type="search"
             className="input"
             style={{ flex: 1, minWidth: 160 }}
-            aria-label="Buscar una palabra en todo el corpus"
-            placeholder="¿Cómo se ha pronunciado…? (una palabra: to, that…)"
+            aria-label="Search for a word across the whole corpus"
+            placeholder="How has it been pronounced…? (a single word: to, that…)"
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
           />
           <button type="submit" className="btn" disabled={busy}>
-            Buscar
+            Search
           </button>
           {(filters.word || filters.phenomenon) && (
             <button
@@ -220,14 +223,14 @@ export function CorpusView({ onOpen, filters, onFilters }: Props) {
                 onFilters({ phenomenon: null, word: "" });
               }}
             >
-              Limpiar
+              Clear
             </button>
           )}
         </form>
 
         {!filters.word && stats.top_words.length > 0 && (
           <div className="chips" style={{ marginTop: 10 }}>
-            <span className="tiny muted">Las que más fenómenos acumulan:</span>
+            <span className="tiny muted">The ones accumulating the most phenomena:</span>
             {stats.top_words.slice(0, 10).map((entry) => (
               <button
                 key={entry.word}
@@ -238,7 +241,7 @@ export function CorpusView({ onOpen, filters, onFilters }: Props) {
                   onFilters({ ...filters, word: entry.word });
                 }}
               >
-                {entry.word} <span className="muted">· {entry.count} fenómenos</span>
+                {entry.word} <span className="muted">· {entry.count} phenomena</span>
               </button>
             ))}
           </div>
@@ -247,15 +250,15 @@ export function CorpusView({ onOpen, filters, onFilters }: Props) {
         {variants && variants.length > 0 && (
           <table className="detail" style={{ marginTop: 10 }}>
             <caption className="tiny muted" style={{ captionSide: "top", textAlign: "left" }}>
-              Formas realmente pronunciadas de «{filters.word}»
-              {variants[0].dict_ipa && <> · diccionario /{variants[0].dict_ipa}/</>}
-              {" — pulsa una para quedarte solo con esas apariciones"}
+              Forms actually pronounced for “{filters.word}”
+              {variants[0].dict_ipa && <> · dictionary /{variants[0].dict_ipa}/</>}
+              {" — click one to keep only those occurrences"}
             </caption>
             <tbody>
               {variants.map((variant) => {
                 const key = variant.realized_ipa || "";
                 const on = variantFilter === key;
-                const alternar = () => setVariantFilter(on ? null : key);
+                const toggle = () => setVariantFilter(on ? null : key);
                 return (
                   <tr
                     key={key || "∅"}
@@ -263,27 +266,27 @@ export function CorpusView({ onOpen, filters, onFilters }: Props) {
                     role="button"
                     tabIndex={0}
                     aria-pressed={on}
-                    aria-label={`quedarse solo con las pronunciadas ${
-                      variant.realized_ipa || "sin fonos"}, ${variant.count} ${
-                      variant.count === 1 ? "vez" : "veces"}`}
+                    aria-label={`keep only the ones pronounced ${
+                      variant.realized_ipa || "with no phones"}, ${variant.count} ${
+                      variant.count === 1 ? "time" : "times"}`}
                     style={on ? { fontWeight: 600 } : undefined}
-                    onClick={alternar}
+                    onClick={toggle}
                     onKeyDown={(event) => {
                       if (event.key === "Enter" || event.key === " ") {
                         event.preventDefault();
-                        alternar();
+                        toggle();
                       }
                     }}
                   >
                     <td className="ipa">
                       {variant.realized_ipa ? `[${variant.realized_ipa}]`
-                                            : <span className="muted">(sin fonos)</span>}
+                                            : <span className="muted">(no phones)</span>}
                     </td>
                     <td className="num">
-                      {variant.count} {variant.count === 1 ? "vez" : "veces"}
+                      {variant.count} {variant.count === 1 ? "time" : "times"}
                     </td>
                     <td className="num muted">
-                      en {variant.analyses} {variant.analyses === 1 ? "análisis" : "análisis"}
+                      in {variant.analyses} {variant.analyses === 1 ? "analysis" : "analyses"}
                     </td>
                   </tr>
                 );
@@ -295,42 +298,43 @@ export function CorpusView({ onOpen, filters, onFilters }: Props) {
 
       <div className="card">
         <strong className="tiny">
-          {variantFilter !== null ? visibles.length : total} apariciones
+          {variantFilter !== null ? visibleItems.length : total} occurrences
           {filters.phenomenon && (
-            <> de «{phenomenonLabel(reference, filters.phenomenon)}»</>
+            <> of “{phenomenonLabel(reference, filters.phenomenon)}”</>
           )}
-          {filters.word && <> de «{filters.word}»</>}
+          {filters.word && <> of “{filters.word}”</>}
           {variantFilter !== null && (
-            <> pronunciadas {variantFilter ? `[${variantFilter}]` : "sin fonos"}</>
+            <> pronounced {variantFilter ? `[${variantFilter}]` : "with no phones"}</>
           )}
         </strong>
         <p className="tiny muted" style={{ margin: "2px 0 8px" }}>
-          Ordenadas por divergencia: primero las que más se apartan del canónico; al final las que
-          duran uno o dos frames (⏱), que casi siempre son fallos de alineación. Pulsa una para
-          abrirla en su análisis.
+          Sorted by divergence: those furthest from the canonical form first, and at the end the
+          ones lasting one or two frames (⏱), which are almost always alignment failures. Click one
+          to open it in its analysis.
           {variantFilter === null && total > items.length && (
-            <> Se muestran las {items.length} primeras.</>
+            <> Showing the first {items.length}.</>
           )}
         </p>
         <p className="tiny muted" style={{ margin: "0 0 8px" }}>
-          <strong>dicc.</strong> = forma de cita · <strong>canónico</strong> = lo que esperaba el
-          alineador (espeak ya aplica procesos nativos) · <strong>real</strong> = lo reconocido.
+          <strong>dict.</strong> = citation form · <strong>canonical</strong> = what the aligner
+          expected (espeak already applies native processes) · <strong>actual</strong> = what was
+          recognized.
         </p>
         <table className="detail">
           <thead>
             <tr>
-              <th>palabra</th>
-              <th>dicc.</th>
-              <th>canónico</th>
-              <th>real</th>
+              <th>word</th>
+              <th>dict.</th>
+              <th>canonical</th>
+              <th>actual</th>
               <th>t</th>
-              <th>análisis</th>
+              <th>analysis</th>
             </tr>
           </thead>
           <tbody>
-            {visibles.map((item) => {
-              const etiqueta = `abrir «${item.word}» en ${item.analysis_source} a ${fmtTime(item.start)}`;
-              const abrir = () =>
+            {visibleItems.map((item) => {
+              const label = `open “${item.word}” in ${item.analysis_source} at ${fmtTime(item.start)}`;
+              const open = () =>
                 item.job_id && onOpen(item.job_id, { segment: item.segment, index: item.word_idx });
               return (
                 <tr
@@ -338,20 +342,21 @@ export function CorpusView({ onOpen, filters, onFilters }: Props) {
                   className="corpus__row"
                   role="button"
                   tabIndex={0}
-                  aria-label={etiqueta}
-                  title={item.job_id ? etiqueta : "análisis indexado desde la CLI: no está abierto en la interfaz"}
-                  onClick={abrir}
+                  aria-label={label}
+                  title={item.job_id ? label : "analysis indexed from the CLI: it is not open in the interface"}
+                  onClick={open}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
-                      abrir();
+                      open();
                     }
                   }}
                 >
                   <td>
                     <strong>{item.word}</strong>
-                    {/* En linking o palatalización el fenómeno ocurre ENTRE dos
-                        palabras: listar solo la primera lo descontextualiza. */}
+                    {/* With linking or palatalization the phenomenon happens
+                        BETWEEN two words: listing only the first strips the
+                        context away. */}
                     {item.next_word && item.phenomena.some((p) => BOUNDARY.has(p)) && (
                       <span className="muted">‿{item.next_word}</span>
                     )}
@@ -365,16 +370,16 @@ export function CorpusView({ onOpen, filters, onFilters }: Props) {
                   <td className="ipa muted">[{item.canonical_ipa}]</td>
                   <td className="ipa">
                     {item.realized_ipa ? `[${item.realized_ipa}]`
-                                       : <span className="muted">(sin fonos)</span>}
+                                       : <span className="muted">(no phones)</span>}
                     {(item.low_confidence || item.oov) && (
                       <span className="muted" title={item.low_confidence
-                        ? "baja confianza: puede ser silencio o ruido"
-                        : "fuera de diccionario"}> ⚠</span>
+                        ? "low confidence: this may be silence or noise"
+                        : "out of dictionary"}> ⚠</span>
                     )}
                     {item.too_short && (
                       <span className="muted" title={
-                        "dura menos de 60 ms: probablemente un fallo de alineación, "
-                        + "no un fenómeno"}> ⏱</span>
+                        "shorter than 60 ms: probably an alignment failure, "
+                        + "not a phenomenon"}> ⏱</span>
                     )}
                   </td>
                   <td className="num">{fmtTime(item.start)}</td>
@@ -382,18 +387,18 @@ export function CorpusView({ onOpen, filters, onFilters }: Props) {
                     <div className="corpus__source" title={item.analysis_source}>
                       {item.analysis_source}
                     </div>
-                    {/* Dos pasadas del mismo audio con distinta configuración no
-                        son variación nativa: hay que poder distinguirlas. */}
-                    {!item.analysis_attraction && <div className="muted">sin atracción</div>}
+                    {/* Two passes over the same audio with different settings are
+                        not native variation: they must be tellable apart. */}
+                    {!item.analysis_attraction && <div className="muted">no attraction</div>}
                   </td>
                 </tr>
               );
             })}
           </tbody>
         </table>
-        {visibles.length === 0 && !busy && (
+        {visibleItems.length === 0 && !busy && (
           <p className="muted tiny">
-            Sin apariciones para esa búsqueda. La búsqueda es por palabra suelta.
+            No occurrences for that search. Search works on a single word.
           </p>
         )}
       </div>
@@ -401,5 +406,5 @@ export function CorpusView({ onOpen, filters, onFilters }: Props) {
   );
 }
 
-/** Fenómenos que ocurren entre dos palabras. */
+/** Phenomena that occur between two words. */
 const BOUNDARY = new Set(["linking", "palatalization", "h_dropping"]);

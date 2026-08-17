@@ -1,5 +1,5 @@
-/** Los hooks leen del canal WebSocket: aquí se prueba esa conexión, no el
- *  canal en sí (eso es channel.test.ts). */
+/** The hooks read from the WebSocket channel: what is tested here is that
+ *  wiring, not the channel itself (that is channel.test.ts). */
 
 import { renderHook, waitFor } from "@testing-library/react";
 import { act } from "react";
@@ -16,17 +16,17 @@ const wrapper = (channel: JobsChannel) =>
     <JobsProvider channel={channel}>{children}</JobsProvider>
   );
 
-let canal: ReturnType<typeof fakeJobsChannel> | null = null;
+let tools: ReturnType<typeof fakeJobsChannel> | null = null;
 
 afterEach(() => {
-  canal?.channel.dispose();
-  canal = null;
+  tools?.channel.dispose();
+  tools = null;
 });
 
 describe("useJobs", () => {
-  it("empieza sin cargar y el snapshot llena la lista", async () => {
-    canal = fakeJobsChannel([job]);
-    const { result } = renderHook(() => useJobs(), { wrapper: wrapper(canal.channel) });
+  it("starts unloaded and the snapshot fills the list", async () => {
+    tools = fakeJobsChannel([job]);
+    const { result } = renderHook(() => useJobs(), { wrapper: wrapper(tools.channel) });
 
     expect(result.current.loaded).toBe(false);
     await waitFor(() => expect(result.current.loaded).toBe(true));
@@ -34,47 +34,47 @@ describe("useJobs", () => {
     expect(result.current.error).toBeNull();
   });
 
-  it("aplica los eventos que empuja el servidor", async () => {
-    canal = fakeJobsChannel([]);
-    const { result } = renderHook(() => useJobs(), { wrapper: wrapper(canal.channel) });
+  it("applies the events the server pushes", async () => {
+    tools = fakeJobsChannel([]);
+    const { result } = renderHook(() => useJobs(), { wrapper: wrapper(tools.channel) });
     await waitFor(() => expect(result.current.loaded).toBe(true));
 
-    act(() => canal!.socket.push({ type: "job", job }));
+    act(() => tools!.socket.push({ type: "job", job }));
     expect(result.current.jobs).toEqual([job]);
 
-    act(() => canal!.socket.push({ type: "deleted", id: job.id }));
+    act(() => tools!.socket.push({ type: "deleted", id: job.id }));
     expect(result.current.jobs).toEqual([]);
   });
 
-  it("si la conexión cae, lo cuenta", async () => {
-    canal = fakeJobsChannel([job]);
-    const { result } = renderHook(() => useJobs(), { wrapper: wrapper(canal.channel) });
+  it("reports it when the connection drops", async () => {
+    tools = fakeJobsChannel([job]);
+    const { result } = renderHook(() => useJobs(), { wrapper: wrapper(tools.channel) });
     await waitFor(() => expect(result.current.connected).toBe(true));
 
-    act(() => canal!.socket.onclose?.());
-    expect(result.current.error).toMatch(/reintentando/);
-    expect(result.current.jobs).toEqual([job]); // la lista no se pierde
+    act(() => tools!.socket.onclose?.());
+    expect(result.current.error).toMatch(/retrying/);
+    expect(result.current.jobs).toEqual([job]); // the list is not lost
   });
 });
 
 describe("useJob", () => {
-  it("sin id no devuelve nada", () => {
-    canal = fakeJobsChannel([job]);
-    const { result } = renderHook(() => useJob(null), { wrapper: wrapper(canal.channel) });
+  it("returns nothing without an id", () => {
+    tools = fakeJobsChannel([job]);
+    const { result } = renderHook(() => useJob(null), { wrapper: wrapper(tools.channel) });
     expect(result.current).toBeNull();
   });
 
-  it("devuelve su análisis y se actualiza solo cuando cambia ESE", async () => {
-    const otro = { ...job, id: "otro" };
-    canal = fakeJobsChannel([job, otro]);
-    const { result } = renderHook(() => useJob(job.id), { wrapper: wrapper(canal.channel) });
+  it("returns its analysis and updates only when THAT one changes", async () => {
+    const other = { ...job, id: "other" };
+    tools = fakeJobsChannel([job, other]);
+    const { result } = renderHook(() => useJob(job.id), { wrapper: wrapper(tools.channel) });
 
     await waitFor(() => expect(result.current?.id).toBe(job.id));
 
-    act(() => canal!.socket.push({ type: "job", job: { ...otro, percent: 50 } }));
-    expect(result.current).toEqual(job); // referencia intacta
+    act(() => tools!.socket.push({ type: "job", job: { ...other, percent: 50 } }));
+    expect(result.current).toEqual(job); // reference untouched
 
-    act(() => canal!.socket.push({ type: "job", job: { ...job, percent: 80 } }));
+    act(() => tools!.socket.push({ type: "job", job: { ...job, percent: 80 } }));
     expect(result.current?.percent).toBe(80);
   });
 });

@@ -1,8 +1,8 @@
-"""Prosodia con parselmouth: F0 cada 10 ms, énfasis por palabra y contorno final.
+"""Prosody with parselmouth: F0 every 10 ms, per-word emphasis and final contour.
 
-Adapta el enfoque de OpenPronounce (F0 acotada a rango de habla + interpolación de
-huecos sordos) y añade lo que le falta: stats por segmento, palabra enfatizada
-(pico F0 × intensidad) y contorno final rising/falling.
+Adapts the OpenPronounce approach (F0 clamped to the speech range + interpolation
+over unvoiced gaps) and adds what it was missing: per-segment stats, the emphasized
+word (F0 peak × intensity) and a rising/falling final contour.
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ class ProsodyExtractor:
                                   pitch_ceiling=F0_CEIL)
         self.f0_times = pitch.xs()
         f0 = pitch.selected_array["frequency"].astype(float)
-        f0[f0 == 0] = np.nan  # frames sordos
+        f0[f0 == 0] = np.nan  # unvoiced frames
         self.f0 = f0
         intensity = self.snd.to_intensity(time_step=TIME_STEP, minimum_pitch=F0_FLOOR)
         self.int_times = intensity.xs()
@@ -35,7 +35,7 @@ class ProsodyExtractor:
         return arr[mask], times[mask]
 
     def f0_track(self, t0: float, t1: float) -> list[list[float]]:
-        """[(t, f0), …] cada 10 ms con huecos sordos interpolados (para el SVG)."""
+        """[(t, f0), …] every 10 ms with unvoiced gaps interpolated (for the SVG)."""
         f0, times = self._slice(self.f0, self.f0_times, t0, t1)
         if len(f0) == 0 or np.all(np.isnan(f0)):
             return []
@@ -43,7 +43,7 @@ class ProsodyExtractor:
         interp = np.interp(times, times[voiced], f0[voiced])
         return [[round(float(t), 3), round(float(v), 1)] for t, v in zip(times, interp)]
 
-    # --- API por segmento ----------------------------------------------------
+    # --- per-segment API -----------------------------------------------------
     def segment_stats(self, t0: float, t1: float) -> dict:
         f0, _ = self._slice(self.f0, self.f0_times, t0, t1)
         voiced = f0[~np.isnan(f0)]
@@ -57,7 +57,7 @@ class ProsodyExtractor:
         }
 
     def _final_contour(self, t0: float, t1: float, tail: float = 0.35) -> str:
-        """Pendiente de F0 en el último tramo sonoro del segmento."""
+        """F0 slope over the last voiced stretch of the segment."""
         f0, times = self._slice(self.f0, self.f0_times, t0, t1)
         voiced = ~np.isnan(f0)
         if voiced.sum() < 5:
@@ -75,7 +75,7 @@ class ProsodyExtractor:
         return "flat"
 
     def emphasis_word_idx(self, words: list[dict]) -> int | None:
-        """Índice de la palabra con mayor prominencia (pico F0 norm. × intensidad)."""
+        """Index of the most prominent word (normalized F0 peak × intensity)."""
         scores = []
         for w in words:
             f0, _ = self._slice(self.f0, self.f0_times, w["start"], w["end"])

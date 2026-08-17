@@ -1,6 +1,6 @@
-"""Descarga y cachea los modelos que usa PhonoTrainer.
+"""Download and cache the models PhonoTrainer uses.
 
-Uso: .venv/bin/python scripts/download_models.py
+Usage: .venv/bin/python scripts/download_models.py
 """
 
 import sys
@@ -20,14 +20,14 @@ def main() -> int:
     AutoModelForCTC.from_pretrained("facebook/wav2vec2-lv-60-espeak-cv-ft")
     print("      OK", flush=True)
 
-    print("[3/3] datos NLTK para g2p_en (cmudict + taggers)…", flush=True)
+    print("[3/3] NLTK data for g2p_en (cmudict + taggers)…", flush=True)
     import nltk
 
     for pkg in ("cmudict", "averaged_perceptron_tagger", "averaged_perceptron_tagger_eng"):
         try:
             nltk.download(pkg, quiet=True)
-        except Exception as exc:  # el tagger _eng no existe en nltk viejos
-            print(f"      aviso: {pkg}: {exc}", flush=True)
+        except Exception as exc:  # the _eng tagger does not exist in older nltk
+            print(f"      warning: {pkg}: {exc}", flush=True)
     print("      OK", flush=True)
     return 0
 

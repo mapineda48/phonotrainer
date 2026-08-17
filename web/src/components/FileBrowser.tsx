@@ -1,5 +1,5 @@
-/** Explorador de archivos del propio equipo (limitado a $HOME por el backend).
- *  Evita tener que copiar rutas a mano para analizar un episodio local. */
+/** File browser for this machine (restricted to $HOME by the backend). Saves
+ *  having to copy paths by hand to analyze a local episode. */
 
 import { useCallback, useEffect, useState } from "react";
 
@@ -8,7 +8,7 @@ import { fmtBytes } from "../lib/format";
 import type { Browse } from "../types";
 
 interface Props {
-  /** "media": elegir un video/audio · "dir": elegir un directorio con analysis.json */
+  /** "media": pick a video/audio file · "dir": pick a directory with analysis.json */
   mode: "media" | "dir";
   onPick: (path: string) => void;
 }
@@ -31,7 +31,7 @@ export function FileBrowser({ mode, onPick }: Props) {
   }, [load]);
 
   if (error) return <p className="error">{error}</p>;
-  if (!listing) return <p className="muted tiny">Cargando…</p>;
+  if (!listing) return <p className="muted tiny">Loading…</p>;
 
   return (
     <div>
@@ -59,7 +59,7 @@ export function FileBrowser({ mode, onPick }: Props) {
             </button>
             {mode === "dir" && dir.has_analysis && (
               <button type="button" className="btn btn--sm" onClick={() => onPick(dir.path)}>
-                Importar
+                Import
               </button>
             )}
           </div>
@@ -79,7 +79,7 @@ export function FileBrowser({ mode, onPick }: Props) {
           ))}
         {mode === "media" && listing.dirs.length === 0 && listing.files.length === 0 && (
           <p className="muted tiny" style={{ padding: "8px 10px" }}>
-            Aquí no hay video ni audio.
+            There is no video or audio here.
           </p>
         )}
       </div>

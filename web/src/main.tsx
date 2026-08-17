@@ -6,7 +6,7 @@ import { JobsProvider } from "./jobs/JobsProvider";
 import "./styles.css";
 
 const root = document.getElementById("root");
-if (!root) throw new Error("falta #root en index.html");
+if (!root) throw new Error("#root is missing from index.html");
 
 createRoot(root).render(
   <StrictMode>

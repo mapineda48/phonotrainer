@@ -1,5 +1,5 @@
-/** El reproductor es la pieza más delicada del frontend: aquí se ejerce de
- *  verdad (los tests de componentes usan un doble). */
+/** The player is the most delicate piece of the frontend: here it is exercised
+ *  for real (the component tests use a double). */
 
 import { render, screen } from "@testing-library/react";
 import { act } from "react";
@@ -29,8 +29,8 @@ function mount(src: string | null = "/api/jobs/x/audio") {
     </PlayerProvider>,
   );
   const audio = screen.getByTestId("player-audio") as HTMLAudioElement;
-  // jsdom no implementa la reproducción: aquí va un <audio> de mentira que sí
-  // mantiene currentTime/paused y emite los eventos, que es de lo que vive el hook.
+  // jsdom does not implement playback: here goes a fake <audio> that does keep
+  // currentTime/paused and emits the events, which is what the hook lives on.
   let time = 0;
   let paused = true;
   Object.defineProperty(audio, "currentTime", {
@@ -62,7 +62,7 @@ beforeEach(() => {
 });
 
 describe("PlayerProvider", () => {
-  it("reproducir un fragmento salta a su inicio", () => {
+  it("playing a span jumps to its start", () => {
     const { audio, play } = mount();
     act(() => api.play({ start: 1.5, end: 2 }));
 
@@ -71,7 +71,7 @@ describe("PlayerProvider", () => {
     expect(api.span).toEqual({ start: 1.5, end: 2 });
   });
 
-  it("para al llegar al final del fragmento", () => {
+  it("stops on reaching the end of the span", () => {
     const { pause, setTime } = mount();
     act(() => api.play({ start: 1, end: 2 }));
 
@@ -85,7 +85,7 @@ describe("PlayerProvider", () => {
     expect(pause).toHaveBeenCalled();
   });
 
-  it("en bucle vuelve al principio del fragmento en vez de parar", () => {
+  it("in loop mode it returns to the span start instead of stopping", () => {
     const { audio, pause, setTime } = mount();
     act(() => api.setLoop(true));
     act(() => api.play({ start: 1, end: 2 }));
@@ -98,7 +98,7 @@ describe("PlayerProvider", () => {
     expect(api.clock.getSnapshot()).toBe(1);
   });
 
-  it("publica el tiempo en el reloj mientras suena", () => {
+  it("publishes the time on the clock while sounding", () => {
     const { setTime } = mount();
     act(() => api.play(null));
 
@@ -110,14 +110,14 @@ describe("PlayerProvider", () => {
     expect(api.clock.getSnapshot()).toBe(0.7);
   });
 
-  it("la velocidad se aplica al elemento de audio", () => {
+  it("the rate is applied to the audio element", () => {
     const { audio } = mount();
     act(() => api.setRate(0.5));
     expect(audio.playbackRate).toBe(0.5);
     expect(api.rate).toBe(0.5);
   });
 
-  it("al montar no rebobina: quien entra pidiendo una palabra debe oírla", () => {
+  it("does not rewind on mount: whoever arrives asking for a word must hear it", () => {
     const { audio } = mount();
     act(() => api.play({ start: 1.98, end: 2.2 }));
 
@@ -126,14 +126,14 @@ describe("PlayerProvider", () => {
     expect(api.span).toEqual({ start: 1.98, end: 2.2 });
   });
 
-  it("cambiar de análisis rebobina y suelta el fragmento", () => {
+  it("switching analyses rewinds and releases the span", () => {
     const { audio, view, setTime } = mount();
     act(() => api.play({ start: 1, end: 2 }));
     setTime(1.5);
     tick();
 
     view.rerender(
-      <PlayerProvider src="/api/jobs/otro/audio">
+      <PlayerProvider src="/api/jobs/other/audio">
         <Probe />
       </PlayerProvider>,
     );
@@ -143,15 +143,15 @@ describe("PlayerProvider", () => {
     expect(audio.currentTime).toBe(0);
   });
 
-  it("toggle sobre el mismo fragmento pausa; sobre otro salta", () => {
+  it("toggle on the same span pauses; on a different one it jumps", () => {
     const { play, pause } = mount();
     act(() => api.play({ start: 1, end: 2 }));
     play.mockClear();
 
-    act(() => api.toggle({ start: 1, end: 2 }));   // el mismo: pausa
+    act(() => api.toggle({ start: 1, end: 2 }));   // the same one: pause
     expect(pause).toHaveBeenCalled();
 
-    act(() => api.toggle({ start: 5, end: 6 }));   // otro: salta y reproduce
+    act(() => api.toggle({ start: 5, end: 6 }));   // a different one: jump and play
     expect(play).toHaveBeenCalled();
     expect(api.span).toEqual({ start: 5, end: 6 });
   });

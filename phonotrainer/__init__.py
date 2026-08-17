@@ -1,14 +1,14 @@
-"""PhonoTrainer: analizador fonético de habla nativa en inglés.
+"""PhonoTrainer: phonetic analyzer of native English speech.
 
 Copyright (C) 2026 Miguel Pineda
 
-Programa libre: puedes redistribuirlo y modificarlo bajo los términos de la
-GNU General Public License publicada por la Free Software Foundation, en su
-versión 3 o (a tu elección) cualquier posterior. Se distribuye SIN GARANTÍA
-ALGUNA; ver la GNU General Public License (archivo LICENSE) para más detalle.
+Free software: you may redistribute it and/or modify it under the terms of the
+GNU General Public License as published by the Free Software Foundation, either
+version 3 or (at your option) any later version. It is distributed WITHOUT ANY
+WARRANTY; see the GNU General Public License (the LICENSE file) for details.
 
-El copyleft viene de las dependencias del camino principal —phonemizer (con
-espeak-ng) y praat-parselmouth, ambas GPL-3.0-or-later—; el detalle está en
+The copyleft comes from the dependencies on the main path —phonemizer (with
+espeak-ng) and praat-parselmouth, both GPL-3.0-or-later—; the details are in
 THIRD-PARTY-NOTICES.md.
 """
 

@@ -1,4 +1,4 @@
-"""Orquestador: media → audio → ASR → canónico(t) + real(t) → diff → prosodia → reporte."""
+"""Orchestrator: media → audio → ASR → canonical(t) + realized(t) → diff → prosody → report."""
 
 from __future__ import annotations
 
@@ -14,8 +14,8 @@ from .diff import assign_real_to_words
 from .phones_real import attract_to_canonical, build_engine
 from .prosody import ProsodyExtractor
 
-SEG_PAD = 0.15   # s de contexto acústico extra por segmento
-REAL_TRIM = 0.05  # s fuera del segmento a partir de los cuales un fono real se descarta
+SEG_PAD = 0.15   # s of extra acoustic context per segment
+REAL_TRIM = 0.05  # s outside the segment beyond which a realized phone is discarded
 
 
 def _noop(msg: str) -> None:
@@ -30,28 +30,28 @@ def analyze(media_path: str | Path, out_dir: str | Path,
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    progress("Extrayendo audio (ffmpeg → WAV 16 kHz mono)…")
+    progress("Extracting audio (ffmpeg → 16 kHz mono WAV)…")
     wav_path = extract_audio(media_path, out_dir / "audio.wav")
 
-    progress(f"Transcribiendo con faster-whisper {whisper_model}…")
+    progress(f"Transcribing with faster-whisper {whisper_model}…")
     transcript = transcribe(wav_path, model_size=whisper_model,
                             language=language, device=device)
     _dump(out_dir / "transcript.json", transcript)
 
-    progress(f"Cargando motor de fonos ({phone_engine})…")
+    progress(f"Loading phone engine ({phone_engine})…")
     engine = build_engine(phone_engine, device=device)
     samples, sr = load_wav(wav_path)
 
-    progress("Cargando prosodia (parselmouth)…")
+    progress("Loading prosody (parselmouth)…")
     pros = ProsodyExtractor(wav_path)
 
     analysis_segments = []
     canonical_dump, real_dump = [], []
-    normalized_phones = 0   # MEJORA 0: fonos crudos saneados al inventario inglés
-    attracted_phones = 0    # MEJORA 1: fonos atraídos al canónico
+    normalized_phones = 0   # IMPROVEMENT 0: raw phones mapped onto the English inventory
+    attracted_phones = 0    # IMPROVEMENT 1: phones attracted to the canonical form
     n_seg = len(transcript["segments"])
     for si, seg in enumerate(transcript["segments"]):
-        progress(f"Segmento {si + 1}/{n_seg}: fonos + alineación…")
+        progress(f"Segment {si + 1}/{n_seg}: phones + alignment…")
         i0 = max(0, int((seg["start"] - SEG_PAD) * sr))
         i1 = min(len(samples), int((seg["end"] + SEG_PAD) * sr))
         audio = samples[i0:i1]
@@ -70,7 +70,7 @@ def analyze(media_path: str | Path, out_dir: str | Path,
             1 for p in real_phones if p.get("raw_phone", p["phone"]) != p["phone"]
         )
 
-        # ventanas de palabra: span canónico forzado; si no hay, tiempos Whisper
+        # word windows: the forced canonical span; failing that, Whisper's times
         word_entries = []
         for w, cw in zip(seg["words"], canon_words):
             if cw["phones"]:
@@ -148,7 +148,7 @@ def analyze(media_path: str | Path, out_dir: str | Path,
             "models": {
                 "asr": f"faster-whisper {whisper_model} (int8)",
                 "phones": "facebook/wav2vec2-lv-60-espeak-cv-ft" if phone_engine == "wav2vec2" else phone_engine,
-                "alignment": "torchaudio forced_align sobre emisiones wav2vec2-espeak",
+                "alignment": "torchaudio forced_align over wav2vec2-espeak emissions",
             },
             "attraction": attraction,
             "phone_cleanup": {
@@ -162,12 +162,12 @@ def analyze(media_path: str | Path, out_dir: str | Path,
         },
     }
 
-    progress("Guardando salidas…")
+    progress("Saving outputs…")
     _dump(out_dir / "canonical.json", canonical_dump)
     _dump(out_dir / "phones_real.json", real_dump)
     _dump(out_dir / "analysis.json", analysis)
 
-    progress("Generando report.html…")
+    progress("Generating report.html…")
     from .report import render_html
 
     (out_dir / "report.html").write_text(render_html(analysis), encoding="utf-8")

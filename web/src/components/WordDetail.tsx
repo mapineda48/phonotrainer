@@ -1,5 +1,5 @@
-/** Panel de detalle de una palabra: qué dice el diccionario, qué esperaba el
- *  alineador y qué se pronunció de verdad, con todo reproducible. */
+/** Detail panel for a word: what the dictionary says, what the aligner
+ *  expected and what was actually pronounced, with all of it playable. */
 
 import { wordSpan } from "../lib/analysis";
 import { fmtTime } from "../lib/format";
@@ -9,13 +9,14 @@ import type { Segment, Word } from "../types";
 import { F0Chart } from "./F0Chart";
 import { PhoneTimeline } from "./PhoneTimeline";
 
-/** Fenómenos que ocurren en la frontera con la palabra SIGUIENTE: solo se oyen
- *  con ella. (`h_dropping` no está: es intra-palabra, su contexto es la anterior.) */
+/** Phenomena occurring at the boundary with the FOLLOWING word: they can only
+ *  be heard together with it. (`h_dropping` is absent: it is word-internal, and
+ *  its context is the preceding word.) */
 const BOUNDARY = new Set(["linking", "palatalization"]);
 
 interface Props {
   word: Word;
-  /** La siguiente del segmento, para poder oír y ver los fenómenos de frontera. */
+  /** The next word in the segment, so boundary phenomena can be heard and seen. */
   next: Word | null;
   segment: Segment;
   segmentIndex: number;
@@ -34,11 +35,11 @@ export function WordDetail({ word, next, segment, segmentIndex, isEmphasis, canP
   const unreliable = noPhones || word.low_confidence || word.phenomena.includes("word_elision");
 
   const flags: string[] = [];
-  if (word.oov) flags.push("fuera de diccionario: pronunciación predicha por g2p");
-  if (word.alignment_fallback) flags.push("alineación aproximada (tiempos de Whisper)");
+  if (word.oov) flags.push("out of dictionary: pronunciation predicted by g2p");
+  if (word.alignment_fallback) flags.push("approximate alignment (Whisper timings)");
   if (word.attracted_count > 0)
-    flags.push(`${word.attracted_count} fono(s) atraído(s) al canónico`);
-  if (isEmphasis) flags.push("palabra enfatizada del segmento");
+    flags.push(`${word.attracted_count} phone(s) attracted to the canonical form`);
+  if (isEmphasis) flags.push("emphasized word of the segment");
 
   return (
     <div className="panel__body">
@@ -53,16 +54,16 @@ export function WordDetail({ word, next, segment, segmentIndex, isEmphasis, canP
           className="btn btn--sm"
           disabled={!canPlay}
           onClick={() => player.play(span)}
-          title="Reproducir la palabra (P)"
+          title="Play the word (P)"
         >
-          ▶ Palabra
+          ▶ Word
         </button>
         {crossesBoundary && (
           <button
             type="button"
             className="btn btn--sm"
             disabled={!canPlay}
-            title={`Oír el enlace con «${next.word}»`}
+            title={`Hear the linking with “${next.word}”`}
             onClick={() => player.play({ start: span.start, end: wordSpan(next).end })}
           >
             ▶ + {next.word}
@@ -73,67 +74,67 @@ export function WordDetail({ word, next, segment, segmentIndex, isEmphasis, canP
           className="btn btn--sm"
           disabled={!canPlay}
           onClick={() => player.play({ start: segment.start, end: segment.end })}
-          title="Reproducir la frase entera (S)"
+          title="Play the whole phrase (S)"
         >
-          ▶ Frase
+          ▶ Phrase
         </button>
       </div>
 
       {crossesBoundary && (
         <p className="tiny muted" style={{ margin: "8px 0 0" }}>
-          Fenómeno de frontera: la comparación incluye «{next.word}», porque el enlace ocurre
-          entre las dos palabras.
+          Boundary phenomenon: the comparison includes “{next.word}”, because the linking happens
+          between the two words.
         </p>
       )}
 
       {unreliable && (
         <p className="tiny dim" style={{ margin: "8px 0 0" }}>
           {noPhones
-            ? "El reconocedor no encontró ningún fono aquí: las etiquetas de abajo no son verificables (puede ser silencio, risas o música)."
-            : "Confianza baja en este tramo: interpreta las etiquetas con cautela."}
+            ? "The recognizer found no phones here: the labels below are not verifiable (this may be silence, laughter or music)."
+            : "Low confidence over this stretch: read the labels with caution."}
         </p>
       )}
 
       <PhoneTimeline word={word} next={crossesBoundary ? next : null} />
 
       <dl className="deflist" style={{ marginTop: 14 }}>
-        <dt title="Forma de cita de CMUdict">diccionario</dt>
+        <dt title="CMUdict citation form">dictionary</dt>
         <dd className="ipa">/{word.dict_ipa}/</dd>
-        <dt title="Lo que el alineador forzado esperaba (espeak-ng, ya con procesos nativos)">
-          canónico
+        <dt title="What the forced aligner expected (espeak-ng, native processes already applied)">
+          canonical
         </dt>
         <dd className="ipa">[{word.canonical_ipa}]</dd>
-        <dt title="Lo que reconoció el modelo acústico">real</dt>
+        <dt title="What the acoustic model recognized">actual</dt>
         <dd className="ipa">[{word.realized_ipa || "∅"}]</dd>
         {word.realized_raw_ipa && (
           <>
-            <dt>real (crudo)</dt>
-            <dd className="ipa" title="Salida del reconocedor antes de sanear y atraer">
+            <dt>actual (raw)</dt>
+            <dd className="ipa" title="Recognizer output before cleanup and attraction">
               [{word.realized_raw_ipa}]
             </dd>
           </>
         )}
         {word.lexical_form && (
           <>
-            <dt>forma reducida</dt>
+            <dt>reduced form</dt>
             <dd>
               “{word.lexical_form}”
               {word.lexical_expansion && <span className="muted"> ← “{word.lexical_expansion}”</span>}
             </dd>
           </>
         )}
-        <dt>divergencia</dt>
+        <dt>divergence</dt>
         <dd className="num">{word.diff_cost.toFixed(2)}</dd>
       </dl>
       <p className="tiny muted" style={{ margin: "4px 0 0" }}>
-        <strong>diccionario</strong> = forma de cita · <strong>canónico</strong> = lo esperado por
-        el alineador (espeak ya aplica procesos nativos) · <strong>real</strong> = lo reconocido.
-        Divergencia = distancia media real↔canónico por fono (0 = idénticos).
+        <strong>dictionary</strong> = citation form · <strong>canonical</strong> = what the
+        aligner expected (espeak already applies native processes) · <strong>actual</strong> = what
+        was recognized. Divergence = mean actual↔canonical distance per phone (0 = identical).
       </p>
 
       {word.phenomena.length > 0 && (
         <div style={{ marginTop: 14 }}>
-          <div className="phones__label">fenómenos</div>
+          <div className="phones__label">phenomena</div>
           <div style={unreliable ? { opacity: 0.6 } : undefined}>
             {word.phenomena.map((phenomenon) => {
               const family = reference.family_of[phenomenon];
@@ -150,8 +151,8 @@ export function WordDetail({ word, next, segment, segmentIndex, isEmphasis, canP
                     )}
                     {phenomenonLabel(reference, phenomenon)}
                   </span>
-                  {/* La definición a la vista: "glotalización" no le dice nada
-                      a quien está aprendiendo. */}
+                  {/* Definition in plain sight: "glottalization" means nothing
+                      to someone who is still learning. */}
                   {description && (
                     <div className="tiny dim" style={{ marginTop: 2 }}>
                       {description}
@@ -174,10 +175,10 @@ export function WordDetail({ word, next, segment, segmentIndex, isEmphasis, canP
 
       <div style={{ marginTop: 18 }}>
         <div className="phones__label">
-          prosodia del segmento {segmentIndex + 1} ·{" "}
+          prosody of segment {segmentIndex + 1} ·{" "}
           {segment.f0_stats.mean != null
-            ? `media ${segment.f0_stats.mean.toFixed(0)} Hz, rango ${segment.f0_stats.range?.toFixed(0)} Hz, final ${segment.f0_stats.final_contour}`
-            : "sin F0"}
+            ? `mean ${segment.f0_stats.mean.toFixed(0)} Hz, range ${segment.f0_stats.range?.toFixed(0)} Hz, final ${segment.f0_stats.final_contour}`
+            : "no F0"}
         </div>
         <F0Chart segment={segment} width={330} />
       </div>

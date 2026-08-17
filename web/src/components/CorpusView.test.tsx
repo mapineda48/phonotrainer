@@ -43,7 +43,7 @@ const analyses = [
     segments: 27, attraction: false, duplicate_source: true, indexed_at: "2026-07-26T18:01:00+00:00" },
 ];
 
-const ocurrencia = {
+const occurrence = {
   analysis_id: "/tmp/out",
   job_id: "job1",
   analysis_source: "ep1.webm",
@@ -67,8 +67,8 @@ const ocurrencia = {
   too_short: false,
 };
 
-/** La vista recibe los filtros de arriba: aquí los mantenemos como App. */
-function Anfitrion({ onOpen = vi.fn() }: { onOpen?: (id: string, s: unknown) => void }) {
+/** The view receives its filters from above: here we hold them like App does. */
+function Host({ onOpen = vi.fn() }: { onOpen?: (id: string, s: unknown) => void }) {
   const [filters, setFilters] = useState<CorpusFilters>({ phenomenon: null, word: "" });
   return <CorpusView onOpen={onOpen} filters={filters} onFilters={setFilters} />;
 }
@@ -81,7 +81,7 @@ describe("CorpusView", () => {
       phenomenon: null,
       word: null,
       total: 1,
-      items: [ocurrencia],
+      items: [occurrence],
     });
     vi.mocked(api.corpusVariants).mockResolvedValue({
       word: "to",
@@ -92,35 +92,35 @@ describe("CorpusView", () => {
     });
   });
 
-  it("resume todo el corpus, no un análisis suelto", async () => {
-    renderWith(<Anfitrion />);
+  it("summarizes the whole corpus, not a single analysis", async () => {
+    renderWith(<Host />);
 
-    expect(await screen.findByText(/3 análisis de 1 grabación/)).toBeInTheDocument();
-    expect(screen.getByText(/540 palabras/)).toBeInTheDocument();
+    expect(await screen.findByText(/3 analyses of 1 recording/)).toBeInTheDocument();
+    expect(screen.getByText(/540 words/)).toBeInTheDocument();
     const linking = screen.getByRole("button", { name: /linking/ });
     expect(within(linking).getByText(/90/)).toBeInTheDocument();
-    expect(within(linking).getByText(/3 an\./)).toBeInTheDocument();
+    expect(within(linking).getByText(/3 analyses/)).toBeInTheDocument();
   });
 
-  it("avisa de que hay material contado dos veces y deja verlo", async () => {
-    renderWith(<Anfitrion />);
-    await screen.findByText(/3 análisis de 1 grabación/);
+  it("warns that some material is counted twice and lets you see it", async () => {
+    renderWith(<Host />);
+    await screen.findByText(/3 analyses of 1 recording/);
 
-    expect(screen.getByText(/la cuentan más de una vez/)).toBeInTheDocument();
+    expect(screen.getByText(/each count it more than once/)).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: /ver de qué se compone/ }));
-    const tabla = screen.getByTestId("corpus-analyses");
-    expect(within(tabla).getAllByText("ep1.webm")).toHaveLength(2);
-    expect(within(tabla).getByText(/sin atracción/)).toBeInTheDocument();
-    expect(within(tabla).getAllByText(/material repetido/)).toHaveLength(2);
+    await userEvent.click(screen.getByRole("button", { name: /see what it is made of/ }));
+    const table = screen.getByTestId("corpus-analyses");
+    expect(within(table).getAllByText("ep1.webm")).toHaveLength(2);
+    expect(within(table).getByText(/no attraction/)).toBeInTheDocument();
+    expect(within(table).getAllByText(/repeated material/)).toHaveLength(2);
   });
 
-  it("filtrar por fenómeno mantiene la palabra buscada y la cabecera no miente", async () => {
-    renderWith(<Anfitrion />);
-    await screen.findByText(/3 análisis de 1 grabación/);
+  it("filtering by phenomenon keeps the searched word and the header stays honest", async () => {
+    renderWith(<Host />);
+    await screen.findByText(/3 analyses of 1 recording/);
 
     await userEvent.type(screen.getByRole("searchbox"), "to");
-    await userEvent.click(screen.getByRole("button", { name: "Buscar" }));
+    await userEvent.click(screen.getByRole("button", { name: "Search" }));
     await waitFor(() =>
       expect(api.corpusOccurrences).toHaveBeenLastCalledWith(
         expect.objectContaining({ word: "to" }),
@@ -135,66 +135,66 @@ describe("CorpusView", () => {
     );
   });
 
-  it("responde cómo se ha pronunciado una palabra, y cada forma filtra la lista", async () => {
-    renderWith(<Anfitrion />);
-    await screen.findByText(/3 análisis de 1 grabación/);
+  it("answers how a word has been pronounced, and each form filters the list", async () => {
+    renderWith(<Host />);
+    await screen.findByText(/3 analyses of 1 recording/);
 
     await userEvent.type(screen.getByRole("searchbox"), "to");
-    await userEvent.click(screen.getByRole("button", { name: "Buscar" }));
+    await userEvent.click(screen.getByRole("button", { name: "Search" }));
 
     expect(await screen.findByText("[tə]")).toBeInTheDocument();
-    expect(screen.getByText("9 veces")).toBeInTheDocument();
-    expect(screen.getByText("1 vez")).toBeInTheDocument();      // singular, no "1 veces"
+    expect(screen.getByText("9 times")).toBeInTheDocument();
+    expect(screen.getByText("1 time")).toBeInTheDocument();     // singular, not "1 times"
 
     await userEvent.click(screen.getByText("[tə]"));
-    expect(screen.getByText(/pronunciadas \[tə\]/)).toBeInTheDocument();
+    expect(screen.getByText(/pronounced \[tə\]/)).toBeInTheDocument();
   });
 
-  it("cada aparición abre su análisis en esa palabra, también con el teclado", async () => {
+  it("each occurrence opens its analysis on that word, by keyboard too", async () => {
     const onOpen = vi.fn();
-    renderWith(<Anfitrion onOpen={onOpen} />);
+    renderWith(<Host onOpen={onOpen} />);
 
-    const fila = await screen.findByRole("button", { name: /abrir «better»/ });
-    await userEvent.click(fila);
+    const row = await screen.findByRole("button", { name: /open “better”/ });
+    await userEvent.click(row);
     expect(onOpen).toHaveBeenCalledWith("job1", { segment: 4, index: 2 });
 
     onOpen.mockClear();
-    fila.focus();
+    row.focus();
     await userEvent.keyboard("{Enter}");
     expect(onOpen).toHaveBeenCalledWith("job1", { segment: 4, index: 2 });
   });
 
-  it("un corpus vacío lo dice en vez de mostrar tablas vacías", async () => {
+  it("says so when the corpus is empty instead of showing empty tables", async () => {
     vi.mocked(api.corpusStats).mockResolvedValue({
       ...stats, analyses: 0, sources: 0, materials: 0, words: 0, phenomena: [], top_words: [],
     });
-    renderWith(<Anfitrion />);
+    renderWith(<Host />);
 
-    expect(await screen.findByText(/El corpus está vacío/)).toBeInTheDocument();
+    expect(await screen.findByText(/The corpus is empty/)).toBeInTheDocument();
   });
 
-  it("una respuesta que llega tarde no pisa a la actual", async () => {
-    const pendiente: { resolver?: (value: never) => void } = {};
+  it("a response arriving late does not overwrite the current one", async () => {
+    const pending: { resolve?: (value: never) => void } = {};
     vi.mocked(api.corpusOccurrences)
       .mockImplementationOnce(
         () => new Promise((resolve) => {
-          pendiente.resolver = resolve as (value: never) => void;
+          pending.resolve = resolve as (value: never) => void;
         }),
       )
       .mockResolvedValue({
         phenomenon: "flapping", word: null, total: 1,
-        items: [{ ...ocurrencia, word: "water" }],
+        items: [{ ...occurrence, word: "water" }],
       });
 
-    renderWith(<Anfitrion />);
-    await screen.findByText(/3 análisis de 1 grabación/);
+    renderWith(<Host />);
+    await screen.findByText(/3 analyses of 1 recording/);
     await userEvent.click(screen.getByRole("button", { name: /flapping/ }));
     await screen.findByText("water");
 
-    pendiente.resolver?.({ phenomenon: null, word: null, total: 99,
-                           items: [ocurrencia] } as never);
+    pending.resolve?.({ phenomenon: null, word: null, total: 99,
+                        items: [occurrence] } as never);
 
     await waitFor(() => expect(screen.getByText("water")).toBeInTheDocument());
-    expect(screen.queryByText(/99 apariciones/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/99 occurrences/)).not.toBeInTheDocument();
   });
 });
