@@ -21,8 +21,18 @@ import threading
 from datetime import datetime, timezone
 from pathlib import Path
 
+from . import metrics as metrics_mod
+from .phones_real import engine_of
+
 DEFAULT_DB = Path("data/phonotrainer.db")
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
+# Upgrades that keep the data: stored version → statements that bring it to the
+# next one. Anything without an entry is rebuilt instead. Adding a column here
+# spares the corpus a rebuild, which matters for what the CLI indexed: no
+# workspace job would ever reindex that.
+_MIGRATIONS = {
+    3: ("ALTER TABLE analyses ADD COLUMN metrics TEXT",),
+}
 # Below this, a "word" is a stray CTC spike rather than something anyone could
 # hear or judge: it stays in the corpus, but it does not head the list.
 MIN_AUDIBLE = 0.06   # s
@@ -58,7 +68,10 @@ CREATE TABLE IF NOT EXISTS analyses (
     phone_model TEXT,
     segments    INTEGER NOT NULL DEFAULT 0,
     words       INTEGER NOT NULL DEFAULT 0,
-    indexed_at  TEXT NOT NULL
+    indexed_at  TEXT NOT NULL,
+    -- metrics.compute() as JSON. NULL (or an older version) is backfilled from
+    -- result_dir/analysis.json the first time corpus metrics are asked for.
+    metrics     TEXT
 );
 
 CREATE TABLE IF NOT EXISTS words (
@@ -139,6 +152,24 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
+def _load_metrics(raw: str | None) -> dict | None:
+    try:
+        return json.loads(raw) if raw else None
+    except ValueError:
+        return None
+
+
+def _dump_metrics(metrics: dict | None) -> str | None:
+    return json.dumps(metrics, ensure_ascii=False) if metrics else None
+
+
+def _current_metrics(metrics: dict | None) -> dict | None:
+    """The metrics as they are, or None if they predate the current definitions."""
+    if not metrics or metrics.get("version") != metrics_mod.METRICS_VERSION:
+        return None
+    return metrics
+
+
 class Corpus:
     """Access to the index. Thread-safe (the worker writes while the interface
     queries) by way of a lock: the volume is that of a local tool."""
@@ -162,22 +193,55 @@ class Corpus:
             self._open()
 
     def _open(self) -> None:
-        self._conn = sqlite3.connect(str(self.path), check_same_thread=False)
+        # Autocommit while we set up, so the upgrade below is ONE explicit
+        # transaction: python's sqlite3 runs DDL outside any implicit one, and
+        # `executescript` commits on its own. An upgrade split across several
+        # commits could die after the ALTER and before the version was written,
+        # and every later open then failed on `duplicate column name`.
+        self._conn = sqlite3.connect(str(self.path), check_same_thread=False,
+                                     isolation_level=None)
         self._conn.row_factory = sqlite3.Row
-        with self._lock, self._conn:
+        with self._lock:
             # WAL: the interface queries while the worker indexes, and there may
             # be more than one `phonotrainer ui` against the same database.
             self._conn.execute("PRAGMA journal_mode=WAL")
             self._conn.execute("PRAGMA busy_timeout=5000")
-            version = self._stored_version()
-            if version is not None and version != SCHEMA_VERSION:
+            # IMMEDIATE takes the write lock BEFORE the version is read: a second
+            # process opening the same corpus waits here, then finds it upgraded.
+            self._conn.execute("BEGIN IMMEDIATE")
+            try:
+                self._upgrade()
+                self._conn.execute("COMMIT")
+            except BaseException:
+                self._conn.execute("ROLLBACK")
+                raise
+        self._conn.isolation_level = ""      # back to the implicit transactions
+
+    def _upgrade(self) -> None:
+        version = self._stored_version()
+        while version is not None and version != SCHEMA_VERSION:
+            if version not in _MIGRATIONS:
                 raise sqlite3.DatabaseError(
                     f"schema version {version}, expected {SCHEMA_VERSION}")
-            self._conn.executescript(_SCHEMA)
-            self._conn.execute(
-                "INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', ?)",
-                (str(SCHEMA_VERSION),),
-            )
+            for statement in _MIGRATIONS[version]:
+                self._migrate(statement)
+            version += 1
+        for statement in _SCHEMA.split(";"):
+            if statement.strip():
+                self._conn.execute(statement)
+        self._conn.execute(
+            "INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', ?)",
+            (str(SCHEMA_VERSION),),
+        )
+
+    def _migrate(self, statement: str) -> None:
+        """Run one upgrade step, idempotently: a corpus left half-upgraded by an
+        older version of this code may already have the column."""
+        try:
+            self._conn.execute(statement)
+        except sqlite3.OperationalError as exc:
+            if "duplicate column name" not in str(exc):
+                raise
 
     def _stored_version(self) -> int | None:
         try:
@@ -227,6 +291,9 @@ class Corpus:
         meta = analysis.get("meta") or {}
         segments = analysis.get("segments") or []
         models = meta.get("models") or {}
+        metrics = _current_metrics((analysis.get("summary") or {}).get("metrics"))
+        if metrics is None:
+            metrics = metrics_mod.safe_compute(analysis)     # backfill on (re)index
 
         word_rows, phen_rows = [], []
         for si, segment in enumerate(segments):
@@ -248,14 +315,15 @@ class Corpus:
             self._forget(analysis_id)
             self._conn.execute(
                 """INSERT INTO analyses (id, job_id, material, source, result_dir, duration,
-                       language, attraction, asr_model, phone_model, segments, words, indexed_at)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                       language, attraction, asr_model, phone_model, segments, words,
+                       indexed_at, metrics)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (analysis_id, job_id, material_key(analysis),
                  source or meta.get("source") or analysis_id, result_dir,
                  meta.get("duration"), meta.get("language"),
                  int(bool(meta.get("attraction", True))),
                  models.get("asr"), models.get("phones"),
-                 len(segments), len(word_rows), _now()),
+                 len(segments), len(word_rows), _now(), _dump_metrics(metrics)),
             )
             self._conn.executemany(
                 """INSERT INTO words (analysis_id, segment, word_idx, word, word_key,
@@ -325,6 +393,7 @@ class Corpus:
             counts[key] = counts.get(key, 0) + 1
         for row in rows:
             row["attraction"] = bool(row["attraction"])
+            row["metrics"] = _load_metrics(row["metrics"])
             # Same material: the file name is not enough (a clip cut from the
             # same video has a different name and is still the same recording).
             row["duplicate_source"] = counts[row["material"] or row["source"]] > 1
@@ -358,6 +427,53 @@ class Corpus:
                GROUP BY w.word_key ORDER BY count DESC, word LIMIT 15"""
         )
         return totals
+
+    def metrics(self) -> dict:
+        """Reduction metrics pooled over the corpus, token by token, per engine.
+
+        The phone engines are pooled apart (`by_engine`, the default engine
+        first): the recognizer and the canonical both change with the engine, so
+        adding their figures together would measure neither. Within an engine,
+        one analysis per material (the most recently indexed): the same clip
+        analyzed with and without attraction would otherwise count its words
+        twice. Rows indexed before the metrics existed (or under an older
+        definition) are backfilled from their analysis.json while it is still on
+        disk; the ones that cannot be are reported as `missing`, not guessed.
+        """
+        rows = self._rows(
+            """SELECT id, material, result_dir, phone_model, metrics FROM analyses
+               ORDER BY indexed_at DESC, id""")
+        chosen, seen = [], set()
+        for row in rows:
+            key = (row["material"] or row["id"],
+                   engine_of({"models": {"phones": row["phone_model"]}}))
+            if key not in seen:
+                seen.add(key)
+                chosen.append(row)
+        items, missing = [], 0
+        for row in chosen:
+            metrics = _current_metrics(_load_metrics(row["metrics"])) or self._backfill(row)
+            if metrics is None:
+                missing += 1
+            else:
+                items.append(metrics)
+        return {"analyses": len(rows),
+                "materials": len({row["material"] or row["id"] for row in chosen}),
+                "measured": len(items), "missing": missing,
+                "by_engine": metrics_mod.aggregate_by_engine(items)}
+
+    def _backfill(self, row: dict) -> dict | None:
+        path = Path(row["result_dir"] or row["id"]) / "analysis.json"
+        try:
+            analysis = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        metrics = metrics_mod.safe_compute(analysis)
+        if metrics is not None:
+            with self._lock, self._conn:
+                self._conn.execute("UPDATE analyses SET metrics = ? WHERE id = ?",
+                                   (_dump_metrics(metrics), row["id"]))
+        return metrics
 
     def _occurrence_filter(self, phenomenon: str | None, word: str | None,
                            analysis_id: str | None) -> tuple[str, list]:

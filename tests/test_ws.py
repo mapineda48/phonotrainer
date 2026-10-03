@@ -1,7 +1,9 @@
 """WebSocket /ws/jobs: the interface gets the state pushed to it, with no polling."""
 
+import json
+
 import pytest
-from conftest import fake_analyze
+from conftest import fake_analyze, wait_until
 from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
@@ -33,27 +35,45 @@ def media(tmp_path):
     return path
 
 
-def test_snapshot_and_events_of_the_whole_lifecycle(client, media):
+STATUS_ORDER = {"queued": 0, "running": 1, "done": 2}
+
+
+def test_snapshot_and_events_of_the_whole_lifecycle(client, store, media):
     with client.websocket_connect("/ws/jobs") as ws:
         assert ws.receive_json() == {"type": "snapshot", "jobs": []}
+
+        # Count the store's events ourselves. The socket re-reads the job at
+        # SEND time, so a message says nothing about WHEN its event happened:
+        # when the sender lags behind the worker (a loaded machine), the very
+        # first message can already say "done" and several in a row can be the
+        # same state. What is guaranteed is one message per event, in order,
+        # never going backwards.
+        events: list[str] = []
+        store.subscribe(lambda event, job_id: events.append(event))
 
         resp = client.post("/api/jobs", json={"path": str(media)})
         assert resp.status_code == 201
         job_id = resp.json()["id"]
 
-        # The events arrive on their own: created → running → progress → done.
-        # Each carries the COMPLETE, fresh job (idempotent).
+        wait_until(lambda: store.get(job_id).status == "done")
+        # Barrier: the worker has emitted its last event (the one after "done").
+        # The rest of the test only needs request threads, not the worker.
+        store.shutdown(wait=True)
+        assert set(events) == {"upsert"}
+
         seen = []
-        for _ in range(60):
+        for _ in events:
             msg = ws.receive_json()
             assert msg["type"] == "job" and msg["job"]["id"] == job_id
             seen.append(msg["job"])
-            if msg["job"]["status"] == "done":
-                break
-        else:
-            pytest.fail("the 'done' event of the analysis never arrived")
 
-        assert seen[0]["status"] in ("queued", "running")
+        # Each message carries the COMPLETE, fresh job, so applying them is
+        # idempotent and the client never moves backwards.
+        for before, after in zip(seen, seen[1:]):
+            assert STATUS_ORDER[after["status"]] >= STATUS_ORDER[before["status"]]
+            assert after["percent"] >= before["percent"]
+            assert len(after["progress"]) >= len(before["progress"])
+        assert seen[-1]["status"] == "done"
         assert seen[-1]["percent"] == 100
         assert seen[-1]["has_analysis"] is True
         # and the progress log grows inside the event itself: the last stage of
@@ -101,3 +121,44 @@ def test_a_foreign_origin_cannot_read_the_channel(client):
         "/ws/jobs", headers={"Origin": "http://localhost:5173"}
     ) as ws:
         assert ws.receive_json()["type"] == "snapshot"
+
+
+
+def test_a_real_server_shuts_down_after_a_tab_closed(store, tmp_path):
+    """With no events flowing, the handler must still notice the tab closing.
+    One stuck in its queue kept its store listener forever, and uvicorn's
+    shutdown waited on it: Ctrl-C on `phonotrainer ui` hung. TestClient cancels
+    the handler on exit, which hides this; a real server and socket do not."""
+    import asyncio
+    import socket
+    import threading
+
+    import uvicorn
+    import websockets
+
+    app = create_app(store=store, web_dist=tmp_path / "not-built", allowed_roots=[tmp_path])
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+    server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port,
+                                           log_level="warning", lifespan="off"))
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    try:
+        wait_until(lambda: server.started, timeout=10)
+
+        async def visit() -> str:
+            async with websockets.connect(f"ws://127.0.0.1:{port}/ws/jobs",
+                                          origin=f"http://127.0.0.1:{port}") as ws:
+                return json.loads(await ws.recv())["type"]
+
+        assert asyncio.run(visit()) == "snapshot"
+        wait_until(lambda: not store._listeners, timeout=5)   # the handler let go
+
+        server.should_exit = True
+        thread.join(timeout=10)
+        assert not thread.is_alive(), "the server did not shut down"
+    finally:
+        server.force_exit = True
+        server.should_exit = True
+        thread.join(timeout=5)

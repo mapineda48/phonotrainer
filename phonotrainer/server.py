@@ -31,14 +31,17 @@ from pathlib import Path
 from typing import Literal, get_args
 from urllib.parse import urlparse
 
+import anyio
 from fastapi import (FastAPI, File, Form, HTTPException, Query, Request,
                      UploadFile, WebSocket, WebSocketDisconnect)
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from pydantic import BaseModel, Field, ValidationError
 
-from . import __version__, ipa_maps, report, review as review_mod
+from . import __version__, ipa_maps, metrics as metrics_mod, phenomena, report
+from . import review as review_mod, separation
 from .db import DEFAULT_DB, Corpus
 from .jobs import DOWNLOAD_DIR, MEDIA_SUFFIXES, JobError, JobNotFound, JobStore
+from .phones_real import ENGINE_ALIASES
 
 DEFAULT_WORKSPACE = Path("workspace")
 WEB_DIST = Path(__file__).resolve().parents[1] / "web" / "dist"
@@ -62,16 +65,33 @@ MAX_SAMPLE = 500   # cap on words per review sample
 # interface asked for routes that did not exist and showed "Method Not Allowed".
 #   2: /ws/jobs — the interface no longer polls /api/jobs
 #   3: verdict and family keys renamed to English
-API_VERSION = 3
+#   4: timit61 engine, dialogue track (/audio?track=dialogue), practice and
+#      metrics in /api/reference, /api/corpus/metrics
+API_VERSION = 4
+
+# What each phone engine is, for whoever picks one in the interface. The
+# licensing line is not decoration: the default engine's training data is not
+# free for every use, and the choice belongs to the user.
+ENGINE_NOTES = {
+    "timit61": "Narrow phonetic recognizer (TIMIT-61): hears flaps, glottal stops, "
+               "unreleased stops and weak forms. Weights Apache-2.0; trained on TIMIT "
+               "(LDC), whose data is licensed for non-commercial research.",
+    "espeak": "The original engine (wav2vec2 trained on espeak-ng transcriptions). "
+              "Unrestricted training data, but it tends to hear the dictionary form "
+              "instead of what was said.",
+}
 
 
 class Options(BaseModel):
     """Pipeline options; the names match `pipeline.analyze`."""
 
     whisper_model: Literal["tiny", "base", "small", "medium"] = "small"
-    phone_engine: Literal["wav2vec2", "allosaurus"] = "wav2vec2"
+    # "wav2vec2" = the espeak engine's old name, still accepted for old jobs
+    phone_engine: Literal["timit61", "espeak", "wav2vec2"] = "timit61"
     language: str = "en"
-    attraction: bool = True
+    # None = the engine's default: on for espeak, off for timit61
+    attraction: bool | None = None
+    separate_dialogue: bool = separation.DEFAULT_ENABLED
 
 
 class AnalyzeRequest(BaseModel):
@@ -228,6 +248,10 @@ def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
             "family_of": report.FAMILY_OF,
             "labels": report.PHENOMENON_LABEL,
             "descriptions": report.PHENOMENON_DESCRIPTION,
+            # to hear only, or to say too: per label and per lexical reduced form
+            "practice": report.PHENOMENON_PRACTICE,
+            "lexical_practice": report.LEXICAL_PRACTICE,
+            "link_types": list(phenomena.LINK_TYPES),
             # IPA symbols longer than one character (aɪ, tʃ, ɑːɹ…): without them
             # the browser would split "aɪ" in two when tokenizing the dictionary
             # form.
@@ -236,9 +260,16 @@ def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
                 key=len, reverse=True,
             ),
             "verdicts": list(review_mod.VERDICTS),
+            # what summary.metrics and /api/corpus/metrics are compared against
+            "metrics_reference": metrics_mod.REFERENCE,
+            "metric_labels": metrics_mod.METRIC_LABELS,
             "options": {
                 "whisper_models": list(get_args(Options.model_fields["whisper_model"].annotation)),
-                "phone_engines": list(get_args(Options.model_fields["phone_engine"].annotation)),
+                "phone_engines": [
+                    e for e in get_args(Options.model_fields["phone_engine"].annotation)
+                    if e not in ENGINE_ALIASES
+                ],
+                "phone_engine_notes": ENGINE_NOTES,
                 "defaults": Options().model_dump(),
             },
             "review": {
@@ -303,6 +334,12 @@ def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
     @app.get("/api/corpus/stats")
     def corpus_stats() -> dict:
         return _corpus().stats()
+
+    @app.get("/api/corpus/metrics")
+    def corpus_metrics() -> dict:
+        """How much of the corpus is reduced, pooled token by token, next to the
+        report's reference values."""
+        return {**_corpus().metrics(), "reference": metrics_mod.REFERENCE}
 
     @app.get("/api/corpus/analyses")
     def corpus_analyses() -> dict:
@@ -372,23 +409,47 @@ def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
             loop.call_soon_threadsafe(pending.put_nowait, (event, job_id))
 
         unsubscribe = _store().subscribe(on_store_event)
+
+        async def publish(scope: anyio.CancelScope) -> None:
+            try:
+                await ws.send_json({
+                    "type": "snapshot",
+                    "jobs": [j.to_public(full=True) for j in _store().list()],
+                })
+                while True:
+                    event, job_id = await pending.get()
+                    if event == "deleted":
+                        await ws.send_json({"type": "deleted", "id": job_id})
+                        continue
+                    try:
+                        job = _store().get(job_id)
+                    except JobNotFound:
+                        continue   # deleted in the meantime: its "deleted" comes next
+                    await ws.send_json({"type": "job", "job": job.to_public(full=True)})
+            except (WebSocketDisconnect, RuntimeError):
+                pass               # the socket went away mid-send: same as leaving
+            scope.cancel()
+
+        async def until_disconnect(scope: anyio.CancelScope) -> None:
+            # The client never talks; reading is how its leaving is noticed. A
+            # handler that only sent sat in `pending.get()` forever once the tab
+            # closed, and uvicorn's shutdown waited for it: Ctrl-C hung.
+            try:
+                while (await ws.receive())["type"] != "websocket.disconnect":
+                    pass
+            except (WebSocketDisconnect, RuntimeError):
+                pass
+            scope.cancel()
+
+        # An anyio task group, not bare asyncio tasks: the server (and the test
+        # client) cancel this handler through an anyio cancel scope, and native
+        # tasks awaited with asyncio.wait/gather let that cancellation leak out
+        # of the scope — the test client's teardown then failed with
+        # CancelledError about one time in five.
         try:
-            await ws.send_json({
-                "type": "snapshot",
-                "jobs": [j.to_public(full=True) for j in _store().list()],
-            })
-            while True:
-                event, job_id = await pending.get()
-                if event == "deleted":
-                    await ws.send_json({"type": "deleted", "id": job_id})
-                    continue
-                try:
-                    job = _store().get(job_id)
-                except JobNotFound:
-                    continue       # deleted in the meantime: its "deleted" comes next
-                await ws.send_json({"type": "job", "job": job.to_public(full=True)})
-        except WebSocketDisconnect:
-            pass
+            async with anyio.create_task_group() as tg:
+                tg.start_soon(publish, tg.cancel_scope)
+                tg.start_soon(until_disconnect, tg.cancel_scope)
         finally:
             unsubscribe()
 
@@ -399,8 +460,15 @@ def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
                             media_type="application/json")
 
     @app.get("/api/jobs/{job_id}/audio")
-    def get_audio(job_id: str) -> FileResponse:
+    def get_audio(job_id: str, track: Literal["mix", "dialogue"] = "mix") -> FileResponse:
         # Starlette's FileResponse answers Range requests → seeking in <audio>.
+        # "dialogue" is the separated speech the analysis actually read — only if
+        # its meta says separation ran for it (not a leftover from an earlier run).
+        if track == "dialogue":
+            path = _job(job_id).dialogue_audio()
+            if path is None:
+                raise HTTPException(404, f"{job_id} has no separated dialogue")
+            return FileResponse(path, media_type="audio/wav")
         return FileResponse(_artifact(job_id, "audio.wav"), media_type="audio/wav")
 
     @app.get("/api/jobs/{job_id}/media")
@@ -414,14 +482,20 @@ def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
                                                        "application/octet-stream"))
 
     @app.get("/api/jobs/{job_id}/report", response_class=HTMLResponse)
-    def get_report(job_id: str) -> FileResponse:
+    def get_report(job_id: str) -> Response:
         # An imported out/ may come from elsewhere: the report is served from an
         # opaque origin (sandbox) so its JS cannot talk to this API.
-        return FileResponse(
-            _artifact(job_id, "report.html"), media_type="text/html",
-            headers={"Content-Security-Policy": "sandbox allow-scripts",
-                     "X-Content-Type-Options": "nosniff"},
-        )
+        headers = {"Content-Security-Policy": "sandbox allow-scripts",
+                   "X-Content-Type-Options": "nosniff"}
+        # Rendered from analysis.json on every request: an out/ written by an
+        # older version carries a report.html that predates the metrics, the
+        # practice axis and the new labels. The file on disk is only the fallback.
+        try:
+            html = report.render_html(_analysis(job_id))
+        except Exception:                             # noqa: BLE001
+            return FileResponse(_artifact(job_id, "report.html"),
+                                media_type="text/html", headers=headers)
+        return HTMLResponse(html, headers=headers)
 
     # --- human review -------------------------------------------------------
     @app.get("/api/jobs/{job_id}/review")

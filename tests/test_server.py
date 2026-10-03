@@ -3,9 +3,10 @@
 import json
 
 import pytest
-from conftest import fake_analyze, mk_analysis, wait_until
+from conftest import fake_analyze, mk_analysis, wait_until, write_silent_wav
 from fastapi.testclient import TestClient
 
+from phonotrainer import report as report_mod
 from phonotrainer.db import Corpus
 from phonotrainer.jobs import JobStore
 from phonotrainer.server import create_app
@@ -82,12 +83,24 @@ def test_health_and_reference(client):
     assert ref["verdicts"] == ["ok", "wrong", "unsure"]
     # the UI fills its selectors from this, not from hand-copied lists
     assert ref["options"]["whisper_models"] == ["tiny", "base", "small", "medium"]
-    assert ref["options"]["phone_engines"] == ["wav2vec2", "allosaurus"]
+    assert ref["options"]["phone_engines"] == ["timit61", "espeak"]
+    assert ref["options"]["defaults"]["phone_engine"] == "timit61"
     assert ref["options"]["defaults"]["whisper_model"] == "small"
+    # every engine offered is explained, and the default's data license is named
+    notes = ref["options"]["phone_engine_notes"]
+    assert set(ref["options"]["phone_engines"]) <= set(notes)
+    assert "non-commercial" in notes["timit61"]
     assert ref["review"] == {"default_n": 20, "default_seed": 48, "max_n": 500}
     # without this the UI would not know what "flapping" is nor how to tokenize /aɪ/
     assert "soft r" in ref["descriptions"]["flapping"]
     assert set(ref["descriptions"]) == set(ref["labels"])
+    # hear it, or say it too: every label carries the report's advice
+    assert set(ref["practice"]) == set(ref["labels"])
+    assert ref["practice"]["flapping"]["practice"] == "produce"
+    assert ref["lexical_practice"]["tryna"] == {
+        "practice": "understand", "register": "marked",
+        "why": ref["lexical_practice"]["tryna"]["why"]}
+    assert ref["link_types"] == ["consonant", "r", "glide_w", "glide_j"]
     assert "aɪ" in ref["ipa_tokens"] and "tʃ" in ref["ipa_tokens"]
     assert ref["ipa_tokens"] == sorted(ref["ipa_tokens"], key=len, reverse=True)
 
@@ -105,6 +118,40 @@ def test_an_imported_report_is_sandboxed(client, tmp_path):
     assert resp.status_code == 200
     assert "sandbox" in resp.headers["content-security-policy"]
     assert resp.headers["x-content-type-options"] == "nosniff"
+
+
+def test_the_report_is_rendered_from_the_analysis_not_the_stale_file(client, tmp_path):
+    """An out/ from an older version carries an outdated report.html: the link
+    must show the current report, built from its analysis.json."""
+    out = tmp_path / "out"
+    out.mkdir()
+    (out / "analysis.json").write_text(json.dumps(mk_analysis()), encoding="utf-8")
+    (out / "report.html").write_text("<html lang='es'>OLD REPORT</html>", encoding="utf-8")
+    job_id = client.post("/api/jobs/import", json={"path": str(out)}).json()["id"]
+
+    resp = client.get(f"/api/jobs/{job_id}/report")
+    assert resp.status_code == 200
+    assert "OLD REPORT" not in resp.text
+    assert '<html lang="en">' in resp.text
+    assert "sandbox" in resp.headers["content-security-policy"]
+    assert (out / "report.html").read_text(encoding="utf-8") == "<html lang='es'>OLD REPORT</html>"
+
+
+def test_the_report_file_is_the_fallback_when_rendering_fails(client, tmp_path, monkeypatch):
+    out = tmp_path / "out"
+    out.mkdir()
+    (out / "analysis.json").write_text(json.dumps(mk_analysis()), encoding="utf-8")
+    (out / "report.html").write_text("<p>ON DISK</p>", encoding="utf-8")
+    job_id = client.post("/api/jobs/import", json={"path": str(out)}).json()["id"]
+
+    def broken(analysis):
+        raise ValueError("cannot render")
+
+    monkeypatch.setattr(report_mod, "render_html", broken)
+    resp = client.get(f"/api/jobs/{job_id}/report")
+    assert resp.status_code == 200
+    assert "ON DISK" in resp.text
+    assert "sandbox" in resp.headers["content-security-policy"]
 
 
 def test_cross_origin_requests_are_rejected(client, tmp_path):
@@ -178,6 +225,14 @@ def test_invalid_options_give_422(client, media):
     resp = client.post("/api/jobs", json={"path": str(media),
                                           "options": {"whisper_model": "giant"}})
     assert resp.status_code == 422
+
+
+def test_an_engine_that_can_only_fail_cannot_be_picked(client, media):
+    # allosaurus was a reserved name with no engine behind it: every job failed
+    resp = client.post("/api/jobs", json={"path": str(media),
+                                          "options": {"phone_engine": "allosaurus"}})
+    assert resp.status_code == 422
+    assert "allosaurus" not in client.get("/api/reference").json()["options"]["phone_engines"]
 
 
 def test_nothing_outside_the_roots_can_be_analyzed(client, tmp_path):
@@ -272,6 +327,37 @@ def test_audio_supports_range_so_it_can_seek(client, media):
     assert partial.headers["content-range"].startswith("bytes 0-99/")
 
 
+
+def test_dialogue_separation_is_a_job_option(client, media):
+    defaults = client.get("/api/reference").json()["options"]["defaults"]
+    assert "separate_dialogue" in defaults
+    job_id = analyzed(client, media, separate_dialogue=True)
+    job = client.get(f"/api/jobs/{job_id}").json()
+    assert job["options"]["separate_dialogue"] is True
+    # the fake pipeline receives it exactly like pipeline.analyze would
+    analysis = client.get(f"/api/jobs/{job_id}/analysis").json()
+    assert analysis["meta"]["options"]["separate_dialogue"] is True
+
+
+def test_the_dialogue_track_is_served_when_there_is_one(client, media, store):
+    job_id = analyzed(client, media, separate_dialogue=False)
+    assert client.get(f"/api/jobs/{job_id}").json()["has_dialogue_audio"] is False
+    assert client.get(f"/api/jobs/{job_id}/audio?track=dialogue").status_code == 404
+
+    # a file left over from an earlier run into the same directory is not this
+    # analysis' dialogue: its meta says separation never ran
+    write_silent_wav(store.get(job_id).result_dir / "audio_dialogue.wav", seconds=0.5)
+    assert client.get(f"/api/jobs/{job_id}").json()["has_dialogue_audio"] is False
+    assert client.get(f"/api/jobs/{job_id}/audio?track=dialogue").status_code == 404
+
+    job_id = analyzed(client, media, separate_dialogue=True)
+    assert client.get(f"/api/jobs/{job_id}").json()["has_dialogue_audio"] is True
+    dialogue = client.get(f"/api/jobs/{job_id}/audio?track=dialogue")
+    mix = client.get(f"/api/jobs/{job_id}/audio")
+    assert dialogue.status_code == 200 and mix.status_code == 200
+    assert dialogue.content != mix.content          # two different files
+    assert client.get(f"/api/jobs/{job_id}/audio?track=karaoke").status_code == 422
+
 def test_the_original_media_is_served_for_the_video(client, media):
     job_id = analyzed(client, media)
     resp = client.get(f"/api/jobs/{job_id}/media")
@@ -357,6 +443,25 @@ def test_the_corpus_answers_how_a_word_has_been_said(client, media):
     body = client.get("/api/corpus/variants", params={"word": "That,"}).json()
     assert body["variants"][0]["realized_ipa"] == "ðæ"
     assert body["variants"][0]["count"] == 2          # once per analysis
+
+
+def test_the_corpus_reports_how_reduced_it_is_next_to_the_references(client, media):
+    empty = client.get("/api/corpus/metrics").json()
+    assert empty["by_engine"] == {} and empty["measured"] == 0
+
+    analyzed(client, media)
+    analyzed(client, media)          # the same material twice counts once
+
+    body = client.get("/api/corpus/metrics").json()
+    assert (body["analyses"], body["materials"], body["measured"]) == (2, 1, 1)
+    # pooled per phone engine: the fixture analyses were made with espeak
+    assert list(body["by_engine"]) == ["espeak"]
+    assert body["by_engine"]["espeak"]["segment_loss"] == {"count": 1, "of": 4, "pct": 25.0}
+    assert body["reference"]["segment_loss"]["cite"] == "Johnson 2004"
+    # the reference vocabulary carries the same figures, and names every measure
+    ref = client.get("/api/reference").json()
+    assert ref["metrics_reference"] == body["reference"]
+    assert set(ref["metrics_reference"]) <= set(ref["metric_labels"])
 
 
 def test_deleting_an_analysis_drops_it_from_the_corpus(client, media):

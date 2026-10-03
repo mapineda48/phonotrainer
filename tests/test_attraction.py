@@ -80,3 +80,12 @@ def test_does_not_absorb_a_final_deletion():
     out = attract_to_canonical(real, canonical)
     assert [p["phone"] for p in out] == ["d", "oʊ", "n"]
     assert not any(p.get("attracted") for p in out)
+
+
+def test_does_not_attract_narrow_detail():
+    """t→t̚ costs 0.05 and n→n̩ next to nothing: both would be "fixed" back to the
+    canonical, erasing the unreleased stop and the syllabic nasal."""
+    canonical = mk_phones("b ʌ t ə n")
+    real = mk_phones("b ʌ t̚ n̩")
+    out = attract_to_canonical(real, canonical)
+    assert [p["phone"] for p in out] == ["b", "ʌ", "t̚", "n̩"]

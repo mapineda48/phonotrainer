@@ -24,7 +24,11 @@ NATIVE_SHIFTS = {
         (("ð", "d̪"), 0.20), (("θ", "t̪"), 0.20), (("d", "d̪"), 0.15), (("t", "t̪"), 0.15),
         (("t", "tʃ"), 0.40), (("d", "dʒ"), 0.40), (("s", "ʃ"), 0.30), (("z", "ʒ"), 0.30),
         (("n", "ŋ"), 0.35), (("n", "m"), 0.40), (("n", "ɾ̃"), 0.25),
+        (("t", "ɾ̃"), 0.30), (("d", "ɾ̃"), 0.30),
         (("l", "ɫ"), 0.10), (("ɹ", "ɚ"), 0.45),
+        # stressed vs unstressed r-colored vowel (TIMIT er/axr): panphon sees ɜ and
+        # ə as the same segment and would price the reduction at the 1.0 fallback
+        (("ɝ", "ɚ"), 0.15), (("ɝ", "ə"), 0.25),
         # native "your"/"sure" variation seen during external validation
         # (yor/yer): never pull these back toward the canonical ʊɹ
         (("ʊɹ", "ɔːɹ"), 0.25), (("ʊɹ", "oːɹ"), 0.25), (("ʊɹ", "ɔɹ"), 0.25),

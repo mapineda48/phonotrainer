@@ -88,3 +88,16 @@ def test_full_vocabulary_coverage():
     assert not unmapped, f"tokens that do not map to the inventory: {unmapped}"
     # the dropped ones must be residual junk (things like '??', a stray 'ʲ', '1')
     assert len(dropped) < 12, f"too many tokens dropped: {dropped}"
+
+
+def test_function_words_are_cited_in_their_strong_form():
+    """The weak form is measured against the strong one (report §2): CMUdict lists
+    the weak one first for a few words, the citation form must not."""
+    assert dict_pronunciation("a")["arpabet"] == ["EY1"]
+    assert dict_pronunciation("and")["arpabet"] == ["AE1", "N", "D"]
+    assert dict_pronunciation("were")["arpabet"] == ["W", "ER1"]
+    assert dict_pronunciation("her")["ipa"] == "hˈɝ"
+    # "the" alternates ðə/ði with the next sound: its first entry stays
+    assert dict_pronunciation("the")["arpabet"] == ["DH", "AH0"]
+    # content words are untouched
+    assert dict_pronunciation("better")["arpabet"] == ["B", "EH1", "T", "ER0"]
