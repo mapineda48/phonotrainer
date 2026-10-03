@@ -31,6 +31,7 @@ export function NewAnalysis({ onCreated }: Props) {
 
   const set = <K extends keyof JobOptions>(key: K, value: JobOptions[K]) =>
     setOptions((current) => ({ ...current, [key]: value }));
+  const engineNote = reference.options.phone_engine_notes?.[options.phone_engine];
 
   const run = async (action: () => Promise<Job>) => {
     setBusy(true);
@@ -211,15 +212,38 @@ export function NewAnalysis({ onCreated }: Props) {
             />
           </label>
         </div>
+        {engineNote && (
+          <p className="tiny muted" style={{ margin: "8px 0 0" }} data-testid="engine-note">
+            <strong>{options.phone_engine}</strong>: {engineNote}
+          </p>
+        )}
         <label className="row tiny" style={{ marginTop: 12, gap: 6 }}>
           <input
             type="checkbox"
-            checked={options.attraction}
-            onChange={(event) => set("attraction", event.target.checked)}
+            checked={options.separate_dialogue ?? false}
+            onChange={(event) => set("separate_dialogue", event.target.checked)}
           />
-          Phonetic attraction toward the canonical form
+          Separate the dialogue from music and effects
           <span className="muted">
-            — turn it off to compare the recognizer's raw output
+            — the analysis reads the isolated voice; you can still listen to the original mix
+          </span>
+        </label>
+        <label className="row tiny" style={{ marginTop: 8, gap: 6 }}>
+          Phonetic attraction toward the canonical form
+          <select
+            className="input"
+            style={{ width: "auto", padding: "2px 6px" }}
+            aria-label="Phonetic attraction"
+            value={attractionValue(options.attraction)}
+            onChange={(event) => set("attraction", attractionFromValue(event.target.value))}
+          >
+            <option value="auto">auto (the engine's default)</option>
+            <option value="on">on</option>
+            <option value="off">off</option>
+          </select>
+          <span className="muted">
+            — it undoes the recognizer's acoustic confusions; auto keeps it on for espeak and
+            off for timit61
           </span>
         </label>
       </div>
@@ -254,3 +278,11 @@ export function NewAnalysis({ onCreated }: Props) {
     </div>
   );
 }
+
+type AttractionValue = "auto" | "on" | "off";
+
+const attractionValue = (value: boolean | null | undefined): AttractionValue =>
+  value == null ? "auto" : value ? "on" : "off";
+
+const attractionFromValue = (value: string): boolean | null =>
+  value === "on" ? true : value === "off" ? false : null;

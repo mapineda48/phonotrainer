@@ -4,6 +4,10 @@
  *  exactly what the timings were computed over. It can play a *span* (word,
  *  phone or segment) and loop it, which is the single most repeated gesture
  *  when studying pronunciation.
+ *
+ *  One material can have two tracks (the original mix and the isolated
+ *  dialogue). `sourceKey` names the material: switching tracks keeps the
+ *  position and the playing state; switching materials rewinds.
  */
 
 import {
@@ -56,7 +60,17 @@ export const PlayerContextProvider = PlayerContext.Provider;
 
 const SPAN_EPSILON = 0.015; // s of tolerance when comparing against the span end
 
-export function PlayerProvider({ src, children }: { src: string | null; children: ReactNode }) {
+export function PlayerProvider({
+  src,
+  sourceKey,
+  children,
+}: {
+  src: string | null;
+  /** Identity of the material; defaults to `src`. */
+  sourceKey?: string | null;
+  children: ReactNode;
+}) {
+  const key = sourceKey === undefined ? src : sourceKey;
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const clock = useMemo(() => new Clock(), []);
   const spanRef = useRef<Span | null>(null);
@@ -68,6 +82,11 @@ export function PlayerProvider({ src, children }: { src: string | null; children
   const [loop, setLoopState] = useState(false);
   const [span, setSpanState] = useState<Span | null>(null);
   const [duration, setDuration] = useState(0);
+  /** Read by the effects, which run after the <audio> already changed source. */
+  const playingRef = useRef(false);
+  playingRef.current = playing;
+  /** Where to pick up once the other track of the same material has loaded. */
+  const resumeRef = useRef<{ time: number; playing: boolean } | null>(null);
 
   const setSpan = useCallback((next: Span | null) => {
     spanRef.current = next;
@@ -167,13 +186,18 @@ export function PlayerProvider({ src, children }: { src: string | null; children
   // When SWITCHING analyses: stop and rewind to the start. Not on mount: this
   // effect (the parent's) would otherwise trample the one that opens a specific
   // word when arriving from the corpus, leaving the word selected but silent.
-  const previousSrc = useRef<string | null | undefined>(undefined);
+  // Another track of the SAME material keeps its place instead: the timings are
+  // the same, only what you hear changes.
+  const previous = useRef<{ key: string | null | undefined; src: string | null } | null>(null);
   useEffect(() => {
-    if (previousSrc.current === undefined || previousSrc.current === src) {
-      previousSrc.current = src;
+    const before = previous.current;
+    previous.current = { key, src };
+    if (!before || (before.key === key && before.src === src)) return;
+    if (before.key === key) {
+      resumeRef.current = { time: clock.getSnapshot(), playing: playingRef.current };
       return;
     }
-    previousSrc.current = src;
+    resumeRef.current = null;
     setSpan(null);
     setPlaying(false);
     clock.set(0);
@@ -182,7 +206,7 @@ export function PlayerProvider({ src, children }: { src: string | null; children
       audio.pause();
       audio.currentTime = 0;
     }
-  }, [src, clock, setSpan]);
+  }, [key, src, clock, setSpan]);
 
   const api = useMemo<PlayerApi>(
     () => ({
@@ -217,6 +241,13 @@ export function PlayerProvider({ src, children }: { src: string | null; children
           const audio = event.currentTarget;
           audio.playbackRate = rate;
           setDuration(Number.isFinite(audio.duration) ? audio.duration : 0);
+          const resume = resumeRef.current;
+          if (resume) {
+            resumeRef.current = null;
+            audio.currentTime = resume.time;
+            clock.set(resume.time);
+            if (resume.playing) startPlayback();
+          }
         }}
         onSeeked={(event) => clock.set(event.currentTarget.currentTime)}
       />

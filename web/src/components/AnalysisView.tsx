@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { api } from "../api";
+import { api, type AudioTrack } from "../api";
 import { useHotkeys } from "../hooks/useHotkeys";
 import { usePersistentFlag } from "../hooks/usePersistentFlag";
 import { filteredWords, flattenWords, wordSpan, type FlatWord } from "../lib/analysis";
@@ -31,6 +31,10 @@ export function AnalysisView({ job, initialSelection = null,
                                onBackToCorpus }: Props) {
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Listening to the isolated dialogue is a choice that sticks; the original
+  // mix stays the default, since it is what was actually said on screen.
+  const [dialoguePreferred, toggleDialogue] = usePersistentFlag("phonotrainer:dialogue-track");
+  const track: AudioTrack = dialoguePreferred && job.has_dialogue_audio ? "dialogue" : "mix";
 
   useEffect(() => {
     let cancelled = false;
@@ -74,8 +78,8 @@ export function AnalysisView({ job, initialSelection = null,
   }
 
   return (
-    <PlayerProvider src={job.has_audio ? api.audioUrl(job.id) : null}>
-      <AnalysisBody job={job} analysis={analysis}
+    <PlayerProvider src={job.has_audio ? api.audioUrl(job.id, track) : null} sourceKey={job.id}>
+      <AnalysisBody job={job} analysis={analysis} track={track} onToggleTrack={toggleDialogue}
                     initialSelection={initialSelection} onBackToCorpus={onBackToCorpus} />
     </PlayerProvider>
   );
@@ -84,11 +88,15 @@ export function AnalysisView({ job, initialSelection = null,
 function AnalysisBody({
   job,
   analysis,
+  track,
+  onToggleTrack,
   initialSelection,
   onBackToCorpus,
 }: {
   job: Job;
   analysis: Analysis;
+  track: AudioTrack;
+  onToggleTrack: () => void;
   initialSelection: Selection | null;
   onBackToCorpus?: () => void;
 }) {
@@ -109,6 +117,8 @@ function AnalysisBody({
   const [query, setQuery] = useState("");
 
   const hasVideo = job.is_video && job.has_media;
+  // Analyses from before the engine existed were all made with espeak.
+  const engine = analysis.meta.phone_engine ?? "espeak";
 
   const duration = analysis.meta.duration;
   const canPlay = job.has_audio;
@@ -216,8 +226,8 @@ function AnalysisBody({
         </h2>
         <span className="tiny muted">
           {analysis.meta.duration.toFixed(1)} s · {analysis.segments.length} segments ·{" "}
-          {analysis.meta.language}
-          {analysis.meta.attraction ? "" : " · no attraction"}
+          {analysis.meta.language} · {engine}
+          {engine === "espeak" && !analysis.meta.attraction ? " · no attraction" : ""}
         </span>
         <span className="spacer" />
         <input
@@ -252,6 +262,21 @@ function AnalysisBody({
           <span className="tiny muted num">
             {walk.length} {walk.length === 1 ? "match" : "matches"}
           </span>
+        )}
+        {job.has_dialogue_audio && (
+          <button
+            type="button"
+            className="btn btn--sm"
+            aria-pressed={track === "dialogue"}
+            title={
+              track === "dialogue"
+                ? "Listening to the isolated dialogue the analysis read. Click for the original mix."
+                : "Listening to the original mix. Click for the isolated dialogue (no music or effects)."
+            }
+            onClick={onToggleTrack}
+          >
+            Dialogue only
+          </button>
         )}
         {hasVideo && (
           <button
@@ -297,7 +322,7 @@ function AnalysisBody({
       {showHelp && <Shortcuts onClose={() => setShowHelp(false)} />}
 
       <PlayerBar duration={duration} spanLabel={spanLabel} enabled={canPlay}>
-        {canPlay && <Waveform src={api.audioUrl(job.id)} duration={duration} />}
+        {canPlay && <Waveform src={api.audioUrl(job.id, track)} duration={duration} />}
       </PlayerBar>
 
       {!job.has_audio && (
@@ -377,6 +402,7 @@ function AnalysisBody({
                 segmentIndex={selected.segment}
                 isEmphasis={selectedSegment.emphasis_word_idx === selected.index}
                 canPlay={canPlay}
+                engine={engine}
               />
             ) : (
               <div className="panel__body">
@@ -403,6 +429,11 @@ function AnalysisBody({
                 }
               }}
               onClear={() => setFilter(new Set())}
+              onSetFilter={(phenomena) => {
+                const next = new Set(phenomena);
+                setFilter(next);
+                if (next.size > 0) jumpIn(filteredWords(analysis, next), 1);
+              }}
             />
           )}
 

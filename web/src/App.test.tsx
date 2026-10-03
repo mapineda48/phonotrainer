@@ -111,9 +111,10 @@ describe("App", () => {
         path: "/home/me/videos/ep1.webm",
         options: {
           whisper_model: "medium",
-          phone_engine: "wav2vec2",
+          phone_engine: "timit61",
           language: "en",
-          attraction: true,
+          attraction: null,
+          separate_dialogue: true,
         },
       });
     });
@@ -213,6 +214,13 @@ describe("App", () => {
 
     expect(await screen.findByText(/older than this interface/)).toBeInTheDocument();
     expect(screen.getByText(/Stop it \(Ctrl-C\)/)).toBeInTheDocument();
+  });
+
+  it("a server from before the timit61 engine is also too old", async () => {
+    mockFetch({ "GET /api/reference": () => ({ ...reference, api_version: 3 }) });
+    renderApp([]);
+
+    expect(await screen.findByText(/older than this interface/)).toBeInTheDocument();
   });
 
   it("warns when the backend does not respond", async () => {

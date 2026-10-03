@@ -4,7 +4,7 @@ import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { api } from "../api";
-import { renderWith } from "../test/fixtures";
+import { metrics, reference, renderWith } from "../test/fixtures";
 import { CorpusView, type CorpusFilters } from "./CorpusView";
 
 vi.mock("../api", async (importOriginal) => {
@@ -17,6 +17,7 @@ vi.mock("../api", async (importOriginal) => {
       corpusAnalyses: vi.fn(),
       corpusOccurrences: vi.fn(),
       corpusVariants: vi.fn(),
+      corpusMetrics: vi.fn(),
     },
   };
 });
@@ -75,6 +76,7 @@ function Host({ onOpen = vi.fn() }: { onOpen?: (id: string, s: unknown) => void 
 
 describe("CorpusView", () => {
   beforeEach(() => {
+    vi.mocked(api.corpusMetrics).mockRejectedValue(new Error("not there"));
     vi.mocked(api.corpusStats).mockResolvedValue(stats);
     vi.mocked(api.corpusAnalyses).mockResolvedValue({ items: analyses });
     vi.mocked(api.corpusOccurrences).mockResolvedValue({
@@ -196,5 +198,40 @@ describe("CorpusView", () => {
 
     await waitFor(() => expect(screen.getByText("water")).toBeInTheDocument());
     expect(screen.queryByText(/99 occurrences/)).not.toBeInTheDocument();
+  });
+});
+
+describe("CorpusView — how reduced the corpus is", () => {
+  beforeEach(() => {
+    vi.mocked(api.corpusStats).mockResolvedValue(stats);
+    vi.mocked(api.corpusAnalyses).mockResolvedValue({ items: analyses });
+    vi.mocked(api.corpusOccurrences).mockResolvedValue({
+      phenomenon: null, word: null, total: 0, items: [],
+    });
+  });
+
+  it("one column per engine, never added up, next to the report", async () => {
+    const espeak = { ...metrics, engine: "espeak", deviate: { count: 42, of: 100, pct: 42 } };
+    vi.mocked(api.corpusMetrics).mockResolvedValue({
+      analyses: 3, materials: 2, measured: 3, missing: 1,
+      by_engine: { timit61: metrics, espeak },
+      reference: reference.metrics_reference!,
+    });
+    renderWith(<Host />);
+
+    const card = await screen.findByTestId("corpus-metrics");
+    const headers = within(card).getAllByRole("columnheader").map((th) => th.textContent);
+    expect(headers).toEqual(["measure", "timit61 (175 words)", "espeak (175 words)", "report"]);
+    const deviate = within(card).getByRole("row", { name: /words that differ/ });
+    expect(deviate).toHaveTextContent(/72\.0 %.*42\.0 %.*> 60 % \(Johnson 2004\)/);
+    expect(card).toHaveTextContent(/1 could not be measured/);
+  });
+
+  it("the rest of the corpus still shows when the metrics are unavailable", async () => {
+    vi.mocked(api.corpusMetrics).mockRejectedValue(new Error("503"));
+    renderWith(<Host />);
+
+    expect(await screen.findByText(/3 analyses of 1 recording/)).toBeInTheDocument();
+    expect(screen.queryByTestId("corpus-metrics")).toBeNull();
   });
 });

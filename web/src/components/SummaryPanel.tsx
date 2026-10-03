@@ -3,19 +3,39 @@
  *  to those words, which you can then walk through with N. */
 
 import { phenomenaByFrequency } from "../lib/analysis";
-import { familyColor, phenomenonLabel, useReference } from "../reference";
-import type { Analysis } from "../types";
+import { plural } from "../lib/format";
+import {
+  familyColor,
+  phenomenonLabel,
+  phenomenonPractice,
+  PRACTICE_LABEL,
+  useReference,
+} from "../reference";
+import type { Analysis, Practice } from "../types";
+import { ReductionMetrics } from "./ReductionMetrics";
 
 interface Props {
   analysis: Analysis;
   filter: ReadonlySet<string>;
   onToggle: (phenomenon: string) => void;
   onClear: () => void;
+  /** Replace the whole filter (the "safe to produce" shortcut). */
+  onSetFilter?: (phenomena: string[]) => void;
 }
 
-export function SummaryPanel({ analysis, filter, onToggle, onClear }: Props) {
+const PRACTICE_TAG: Record<Practice["practice"], string> = { produce: "say", understand: "hear" };
+
+export function SummaryPanel({ analysis, filter, onToggle, onClear, onSetFilter }: Props) {
   const reference = useReference();
   const counts = phenomenaByFrequency(analysis);
+  const byPractice = (kind: Practice["practice"]) =>
+    counts
+      .map(([name]) => name)
+      .filter((name) => phenomenonPractice(reference, name)?.practice === kind);
+  const toProduce = byPractice("produce");
+  const toRecognize = byPractice("understand");
+  const sameSet = (names: string[]) =>
+    names.length > 0 && names.length === filter.size && names.every((name) => filter.has(name));
   const max = counts.length ? counts[0][1] : 1;
   const meta = analysis.meta;
   // Phenomena with no color of their own (marked typographically, not by hue).
@@ -37,21 +57,56 @@ export function SummaryPanel({ analysis, filter, onToggle, onClear }: Props) {
 
       {counts.length === 0 && <p className="muted tiny">No phenomena were detected.</p>}
 
+      {onSetFilter && reference.practice && counts.length > 0 && (
+        <div className="row tiny" style={{ gap: 6, marginBottom: 8 }} data-testid="practice-filter">
+          <span className="muted">Show only:</span>
+          <button
+            type="button"
+            className="btn btn--sm"
+            aria-pressed={sameSet(toProduce)}
+            disabled={toProduce.length === 0}
+            title="Phenomena the report says a learner can safely produce"
+            onClick={() => onSetFilter(sameSet(toProduce) ? [] : toProduce)}
+          >
+            {PRACTICE_LABEL.produce}
+          </button>
+          <button
+            type="button"
+            className="btn btn--sm"
+            aria-pressed={sameSet(toRecognize)}
+            disabled={toRecognize.length === 0}
+            title="Phenomena to learn to recognize, not to imitate"
+            onClick={() => onSetFilter(sameSet(toRecognize) ? [] : toRecognize)}
+          >
+            {PRACTICE_LABEL.understand}
+          </button>
+        </div>
+      )}
+
       <div className="bars">
         {counts.map(([name, count]) => {
           const family = reference.family_of[name];
           const on = filter.has(name);
+          const practice = phenomenonPractice(reference, name);
           return (
             <button
               key={name}
               type="button"
               className="bars__row"
               aria-pressed={on}
-              title={`${count} occurrences · click to ${on ? "remove from" : "add to"} the filter`}
+              title={`${plural(count, "occurrence")} · click to ${on ? "remove from" : "add to"} the filter${
+                practice ? `\n${PRACTICE_LABEL[practice.practice]} (${practice.register}): ${practice.why}` : ""
+              }`}
               onClick={() => onToggle(name)}
             >
               <span style={{ fontWeight: on ? 650 : 400 }}>
                 {phenomenonLabel(reference, name)}
+                {practice && " "}
+                {practice && (
+                  <span className={`bars__tag bars__tag--${practice.practice}`}>
+                    {PRACTICE_TAG[practice.practice]}
+                  </span>
+                )}
               </span>
               <span
                 className="bar"
@@ -97,8 +152,18 @@ export function SummaryPanel({ analysis, filter, onToggle, onClear }: Props) {
         <p className="tiny muted" style={{ marginTop: 8 }}>
           ⋯ dotted underline = lexical contraction · ‿ = linking to the next word · bold =
           emphasized word · dimmed = low confidence
+          {reference.practice && (
+            <> · “say” = safe to produce, “hear” = recognize it, don't imitate it</>
+          )}
         </p>
       </div>
+
+      {analysis.summary.metrics && (
+        <div style={{ marginTop: 18 }}>
+          <div className="phones__label">how reduced is this speech</div>
+          <ReductionMetrics metrics={analysis.summary.metrics} reference={reference} />
+        </div>
+      )}
 
       <div style={{ marginTop: 18 }}>
         <div className="phones__label">analysis</div>
@@ -113,8 +178,30 @@ export function SummaryPanel({ analysis, filter, onToggle, onClear }: Props) {
           </dd>
           <dt>ASR</dt>
           <dd>{meta.models.asr}</dd>
+          {meta.phone_engine && (
+            <>
+              <dt>engine</dt>
+              <dd>{meta.phone_engine}</dd>
+            </>
+          )}
           <dt>phones</dt>
           <dd style={{ wordBreak: "break-all" }}>{meta.models.phones}</dd>
+          {meta.dialogue_separation && (
+            <>
+              <dt>dialogue</dt>
+              <dd>
+                {meta.dialogue_separation.applied
+                  ? `isolated from music and effects (${meta.dialogue_separation.model ?? "separator"}${
+                      meta.dialogue_separation.seconds != null
+                        ? `, ${meta.dialogue_separation.seconds.toFixed(0)} s`
+                        : ""
+                    })`
+                  : meta.dialogue_separation.error
+                    ? `not separated: ${meta.dialogue_separation.error}`
+                    : "not separated (original mix)"}
+              </dd>
+            </>
+          )}
           <dt>attraction</dt>
           <dd>
             {meta.attraction ? "enabled" : "disabled"} ·{" "}
