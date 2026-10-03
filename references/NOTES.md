@@ -367,4 +367,276 @@ transcript (182 words, 545 real phones):
   a sum-of-spans to temporal extension: the CTC spans are peaks of ~20-40 ms and the
   sum flagged 32 false positives.
 - Attraction threshold of 1.3 left unchanged after the redesign: it erases no phenomena.
+
+---
+
+## 7. Validation against the connected-speech reductions report (September 2026)
+
+An external report on American English reductions was taken as the reference for
+what the tool should be able to hear: Johnson 2004 (ViC/Buckeye), weak forms,
+flapping, glottalization, linking, intonation, and the "produce vs only recognize"
+advice. The tool was checked against it on 9 saved analyses (South Park + 2 Broke
+Girls, 4,356 words, the espeak engine). It covered almost every phenomenon by name.
+It did not hear several of them, and the cause was the recognizer, not the rules.
+
+### 7.1 What the espeak engine could not hear
+
+- **The G2P prior.** `wav2vec2-lv-60-espeak-cv-ft` was fine-tuned on espeak's own
+  G2P labels, and its output mirrors espeak's sentence-level choices:
+
+  | word | espeak's form | share of tokens recognized in that form |
+  |---|---|---|
+  | of | ʌv | 69 % (25/36) |
+  | you | juː | 78 % (119/153) |
+  | from | fɹʌm | 85 % (11/13) |
+  | was | wʌz | 78 % (18/23) |
+  | for | fɔːɹ | 76 % (22/29) |
+
+  The words espeak itself reduces did come out reduced: *to* [tə] 71 %, *a* [ɐ/ə]
+  87 %. The weak-form layer — the one the report calls the most important for
+  listening — was undercounted exactly where espeak keeps the strong form. h-dropping
+  fired 7 times in 4,356 words.
+- **Glottalization was blind.** [ʔ] is in the model's vocabulary, but it was emitted
+  2 times in 13,722 phones, and the label fired 0 times. Worse, espeak pre-glottalizes
+  *button/certain/kitten* (bʌʔn̩), so with the aligned reference a heard [ʔ] would
+  have been a *match*. The unit test passed only because its fixture used a canonical
+  `b ʌ t n̩` that production never produces. Meanwhile 54 % of the t_deletion labels
+  (171/314) were a final /t/ after a vowel (*that, what, it*), which is the
+  report's glottal or unreleased [t̚] territory, not deletion.
+- **Pre-syncopation.** espeak drops the syllable itself in *camera* kæmɹə, *different*
+  dɪfɹənt, *comfortable* kʌmftəbəl, *chocolate* and *interesting*. elision_syllable,
+  defined against the aligned canonical, could never fire on the report's own
+  examples. This is the same class of problem flapping already had (§6.1).
+- **gonna/hafta false positives.** The phonetic path for lexical contractions
+  accepted any reduction in the pair as evidence. The vowel of "to" is almost always
+  reduced, so 21 of 55 phonetic detections had the full form audibly intact:
+  - going [ɡoʊɪŋ] + to [tə] → "gonna", including "going to the gym", which is
+    exactly the *I'm gonna the store* the report rules out;
+  - have [hæv] + to → "hafta", with the /v/ intact.
+- **Smaller gaps.**
+  - r-linking was undetectable: rhotic vowels are single tokens.
+  - 53 vowel+vowel boundaries under 100 ms went unlabeled (glide linking).
+  - Place assimilation, /nt/ → [n] and of → [ə] had no labels.
+  - The fixed 400 Hz F0 ceiling clipped cartoon and child voices.
+  - There was no rhythm measure, and no check of a contour against the sentence type.
+
+Even so, the elision figures already matched the report: 24.2 % of words lost a
+segment (Johnson: 25 %) and 5.8 % lost a syllable (5.9 %). Words deviating in at
+least one segment, however, came to 42.0 % against Johnson's >60 %. The missing part
+is the substitutions — full vowel → schwa — which a G2P-trained recognizer does not
+make.
+
+### 7.2 First fixes, still on espeak
+
+- **Rules referenced to the dictionary.** glottalization and elision_syllable now use
+  the CMUdict reference, like flapping. An OOV word's g2p guess is never used as a
+  reference.
+- **t_deletion split.** A final t/d after a consonant is cluster reduction
+  (`t_deletion`); after a vowel it is `t_unreleased`.
+- **Contraction signatures.** Each contraction now needs its own phonetic signature:
+  - gonna/wanna: the /t/ of "to" is gone;
+  - hafta: v→f;
+  - gotcha: tʃ at the junction;
+  - …and "going to" before a determiner, a possessive or a name is never gonna.
+
+  Phonetic-path detections went 55 → 22, with **21 → 0** that had the full form intact.
+  Two genuine ones were gained.
+- **Weak-form rescoring (`variants.py`): a negative result worth recording.**
+  - **Method:** the CTC log-likelihood of strong vs weak variants of 37 function
+    words, scored over the same emissions. Each weak variant gets a same-length
+    full-vowel twin, so shorter hypotheses are not favored.
+  - **Margins:** 2.0 for vowel reduction and 4.5 for a dropped h. These give 2.2 % and
+    5.1 % false alarms on content words with the vowel swapped for schwa or the h
+    dropped.
+  - **Result:** on 927 function words, *you* came out confidently strong 89 % of the
+    time and confidently weak 0 %; *of* 64 % strong; *from* 92 % strong. **The bias
+    lives in the emissions, not in the greedy decoding.** The scoring still adds what it
+    can (+23 vowel_reduction, +5 h_dropping), and before a pause the strong form wins
+    85 % of the time, as the report's golden rule predicts. A [t]/[ʔ]/∅ probe on final-t
+    words never chose [ʔ] (0/293), not even on *button*.
+
+### 7.3 Choosing a narrow recognizer
+
+ZIPA (ACL 2025) states the cause directly: phone recognizers trained on G2P labels
+"can simply memorize the standard pronunciation". What was needed was a recognizer
+trained on **human, narrow** transcriptions. Two candidates were tested on two clips
+(4.5 min):
+
+| | espeak (old default) | `excalibur12/…timit-4k` (TIMIT-61) | `ginic/…buckeye-ipa` (Buckeye) |
+|---|---|---|---|
+| weights | Apache-2.0 | Apache-2.0 | MIT |
+| training data | Common Voice (CC0) + espeak labels | TIMIT, LDC93S1 (non-commercial) | Buckeye (non-commercial) |
+| [ʔ] heard | 0 | 21 | 3 |
+| [ɾ̃] heard | 0 | 17 | 16 |
+| [t̚] heard | — | 34 | — |
+| schwa share | 21 % | 26 % | collapses ə into ʌ |
+| *for* | fɔːɹ 3/3 | fɚ 3/3 | fɚ 3/3 |
+
+On final /t/ (*that, not, it*), espeak wrote [t] 14 times. TIMIT-61 wrote a released
+[t] once and [t̚] 10 times, which confirms that `t_unreleased` is the honest label.
+
+**Decision:** TIMIT-61 becomes the default (`timit61`), and espeak remains available
+as `--phone-engine espeak` (alias `wav2vec2`). The licensing of the training data is
+disclosed rather than hidden; see THIRD-PARTY-NOTICES §4. The difference from MMS_FA
+(discarded in §5a, and excluded in the notices) is that there the weights themselves
+are non-commercial.
+
+### 7.4 The `timit61` engine (`phones_timit.py`)
+
+- **Label mapping.** TIMIT-61 labels map to IPA in the closed inventory: dx ɾ, nx ɾ̃,
+  q ʔ, ax ə, ix ᵻ (kept schwa-like, not ɪ), axr ɚ, er ɝ, and the syllabics
+  en/el/em/eng. Eleven symbols joined the inventory; the articulator draws all of them.
+- **Closures.**
+  - A closure plus its burst becomes one stop.
+  - A closure with no burst becomes an unreleased stop X̚.
+  - A closure running straight into a vowel or approximant is a plain stop: the model
+    only missed the burst.
+  - A short silence of 60 ms or less between closure and burst is bridged.
+- **Canonical = the CMUdict citation form,** spelled in TIMIT labels (closures
+  included) and forced over the same emissions. Silence columns are folded into the
+  blank for the alignment. Without that fold, word-initial phones were stretched over
+  the leading silence and word_elision on the short clip went 16 → 5 once it was
+  fixed.
+- **Function words take their strong citation form** (a → EY1, and → AE1 N D), so a
+  weak form is a measured deviation. "the" is excluded, since ðə/ði alternates by
+  context.
+- **Attraction is off for timit61.** It rewrote 30 % of words, inflated the schwa
+  share from 20.1 to 26.2 %, and erased 3 genuine contractions. It stays on for espeak,
+  where it cleans multilingual leakage.
+- **Not loaded on the default path:** phonemizer and espeak-ng.
+
+**Before → after** (4 clips, ≈1,730 words that were heard; the full pipeline minus
+Whisper):
+
+| measure | old espeak | timit61 | report |
+|---|---|---|---|
+| words deviating ≥ 1 segment | 44.1 % | 72.5 % | > 60 % |
+| words losing ≥ 1 segment | 26.1 % | 29.8 % | 25 % |
+| words losing ≥ 1 syllable | 5.2 % | 4.5 % | 5.9 % |
+| schwa share | 18.6 % | 20.1 % | 20–25 % |
+| weak *of* / *from* / *was* / *for* | 23 / 0 / 0 / 24 % | 73 / 75 / 46 / 50 % | |
+| heard ʔ / t̚ / ɾ̃ | 0 / 0 / 0 | 130 / 101 / 61 | |
+| glottalization / flapping / h_dropping labels | 0 / 49 / 1 | 33 / 117 / 10 | |
+
+*you* stays mostly strong (7 % weak) even with narrow labels.
+
+### 7.5 Second rules wave
+
+| label or field | rule | hand-checked precision |
+|---|---|---|
+| `nt_reduction` | /nt/ before a vowel → [n] or [ɾ̃], inside a word or across the boundary. It replaces flapping and t_deletion for that /t/: one label per /t/. | 21/21 timit61, 21/22 espeak (≈95–100 %) |
+| `place_assimilation` | A final n/t/d takes the labial or velar place of the next onset (on my [əm], that band [ðʌp̚]). Attraction no longer undoes it. | 5/5 |
+| `function_elision` | A function word loses its consonant: of → ə, them → əm. It never overlaps with h_dropping or t_deletion. | 9/11 (≈82 %) |
+| `boundary_link_type` | consonant, r, glide_w or glide_j. A link needs a vowel-initial canonical (or a droppable h/ð); a final ʔ or X̚ never links; nothing links across a sentence end. | r 19/20, glides 19/19, consonant 18/20 |
+
+- **Lexicon.** 17 reduced forms joined (oughta, useta, supposta, tryna, finna, cuppa,
+  lotsa, wouldja…), plus 9 phonetic-path pairs, each with its own signature.
+- **Produce vs recognize.** Every label and every reduced form carries the report's
+  advice (`produce`/`understand`) and its register (`universal`/`casual`/`marked`).
+- **One closed function-word list** (`lexicon.py`) is shared by prosody and metrics.
+  It includes *not/all/both*; it leaves out negative contractions and wh-words, which
+  stay stressed.
+- **Linking is now stricter.** linking went 290 → 238 on timit61; the links dropped
+  were misbucketed onsets, final ʔ/X̚ and sentence ends.
+
+### 7.6 Prosody
+
+- **Range.** F0 range is adapted per speaker turn (Hirst's rule over a 50–800 Hz first
+  pass). On the South Park clips 7–26 % of the voiced frames lie above 400 Hz.
+- **Contours** are measured in semitones per second (threshold ±3 st/s).
+  - Over 715 intonation units: 56 % of statements fall (median −7.4 st/s) and 61 % of
+    yes/no questions rise (+8.7 st/s).
+  - 86 statements were flagged as uptalk. One- and two-word backchannels are excluded.
+- **Prominence** (F0 × intensity × duration) peaks on a content word 87 % of the time,
+  against a 56.5 % base rate.
+- **Rhythm** is an nPVI over syllable intervals, 36–40 per clip. It is flagged
+  `approximate`: CTC spans are peaks, not durations, so %V and ΔC were not attempted,
+  as they would drift toward 50 %.
+
+### 7.7 Dialogue separation (`separation.py`)
+
+Film and TV audio puts music, effects and laugh tracks under the dialogue (report §6).
+
+- **HTDemucs vs MRX.**
+  - HTDemucs (vocals stem) was compared with MRX, the dialogue-specific "cocktail
+    fork" model (three checkpoints).
+  - **MRX was rejected: it deletes speech.** With Whisper re-run on its output, 92 of
+    324 and 124 of 486 words disappeared, and on clean speech its phone error was
+    45.7 %.
+- **Synthetic benchmark.** Real South Park dialogue (513 words) was mixed with an
+  orchestral score at 10/5/0 dB, against the clean recording. HTDemucs halves the phone
+  error at every SNR:
+  - at 0 dB, 26.5 → 10.5 % with espeak and 31.8 → 15.3 % with timit61;
+  - on clean speech it moves 2–3 % of the phones.
+- **Real clips** (1,332 words, same transcript): on quiet stretches, words change at
+  the recognizer's own noise floor (3.5 % vs 2.3 % from resampling alone). On the
+  noisiest stretches, low-confidence words fall from 18.8 % to 10.9 %. One crowd-noise
+  montage got slightly worse (9.9 → 11.8 %).
+- **Decision:** on by default, with `--no-separate-dialogue` to skip it. "Video only"
+  was rejected because two of three test clips were audio-only TV downloads.
+  Playback keeps the original mix; the UI offers both tracks.
+- **Determinism.** demucs' default `shifts=1` applies one random time offset with
+  nothing to average it against. Two runs of the same clip then gave 181 vs 182 words
+  and only 61/181 identical realized forms. Running with `shifts=0` makes the track
+  byte-identical across runs, and a test pins it.
+- **Robustness.** The stage never aborts the analysis: any failure falls back to the
+  mix and is recorded in `meta.dialogue_separation`.
+- **Memory.**
+  - The 44.1 kHz decode is memory-mapped from disk and the chunks are reduced to mono
+    as they come out: ≈1 GB/h instead of ≈6 GB/h.
+  - Past 3 h the stage is skipped.
+  - The training data, MUSDB18-HQ, is academic-use only and is disclosed like TIMIT.
+
+### 7.8 Metrics against the report (`metrics.py`)
+
+Every analysis now carries `summary.metrics`, each figure next to its published
+reference and source. On the 2 Broke Girls clip with the defaults (timit61 +
+deterministic separation, after the review fixes; the espeak column is the same clip
+with `--phone-engine espeak --no-separate-dialogue`):
+
+| measure | timit61 | espeak | report |
+|---|---|---|---|
+| words deviating | 72.1 % | 37.3 % | > 60 % (Johnson 2004) |
+| words losing a segment | 27.9 % | 23.2 % | ≈ 25 % |
+| words losing a syllable | 4.1 % | 4.6 % | ≈ 5.9 % |
+| schwa share of vowels | 20.6 % | 16.8 % | 20–25 % |
+| function words | 47.3 % | 47.3 % | ≈ 56 % (ViC) |
+| flapping where the dictionary allows it | 3/4 | 3/4 | 74.8–81.6 % (Patterson & Connine 2001) |
+
+A 43-second scripted sitcom clip is not a conversational corpus, so the figures are a
+sanity check, not a replication. The corpus pools them by word count **per engine**:
+deviation is ≈72 % with timit61 against the citation form and ≈42 % with espeak
+against its own canonical, so the two are never added together. A pool that mixes
+rule versions (`meta.rules_version`) is flagged.
+
+### 7.9 Independent review of the backend
+
+A fresh reviewer found 10 defects (1 high, 4 medium, 5 low). All were fixed, each with
+a regression test that fails on the old code.
+
+- **High: the corpus schema migration (3→4).** It was neither atomic nor idempotent:
+  two processes, or a crash halfway, left a database that stopped the UI from starting.
+  It now runs in one `BEGIN IMMEDIATE` transaction that re-reads the version, and a
+  half-migrated database opens.
+- **Medium:**
+  - An unheard word (`word_elision`) also received t/d labels. It now carries
+    `word_elision` alone; palatalization is kept, since it is heard at the boundary.
+  - A final /t/ resyllabified onto the next vowel ("get it" → ge‿tit) was labeled
+    deleted. It is now linking, plus flapping if it was flapped.
+  - A stale `audio_dialogue.wav` from an earlier run was advertised and served. The
+    track is now served only when that analysis's meta says separation ran, and it is
+    written under a temporary name.
+  - Separation could still abort the analysis or exhaust memory (see §7.7).
+- **Low:**
+  - A weak "a" heard as [ɪ] was labeled monophthongization. There is now one shared
+    reduction criterion for rules, variants and metrics.
+  - TIMIT closure + silence + burst came out as two stops.
+  - Phones decoded by two overlapping segments were kept twice.
+  - Old and new rule versions were pooled together.
+  - Small rule/metric mismatches (syllabic ŋ̍ as a nucleus).
+
+The flaky `test_ws` lifecycle test was a race in the test, not in the server. The
+socket's guarantees (no event lost between subscription and snapshot, none after
+"deleted", never backwards) were verified under load. The test now counts the
+store's events, and it passes 40/40 under load.
 </content>

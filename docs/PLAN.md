@@ -11,6 +11,20 @@
 > recognizers. We reuse components from existing MDD/CAPT projects (which perform this very diff, but
 > in order to "correct learners") and only write the new layer: labeling of native phenomena + report.
 
+> **Addendum (September 2026) — where the implementation now departs from this plan.**
+>
+> - **Phone engine.** The default is no longer `wav2vec2-lv-60-espeak-cv-ft` but a
+>   TIMIT-61 narrow-transcription model (`--phone-engine timit61`), and the canonical is
+>   the CMUdict citation form forced on that same model. The espeak engine remains as
+>   `--phone-engine espeak`.
+> - **Dialogue separation.** The "optional phase 8 with demucs" of §6/§7 is implemented
+>   and on by default (`--no-separate-dialogue`).
+> - **Allosaurus** was never implemented, and the reserved `--phone-engine allosaurus` value
+>   has been removed: an option that can only fail is not an option.
+>
+> The evidence and the decisions are in `references/NOTES.md` §7. The sections below are
+> kept as written.
+
 ---
 
 ## 0. Design principle (read before coding)
