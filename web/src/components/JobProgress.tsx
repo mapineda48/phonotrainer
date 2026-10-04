@@ -93,8 +93,9 @@ export function JobProgress({ job: initial }: { job: Job }) {
             </div>
           ) : (
             <p className="tiny muted" style={{ marginBottom: 0 }}>
-              Check that <code>ffmpeg</code> and <code>espeak-ng</code> are installed and that the
-              models were downloaded (<code>scripts/download_models.py</code>).
+              Check that <code>ffmpeg</code> is installed (and <code>espeak-ng</code>, for the
+              espeak engine) and that the models were downloaded
+              (<code>scripts/download_models.py</code>).
             </p>
           )}
         </div>

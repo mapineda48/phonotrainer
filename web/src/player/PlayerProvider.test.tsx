@@ -22,9 +22,9 @@ function Probe() {
   return null;
 }
 
-function mount(src: string | null = "/api/jobs/x/audio") {
+function mount(src: string | null = "/api/jobs/x/audio", sourceKey?: string) {
   const view = render(
-    <PlayerProvider src={src}>
+    <PlayerProvider src={src} sourceKey={sourceKey}>
       <Probe />
     </PlayerProvider>,
   );
@@ -154,5 +154,45 @@ describe("PlayerProvider", () => {
     act(() => api.toggle({ start: 5, end: 6 }));   // a different one: jump and play
     expect(play).toHaveBeenCalled();
     expect(api.span).toEqual({ start: 5, end: 6 });
+  });
+
+  it("another track of the same material keeps the place and keeps playing", () => {
+    const { audio, view, play, setTime } = mount("/api/jobs/x/audio", "x");
+    act(() => api.play({ start: 1, end: 3 }));
+    setTime(1.7);
+    tick();
+
+    view.rerender(
+      <PlayerProvider src="/api/jobs/x/audio?track=dialogue" sourceKey="x">
+        <Probe />
+      </PlayerProvider>,
+    );
+    // the new source rewinds the element; the provider puts it back on load
+    setTime(0);
+    play.mockClear();
+    act(() => {
+      audio.dispatchEvent(new Event("loadedmetadata"));
+    });
+
+    expect(audio.currentTime).toBe(1.7);
+    expect(api.clock.getSnapshot()).toBe(1.7);
+    expect(play).toHaveBeenCalled();
+    expect(api.span).toEqual({ start: 1, end: 3 });
+  });
+
+  it("a different material still rewinds even with a track chosen", () => {
+    const { audio, view, setTime } = mount("/api/jobs/x/audio", "x");
+    act(() => api.play({ start: 1, end: 2 }));
+    setTime(1.5);
+    tick();
+
+    view.rerender(
+      <PlayerProvider src="/api/jobs/y/audio?track=dialogue" sourceKey="y">
+        <Probe />
+      </PlayerProvider>,
+    );
+
+    expect(api.span).toBeNull();
+    expect(audio.currentTime).toBe(0);
   });
 });

@@ -3,14 +3,20 @@
 The same engine also exposes the emissions (log-probs) so that align_canonical.py can
 force-align the canonical sequence with the SAME model: real and canonical then live
 in the same alphabet (espeak/IPA) and share a single acoustic pass.
+
+This is the `espeak` engine. The default is `timit61` (phones_timit.py), trained on
+narrow human transcriptions; `build_engine` picks between them, and both expose the
+same interface: log_probs, greedy_phones, frame_duration, blank_id, and for the
+canonical word_ids / ids_label / spans_to_phones.
 """
 
 from __future__ import annotations
 
 import numpy as np
 
-from .ipa_maps import (DIPHTHONGS, FLAP, GLOTTAL, is_full_vowel, is_schwa_like,
-                       is_vowel, normalize_espeak)
+from .ipa_maps import (DIPHTHONGS, FLAP, GLOTTAL, PLACE_ASSIMILATION, SYLLABIC,
+                       UNRELEASED, is_full_vowel, is_schwa_like, is_vowel,
+                       normalize_espeak)
 
 MODEL_ID = "facebook/wav2vec2-lv-60-espeak-cv-ft"
 SAMPLE_RATE = 16000
@@ -49,6 +55,10 @@ def attract_to_canonical(realized: list[dict], canonical: list[dict],
         cp, rp = c["phone"], r["phone"]
         if _protected(cp, rp):
             continue
+        if c is canonical[-1] and any(cp == alv and rp in found for (alv, _), found
+                                      in PLACE_ASSIMILATION.items()):
+            continue  # a final alveolar taking the next onset's place: tem bucks
+
         pair = frozenset((cp, rp))
         if pair not in EXTRA_ATTRACT and phone_cost(cp, rp) > max_cost:
             continue
@@ -88,6 +98,11 @@ def _protected(canon: str, real: str) -> bool:
         return True
     if real in FLAP or real in GLOTTAL:
         return True
+    # the narrow detail only the TIMIT engine sees: a closure that never released
+    # (t→t̚ costs 0.05 and would be "fixed" back to t) and a syllabic consonant (n→n̩,
+    # which would then read as a lost syllable)
+    if real in UNRELEASED or real in SYLLABIC:
+        return True
     # vowel reduction (same criterion as phenomena._word_rules)
     if is_full_vowel(canon) and (is_schwa_like(real) or real == "ɪ"):
         return True
@@ -98,11 +113,21 @@ def _protected(canon: str, real: str) -> bool:
 
 
 class Wav2Vec2PhoneEngine:
+    """wav2vec2 fine-tuned on espeak G2P labels (the `espeak` engine)."""
+
+    name = "espeak"
+    model_id = MODEL_ID
+    narrow = False        # no unreleased stops, glottal stops almost never
+    form_scoring = True   # variants.py rescoring of weak forms applies
+    attraction_default = True  # multilingual leakage and acoustic noise to clean up
+    alignment = "torchaudio forced_align over wav2vec2-espeak emissions"
+
     def __init__(self, model_id: str = MODEL_ID, device: str = "cpu"):
         import torch
         from transformers import AutoModelForCTC, AutoProcessor
 
         self.torch = torch
+        self.model_id = model_id
         self.processor = AutoProcessor.from_pretrained(model_id)
         self.model = AutoModelForCTC.from_pretrained(model_id).to(device).eval()
         self.tokenizer = self.processor.tokenizer
@@ -164,14 +189,59 @@ class Wav2Vec2PhoneEngine:
             })
         return phones
 
+    # --- canonical (align_canonical.py) --------------------------------------
+    def word_ids(self, word: str) -> tuple[int, ...]:
+        """espeak phonemization of `word`, as this model's token ids."""
+        from .align_canonical import canonical_phone_ids
 
-def build_engine(name: str = "wav2vec2", device: str = "cpu"):
+        return tuple(canonical_phone_ids(self.tokenizer, word))
+
+    def ids_label(self, ids) -> str:
+        return " ".join(self.tokenizer.convert_ids_to_tokens(list(ids)))
+
+    def spans_to_phones(self, spans: list[tuple[int, int, int, float]],
+                        t_offset: float, frame_dur: float) -> list[dict]:
+        """Forced (token_id, start_frame, end_frame, score) → canonical phones."""
+        phones = []
+        for tid, f0, f1, score in spans:
+            raw = self.tokenizer.convert_ids_to_tokens(tid)
+            phones.append({
+                "phone": normalize_espeak(raw) or raw,
+                "raw_phone": raw,
+                "start": round(t_offset + f0 * frame_dur, 3),
+                "end": round(t_offset + f1 * frame_dur, 3),
+                "score": round(float(score), 3),
+            })
+        return phones
+
+
+DEFAULT_ENGINE = "timit61"
+# "wav2vec2" is what the espeak engine was called before there were two of them:
+# old jobs and scripts still pass it.
+ENGINE_ALIASES = {"wav2vec2": "espeak"}
+
+
+def engine_name(name: str) -> str:
+    """Canonical engine name (resolves aliases; unknown names pass through)."""
+    return ENGINE_ALIASES.get(name, name)
+
+
+def engine_of(meta: dict) -> str:
+    """The engine an analysis was made with, from its meta; analyses older than
+    the timit61 engine carry no `phone_engine` and were all made with espeak."""
+    if meta.get("phone_engine"):
+        return engine_name(meta["phone_engine"])
+    phones = str((meta.get("models") or {}).get("phones", ""))
+    return "timit61" if "timit" in phones else "espeak"
+
+
+def build_engine(name: str = DEFAULT_ENGINE, device: str = "cpu"):
     """Factory for phone engines (the --phone-engine flag)."""
-    if name == "wav2vec2":
+    name = engine_name(name)
+    if name == "timit61":
+        from .phones_timit import TimitPhoneEngine
+
+        return TimitPhoneEngine(device=device)
+    if name == "espeak":
         return Wav2Vec2PhoneEngine(device=device)
-    if name == "allosaurus":
-        raise NotImplementedError(
-            "The allosaurus engine is not installed. Run `pip install allosaurus` and "
-            "see task.md; the default engine (wav2vec2) does not need it."
-        )
     raise ValueError(f"Unknown phone engine: {name}")

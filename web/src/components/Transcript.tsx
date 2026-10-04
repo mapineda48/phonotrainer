@@ -11,8 +11,9 @@ import { fmtTime } from "../lib/format";
 import { useTimeSelector } from "../player/clock";
 import { usePlayer } from "../player/PlayerProvider";
 import { useReference } from "../reference";
-import type { Analysis, Segment } from "../types";
+import type { Analysis, IntonationUnit, Segment } from "../types";
 import { F0Chart } from "./F0Chart";
+import { ProminenceStrip } from "./ProminenceStrip";
 import { WordButton } from "./WordButton";
 
 export interface Selection {
@@ -101,10 +102,14 @@ function SegmentCard({ segment, index, selected, onSelect, filter, follow }: Seg
         </button>
         {stats.mean != null && (
           <span>
-            F0 {stats.mean.toFixed(0)} Hz · range {stats.range?.toFixed(0)} Hz ·{" "}
+            F0 {stats.mean.toFixed(0)} Hz ·{" "}
+            {stats.range != null && <>range {stats.range.toFixed(0)} Hz · </>}
             {ARROW[stats.final_contour] ?? stats.final_contour}
           </span>
         )}
+        {segment.intonation_units?.map((unit, unitIndex) => (
+          <UnitBadge key={`${unitIndex}-${unit.start}`} unit={unit} />
+        ))}
       </div>
 
       <p className="segment__text">
@@ -136,6 +141,17 @@ function SegmentCard({ segment, index, selected, onSelect, filter, follow }: Seg
             <span className="phones__label">canonical</span>{" "}
             <span className="ipa">/{joinIpa(segment, "canonical_ipa")}/</span>
           </div>
+          <ProminenceStrip segment={segment} />
+          {segment.rhythm && (
+            <div className="muted" data-testid="segment-rhythm" title={segment.rhythm.method}>
+              <span className="phones__label">rhythm (approximate)</span> nPVI{" "}
+              {segment.rhythm.npvi.toFixed(0)}
+              {segment.rhythm.varco != null && <> · Varco {segment.rhythm.varco.toFixed(0)}</>} ·{" "}
+              {segment.rhythm.n_intervals} syllable intervals, mean{" "}
+              {segment.rhythm.mean_ms.toFixed(0)} ms — from the spacing of syllable nuclei, not
+              measured durations
+            </div>
+          )}
         </div>
       </details>
 
@@ -153,4 +169,40 @@ function joinIpa(segment: Segment, field: "realized_ipa" | "canonical_ipa"): str
       return last ? ipa : ipa + (word.boundary_link_next ? "‿" : " ");
     })
     .join("");
+}
+
+const UNIT_TYPE_LABEL: Record<IntonationUnit["type"], string> = {
+  statement: "statement",
+  yes_no_question: "yes/no question",
+  wh_question: "wh-question",
+  exclamation: "exclamation",
+  incomplete: "unfinished",
+};
+
+const CONTOUR_ARROW: Record<string, string> = { rising: "↗", falling: "↘", flat: "→" };
+
+/** One sentence of the segment: its final contour against the one its type
+ *  calls for (report §4), and uptalk when a statement ends rising. */
+function UnitBadge({ unit }: { unit: IntonationUnit }) {
+  // A sentence cut by the segment boundary says nothing about intonation.
+  if (unit.type === "incomplete" && !unit.uptalk) return null;
+  const actual = CONTOUR_ARROW[unit.final_contour] ?? unit.final_contour;
+  const expected = unit.expected_contour ? CONTOUR_ARROW[unit.expected_contour] : null;
+  const verdict =
+    unit.matches_expected == null ? "" : unit.matches_expected ? "as expected" : `expected ${expected}`;
+  const title =
+    `“${unit.text}” — ${UNIT_TYPE_LABEL[unit.type] ?? unit.type}, ends ${unit.final_contour}` +
+    (unit.final_slope_st != null ? ` (${unit.final_slope_st.toFixed(1)} st/s)` : "") +
+    (unit.expected_contour ? `; the report expects ${unit.expected_contour}` : "");
+  return (
+    <span
+      className={`iu ${unit.matches_expected === false ? "iu--off" : ""}`}
+      title={title}
+      data-testid="intonation-unit"
+    >
+      {UNIT_TYPE_LABEL[unit.type] ?? unit.type} {actual}
+      {verdict && <span className="iu__verdict"> {verdict}</span>}
+      {unit.uptalk && <span className="iu__uptalk">uptalk</span>}
+    </span>
+  );
 }

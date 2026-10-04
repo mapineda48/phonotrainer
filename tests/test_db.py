@@ -291,3 +291,205 @@ def test_the_database_creates_itself(tmp_path):
         assert second.stats()["words"] == 5
     finally:
         second.close()
+
+
+# --- reduction metrics --------------------------------------------------------------
+def test_indexing_stores_the_metrics_of_the_analysis(corpus):
+    corpus.index_analysis("job1", mk_analysis())
+    (row,) = corpus.analyses()
+    assert row["metrics"]["words"]["total"] == 5
+    assert row["metrics"]["segment_loss"] == {"count": 1, "of": 4, "pct": 25.0}
+
+
+def test_metrics_already_in_the_analysis_are_kept_as_they_are(corpus):
+    from phonotrainer.metrics import METRICS_VERSION, compute
+
+    analysis = mk_analysis()
+    stored = compute(analysis)
+    stored["deviate"] = {"count": 7, "of": 7, "pct": 100.0}      # a marker
+    analysis["summary"]["metrics"] = stored
+    corpus.index_analysis("job1", analysis)
+    assert corpus.analyses()[0]["metrics"]["deviate"]["count"] == 7
+
+    stored["version"] = METRICS_VERSION - 1                        # stale: recomputed
+    corpus.index_analysis("job1", analysis)
+    assert corpus.analyses()[0]["metrics"]["deviate"]["count"] != 7
+
+
+def test_corpus_metrics_count_each_recording_once(corpus):
+    # the same material indexed twice (with and without attraction, say)
+    corpus.index_analysis("out", mk_analysis("ep1.webm"))
+    corpus.index_analysis("out_noattr", mk_analysis("ep1.webm"))
+    result = corpus.metrics()
+    assert (result["analyses"], result["materials"], result["measured"]) == (2, 1, 1)
+    assert result["by_engine"]["espeak"]["words"]["total"] == 5
+
+
+def test_corpus_metrics_are_pooled_per_engine_never_across(corpus):
+    # the same clip heard by both engines: one recording, two measurements that
+    # are never added together (their canonicals and recognizers differ)
+    timit = mk_analysis("ep1.webm")
+    timit["meta"]["phone_engine"] = "timit61"
+    timit["meta"]["models"]["phones"] = "excalibur12/wav2vec2-large-lv60_phoneme-timit"
+    corpus.index_analysis("out", mk_analysis("ep1.webm"))
+    corpus.index_analysis("out_timit", timit)
+    result = corpus.metrics()
+    assert (result["analyses"], result["materials"], result["measured"]) == (2, 1, 2)
+    assert list(result["by_engine"]) == ["timit61", "espeak"]      # default first
+    for engine, pooled in result["by_engine"].items():
+        assert pooled["engine"] == engine and pooled["analyses"] == 1
+        assert pooled["words"]["total"] == 5
+
+
+def test_rows_without_metrics_are_backfilled_from_their_analysis_json(corpus, tmp_path):
+    result_dir = tmp_path / "out"
+    result_dir.mkdir()
+    (result_dir / "analysis.json").write_text(json.dumps(mk_analysis()), encoding="utf-8")
+    corpus.index_file(str(result_dir), result_dir / "analysis.json")
+    corpus.index_analysis("gone", {**mk_analysis("other.webm"), "segments": []})
+    with corpus._conn:                     # as if indexed before metrics existed
+        corpus._conn.execute("UPDATE analyses SET metrics = NULL")
+
+    result = corpus.metrics()
+    assert (result["measured"], result["missing"]) == (1, 1)   # "gone" has no file
+    assert result["by_engine"]["espeak"]["words"]["total"] == 5
+    stored = {row["id"]: row["metrics"] for row in corpus.analyses()}
+    assert stored[str(result_dir)]["words"]["total"] == 5      # persisted
+    assert stored["gone"] is None
+
+
+def test_an_empty_corpus_has_no_metrics(corpus):
+    assert corpus.metrics() == {"analyses": 0, "materials": 0, "measured": 0,
+                                "missing": 0, "by_engine": {}}
+
+
+def test_a_version_3_corpus_is_migrated_without_losing_it(tmp_path):
+    import sqlite3
+
+    from phonotrainer import db as db_mod
+
+    path = tmp_path / "phonotrainer.db"
+    con = sqlite3.connect(path)
+    start = db_mod._SCHEMA.index(",\n    -- metrics.compute()")
+    end = db_mod._SCHEMA.index("metrics     TEXT") + len("metrics     TEXT")
+    v3 = db_mod._SCHEMA[:start] + db_mod._SCHEMA[end:]
+    assert "metrics" not in v3
+    con.executescript(v3)
+    con.execute("INSERT INTO meta VALUES ('schema_version', '3')")
+    con.execute("INSERT INTO analyses (id, source, segments, words, indexed_at) "
+                "VALUES ('cli-out', 'ep.webm', 0, 0, 'then')")
+    con.commit()
+    con.close()
+
+    db = Corpus(path)
+    try:
+        assert db.rebuilt is False
+        (row,) = db.analyses()                      # what the CLI indexed is still there
+        assert row["id"] == "cli-out" and row["metrics"] is None
+        version = db._rows("SELECT value FROM meta WHERE key = 'schema_version'")
+        assert version[0]["value"] == str(db_mod.SCHEMA_VERSION)
+    finally:
+        db.close()
+
+
+def _write_v3_corpus(path, with_metrics_column=False):
+    """A corpus as schema 3 left it (optionally with the column a crashed
+    upgrade had already added)."""
+    import sqlite3
+
+    from phonotrainer import db as db_mod
+
+    con = sqlite3.connect(path)
+    start = db_mod._SCHEMA.index(",\n    -- metrics.compute()")
+    end = db_mod._SCHEMA.index("metrics     TEXT") + len("metrics     TEXT")
+    con.executescript(db_mod._SCHEMA[:start] + db_mod._SCHEMA[end:])
+    if with_metrics_column:
+        con.execute("ALTER TABLE analyses ADD COLUMN metrics TEXT")
+    con.execute("INSERT INTO meta VALUES ('schema_version', '3')")
+    con.execute("INSERT INTO analyses (id, source, segments, words, indexed_at) "
+                "VALUES ('cli-out', 'ep.webm', 0, 0, 'then')")
+    con.commit()
+    con.close()
+
+
+def test_a_half_migrated_corpus_still_opens(tmp_path):
+    """Column already added, version never written (a crash between the two):
+    reopening used to fail forever with `duplicate column name`."""
+    path = tmp_path / "phonotrainer.db"
+    _write_v3_corpus(path, with_metrics_column=True)
+
+    db = Corpus(path)
+    try:
+        assert db.rebuilt is False
+        assert [row["id"] for row in db.analyses()] == ["cli-out"]
+    finally:
+        db.close()
+
+
+def test_an_upgrade_that_fails_halfway_leaves_nothing_behind(tmp_path, monkeypatch):
+    """The upgrade is one transaction: if it dies after the ALTER, the ALTER is
+    rolled back too, and the next open simply upgrades again."""
+    import sqlite3
+
+    from phonotrainer import db as db_mod
+
+    path = tmp_path / "phonotrainer.db"
+    _write_v3_corpus(path)
+    good = db_mod._SCHEMA
+    monkeypatch.setattr(db_mod, "_SCHEMA", good + "\nTHIS IS NOT SQL;")
+    with pytest.raises(sqlite3.OperationalError):
+        Corpus(path)
+    monkeypatch.setattr(db_mod, "_SCHEMA", good)
+
+    db = Corpus(path)
+    try:
+        assert db.rebuilt is False
+        assert [row["id"] for row in db.analyses()] == ["cli-out"]
+        version = db._rows("SELECT value FROM meta WHERE key = 'schema_version'")
+        assert version[0]["value"] == str(db_mod.SCHEMA_VERSION)
+    finally:
+        db.close()
+
+
+def test_two_processes_upgrading_at_once_both_succeed(tmp_path, monkeypatch):
+    """`phonotrainer ui` and a CLI `analyze` opening the same schema-3 corpus at
+    the same time: the second one used to die on `duplicate column name`."""
+    import threading
+    import time
+
+    from phonotrainer import db as db_mod
+
+    path = tmp_path / "phonotrainer.db"
+    _write_v3_corpus(path)
+    original = db_mod.Corpus._stored_version
+    first_read = threading.Event()
+    calls = []
+
+    def slow_first_read(self):
+        version = original(self)
+        calls.append(version)
+        if len(calls) == 1:          # the first opener stalls right after reading
+            first_read.set()
+            time.sleep(0.4)
+        return version
+
+    monkeypatch.setattr(db_mod.Corpus, "_stored_version", slow_first_read)
+    errors, opened = [], []
+
+    def open_corpus():
+        try:
+            opened.append(Corpus(path))
+        except Exception as exc:     # noqa: BLE001
+            errors.append(exc)
+
+    first = threading.Thread(target=open_corpus)
+    first.start()
+    assert first_read.wait(5)
+    second = threading.Thread(target=open_corpus)
+    second.start()
+    first.join(10)
+    second.join(10)
+    for db in opened:
+        db.close()
+    assert errors == []
+    assert len(opened) == 2

@@ -9,9 +9,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api } from "../api";
-import { fmtDuration, fmtTime } from "../lib/format";
+import { fmtDuration, fmtTime, plural } from "../lib/format";
 import { familyColor, phenomenonDescription, phenomenonLabel, useReference } from "../reference";
-import type { CorpusAnalysis, CorpusStats, Occurrence, WordVariant } from "../types";
+import type {
+  CorpusAnalysis,
+  CorpusMetrics,
+  CorpusStats,
+  Occurrence,
+  WordVariant,
+} from "../types";
+import { CorpusMetricsCard } from "./CorpusMetricsCard";
 
 export interface CorpusFilters {
   phenomenon: string | null;
@@ -38,6 +45,7 @@ export function CorpusView({ onOpen, filters, onFilters }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showAnalyses, setShowAnalyses] = useState(false);
+  const [metrics, setMetrics] = useState<CorpusMetrics | null>(null);
   /** Discards responses from requests that have already been superseded. */
   const request = useRef(0);
 
@@ -48,6 +56,12 @@ export function CorpusView({ onOpen, filters, onFilters }: Props) {
         setAnalyses(list.items);
       })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : String(err)));
+    // The metrics may take a moment (old analyses are measured on first ask):
+    // they must not hold the rest of the view back, nor break it.
+    api
+      .corpusMetrics()
+      .then(setMetrics)
+      .catch(() => setMetrics(null));
   }, []);
 
   const load = useCallback(async (phenomenon: string | null, word: string) => {
@@ -142,8 +156,9 @@ export function CorpusView({ onOpen, filters, onFilters }: Props) {
                   <td className="num muted">{fmtDuration(entry.duration)}</td>
                   <td className="num muted">{entry.words} words</td>
                   <td className="tiny muted">
-                    {entry.attraction ? "" : "no attraction · "}
-                    {entry.duplicate_source ? "repeated material" : ""}
+                    {engineOf(entry)}
+                    {entry.attraction ? "" : " · no attraction"}
+                    {entry.duplicate_source ? " · repeated material" : ""}
                   </td>
                 </tr>
               ))}
@@ -151,6 +166,8 @@ export function CorpusView({ onOpen, filters, onFilters }: Props) {
           </table>
         </div>
       )}
+
+      {metrics && <CorpusMetricsCard metrics={metrics} />}
 
       <div className="card">
         <strong className="tiny">Phenomena across the whole corpus</strong>
@@ -298,7 +315,7 @@ export function CorpusView({ onOpen, filters, onFilters }: Props) {
 
       <div className="card">
         <strong className="tiny">
-          {variantFilter !== null ? visibleItems.length : total} occurrences
+          {plural(variantFilter !== null ? visibleItems.length : total, "occurrence")}
           {filters.phenomenon && (
             <> of “{phenomenonLabel(reference, filters.phenomenon)}”</>
           )}
@@ -317,8 +334,8 @@ export function CorpusView({ onOpen, filters, onFilters }: Props) {
         </p>
         <p className="tiny muted" style={{ margin: "0 0 8px" }}>
           <strong>dict.</strong> = citation form · <strong>canonical</strong> = what the aligner
-          expected (espeak already applies native processes) · <strong>actual</strong> = what was
-          recognized.
+          expected (the dictionary form with timit61; with espeak, a form that already applies
+          native processes) · <strong>actual</strong> = what was recognized.
         </p>
         <table className="detail">
           <thead>
@@ -408,3 +425,10 @@ export function CorpusView({ onOpen, filters, onFilters }: Props) {
 
 /** Phenomena that occur between two words. */
 const BOUNDARY = new Set(["linking", "palatalization", "h_dropping"]);
+
+/** The phone engine an indexed analysis was made with. */
+function engineOf(entry: CorpusAnalysis): string {
+  if (entry.metrics?.engine) return entry.metrics.engine;
+  if (entry.phone_model) return entry.phone_model.toLowerCase().includes("timit") ? "timit61" : "espeak";
+  return "espeak";
+}

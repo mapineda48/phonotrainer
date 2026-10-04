@@ -11,10 +11,10 @@ import { JobsProvider } from "../jobs/JobsProvider";
 import { Clock } from "../player/clock";
 import { PlayerContextProvider, type PlayerApi } from "../player/PlayerProvider";
 import { ReferenceProvider } from "../reference";
-import type { AlignedPhone, Analysis, Job, Reference, Word } from "../types";
+import type { AlignedPhone, Analysis, Job, Metrics, Reference, Word } from "../types";
 
 export const reference: Reference = {
-  api_version: 3,
+  api_version: 4,
   families: [
     {
       key: "reduction",
@@ -67,18 +67,60 @@ export const reference: Reference = {
     flapping: "/t/ or /d/ between vowels sounds like a soft r. water → wɔɾɚ",
     linking: "The final consonant links onto the following vowel. does it → dʌ‿zɪt",
   },
+  practice: {
+    vowel_reduction: { practice: "produce", register: "universal", why: "The engine of English rhythm." },
+    flapping: { practice: "produce", register: "universal", why: "Safe and high-yield." },
+    linking: { practice: "produce", register: "universal", why: "Needed for fluency." },
+    t_deletion: { practice: "understand", register: "casual", why: "Casual: recognize it first." },
+    contraction_lex: { practice: "produce", register: "universal", why: "Per reduced form." },
+  },
+  lexical_practice: {
+    wanna: { practice: "produce", register: "universal", why: "Universal informal form." },
+    tryna: { practice: "understand", register: "marked", why: "Marked: recognize it." },
+  },
+  link_types: ["consonant", "r", "glide_w", "glide_j"],
+  metrics_reference: {
+    deviate: {
+      low: 60, high: null, display: "> 60 %", cite: "Johnson 2004",
+      source: "Johnson 2004 (ViC/Buckeye)", note: "words that depart from their citation form",
+    },
+    segment_loss: {
+      low: 25, high: 25, display: "≈ 25 %", cite: "Johnson 2004",
+      source: "Johnson 2004 (ViC/Buckeye)", note: "words that lose a whole segment",
+    },
+    schwa_share: {
+      low: 20, high: 25, display: "20–25 %", cite: "pedagogical estimates",
+      source: "pedagogical estimates", note: "schwa is the most frequent vowel",
+    },
+  },
+  metric_labels: {
+    deviate: "words that differ from the citation form",
+    segment_loss: "words that lose a whole segment",
+    syllable_loss: "words that lose a syllable",
+    schwa_share: "reduced vowels (schwa) among all vowels",
+    function_words: "function words among all words",
+    weak_forms: "function words in their weak form",
+    flapping: "t/d flapped where flapping can happen",
+    glottal_before_syllabic_n: "glottal t before a syllabic n (button)",
+    glottal_prevocalic: "final t before a vowel as a glottal stop",
+  },
   // The same ones the backend publishes from ipa_maps.ENGLISH_INVENTORY.
   ipa_tokens: ["ɑːɹ", "ɔːɹ", "aɪə", "aɪɚ", "oːɹ", "aɪ", "aʊ", "eɪ", "oʊ", "ɔɪ", "tʃ", "dʒ",
                "iː", "uː", "ɑː", "ɔː", "ɜː", "ɪɹ", "ʊɹ", "ɛɹ", "iə", "eə", "əl", "ju"],
   verdicts: ["ok", "wrong", "unsure"],
   options: {
     whisper_models: ["tiny", "base", "small", "medium"],
-    phone_engines: ["wav2vec2", "allosaurus"],
+    phone_engines: ["timit61", "espeak"],
+    phone_engine_notes: {
+      timit61: "Narrow recognizer trained on TIMIT (LDC), licensed for non-commercial research.",
+      espeak: "The original engine: it tends to hear the dictionary form.",
+    },
     defaults: {
       whisper_model: "small",
-      phone_engine: "wav2vec2",
+      phone_engine: "timit61",
       language: "en",
-      attraction: true,
+      attraction: null,
+      separate_dialogue: true,
     },
   },
   review: { default_n: 20, default_seed: 48, max_n: 500 },
@@ -294,3 +336,32 @@ export function renderWith(
   );
   return { player, ...render(ui, { wrapper: Wrapper, ...options }) };
 }
+
+const ratio = (count: number, of: number) => ({
+  count,
+  of,
+  pct: of ? Number(((100 * count) / of).toFixed(1)) : null,
+});
+
+/** summary.metrics as metrics.py produces it (timit61 engine). */
+export const metrics: Metrics = {
+  version: 2,
+  engine: "timit61",
+  words: { total: 181, analyzed: 175, low_confidence: 6, low_confidence_pct: 3.3 },
+  deviate: ratio(126, 175),
+  segment_loss: ratio(45, 175),
+  syllable_loss: ratio(7, 173),
+  schwa_share: ratio(56, 238),
+  function_words: ratio(85, 181),
+  weak_forms: { greedy: ratio(14, 35), variant: null },
+  flapping: ratio(3, 4),
+  glottal_before_syllabic_n: ratio(0, 0),
+  glottal_prevocalic: ratio(0, 3),
+  final_t_prevocalic: { released: 0, flap: 2, glottal: 0, unreleased: 1, other: 0, of: 3 },
+  labels: { linking: 24, vowel_reduction: 18 },
+  labels_per_100_words: { linking: 13.26, vowel_reduction: 9.94 },
+  rhythm: {
+    npvi: 36.2, varco: 39.8, n_intervals: 204, n_pairs: 174, mean_ms: 157.9, sd_ms: 62.9,
+    approximate: true, method: "inter-nucleus intervals (CTC peaks)",
+  },
+};

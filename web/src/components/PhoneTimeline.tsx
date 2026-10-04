@@ -3,9 +3,10 @@
  *  This is the view that justifies the project. Three rows because three are
  *  needed:
  *
- *  - **dictionary** (CMUdict, untimed): the citation form. Indispensable
- *    because espeak-ng already applies native processes — the canonical form of
- *    *better* is [bɛɾɚ], with a flap — so without this row flapping is invisible.
+ *  - **dictionary** (CMUdict, untimed): the citation form. Indispensable with
+ *    the espeak engine, whose canonical already applies native processes — the
+ *    canonical form of *better* is [bɛɾɚ], with a flap — so without this row
+ *    flapping is invisible. With timit61 the canonical IS this form, in time.
  *  - **aligned canonical**: what the forced aligner expected, placed in time.
  *  - **actually pronounced**: what the acoustic model recognized.
  *

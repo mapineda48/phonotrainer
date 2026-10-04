@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { fmtBytes, fmtDuration, fmtTime } from "./format";
+import { fmtBytes, fmtDuration, fmtTime, plural } from "./format";
+
+describe("plural", () => {
+  it("only adds the s when the count is not one", () => {
+    expect(plural(1, "occurrence")).toBe("1 occurrence");
+    expect(plural(0, "occurrence")).toBe("0 occurrences");
+    expect(plural(23, "occurrence")).toBe("23 occurrences");
+  });
+});
 
 describe("fmtTime", () => {
   it("uses minutes and tenths", () => {

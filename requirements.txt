@@ -4,6 +4,7 @@ phonemizer>=3.2
 g2p-en>=2.1
 panphon>=0.20
 praat-parselmouth>=0.4
+demucs>=4.1
 numpy
 soundfile
 click

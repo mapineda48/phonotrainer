@@ -1,7 +1,15 @@
 import "@testing-library/jest-dom/vitest";
 
-import { cleanup } from "@testing-library/react";
+import { cleanup, configure } from "@testing-library/react";
 import { afterEach, vi } from "vitest";
+
+// findBy*/waitFor give up after 1 s by default. The first full render of an
+// analysis takes ~200 ms here, but well over a second on a loaded CPU (models
+// loading, other suites running), which failed tests that were correct. Waiting
+// longer costs nothing when it passes: findBy resolves as soon as the element
+// appears. The test timeout is raised to stay above it.
+configure({ asyncUtilTimeout: 5000 });
+vi.setConfig({ testTimeout: 20000 });
 
 afterEach(() => {
   cleanup();

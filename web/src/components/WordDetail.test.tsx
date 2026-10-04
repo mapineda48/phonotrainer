@@ -88,6 +88,22 @@ describe("WordDetail", () => {
     ).toBeInTheDocument();
   });
 
+  it("shows the mouth by default and remembers it being put away", async () => {
+    // Seeing the tongue is the reason to open a word, so it starts open; but
+    // the panel is tall, and someone comparing transcriptions wants it gone.
+    window.localStorage.removeItem("phonotrainer:show-tract");
+    const { unmount } = render();
+    expect(screen.getByText("articulation")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Mouth" }));
+    expect(screen.queryByText("articulation")).not.toBeInTheDocument();
+
+    unmount();
+    render();
+    expect(screen.queryByText("articulation")).not.toBeInTheDocument();
+    window.localStorage.removeItem("phonotrainer:show-tract");
+  });
+
   it("does not treat h-dropping as a boundary with the following word", () => {
     // it is word-internal: its useful context is the preceding word ("tell him")
     const him = makeWord("him", 3, "h ɪ m", "ɪ m", { phenomena: ["h_dropping"] });
@@ -96,5 +112,85 @@ describe("WordDetail", () => {
 
     expect(screen.queryByRole("button", { name: "▶ + back" })).not.toBeInTheDocument();
     expect(screen.queryByText(/Boundary phenomenon/)).not.toBeInTheDocument();
+  });
+});
+
+describe("WordDetail — what to do with it", () => {
+  it("says whether each phenomenon is safe to produce or only to recognize", () => {
+    const that = makeWord("that", 0.4, "ð æ t", "ð æ", { phenomena: ["t_deletion", "flapping"] });
+    render(that);
+
+    const badges = screen.getAllByTestId("practice-badge");
+    expect(badges.map((badge) => badge.textContent)).toEqual([
+      "recognize only · casual",
+      "safe to produce · universal",
+    ]);
+    // the reason is the report's, one hover away
+    expect(badges[0]).toHaveAttribute("title", "Casual: recognize it first.");
+  });
+
+  it("gives the advice for the reduced form itself, not the generic label", () => {
+    const tryna = makeWord("tryna", 2, "t ɹ aɪ n ə", "t ɹ aɪ n ə", {
+      phenomena: ["contraction_lex"],
+      lexical_form: "tryna",
+      lexical_expansion: "trying to",
+    });
+    render(tryna);
+
+    const advice = screen.getAllByTestId("practice-badge").map((badge) => badge.textContent);
+    expect(advice).toContain("recognize only · marked");
+  });
+
+  it("names the kind of link on a boundary", () => {
+    const go = makeWord("go", 5.9, "ɡ oʊ", "ɡ oʊ", {
+      phenomena: ["linking"],
+      boundary_link_next: true,
+      boundary_link_type: "glide_w",
+    });
+    const on = makeWord("on", 6.2, "ɑ n", "ɑ n");
+    render(go, on);
+
+    expect(screen.getByTestId("link-type")).toHaveTextContent("glide [w]");
+  });
+
+  it("tells a label from form scoring apart from one read off the phones", () => {
+    const of = makeWord("of", 1, "ʌ v", "ʌ v", {
+      phenomena: ["vowel_reduction"],
+      variant_labels: ["vowel_reduction"],
+      form: {
+        ipa: "əv",
+        strong_ipa: "ʌv",
+        weak: true,
+        weak_margin: 2.7,
+        scores: { ʌv: -2.7, əv: 0 },
+      },
+    });
+    render(of);
+
+    expect(screen.getByText(/from form scoring/)).toBeInTheDocument();
+    expect(screen.getByTestId("form-scoring")).toHaveTextContent(/weak form/);
+    expect(screen.getByTestId("form-scoring")).toHaveTextContent(/ahead by 2\.7/);
+  });
+
+  it("shows how prominent the word was and whether it is a function word", () => {
+    const withProminence = {
+      ...segment,
+      prominence: [1, 0.4, 0.8],
+      word_classes: ["function", "function", "content"] as ("function" | "content")[],
+    };
+    renderWith(
+      <WordDetail
+        word={withProminence.words[0]}
+        next={null}
+        segment={withProminence}
+        segmentIndex={0}
+        isEmphasis
+        canPlay
+      />,
+    );
+
+    expect(screen.getByTestId("word-prominence")).toHaveTextContent(
+      /100 % of the segment's peak · function word — the peak fell on a function word/,
+    );
   });
 });

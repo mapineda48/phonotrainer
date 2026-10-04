@@ -1,9 +1,11 @@
-"""CLI: phonotrainer analyze <media> -o out/ [--phone-engine wav2vec2|allosaurus]"""
+"""CLI: phonotrainer analyze <media> -o out/ [--phone-engine timit61|espeak]"""
 
 from __future__ import annotations
 
 import click
 from rich.console import Console
+
+from .separation import DEFAULT_ENABLED as SEPARATE_BY_DEFAULT
 
 
 @click.group()
@@ -15,15 +17,23 @@ def main() -> None:
 @click.argument("media")
 @click.option("-o", "--out", "out_dir", default="out", show_default=True,
               help="Output directory.")
-@click.option("--phone-engine", type=click.Choice(["wav2vec2", "allosaurus"]),
-              default="wav2vec2", show_default=True,
-              help="Engine that recognizes the phones actually produced.")
+@click.option("--phone-engine",
+              type=click.Choice(["timit61", "espeak", "wav2vec2"]),
+              default="timit61", show_default=True,
+              help="Engine that recognizes the phones actually produced: timit61 "
+                   "(narrow TIMIT transcriptions; its training data is licensed for "
+                   "non-commercial research) or espeak (espeak G2P labels; sees fewer "
+                   "reductions). wav2vec2 is the old name of espeak.")
 @click.option("--whisper-model", default="small", show_default=True,
               help="Size of the faster-whisper model (tiny/base/small/medium).")
 @click.option("--language", default="en", show_default=True)
-@click.option("--no-attraction", is_flag=True, default=False,
-              help="Disable phonetic attraction toward the canonical form "
-                   "(for comparison).")
+@click.option("--attraction/--no-attraction", default=None,
+              help="Phonetic attraction toward the canonical form. Default: the "
+                   "engine's (on for espeak, off for timit61).")
+@click.option("--separate-dialogue/--no-separate-dialogue", default=SEPARATE_BY_DEFAULT,
+              show_default=True,
+              help="Isolate the dialogue from music and effects (htdemucs) before "
+                   "analyzing; playback keeps the original mix.")
 @click.option("--download-dir", default="downloads", show_default=True,
               type=click.Path(file_okay=False),
               help="Where to put the video if MEDIA is a URL.")
@@ -34,8 +44,8 @@ def main() -> None:
 @click.option("--db", default=None, type=click.Path(dir_okay=False),
               help="Corpus database (data/phonotrainer.db by default).")
 def analyze(media: str, out_dir: str, phone_engine: str,
-            whisper_model: str, language: str, no_attraction: bool,
-            download_dir: str, audio_only: bool, no_index: bool,
+            whisper_model: str, language: str, attraction: bool | None,
+            separate_dialogue: bool, download_dir: str, audio_only: bool, no_index: bool,
             db: str | None) -> None:
     """Analyze a video, an audio file or a YouTube URL.
 
@@ -65,7 +75,8 @@ def analyze(media: str, out_dir: str, phone_engine: str,
 
         analysis = run(media, out_dir, phone_engine=phone_engine,
                        whisper_model=whisper_model, language=language,
-                       attraction=not no_attraction, progress=progress)
+                       attraction=attraction,
+                       separate_dialogue=separate_dialogue, progress=progress)
 
     if not no_index:
         from .db import Corpus
@@ -172,6 +183,7 @@ def corpus(phenomenon: str | None, word: str | None, num: int, db: str | None) -
                 table.add_row(PHENOMENON_LABEL.get(row["phenomenon"], row["phenomenon"]),
                               str(row["count"]), str(row["analyses"]))
             console.print(table)
+            _print_corpus_metrics(console, corpus_db.metrics())
 
         rows = corpus_db.occurrences(phenomenon=phenomenon, word=word, limit=num)
         if rows:
@@ -186,6 +198,45 @@ def corpus(phenomenon: str | None, word: str | None, num: int, db: str | None) -
             console.print(table)
     finally:
         corpus_db.close()
+
+
+def _print_corpus_metrics(console: Console, result: dict) -> None:
+    """How reduced the corpus is, next to what corpora of conversation report."""
+    from rich.table import Table
+
+    from .metrics import METRIC_LABELS, REFERENCE
+
+    by_engine = {e: m for e, m in (result.get("by_engine") or {}).items() if m}
+    if not by_engine:
+        return
+    title = (f"Reduction across {result['measured']} recording(s)"
+             + (f" ({result['missing']} without metrics)" if result["missing"] else ""))
+    table = Table(title=title, show_header=True, header_style="dim")
+    table.add_column("measure")
+    # one column per phone engine: they hear and compare differently, so their
+    # figures sit side by side and are never added together
+    for engine, metrics in by_engine.items():
+        table.add_column(f"{engine} ({metrics['analyses']})")
+    table.add_column("reference")
+    table.add_column("source")
+    for name in METRIC_LABELS:
+        cells = []
+        for metrics in by_engine.values():
+            value = (metrics["weak_forms"]["greedy"] if name == "weak_forms"
+                     else metrics.get(name))
+            cells.append(f"{value['pct']:.1f} % ({value['count']}/{value['of']})"
+                         if value and value["pct"] is not None else "—")
+        if all(cell == "—" for cell in cells):
+            continue
+        ref = REFERENCE.get(name)
+        table.add_row(METRIC_LABELS.get(name, name), *cells,
+                      ref["display"] if ref else "—", ref["cite"] if ref else "")
+    console.print(table)
+    mixed = [engine for engine, metrics in by_engine.items() if metrics.get("mixed_rules")]
+    if mixed:
+        console.print(f"[dim]{', '.join(mixed)}: analyses labeled by different rule "
+                      "versions are pooled; re-analyze the older ones for comparable "
+                      "label figures.[/dim]")
 
 
 @main.command()

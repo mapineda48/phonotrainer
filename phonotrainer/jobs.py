@@ -11,6 +11,7 @@ Each job lives in `<root>/<id>/`:
     job.json                metadata + progress (source of truth on restart)
     media/<file>            only if the file was uploaded through the UI
     audio.wav, analysis.json, canonical.json, phones_real.json, report.html
+    audio_dialogue.wav      the separated dialogue, when separation ran
 
 Local files given by path are NOT copied: they are referenced. Imported jobs
 store a `result_dir` pointing outside the workspace.
@@ -88,6 +89,8 @@ _STAGE_PERCENT = (
     ("Download finished", 15),
     ("Downloaded:", 16),
     ("Extracting audio", 17),
+    ("Separating dialogue", 18),
+    ("Dialogue separation skipped", 20),
     ("Transcribing", 21),
     ("Loading phone engine", 27),
     ("Loading prosody", 31),
@@ -158,6 +161,14 @@ class Job:
         path = self.result_dir / name
         return path if path.is_file() else None
 
+    def dialogue_audio(self) -> Path | None:
+        """The separated dialogue THIS analysis read, if separation ran for it: a
+        file left in the directory by an earlier run is not it."""
+        separation = (self.meta or {}).get("dialogue_separation") or {}
+        if not separation.get("applied"):
+            return None
+        return self.artifact(Path(separation.get("audio") or "audio_dialogue.wav").name)
+
     def to_dict(self) -> dict:
         """The shape persisted in job.json."""
         return {
@@ -197,6 +208,7 @@ class Job:
             "last_message": self.progress[-1]["message"] if self.progress else None,
             "has_analysis": self.artifact("analysis.json") is not None,
             "has_audio": self.artifact("audio.wav") is not None,
+            "has_dialogue_audio": self.dialogue_audio() is not None,
             "has_report": self.artifact("report.html") is not None,
             "has_review": self.artifact("review.json") is not None,
             "has_media": bool(media and media.is_file()),
@@ -473,7 +485,10 @@ class JobStore:
                 source=source or meta.get("source") or result_dir.name,
                 dir=self.root / job_id,
                 status=DONE,
-                options={"attraction": meta.get("attraction", True)},
+                options={"attraction": meta.get("attraction", True),
+                         "phone_engine": _phone_engine_of(meta),
+                         "separate_dialogue": bool(
+                             (meta.get("dialogue_separation") or {}).get("applied"))},
                 result_dir_override=str(result_dir),
                 finished=_now(),
                 meta=meta,
@@ -627,6 +642,13 @@ class JobStore:
         except OSError:
             # The job was deleted from under our feet: there is nothing to persist.
             pass
+
+
+def _phone_engine_of(meta: dict) -> str:
+    """The engine an imported analysis was made with (see phones_real.engine_of)."""
+    from .phones_real import engine_of
+
+    return engine_of(meta)
 
 
 def _summarize(analysis: dict) -> dict:

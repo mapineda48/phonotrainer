@@ -6,6 +6,7 @@ import type {
   Analysis,
   Browse,
   CorpusAnalysis,
+  CorpusMetrics,
   CorpusStats,
   Job,
   JobOptions,
@@ -17,8 +18,10 @@ import type {
   WordVariant,
 } from "./types";
 
+export type AudioTrack = "mix" | "dialogue";
+
 /** API version this UI requires (see `server.API_VERSION`). */
-export const REQUIRED_API_VERSION = 3;
+export const REQUIRED_API_VERSION = 4;
 
 export class ApiError extends Error {
   constructor(
@@ -86,6 +89,7 @@ export const api = {
   ) => request<Review>(`/api/jobs/${id}/review`, jsonInit("PUT", { seed, verdicts })),
 
   corpusStats: () => request<CorpusStats>("/api/corpus/stats"),
+  corpusMetrics: () => request<CorpusMetrics>("/api/corpus/metrics"),
   corpusAnalyses: () => request<{ items: CorpusAnalysis[] }>("/api/corpus/analyses"),
   corpusOccurrences: (params: { phenomenon?: string; word?: string; limit?: number }) => {
     const query = new URLSearchParams();
@@ -104,7 +108,10 @@ export const api = {
       `/api/corpus/variants?word=${encodeURIComponent(word)}`,
     ),
 
-  audioUrl: (id: string) => `/api/jobs/${id}/audio`,
+  /** "mix" = the original audio; "dialogue" = the separated speech the
+   *  analysis actually read (only when the job has it). */
+  audioUrl: (id: string, track: AudioTrack = "mix") =>
+    track === "dialogue" ? `/api/jobs/${id}/audio?track=dialogue` : `/api/jobs/${id}/audio`,
   mediaUrl: (id: string) => `/api/jobs/${id}/media`,
   reportUrl: (id: string) => `/api/jobs/${id}/report`,
 };

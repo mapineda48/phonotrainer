@@ -7,6 +7,10 @@ vocabulary leaks non-English phones into English audio (Mandarin tone digits `ai
 aspirates `kʰ`/`kh`, raw SAMPA `dZ`, `ᵻ`…). `normalize_espeak` maps EVERY token into a
 closed English inventory before any diff runs; anything without an explicit entry
 falls back to its nearest neighbor by panphon features (with a warning).
+
+The TIMIT engine (phones_timit.py) maps its 61 labels straight into the same
+inventory, which is why it also holds the narrow symbols only that engine emits:
+unreleased stops (t̚), the nasal flap (ɾ̃), stressed ɝ and the syllabic m̩/ŋ̍.
 """
 
 from __future__ import annotations
@@ -37,7 +41,8 @@ def arpabet_to_ipa(phones: list[str], with_stress: bool = False) -> list[str]:
 
     `AH0` is schwa by definition in CMUdict: mapping it to /ʌ/ made the dictionary
     claim /ðʌ/ for "the" and /ʌbaʊt/ for "about", right next to the very vowel
-    reduction this tool sets out to teach.
+    reduction this tool sets out to teach. `ER` follows suit: stressed /ɝ/ (bird,
+    were) against unstressed /ɚ/ (butter), the contrast TIMIT keeps as er/axr.
     """
     out = []
     for p in phones:
@@ -53,6 +58,8 @@ def arpabet_to_ipa(phones: list[str], with_stress: bool = False) -> list[str]:
             continue
         if base == "AH" and digit == "0":
             ipa = "ə"
+        elif base == "ER" and digit in {"1", "2"}:
+            ipa = "ɝ"
         out.append((stress + ipa) if with_stress else ipa)
     return out
 
@@ -64,7 +71,10 @@ ESPEAK_TO_PANPHON = {
     "ɐ": "ə", "ʔ̞": "ʔ", "ɹ̩": "ɹ", "n̩": "n", "l̩": "l", "m̩": "m",
     "aɪɚ": "aɪə", "aɪə": "aɪə", "oːɹ": "ɔɹ", "ɔːɹ": "ɔɹ", "ɑːɹ": "ɑɹ",
     "ɛɹ": "ɛɹ", "ʊɹ": "ʊɹ", "ɪɹ": "ɪɹ", "iə": "iə", "ʉ": "u", "ɵ": "ə",
-    "oː": "oː", "eː": "eː",
+    "oː": "oː", "eː": "eː", "ŋ̍": "ŋ",
+    # an unreleased stop is the stop (panphon has no feature for the release):
+    # t↔t̚ then costs next to nothing and t̚ inherits every NATIVE_SHIFT of t
+    "p̚": "p", "b̚": "b", "t̚": "t", "d̚": "d", "k̚": "k", "ɡ̚": "ɡ",
 }
 
 
@@ -85,7 +95,18 @@ ENGLISH_INVENTORY = frozenset({
     "p", "b", "t", "d", "k", "ɡ", "tʃ", "dʒ", "f", "v", "θ", "ð",
     "s", "z", "ʃ", "ʒ", "h", "m", "n", "ŋ", "l", "ɹ", "w", "j",
     "ɾ", "ʔ", "n̩", "l̩",
+    # narrow symbols only the TIMIT engine emits: stressed r-colored vowel (er),
+    # reduced high vowel (ix: roses, a weak "it"), nasal flap (nx: winter, twenty),
+    # syllabic m/ŋ (em, eng) and stops whose closure never releases (bcl…kcl with
+    # no burst: that [ðæt̚], stop it). espeak's own ᵻ still normalizes to ɪ.
+    "ɝ", "ᵻ", "ɾ̃", "m̩", "ŋ̍", "p̚", "b̚", "t̚", "d̚", "k̚", "ɡ̚",
 })
+
+# Unreleased stop → its released counterpart.
+UNRELEASED = {"p̚": "p", "b̚": "b", "t̚": "t", "d̚": "d", "k̚": "k", "ɡ̚": "ɡ"}
+
+# Syllabic consonants: a syllable nucleus without a vowel (button bʌʔn̩).
+SYLLABIC = frozenset({"n̩", "l̩", "m̩", "ŋ̍", "ɹ̩"})
 
 # Explicit entries: confusions that are plausible in English audio, plus the bare
 # bases behind tone-marked tokens.
@@ -205,6 +226,17 @@ SCHWA_LIKE = {"ə", "ɐ", "ᵻ", "ɚ", "ɘ", "ɵ"}
 GLOTTAL = {"ʔ"}
 FLAP = {"ɾ", "ɾ̃"}
 
+# Place assimilation of a word-final alveolar to the next onset (ten bucks → tem,
+# in case → ing, that boy → thap): the alveolar, the place of the onset, and what
+# it becomes there (unreleased variants included: the narrow engine hears [ðæp̚]).
+LABIAL = frozenset({"p", "b", "m"})
+VELAR = frozenset({"k", "ɡ"})
+PLACE_ASSIMILATION = {
+    ("n", "labial"): frozenset({"m"}), ("n", "velar"): frozenset({"ŋ"}),
+    ("t", "labial"): frozenset({"p", "p̚"}), ("t", "velar"): frozenset({"k", "k̚"}),
+    ("d", "labial"): frozenset({"b", "b̚"}), ("d", "velar"): frozenset({"ɡ", "ɡ̚"}),
+}
+
 
 def is_vowel(token: str) -> bool:
     t = token.strip("ˈˌː")
@@ -221,3 +253,25 @@ def is_full_vowel(token: str) -> bool:
 
 def is_consonant(token: str) -> bool:
     return bool(token) and not is_vowel(token)
+
+
+HIGH_FRONT = frozenset({"i", "iː", "ɪ"})
+
+
+def reduces_vowel(full: str | None, real: str | None, weak_form_word: bool = False) -> bool:
+    """Is `real` the reduced version of the full vowel `full`? The vowel_reduction
+    criterion, shared by the rules, the variant scoring and the metrics.
+
+    Schwa-like counts, except ᵻ (TIMIT ix) for a high front vowel: "is"/"it" [ᵻz]
+    are the same vowel, not the weak forms the report teaches. So does ɪ for a vowel
+    that is neither high front nor a diphthong — and, for a weak-form function word
+    whose strong form is a diphthong (a → eɪ), for that diphthong too: [ɪ] is the
+    article's weak form.
+    """
+    if not full or not real or not is_full_vowel(full):
+        return False
+    if is_schwa_like(real):
+        return not (real.strip("ˈˌː") == "ᵻ" and full in HIGH_FRONT)
+    if real == "ɪ":
+        return full not in HIGH_FRONT and (full not in DIPHTHONGS or weak_form_word)
+    return False

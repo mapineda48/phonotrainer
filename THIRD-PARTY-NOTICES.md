@@ -14,23 +14,31 @@ analysis into the user's cache (`~/.cache/huggingface`, `~/nltk_data`). That is
 why the obligation here is to *inform*, not to include the license texts — except
 for those of the web interface bundle, which does ship compiled (see §2).
 
+**Two of the default models were trained on data with a non-commercial or academic
+restriction**: the phone recognizer, on TIMIT, and the dialogue separator, on
+MUSDB18-HQ. Their weights carry permissive licenses, and neither the weights nor the
+data travel here. The details and the opt-out (`--phone-engine espeak
+--no-separate-dialogue`) are in §4.
+
 ---
 
 ## 1. Why GPL-3.0-or-later
 
 It is not a preference: it is the only license consistent with what the program
-links on its main path.
+links in-process.
 
 | Dependency | License | Where it comes in |
 |---|---|---|
-| `phonemizer` 3.3.0 | **GPL-3.0-or-later** | The model's tokenizer (`Wav2Vec2PhonemeCTCTokenizer`, `phonemizer_backend="espeak"`) phonemizes **every canonical word** in `align_canonical.py`. It appears in none of our `import` statements, but it is always loaded. |
-| `praat-parselmouth` 0.4.7 | **GPL-3.0-or-later** | A direct `import parselmouth` in `prosody.py`: F0, intensity and contour. |
-| `espeak-ng` (system) | GPL-3.0-only AND GPL-3.0-or-later AND Apache-2.0 AND BSD-2-Clause AND Unicode-DFS-2016 AND CC-BY-SA-3.0 | `phonemizer` loads it with `dlopen`. A system binary; it is not redistributed. |
-| `av` (PyAV) 18.0.0 → **libx264**, **libx265** | GPL-2.0-or-later (the codecs); LGPL-3.0-or-later (the embedded FFmpeg libs) | `faster_whisper/audio.py` does `import av` when the module loads, so a plain `from faster_whisper import WhisperModel` is enough to pull into the process the FFmpeg packaged inside PyAV's *wheel*, `libx264-*.so` and `libx265-*.so` included. |
+| `praat-parselmouth` 0.4.7 | **GPL-3.0-or-later** | A direct `import parselmouth` in `prosody.py`: F0, intensity and contour. **On every run.** |
+| `av` (PyAV) 18.0.0 → **libx264**, **libx265** | GPL-2.0-or-later (the codecs); LGPL-3.0-or-later (the embedded FFmpeg libs) | `faster_whisper/audio.py` does `import av` when the module loads, so a plain `from faster_whisper import WhisperModel` is enough to pull into the process the FFmpeg packaged inside PyAV's *wheel*, `libx264-*.so` and `libx265-*.so` included. **On every run.** |
+| `phonemizer` 3.3.0 | **GPL-3.0-or-later** | **Only with `--phone-engine espeak`.** That model's tokenizer (`Wav2Vec2PhonemeCTCTokenizer`, `phonemizer_backend="espeak"`) phonemizes every canonical word in `align_canonical.py`. The default `timit61` engine builds its canonical from CMUdict and g2p_en and never loads it; this was checked with `sys.modules` on real runs. |
+| `espeak-ng` (system) | GPL-3.0-only AND GPL-3.0-or-later AND Apache-2.0 AND BSD-2-Clause AND Unicode-DFS-2016 AND CC-BY-SA-3.0 | `phonemizer` loads it with `dlopen`, so it too is only loaded with `--phone-engine espeak`. A system binary; it is not redistributed. |
 
-All three chains are loaded **in the same process**, so the combined work that is
-distributed is GPL-3.0. A permissive license (MIT/Apache) would be misleading:
-nobody could redistribute the result under those terms.
+On the default path two copyleft chains are loaded **in the same process**:
+parselmouth and PyAV's codecs. With `--phone-engine espeak` there is a third,
+phonemizer + espeak-ng. Either way the combined work that is distributed is
+GPL-3.0. A permissive license (MIT/Apache) would be misleading: nobody could
+redistribute the result under those terms.
 GPL-2.0-or-later and LGPL-3.0-or-later are compatible with GPL-3.0-or-later
 (thanks to the "or later" clause), so there is no conflict, only an obligation.
 
@@ -38,18 +46,21 @@ GPL-2.0-or-later and LGPL-3.0-or-later are compatible with GPL-3.0-or-later
 > aggregation; this one travels inside a PyPI *wheel* and is linked in-process.
 > The distinction is precisely what decides whether there is a combined work.
 
-Making PhonoTrainer permissive would require neutralizing **three** routes, not two:
-prosody (replacing parselmouth), audio decoding (avoiding the `av` that
-faster-whisper drags in) and canonical phonemization. This last one **is not a
-deletion but a substitution**: the model's tokenizer works with
-`do_phonemize=False` if it is handed ready-made IPA phonemes, so a non-copyleft
-G2P would be needed (`g2p_en` + CMUdict is already in the repo). The price is not
-cosmetic: espeak's canonical form and CMUdict's differ on close to half of the
-common words (vowel length `uː`/`u`, rhotic units — espeak gives *for* = `f ɔːɹ`,
-a single token; CMUdict gives `f ɔ ɹ`, two of them), and the acoustic model was
-trained on espeak labels: splitting in two what it emits as one produces spurious
-insertions and deletions, and with them invented phenomena. It is a redesign with
-recalibration and ~60 tests behind it, not a metadata change.
+Making PhonoTrainer permissive would require neutralizing these routes:
+- **prosody:** replace parselmouth;
+- **audio decoding:** avoid the `av` that faster-whisper drags in;
+- **the espeak engine:** drop it, or make it an optional install.
+
+Canonical phonemization is **already substituted on the default path**. The earlier
+version of this paragraph warned that a non-copyleft G2P could not simply be put in
+front of the espeak model: espeak's canonical and CMUdict's differ on close to half of
+the common words (vowel length `uː`/`u`, rhotic units — espeak gives *for* = `f ɔːɹ`, a
+single token; CMUdict gives `f ɔ ɹ`, two of them), and a model trained on espeak
+labels would turn every split into invented insertions and deletions. The way out was
+to change the model rather than force the alphabet. The `timit61` engine was trained
+on TIMIT's hand transcriptions, whose label set is a superset of CMUdict's ARPAbet.
+So the default canonical is CMUdict + g2p_en, spelled in TIMIT labels, with no
+phonemizer involved.
 
 **Compatibility verified.** `distance` 0.1.3 (a dependency declared by
 `g2p-en`) **is read conservatively as GPL-2.0-only** — the author attaches the
@@ -78,10 +89,21 @@ distributed to whoever deploys the application. These three packages end up insi
 | `react` | 19.2.8 | MIT | Copyright (c) Meta Platforms, Inc. and affiliates |
 | `react-dom` | 19.2.8 | MIT | Copyright (c) Meta Platforms, Inc. and affiliates |
 | `scheduler` | 0.27.0 | MIT | Copyright (c) Meta Platforms, Inc. and affiliates |
+| `three` | 0.186.0 | MIT | Copyright © 2010-2026 three.js authors |
+
+`three` is the engine behind the articulator (the midsagittal section of the
+mouth in the word panel). It is loaded with a dynamic `import()`, so it travels
+in its own chunk and is only downloaded when that panel is opened; the chunk is
+part of the bundle all the same. `@types/three` is development-only and reaches
+nobody.
 
 The minifier strips the `@license` banners, so `web/vite.config.ts` restores the
-MIT notice in the bundle header (the `phonotrainer:license-banner` plugin).
-Full text: <https://github.com/facebook/react/blob/main/LICENSE>.
+MIT notices in the bundle header (the `phonotrainer:license-banner` plugin).
+Full texts: <https://github.com/facebook/react/blob/main/LICENSE> and
+<https://github.com/mrdoob/three.js/blob/dev/LICENSE>.
+
+MIT is compatible with GPL-3.0-or-later: the combined work is distributed under
+the GPL and the MIT notices stay with it. No copyleft obligation is added.
 
 The rest of `node_modules` (vite, vitest, typescript, testing-library, jsdom…)
 is development-only: it is neither compiled in nor distributed. `lightningcss` (MPL-2.0)
@@ -110,6 +132,10 @@ are named by family in CSS; they are **not embedded**, so they create no obligat
 | nltk | 3.10.0 | Apache-2.0 | NLTK Project |
 | numpy | 2.5.1 | BSD-3-Clause | NumPy Developers |
 | soundfile | 0.14.0 | BSD-3-Clause (its *wheel* embeds libsndfile 1.2.2, **LGPL-2.1-or-later**) | Copyright (c) 2013 Bastian Bechtold |
+| demucs | 4.1.0 | MIT | Meta Platforms, Inc. and affiliates; Alexandre Défossez |
+| einops | 0.8.2 | MIT | Alex Rogozhnikov |
+| julius | 0.2.8 | MIT | Alexandre Défossez |
+| PyYAML | 6.0.3 | MIT | Kirill Simonov and the PyYAML contributors |
 | click | 8.4.2 | BSD-3-Clause | Pallets |
 | rich | 15.0.0 | MIT | Will McGugan |
 | fastapi | 0.140.0 | MIT | Sebastián Ramírez |
@@ -122,6 +148,15 @@ Transitive dependencies that also call for a notice: `huggingface_hub`,
 `tqdm` (MPL-2.0 AND MIT). MPL-2.0 is per-file copyleft and its §3.3 expressly
 permits combination with GPL-3.0; since we modify none of its files, all that is
 required is to credit them.
+
+`demucs` also installs `lameenc` 1.8.4 (**LGPL-3.0-or-later**, bindings to the LAME
+MP3 encoder) and `sphn` 0.2.1 (Apache-2.0, Kyutai). Neither is imported on
+PhonoTrainer's path: after the separator loads, `sys.modules` holds demucs, einops,
+julius and yaml, and neither of those two. They are therefore mere aggregation. Were
+one of them ever loaded, LGPL-3.0-or-later is compatible with GPL-3.0 in any case.
+`demucs` declares `numpy<2` while the environment runs numpy 2.x. That is a packaging
+constraint, not a license one, and it is recorded here because `pip` will complain
+about it.
 
 `praat-parselmouth` is a wrapper around **Praat**, by Paul Boersma and David
 Weenink (University of Amsterdam); the wrapper itself is by Yannick Jadoul.
@@ -141,9 +176,34 @@ None of this travels in the repository.
 |---|---|---|---|
 | `Systran/faster-whisper-small` | MIT | SYSTRAN (CTranslate2 conversion) | ASR with per-word timestamps |
 | `openai/whisper-small` (original weights) | Apache-2.0 | OpenAI | The basis of the conversion above |
-| `facebook/wav2vec2-lv-60-espeak-cv-ft` | Apache-2.0 | Meta AI — Xu, Baevski, Auli ([arXiv:2109.11680](https://arxiv.org/abs/2109.11680)) | Real phones (CTC) **and** forced alignment of the canonical, in the same pass |
-| CMU Pronouncing Dictionary `cmudict.0.7a` (via NLTK) | BSD-2-Clause *with a clause of its own*, see below | Copyright (C) 1993-2008 Carnegie Mellon University. All rights reserved. | Citation form and OOV detection |
+| `excalibur12/wav2vec2-large-lv60_phoneme-timit_english_timit-4k` | Apache-2.0 (weights) — **training data: TIMIT, see below** | Fine-tuned by excalibur12 from `facebook/wav2vec2-large-lv60` (Apache-2.0, Meta AI) | **Default** phone engine (`timit61`): real phones (CTC) **and** forced alignment of the CMUdict citation form, in the same pass |
+| `facebook/wav2vec2-lv-60-espeak-cv-ft` | Apache-2.0 | Meta AI — Xu, Baevski, Auli ([arXiv:2109.11680](https://arxiv.org/abs/2109.11680)) | The `espeak` engine (`--phone-engine espeak`): real phones (CTC) **and** forced alignment of its espeak canonical, in the same pass. Fine-tuned on Common Voice (CC0) with espeak-ng labels. |
+| `adefossez/HTDemucs` (`htdemucs`) | MIT (the demucs repository; the model card declares no license of its own) — **training data: MUSDB18-HQ, see below** | Meta AI — Rouard, Massa, Défossez, *Hybrid Transformers for Music Source Separation*, ICASSP 2023 ([arXiv:2211.08553](https://arxiv.org/abs/2211.08553)) | Dialogue separation before ASR, phones and prosody (on by default, `--no-separate-dialogue` to skip) |
+| CMU Pronouncing Dictionary `cmudict.0.7a` (via NLTK) | BSD-2-Clause *with a clause of its own*, see below | Copyright (C) 1993-2008 Carnegie Mellon University. All rights reserved. | Citation form: the default engine's canonical and the dictionary row. OOV detection. |
 | NLTK `averaged_perceptron_tagger(_eng)` | MIT | Copyright 2013 Matthew Honnibal (NLTK redistributes it; it is not the rights holder) | POS tagging for homographs in `g2p_en` |
+
+**Training-data provenance of the default phone engine.** The `timit61` model was
+fine-tuned on **TIMIT** (LDC93S1, Linguistic Data Consortium). TIMIT's license allows
+non-members to use it only for non-commercial linguistic education, research and
+technology development. The weights themselves are published under Apache-2.0, and
+PhonoTrainer redistributes neither the weights nor any TIMIT data: they are downloaded
+into the user's cache on first use.
+
+Whether a restriction on training data carries over to a model trained on it is not
+settled law. We flag it so that nobody builds a commercial product on this default
+unknowingly. Anyone who needs to stay clear of it can pass `--phone-engine espeak`,
+whose model was fine-tuned on Common Voice (CC0) with espeak-ng labels. The price is
+that it hears far fewer reductions (see `references/NOTES.md` §7).
+
+**Training-data provenance of the dialogue separator.** `htdemucs` was trained on
+**MUSDB18-HQ**, whose tracks "can only be used for academic purposes" (part of it is
+CC BY-NC-SA), plus about 800 songs Meta never released. The weights carry the demucs
+repository's MIT grant; the same caveat as for TIMIT applies. `--no-separate-dialogue`
+analyzes the original mix and never loads the separator.
+
+The two restrictions are different in kind from MMS_FA's (below). There it is the
+**weights** that are CC-BY-NC, a restriction that binds every user directly, and that
+is why MMS_FA stays excluded.
 
 **Exception: one model that is redistributed — though not by us.** The
 `faster-whisper` *wheel* carries `assets/silero_vad_v6.onnx` inside it (Silero VAD, MIT,
@@ -177,21 +237,21 @@ every user. Do not replace the aligner with it.
 
 | Program | License | Use |
 |---|---|---|
-| `ffmpeg` | GPL-3.0-or-later (depending on the packaging) | Extraction and remuxing of audio/video (`audio.py`, `download.py`) |
-| `espeak-ng` | GPL-3.0 and others (see §1) | Phonemization backend for `phonemizer` |
+| `ffmpeg` | GPL-3.0-or-later (depending on the packaging) | Extraction and remuxing of audio/video (`audio.py`, `download.py`), and the 44.1 kHz decode the separator reads (`separation.py`) |
+| `espeak-ng` | GPL-3.0 and others (see §1) | Phonemization backend for `phonemizer`; **needed only for `--phone-engine espeak`** |
 
 The user installs them and they are not redistributed here, but the difference
 between the two matters and should not be "optimized away" later:
 
 - **ffmpeg is invoked as a separate process** (`subprocess.run` with an argument
-  list, `audio.py`). Crossing the process boundary is mere aggregation: it does not
+  list, `audio.py` and `separation.py`). Crossing the process boundary is mere aggregation: it does not
   create a combined work. The ffmpeg on this machine is compiled with
   `--enable-gpl` and `--enable-libfdk-aac`, whose license is **not** compatible with
   the GPL — all the more reason never to link it in-process or to package a binary
   of it in a release.
 - **espeak-ng is loaded with `dlopen`** inside the same process, via `ctypes`
-  from `phonemizer`. That is linking, and it is part of why the result is
-  GPL-3.0.
+  from `phonemizer`, when the espeak engine is used. That is linking; with that engine
+  it adds a third copyleft chain to the two of §1.
 
 ---
 

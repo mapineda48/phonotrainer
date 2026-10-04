@@ -18,6 +18,11 @@ export function fmtDuration(seconds: number | null | undefined): string {
   return `${min} min ${Math.round(seconds - min * 60)} s`;
 }
 
+/** 1, "occurrence" → "1 occurrence"; 3 → "3 occurrences" (regular plurals only). */
+export function plural(count: number, noun: string): string {
+  return `${count} ${count === 1 ? noun : `${noun}s`}`;
+}
+
 /** ISO → "Jul 26, 03:40 PM" */
 export function fmtDate(iso: string | null): string {
   if (!iso) return "—";

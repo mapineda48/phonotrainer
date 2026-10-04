@@ -301,7 +301,7 @@ def test_the_progress_milestones_still_exist_in_the_code():
     two ends together."""
     root = Path(jobs.__file__).parent
     source = "".join((root / name).read_text(encoding="utf-8")
-                     for name in ("pipeline.py", "download.py"))
+                     for name in ("pipeline.py", "download.py", "separation.py"))
     for prefix, _ in jobs._STAGE_PERCENT:
         assert f'"{prefix}' in source or f"f\"{prefix}" in source, prefix
     assert "Segment {si + 1}/{n_seg}" in source      # the one feeding the fine-grained percentage
@@ -536,3 +536,13 @@ def test_an_upload_copies_the_file_into_the_job(store):
     _done(store, job)
     assert job.media_path.endswith("/media/uploaded.wav")
     assert job.to_public()["has_media"] is True
+
+
+def test_imported_analyses_know_their_phone_engine():
+    from phonotrainer.jobs import _phone_engine_of
+
+    assert _phone_engine_of({"phone_engine": "timit61"}) == "timit61"
+    # older analyses carry only the model id: all of them were made with espeak
+    assert _phone_engine_of(
+        {"models": {"phones": "facebook/wav2vec2-lv-60-espeak-cv-ft"}}) == "espeak"
+    assert _phone_engine_of({}) == "espeak"

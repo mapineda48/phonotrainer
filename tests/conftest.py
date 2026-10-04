@@ -71,6 +71,14 @@ def mk_analysis(source: str = "clip.wav") -> dict:
         "f0_stats": {"mean": 118.0, "range": 62.0, "final_contour": "rising"},
         "f0_track": [[round(0.1 * i, 3), 110.0 + i] for i in range(12)],
         "emphasis_word_idx": 2,
+        "prominence": [0.4, 0.2, 1.0],
+        "word_classes": ["function", "function", "content"],
+        "intonation_units": [{
+            "start": 0.0, "end": 1.1, "words": [0, 2], "text": "does that work",
+            "type": "incomplete", "final_contour": "rising", "final_slope_st": 5.2,
+            "expected_contour": None, "matches_expected": None, "uptalk": False,
+        }],
+        "rhythm": None,
         "words": [
             mk_analysis_word("does", 0.0, "d ʌ z", "d ə z",
                              phenomena=["vowel_reduction"], boundary_link_next=True),
@@ -84,6 +92,14 @@ def mk_analysis(source: str = "clip.wav") -> dict:
         "f0_stats": {"mean": 130.0, "range": 20.0, "final_contour": "falling"},
         "f0_track": [[round(2.0 + 0.1 * i, 3), 130.0 - i] for i in range(10)],
         "emphasis_word_idx": 0,
+        "prominence": [1.0, 0.6],
+        "word_classes": ["function", "content"],
+        "intonation_units": [{
+            "start": 2.0, "end": 2.9, "words": [0, 1], "text": "wanna go",
+            "type": "incomplete", "final_contour": "falling", "final_slope_st": -4.1,
+            "expected_contour": None, "matches_expected": None, "uptalk": False,
+        }],
+        "rhythm": None,
         "words": [
             mk_analysis_word("wanna", 2.0, "w ɑ n ə", "w ɑ n ə",
                              phenomena=["contraction_lex"], lexical_form="want to",
@@ -128,11 +144,20 @@ def fake_analyze(media_path, out_dir, progress=lambda m: None, **options):
     out_dir.mkdir(parents=True, exist_ok=True)
     progress("Extracting audio (ffmpeg → 16 kHz mono WAV)…")
     write_silent_wav(out_dir / "audio.wav")
+    # like separation.prepare: the dialogue track exists only when this run made it
+    (out_dir / "audio_dialogue.wav").unlink(missing_ok=True)
+    if options.get("separate_dialogue"):
+        progress("Separating dialogue from music and effects (htdemucs)…")
+        write_silent_wav(out_dir / "audio_dialogue.wav", seconds=0.5)
+        dialogue = {"applied": True, "model": "htdemucs", "audio": "audio_dialogue.wav"}
+    else:
+        dialogue = {"applied": False}
     progress("Transcribing with faster-whisper small…")
     progress("Segment 1/2: phones + alignment…")
     progress("Segment 2/2: phones + alignment…")
     analysis = mk_analysis(source=Path(media_path).name)
     analysis["meta"]["options"] = options
+    analysis["meta"]["dialogue_separation"] = dialogue
     progress("Saving outputs…")
     (out_dir / "analysis.json").write_text(json.dumps(analysis, ensure_ascii=False),
                                            encoding="utf-8")

@@ -6,7 +6,7 @@
 
 import { createContext, useContext } from "react";
 
-import type { Reference, Word } from "./types";
+import type { LinkType, Practice, Reference, Word } from "./types";
 
 const ReferenceContext = createContext<Reference | null>(null);
 
@@ -35,4 +35,29 @@ export function primaryFamily(reference: Reference, word: Word): string | null {
     if (family) return family;
   }
   return null;
+}
+
+/** The report's advice for a phenomenon (absent on older servers). */
+export const phenomenonPractice = (reference: Reference, name: string): Practice | null =>
+  reference.practice?.[name] ?? null;
+
+/** The advice for a lexical reduced form ("gonna", "tryna"). */
+export const lexicalPractice = (reference: Reference, form: string): Practice | null =>
+  reference.lexical_practice?.[form.toLowerCase()] ?? null;
+
+export const PRACTICE_LABEL: Record<Practice["practice"], string> = {
+  produce: "safe to produce",
+  understand: "recognize only",
+};
+
+export const LINK_TYPE_LABEL: Record<LinkType, string> = {
+  consonant: "consonant → vowel",
+  r: "linking r",
+  glide_w: "glide [w]",
+  glide_j: "glide [j]",
+};
+
+/** Phenomena present in `names` that the report says are safe to say. */
+export function phenomenaToProduce(reference: Reference, names: Iterable<string>): string[] {
+  return [...names].filter((name) => phenomenonPractice(reference, name)?.practice === "produce");
 }
