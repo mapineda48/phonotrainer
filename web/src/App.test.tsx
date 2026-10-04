@@ -12,6 +12,7 @@ import { TOUR } from "./didactic/tour-ids";
 import { resolveSteps } from "./features/tour/steps";
 import { JobsProvider } from "./jobs/JobsProvider";
 import { analysis, fakeJobsChannel, job, reference, wordButton } from "./test/fixtures";
+import { phoneScreen } from "./test/media";
 import { fullReference } from "./test/render";
 import type { CorpusStats, Job, Occurrence } from "./types";
 
@@ -346,6 +347,31 @@ describe("App", () => {
     await userEvent.click(within(nav()).getByRole("link", { name: "Settings" }));
     await screen.findByRole("heading", { level: 1, name: "Settings" });
     expect(anchored()).toEqual([TOUR.nav, TOUR.learnNav, TOUR.settingsColors]);
+  });
+
+  it("on a phone the tour points at the Menu button and at the tabs that open each pane", async () => {
+    phoneScreen();
+    mockFetch({
+      "GET /api/reference": () => reference,
+      [`GET /api/jobs/${job.id}/analysis`]: () => analysis,
+    });
+    renderApp([job], `/analysis/${job.id}/w/0/1`);
+    const lessonTab = await screen.findByRole("tab", { name: "Lesson" });
+    await waitFor(() => expect(lessonTab).toHaveAttribute("aria-selected", "true"));
+    const anchors = () =>
+      resolveSteps()
+        .filter(({ element }) => element)
+        .map(({ step, element }) => [step.anchor, element]);
+
+    // a deep link arrives on the lesson: the transcript is a tab away, Learn is in the drawer
+    expect(anchors()).toEqual([
+      [TOUR.nav, screen.getByRole("button", { name: "Menu" })],
+      [TOUR.wordLesson, lessonTab],
+      [TOUR.playerSpeed, expect.any(HTMLElement)],
+    ]);
+
+    await userEvent.click(screen.getByRole("tab", { name: "Transcript" }));
+    expect(anchors().map(([anchor]) => anchor)).toEqual([TOUR.nav, TOUR.transcript, TOUR.wordLesson, TOUR.playerSpeed]);
   });
 
   it("warns when the server is older than the interface", async () => {

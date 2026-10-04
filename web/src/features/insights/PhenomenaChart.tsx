@@ -65,21 +65,31 @@ export function PhenomenaChart({ phenomena, selected, onSelect }: Props) {
                 }`}
                 onPress={() => onSelect(on ? null : row.phenomenon)}
                 className={cn(
-                  "grid min-h-10 flex-1 grid-cols-[minmax(9rem,14rem)_1fr_auto] items-center gap-3 rounded-control px-2 py-1 text-left outline-none",
+                  // a phone puts the bar on a line of its own, under the name and the count
+                  "grid min-h-10 min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 rounded-control px-2 py-1 text-left outline-none",
+                  "sm:grid-cols-[minmax(9rem,14rem)_1fr_auto]",
                   "hover:bg-surface-2",
                   on && "bg-surface-2 shadow-[inset_0_0_0_2px_var(--ink)]",
                 )}
               >
                 <span className={cn("inline-flex min-w-0 items-center gap-1.5 text-sm text-ink", on && "font-semibold")}>
                   <PhenomenonIcon name={row.phenomenon} />
-                  <span className="truncate">{label}</span>
+                  {/* wraps on a phone: there a cut name would lose what the row is */}
+                  <span className="break-words sm:truncate">{label}</span>
                 </span>
-                <svg className="h-3.5 w-full overflow-visible" aria-hidden="true" focusable="false">
+                <svg
+                  className="h-3.5 w-full overflow-visible max-sm:col-span-2 max-sm:row-start-2"
+                  aria-hidden="true"
+                  focusable="false"
+                >
                   {/* rounded data end, square at the baseline */}
                   <rect x="0" y="0" width={`${width}%`} height="100%" rx="4" className={fill} />
                   {isFamilyKey(family) && <rect x="0" y="0" width="4" height="100%" className={fill} />}
                 </svg>
-                <span className="text-sm tabular-nums text-ink-2" aria-hidden="true">
+                <span
+                  className="text-sm tabular-nums text-ink-2 max-sm:col-start-2 max-sm:row-start-1"
+                  aria-hidden="true"
+                >
                   <span className="font-semibold text-ink">{row.count.toLocaleString("en-US")}</span>
                   {" · "}
                   {count(row.analyses, "analysis", "analyses")}

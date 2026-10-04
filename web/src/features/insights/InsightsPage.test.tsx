@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { api } from "../../api";
 import { expectNoAxeViolations } from "../../test/axe";
+import { phoneScreen } from "../../test/media";
 import { metrics } from "../../test/fixtures";
 import { fullReference, renderPage } from "../../test/render";
 import type { CorpusMetrics, Occurrence } from "../../types";
@@ -295,6 +296,36 @@ describe("InsightsPage — occurrences", () => {
     setup();
     expect(await screen.findByRole("rowheader", { name: /better‿you/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Play “better you”/ })).toBeInTheDocument();
+  });
+});
+
+describe("InsightsPage on a narrow screen", () => {
+  it("lists the occurrences one per item instead of a six-column table", async () => {
+    phoneScreen();
+    vi.mocked(api.corpusOccurrences).mockResolvedValue({
+      phenomenon: null, word: null, total: 2,
+      items: [occurrence, { ...occurrence, word_idx: 7, word: "cliword", job_id: null, phenomena: ["linking"] }],
+    });
+    const { container } = setup();
+    const list = await screen.findByRole("list", { name: /Occurrences, most different/ });
+    expect(screen.queryByRole("table", { name: /Occurrences/ })).toBeNull();
+    const [better, cli] = within(list).getAllByRole("listitem");
+
+    // the same facts as a table row: the word, dictionary → heard, the changes, where
+    expect(within(better).getByText("Dictionary:")).toBeInTheDocument();
+    expect(within(better).getByText("Heard:")).toBeInTheDocument();
+    expect(within(better).getByText("flapping")).toBeInTheDocument();
+    expect(within(better).getByText(/ep1\.webm/)).toBeInTheDocument();
+    expect(within(better).getByRole("button", { name: /Play “better” from ep1\.webm/ })).toBeInTheDocument();
+    expect(within(better).getByRole("link", { name: /Open “better” in ep1\.webm at 0:08\.9/ })).toHaveAttribute(
+      "href",
+      "/analysis/job1/w/4/2?from=insights",
+    );
+    expect(within(cli).getByText(/cliword/)).toBeInTheDocument();
+    expect(within(cli).getByText(/‿you/)).toBeInTheDocument();
+    expect(within(cli).getByText(/Indexed from the command line/)).toBeInTheDocument();
+    expect(within(cli).queryByRole("link")).toBeNull();
+    await expectNoAxeViolations(container);
   });
 });
 

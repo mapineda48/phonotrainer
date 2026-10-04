@@ -47,7 +47,7 @@ export function PhenomenonPage({ name }: { name: string }) {
 
   if (!known) {
     return (
-      <div className="mx-auto w-full max-w-5xl px-6 py-8">
+      <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
         <EmptyState
           icon={BookOpen}
           title="There is no lesson with that name"
@@ -66,7 +66,7 @@ export function PhenomenonPage({ name }: { name: string }) {
   const playable = picked.filter(isPlayable);
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-6 py-8">
+    <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
       <PageHeader
         eyebrow={
           <TextLink href={paths.learn()}>
