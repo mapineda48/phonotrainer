@@ -12,9 +12,10 @@ const LICENSES_FILE = "third-party-licenses.txt";
 // interface, and those notices have to travel with the copies, so we put them
 // back on top of the already-generated bundle. It runs as a plugin rather than
 // as `rollupOptions.output.banner` because Vite 8's bundler minifies that away
-// all the same. Every chunk gets it, including the separate one three.js lands
-// in, and so does the stylesheet (Tailwind's preflight and driver.js's styles are
-// copied into it). The full license texts go next to the bundle, in
+// all the same. Every chunk gets it (each page is a chunk of its own, see
+// src/routes.tsx), including the separate one three.js lands in, and so does
+// every stylesheet (the main one carries Tailwind's preflight and driver.js's
+// styles). The full license texts go next to the bundle, in
 // third-party-licenses.txt (see licenseTexts below).
 function licenseBanner(): Plugin {
   const js =
@@ -40,11 +41,16 @@ function licenseBanner(): Plugin {
   return {
     name: "phonotrainer:license-banner",
     apply: "build",
-    generateBundle(_options, bundle) {
-      for (const file of Object.values(bundle)) {
-        if (file.type === "chunk") file.code = js + file.code;
-        else if (file.fileName.endsWith(".css") && typeof file.source === "string") file.source = css + file.source;
-      }
+    // "post": after Vite's own pass, which prepends the preload map
+    // (`const __vite__mapDeps=…`) to chunks that import pages; the banner stays first.
+    generateBundle: {
+      order: "post",
+      handler(_options, bundle) {
+        for (const file of Object.values(bundle)) {
+          if (file.type === "chunk") file.code = js + file.code;
+          else if (file.fileName.endsWith(".css") && typeof file.source === "string") file.source = css + file.source;
+        }
+      },
     },
   };
 }
@@ -112,11 +118,33 @@ function licenseTexts(): Plugin {
   };
 }
 
+// React Aria ships the strings it writes itself (a hidden "Dismiss" button, drag-and-drop
+// announcements, "Clear search"…) in 34 locales and picks one from the browser's language.
+// The interface is English only (<html lang="en">), so a non-English browser would get
+// accessible names in another language than the page, and every page chunk would carry
+// the other 33 tables. Only en-US is kept: the other locale modules become `undefined`,
+// which React Aria's string dictionary drops before falling back to en-US (the same thing
+// Adobe's optimize-locales-plugin does). Build only: `npm run dev` pre-bundles React Aria
+// untouched.
+function reactAriaEnglishOnly(): Plugin {
+  const localeModule =
+    /\/node_modules\/react-aria(?:-components)?\/dist\/private\/intl\/(?:[^/]+\/)?([a-z]{2}-[A-Z]{2})\.mjs$/;
+  return {
+    name: "phonotrainer:react-aria-english-only",
+    apply: "build",
+    enforce: "pre",
+    load(id) {
+      const locale = localeModule.exec(id)?.[1];
+      return locale && locale !== "en-US" ? "export default undefined;\n" : null;
+    },
+  };
+}
+
 // The backend (phonotrainer ui) serves dist/ in production; under `npm run dev`
 // we proxy /api to the FastAPI server so we get HMR. /ws is the WebSocket that
 // carries analysis state: it is proxied too.
 export default defineConfig({
-  plugins: [react(), tailwindcss(), licenseBanner(), licenseTexts()],
+  plugins: [reactAriaEnglishOnly(), react(), tailwindcss(), licenseBanner(), licenseTexts()],
   server: {
     port: 5173,
     proxy: {
