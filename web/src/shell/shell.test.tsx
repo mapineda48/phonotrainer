@@ -84,7 +84,7 @@ describe("Settings page", () => {
     const { container } = renderPage(app, { path: "/settings", reference: fullReference });
     const html = document.documentElement;
 
-    await userEvent.click(screen.getByRole("radio", { name: /Color-vision friendly/ }));
+    await userEvent.click(await screen.findByRole("radio", { name: /Color-vision friendly/ }));
     expect(html).toHaveAttribute("data-palette", "cvd");
     expect(html).toHaveAttribute("data-patterns", "on");
     expect(screen.getByRole("switch", { name: /Show patterns as well as colors/ })).toBeChecked();
@@ -105,8 +105,9 @@ describe("Settings page", () => {
     await expectNoAxeViolations(container);
   });
 
-  it("shows the four families under each simulated color blindness", () => {
+  it("shows the four families under each simulated color blindness", async () => {
     renderPage(app, { path: "/settings", reference: fullReference });
+    await screen.findByRole("heading", { level: 1, name: "Settings" });
     for (const name of ["Protanopia", "Deuteranopia", "Tritanopia"]) {
       expect(screen.getByText(name)).toBeInTheDocument();
     }

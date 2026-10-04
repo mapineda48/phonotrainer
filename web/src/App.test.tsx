@@ -171,7 +171,7 @@ describe("App", () => {
     await userEvent.click(await screen.findByRole("link", { name: /Analyze your first clip/ }));
     expect(here()).toBe("/new");
 
-    await userEvent.type(screen.getByRole("textbox", { name: "File path" }), "/home/me/videos/ep1.webm");
+    await userEvent.type(await screen.findByRole("textbox", { name: "File path" }), "/home/me/videos/ep1.webm");
     await userEvent.click(screen.getByRole("button", { name: /Speech model/ }));
     await userEvent.click(screen.getByRole("option", { name: "medium" }));
     await userEvent.click(screen.getByRole("button", { name: "Start analysis" }));
