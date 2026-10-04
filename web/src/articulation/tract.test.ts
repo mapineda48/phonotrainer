@@ -5,10 +5,13 @@ import { PHONE_TABLE, lookupPhone } from "./phones";
 import { REST_POSE, makePose, type Pose } from "./pose";
 import {
   LOWER_LIP_POINTS,
+  PLACE_POINTS,
   TONGUE_SURFACE_POINTS,
   TONGUE_UNDERSIDE_POINTS,
   UPPER_LIP_POINTS,
   VELUM_POINTS,
+  VERMILION_EXPOSED_POINTS,
+  VERMILION_POINTS,
   buildTract,
 } from "./tract";
 
@@ -165,11 +168,23 @@ describe("the velum", () => {
 
   it("never sinks into the tongue when it drops", () => {
     // /ŋ/ is the hard case: the back of the tongue is up at the soft palate
-    // exactly where the velum is coming down.
-    const shapes = buildTract(poseOf("ŋ"));
-    const tip = shapes.velum.reduce((best, point) => (point[1] < best[1] ? point : best));
-    const under = shapes.tongueSurface.filter((point) => Math.abs(point[0] - tip[0]) < 3);
-    for (const point of under) expect(point[1]).toBeLessThan(tip[1] + 0.01);
+    // exactly where the velum is coming down. The two may touch; neither may
+    // pass into the other.
+    for (const symbol of ["ŋ", "ŋ̍", "n", "m", "ɾ̃"]) {
+      const shapes = buildTract(poseOf(symbol));
+      const deep = (point: Vec2, polygon: readonly Vec2[]) =>
+        inside(point, polygon) &&
+        Math.min(...polygon.map(([x, y]) => Math.hypot(x - point[0], y - point[1]))) > 0.35;
+      expect(shapes.velum.filter((point) => deep(point, shapes.tongue)), symbol).toEqual([]);
+      expect(shapes.tongueSurface.filter((point) => deep(point, shapes.velum)), symbol).toEqual([]);
+    }
+  });
+
+  it("is met low down by the tongue for /ŋ/, leaving the port to the nose open", () => {
+    const ng = buildTract(poseOf("ŋ"));
+    const k = buildTract(poseOf("k"));
+    expect(ng.constriction.gap).toBeLessThan(0.5);
+    expect(ng.constriction.point[1]).toBeLessThan(k.constriction.point[1]);
   });
 });
 
@@ -184,5 +199,98 @@ describe("the lips", () => {
     // anyway. If the lower lip only followed the jaw, this would gape.
     const shut = buildTract(makePose({ ...poseOf("m"), jaw: 0.8 }));
     expect(shut.lipGap).toBe(0);
+  });
+});
+
+const inside = ([x, y]: Vec2, polygon: readonly Vec2[]): boolean => {
+  let hit = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i, i += 1) {
+    const [xi, yi] = polygon[i];
+    const [xj, yj] = polygon[j];
+    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) hit = !hit;
+  }
+  return hit;
+};
+
+const crosses = (a: Vec2, b: Vec2, c: Vec2, d: Vec2): boolean => {
+  const side = (p: Vec2, q: Vec2, r: Vec2) => (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]);
+  return side(a, b, c) * side(a, b, d) < 0 && side(c, d, a) * side(c, d, b) < 0;
+};
+
+const selfCrossings = (polygon: readonly Vec2[]): number => {
+  let count = 0;
+  const n = polygon.length;
+  for (let i = 0; i < n; i += 1) {
+    for (let j = i + 2; j < n; j += 1) {
+      if (i === 0 && j === n - 1) continue;
+      if (crosses(polygon[i], polygon[(i + 1) % n], polygon[j], polygon[(j + 1) % n])) count += 1;
+    }
+  }
+  return count;
+};
+
+describe("the place of articulation", () => {
+  const middle = (points: readonly Vec2[]) => points[Math.floor(points.length / 2)];
+
+  it("is the alveolar ridge for /t/ and the soft palate for /k/", () => {
+    expect(buildTract(poseOf("t")).place).toHaveLength(PLACE_POINTS);
+    const ridge = middle(buildTract(poseOf("t")).place);
+    expect(ridge[0]).toBeGreaterThan(69);
+    expect(ridge[0]).toBeLessThan(78);
+    expect(middle(buildTract(poseOf("k")).place)[0]).toBeLessThan(58);
+  });
+
+  it("lies on the roof the tongue is clipped against", () => {
+    for (const [x, y] of buildTract(poseOf("t")).place) {
+      const roof = roofY(x);
+      if (roof !== null) expect(Math.abs(y - roof)).toBeLessThan(0.5);
+    }
+  });
+});
+
+describe("drawable outlines", () => {
+  it("never folds the airway, the tongue or the lips over themselves", () => {
+    // A self-crossing outline cannot be triangulated: it would draw holes.
+    const offenders: string[] = [];
+    for (const phone of PHONE_TABLE) {
+      for (const { pose } of phone.gestures) {
+        const shapes = buildTract(pose);
+        for (const name of ["airway", "tongue", "upperLip", "lowerLip", "velum"] as const) {
+          if (selfCrossings(shapes[name]) > 0) offenders.push(`${phone.symbol}: ${name}`);
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it("keeps the tongue out of the lower incisor, even between the teeth", () => {
+    for (const symbol of ["θ", "ð", "t", "i", "ɑ"]) {
+      const shapes = buildTract(poseOf(symbol));
+      const crown = shapes.lowerTeeth;
+      const sunk = shapes.tongueUnderside.slice(1).filter((point) => inside(point, crown));
+      expect(sunk, symbol).toEqual([]);
+    }
+  });
+
+  it("puts the vermilion on the lip's own edge", () => {
+    const shapes = buildTract(poseOf("ə"));
+    for (const [lip, red] of [
+      [shapes.upperLip, shapes.upperVermilion],
+      [shapes.lowerLip, shapes.lowerVermilion],
+    ] as const) {
+      expect(red).toHaveLength(VERMILION_POINTS);
+      for (const point of red.slice(0, VERMILION_EXPOSED_POINTS)) {
+        const nearest = Math.min(...lip.map(([x, y]) => Math.hypot(x - point[0], y - point[1])));
+        expect(nearest).toBeLessThan(0.6);
+      }
+    }
+  });
+});
+
+describe("the soft palate, as a shape", () => {
+  it("seals against the back wall when raised and opens the port when lowered", () => {
+    const back = (symbol: string) => Math.min(...buildTract(poseOf(symbol)).velum.map((p) => p[0]));
+    expect(back("d")).toBeLessThan(46.5);
+    expect(back("n")).toBeGreaterThan(back("d") + 2);
   });
 });

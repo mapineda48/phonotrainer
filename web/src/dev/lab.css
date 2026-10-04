@@ -1,0 +1,134 @@
+/* The articulator lab's own styles. Development only: the bench must not lean
+   on the app's stylesheets beyond the design tokens, so it keeps working when
+   the screens around it are redesigned. */
+
+.lab {
+  display: grid;
+  grid-template-columns: minmax(320px, 1fr) 420px;
+  gap: 20px;
+  padding: 20px;
+  height: 100vh;
+  box-sizing: border-box;
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--font-ui);
+}
+
+.lab-ipa {
+  font-family: var(--ipa);
+}
+
+.lab-scroll {
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.lab-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.lab-spacer {
+  flex: 1;
+}
+
+.lab-muted {
+  color: var(--ink-muted);
+}
+
+.lab-tiny {
+  font-size: 12px;
+}
+
+.lab-btn {
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
+  border-radius: 8px;
+  padding: 2px 8px;
+  font-size: 12.5px;
+  line-height: 1.3;
+}
+
+.lab-btn:hover {
+  background: var(--surface-2);
+}
+
+.lab-btn[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--page);
+  border-color: var(--ink);
+}
+
+.lab-input {
+  border: 1px solid var(--line-strong);
+  background: var(--page);
+  border-radius: 8px;
+  padding: 6px 9px;
+  color: var(--ink);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.lab-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin: 12px 0;
+}
+
+.lab-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 8px 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.lab-tab {
+  border: 1px solid transparent;
+  border-bottom: none;
+  background: transparent;
+  border-radius: 8px 8px 0 0;
+  padding: 6px 12px;
+  color: var(--ink-2);
+}
+
+.lab-tab[aria-selected="true"] {
+  background: var(--page);
+  border-color: var(--line);
+  color: var(--ink);
+  font-weight: 600;
+  margin-bottom: -1px;
+}
+
+.lab-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 8px;
+}
+
+.lab-phone {
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
+  border-radius: 5px;
+  font-family: var(--ipa);
+  font-size: 14px;
+  line-height: 1.1;
+  padding: 3px 6px;
+}
+
+.lab-phone:hover {
+  background: var(--surface-2);
+}
+
+.lab-phone[aria-pressed="true"] {
+  border-color: var(--ink);
+  border-width: 2px;
+  padding: 2px 5px;
+  font-weight: 600;
+}
