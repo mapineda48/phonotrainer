@@ -129,6 +129,24 @@
     background: color-mix(in oklab, var(--focus) 30%, transparent);
   }
 
+  /* The navigation drawer and the bottom sheets of narrow screens (used only under
+     `motion-ok:`). */
+  @keyframes pt-drawer-in {
+    from {
+      transform: translateX(-100%);
+    }
+  }
+  @keyframes pt-sheet-in {
+    from {
+      transform: translateY(100%);
+    }
+  }
+  @keyframes pt-fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     html {
       scroll-behavior: auto;

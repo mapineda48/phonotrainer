@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { ClipPlayer } from "../../audio/ClipPlayer";
 import { Explain } from "../../didactic/Explain";
+import { BREAKPOINTS, useMediaQuery } from "../../hooks/useMediaQuery";
 import { fmtTime, plural } from "../../lib/format";
 import { paths } from "../../paths";
 import { phenomenonLabel, phenomenonPractice, useReference } from "../../reference";
@@ -101,10 +102,10 @@ export function OccurrencesSection({ stats, filters, onFilters, data }: Props) {
             items={phenomenonItems}
             value={filters.phenomenon ?? ALL}
             onChange={(id) => onFilters({ phenomenon: id === ALL ? null : id })}
-            className="min-w-56"
+            className="min-w-[min(14rem,100%)]"
           />
           <form
-            className="flex min-w-64 flex-1 flex-col gap-1.5"
+            className="flex min-w-[min(16rem,100%)] flex-1 flex-col gap-1.5"
             role="search"
             onSubmit={(event) => {
               event.preventDefault();
@@ -324,46 +325,152 @@ function Variants({
 /** Rows rendered at first, and added per "Show more": a long table is hard to scan. */
 export const PAGE = 50;
 
+/** A wide screen lists the occurrences as a table; a narrow one, where six columns would
+ *  only fit by scrolling sideways, as a list with one occurrence per item. */
 function OccurrenceTable({ items }: { items: Occurrence[] }) {
   const [limit, setLimit] = useState(PAGE);
+  const narrow = useMediaQuery(BREAKPOINTS.belowXl);
   // a new result set starts again from the top
   useEffect(() => setLimit(PAGE), [items]);
   const rows = items.slice(0, limit);
   return (
     <div className="flex flex-col gap-3">
-      {/* relative: the cells' sr-only text must not escape the scroller and widen the page */}
-      <div className="relative overflow-x-auto">
-        <table className="w-full min-w-[44rem] border-collapse text-sm">
-          <caption className="sr-only">Occurrences, most different from the dictionary first</caption>
-          <thead>
-            <tr className="border-b border-line-strong text-left text-ink">
-              <th scope="col" className="px-2 py-2 font-semibold">Word</th>
-              <th scope="col" className="px-2 py-2 font-semibold">
-                <Explain term="dictionary-form">Dictionary</Explain>
-              </th>
-              <th scope="col" className="px-2 py-2 font-semibold">
-                <Explain term="what-was-said">Heard</Explain>
-              </th>
-              <th scope="col" className="px-2 py-2 font-semibold">Changes</th>
-              <th scope="col" className="px-2 py-2 font-semibold">Where</th>
-              <th scope="col" className="px-2 py-2 font-semibold">
-                <span className="sr-only">Actions</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((item) => (
-              <OccurrenceRow key={`${item.analysis_id}:${item.segment}:${item.word_idx}`} item={item} />
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {narrow ? (
+        <ul
+          aria-label="Occurrences, most different from the dictionary first"
+          className="m-0 flex list-none flex-col p-0"
+        >
+          {rows.map((item) => (
+            <OccurrenceItem key={`${item.analysis_id}:${item.segment}:${item.word_idx}`} item={item} />
+          ))}
+        </ul>
+      ) : (
+        /* relative: the cells' sr-only text must not escape the scroller and widen the page */
+        <div className="relative overflow-x-auto">
+          <table className="w-full min-w-[44rem] border-collapse text-sm">
+            <caption className="sr-only">Occurrences, most different from the dictionary first</caption>
+            <thead>
+              <tr className="border-b border-line-strong text-left text-ink">
+                <th scope="col" className="px-2 py-2 font-semibold">
+                  Word
+                </th>
+                <th scope="col" className="px-2 py-2 font-semibold">
+                  <Explain term="dictionary-form">Dictionary</Explain>
+                </th>
+                <th scope="col" className="px-2 py-2 font-semibold">
+                  <Explain term="what-was-said">Heard</Explain>
+                </th>
+                <th scope="col" className="px-2 py-2 font-semibold">
+                  Changes
+                </th>
+                <th scope="col" className="px-2 py-2 font-semibold">
+                  Where
+                </th>
+                <th scope="col" className="px-2 py-2 font-semibold">
+                  <span className="sr-only">Actions</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((item) => (
+                <OccurrenceRow key={`${item.analysis_id}:${item.segment}:${item.word_idx}`} item={item} />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
       {items.length > limit && (
         <Button variant="secondary" className="self-start" onPress={() => setLimit((n) => n + PAGE)}>
           Show {Math.min(PAGE, items.length - limit)} more ({items.length - limit} left)
         </Button>
       )}
     </div>
+  );
+}
+
+/** Play it on the spot, or open its lesson. */
+function OccurrenceActions({ item, spoken, where }: { item: Occurrence; spoken: string; where: string }) {
+  if (!item.job_id) {
+    return <span className="text-xs text-ink-2">Indexed from the command line: open it there.</span>;
+  }
+  return (
+    <span className="flex items-center gap-1.5">
+      <ClipPlayer
+        jobId={item.job_id}
+        start={item.start}
+        end={item.end}
+        size="sm"
+        label={`Play “${spoken}” from ${where}`}
+      />
+      <LinkButton
+        size="sm"
+        variant="secondary"
+        icon={ArrowRight}
+        href={paths.word(item.job_id, item.segment, item.word_idx, "insights")}
+        aria-label={`Open “${item.word}” in ${where}`}
+      >
+        Open
+      </LinkButton>
+    </span>
+  );
+}
+
+/** One occurrence as a list item (narrow screens): the same facts as a table row, in
+ *  reading order — the word and its actions, dictionary → heard, the changes, where. */
+function OccurrenceItem({ item }: { item: Occurrence }) {
+  const boundary = item.next_word && item.phenomena.some((name) => BOUNDARY.has(name));
+  const spoken = boundary ? `${item.word} ${item.next_word}` : item.word;
+  const where = `${item.analysis_source} at ${fmtTime(item.start)}`;
+  return (
+    <li className="flex flex-col gap-2 border-b border-line py-3 first:pt-0 last:border-b-0">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <p className="min-w-0 font-semibold text-ink">
+          {item.word}
+          {boundary && <span className="font-normal text-ink-2">‿{item.next_word}</span>}
+          {item.lexical_form && (
+            <>
+              {" "}
+              <Chip tone="muted">“{item.lexical_form}”</Chip>
+            </>
+          )}
+        </p>
+        <OccurrenceActions item={item} spoken={spoken} where={where} />
+      </div>
+      <p className="flex flex-wrap items-baseline gap-x-2 text-ink">
+        {hasDictionaryForm(item) ? (
+          <span>
+            <span className="sr-only">Dictionary: </span>
+            <Ipa kind="phonemic">{item.dict_ipa || item.canonical_ipa || ""}</Ipa>
+          </span>
+        ) : (
+          <span className="text-sm text-ink-2">no dictionary form</span>
+        )}
+        <span aria-hidden="true" className="text-ink-2">
+          →
+        </span>
+        {item.realized_ipa ? (
+          <span>
+            <span className="sr-only">Heard: </span>
+            <Ipa kind="phonetic">{item.realized_ipa}</Ipa>
+          </span>
+        ) : (
+          <span className="text-sm text-ink-2">no sounds heard</span>
+        )}
+      </p>
+      <Flags item={item} />
+      {item.phenomena.length > 0 ? (
+        <span className="flex flex-wrap gap-1">
+          {item.phenomena.map((name) => (
+            <PhenomenonBadge key={name} name={name} />
+          ))}
+        </span>
+      ) : (
+        <span className="text-sm text-ink-2">No change found</span>
+      )}
+      <p className="line-clamp-2 break-words text-sm text-ink-2">
+        <span className="tabular-nums">{fmtTime(item.start)}</span> · {item.analysis_source}
+      </p>
+    </li>
   );
 }
 
@@ -390,7 +497,11 @@ function OccurrenceRow({ item }: { item: Occurrence }) {
         )}
       </td>
       <td className="px-2 py-2 text-ink">
-        {item.realized_ipa ? <Ipa kind="phonetic">{item.realized_ipa}</Ipa> : <span className="text-ink-2">no sounds heard</span>}
+        {item.realized_ipa ? (
+          <Ipa kind="phonetic">{item.realized_ipa}</Ipa>
+        ) : (
+          <span className="text-ink-2">no sounds heard</span>
+        )}
         <Flags item={item} />
       </td>
       <td className="px-2 py-2">
@@ -411,28 +522,7 @@ function OccurrenceRow({ item }: { item: Occurrence }) {
         <span className="block tabular-nums">{fmtTime(item.start)}</span>
       </td>
       <td className="px-2 py-2">
-        {item.job_id ? (
-          <span className="flex items-center gap-1.5">
-            <ClipPlayer
-              jobId={item.job_id}
-              start={item.start}
-              end={item.end}
-              size="sm"
-              label={`Play “${spoken}” from ${where}`}
-            />
-            <LinkButton
-              size="sm"
-              variant="secondary"
-              icon={ArrowRight}
-              href={paths.word(item.job_id, item.segment, item.word_idx, "insights")}
-              aria-label={`Open “${item.word}” in ${where}`}
-            >
-              Open
-            </LinkButton>
-          </span>
-        ) : (
-          <span className="text-xs text-ink-2">Indexed from the command line: open it there.</span>
-        )}
+        <OccurrenceActions item={item} spoken={spoken} where={where} />
       </td>
     </tr>
   );

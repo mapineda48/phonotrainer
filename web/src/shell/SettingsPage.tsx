@@ -28,7 +28,7 @@ export function SettingsPage() {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-5 px-6 py-8">
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-5 px-4 py-6 sm:px-6 sm:py-8">
       <PageHeader
         title="Settings"
         lede="Make the screen comfortable for your eyes. Changes apply at once and are remembered on this computer."

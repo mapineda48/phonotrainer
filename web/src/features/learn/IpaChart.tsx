@@ -1,18 +1,22 @@
 /** /learn/ipa — every sound the analyzer writes, laid out like an IPA chart in plain
  *  words (lips, gum ridge, throat…). Selecting a symbol shows the mouth making it, what to
- *  do with the tongue and lips, and words from the learner's own clips that contain it. */
+ *  do with the tongue and lips, and words from the learner's own clips that contain it:
+ *  beside the chart on a wide screen, in a sheet over it on a narrow one (where a panel
+ *  below every chart would open out of sight). */
 
-import { ArrowRight, Grid3x3 } from "lucide-react";
+import { ArrowRight, Grid3x3, X } from "lucide-react";
 import { useMemo } from "react";
+import { Dialog, Modal, ModalOverlay } from "react-aria-components";
 import { useLocation, useSearch } from "wouter";
 
 import { api } from "../../api";
 import { lookupPhone } from "../../articulation/phones";
 import { ipaTerm, lookupGlossary } from "../../didactic/glossary";
 import { SYMBOL_PHENOMENON } from "../../didactic/glossary/ipa";
+import { BREAKPOINTS, useMediaQuery } from "../../hooks/useMediaQuery";
 import { paths } from "../../paths";
 import { phenomenonLabel, useReference } from "../../reference";
-import { Card, cn, EmptyState, Ipa, Notice, PageHeader, RichText, TextLink } from "../../ui";
+import { Card, cn, EmptyState, IconButton, Ipa, Notice, PageHeader, RichText, TextLink } from "../../ui";
 import { capitalize, containsSymbol, isPlayable, pickExamples, useLoad } from "./corpus";
 import { ExampleList } from "./ExampleList";
 import {
@@ -46,6 +50,7 @@ function SymbolButton({
       type="button"
       onClick={() => onSelect(symbol)}
       aria-pressed={selected}
+      data-symbol={symbol}
       aria-label={`[${symbol}] ${phone?.name ?? ""}${weak ? ", a weak vowel" : ""}`.trim()}
       className={cn(
         "inline-flex min-h-10 min-w-10 items-center justify-center rounded-control px-1.5 text-xl",
@@ -79,7 +84,7 @@ function Grid<C extends string>({
         <caption className="sr-only">{caption}</caption>
         <thead>
           <tr>
-            <td />
+            <td className="sticky left-0 z-[1] bg-surface" />
             {columns.map((column) => (
               <th key={column.key} scope="col" className="px-1 pb-2 align-bottom text-xs font-semibold text-ink-2">
                 {column.label}
@@ -91,7 +96,8 @@ function Grid<C extends string>({
         <tbody>
           {rows.map((row) => (
             <tr key={row.label} className="border-t border-line">
-              <th scope="row" className="py-1.5 pr-2 text-sm font-semibold text-ink">
+              {/* sticky: scrolled sideways on a phone, the rows keep their names */}
+              <th scope="row" className="sticky left-0 z-[1] bg-surface py-1.5 pr-2 text-sm font-semibold text-ink">
                 {row.label}
                 {row.detail && <span className="block text-xs font-normal text-ink-2">{row.detail}</span>}
               </th>
@@ -213,6 +219,34 @@ function SymbolDetail({ symbol }: { symbol: string }) {
   );
 }
 
+/** Narrow screens: the selected symbol in a sheet over the chart. Esc, the close button
+ *  or a tap outside closes it, and the focus goes back to the symbol. */
+function SymbolSheet({ symbol, onClose }: { symbol: string | null; onClose: () => void }) {
+  const phone = symbol ? lookupPhone(symbol) : null;
+  return (
+    <ModalOverlay
+      isOpen={symbol !== null}
+      onOpenChange={(open) => !open && onClose()}
+      isDismissable
+      className="fixed inset-0 z-50 flex items-end justify-center bg-scrim sm:items-center sm:p-4"
+    >
+      <Modal className="max-h-[88dvh] w-full max-w-xl overflow-auto rounded-t-card bg-surface text-ink shadow-2 outline-none ring-1 ring-line-strong sm:rounded-card motion-ok:data-[entering]:animate-[pt-sheet-in_var(--dur)_var(--ease-standard)]">
+        <Dialog
+          aria-label={symbol && phone ? `[${symbol}] ${phone.name}` : "Symbol"}
+          className="relative p-5 outline-none"
+        >
+          {({ close }) => (
+            <>
+              <IconButton icon={X} label="Close" onPress={close} noTooltip className="absolute right-3 top-3" />
+              {symbol && <SymbolDetail symbol={symbol} />}
+            </>
+          )}
+        </Dialog>
+      </Modal>
+    </ModalOverlay>
+  );
+}
+
 export function IpaChart() {
   const search = useSearch();
   const [, navigate] = useLocation();
@@ -220,21 +254,22 @@ export function IpaChart() {
   const selected = requested && lookupPhone(requested) ? requested : null;
   const select = (symbol: string) => navigate(paths.ipa(symbol), { replace: true });
   const other = unplacedSymbols();
+  const narrow = useMediaQuery(BREAKPOINTS.belowXl);
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-6 py-8">
+    <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
       <PageHeader
-        eyebrow={
-          <TextLink href={paths.learn()}>
-            Learn
-          </TextLink>
-        }
+        eyebrow={<TextLink href={paths.learn()}>Learn</TextLink>}
         title="IPA chart"
         lede="Every sound the analyzer can write. Select a symbol to see the mouth make it and to hear it in your own clips."
       />
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,400px)]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(320px,400px)]">
         <div className="flex min-w-0 flex-col gap-6">
-          <Card title="Consonants" level={2} description="Columns: where the mouth closes. Rows: how the air gets out. In a pair, the first has no voice and the second has voice.">
+          <Card
+            title="Consonants"
+            level={2}
+            description="Columns: where the mouth closes. Rows: how the air gets out. In a pair, the first has no voice and the second has voice."
+          >
             <Grid
               caption="English consonants by place and manner"
               columns={PLACES}
@@ -302,18 +337,33 @@ export function IpaChart() {
           )}
         </div>
 
-        <aside aria-label="Selected symbol" className="lg:sticky lg:top-6 lg:self-start">
-          <Card>
-            {selected ? (
-              <SymbolDetail symbol={selected} />
-            ) : (
-              <EmptyState icon={Grid3x3} title="Choose a symbol">
-                Each symbol is one sound. Start with <Ipa kind="phonetic">ɾ</Ipa>, <Ipa kind="phonetic">t̚</Ipa> or{" "}
-                <Ipa kind="phonetic">ə</Ipa>: they are the sounds of the most common American changes.
-              </EmptyState>
-            )}
-          </Card>
-        </aside>
+        {narrow ? (
+          <SymbolSheet
+            symbol={selected}
+            onClose={() => {
+              navigate(paths.ipa(), { replace: true });
+              // back to the symbol, also where a tap did not focus it (Safari)
+              requestAnimationFrame(() =>
+                [...document.querySelectorAll<HTMLElement>("[data-symbol]")]
+                  .find((button) => button.dataset.symbol === selected)
+                  ?.focus(),
+              );
+            }}
+          />
+        ) : (
+          <aside aria-label="Selected symbol" className="sticky top-6 self-start">
+            <Card>
+              {selected ? (
+                <SymbolDetail symbol={selected} />
+              ) : (
+                <EmptyState icon={Grid3x3} title="Choose a symbol">
+                  Each symbol is one sound. Start with <Ipa kind="phonetic">ɾ</Ipa>, <Ipa kind="phonetic">t̚</Ipa> or{" "}
+                  <Ipa kind="phonetic">ə</Ipa>: they are the sounds of the most common American changes.
+                </EmptyState>
+              )}
+            </Card>
+          </aside>
+        )}
       </div>
     </div>
   );

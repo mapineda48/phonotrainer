@@ -69,6 +69,8 @@ export function Button({ variant, size, icon: Icon, className, children, ...rest
 
 const iconButtonStyles = tv({
   extend: buttonStyles,
+  // shrink-0: a squeezed row must never narrow an icon button below its target size
+  base: "shrink-0",
   variants: {
     size: {
       sm: "size-8 px-0",

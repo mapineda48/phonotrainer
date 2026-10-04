@@ -8,8 +8,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../../api";
 import { expectNoAxeViolations } from "../../test/axe";
 import { analysis, job, wordButton } from "../../test/fixtures";
+import { phoneScreen, setScreen } from "../../test/media";
 import { renderPage } from "../../test/render";
 import type { Job } from "../../types";
+import { BREAKPOINTS } from "../../hooks/useMediaQuery";
 import { AnalysisPage } from ".";
 
 vi.mock("../../api", async (importOriginal) => {
@@ -140,6 +142,89 @@ describe("AnalysisPage", () => {
     const { container } = open({ selection: { segment: 0, index: 1 } });
     await waitFor(() => expect(wordButton("that")).toHaveAttribute("aria-pressed", "true"));
     await expectNoAxeViolations(container);
+  });
+});
+
+describe("AnalysisPage on a narrow screen", () => {
+  const panelTabs = () => screen.getByRole("tablist", { name: "Panel" });
+  const tab = (name: string) => within(panelTabs()).getByRole("tab", { name });
+  const lessonHeading = (word: string) => screen.queryByRole("heading", { level: 2, name: `“${word}”` });
+
+  it("shows one pane at a time: the transcript, the lesson, the summary and review are tabs", async () => {
+    phoneScreen();
+    const { container } = open();
+    await screen.findByRole("button", { name: /^does,/ });
+    expect(within(panelTabs()).getAllByRole("tab").map((t) => t.textContent)).toEqual([
+      "Transcript",
+      "Lesson",
+      "Summary",
+      "Review",
+    ]);
+    expect(tab("Transcript")).toHaveAttribute("aria-selected", "true");
+    // the player stays with the transcript
+    expect(screen.getByRole("group", { name: "Playback" })).toBeInTheDocument();
+    await expectNoAxeViolations(container);
+
+    await userEvent.click(tab("Summary"));
+    expect(screen.queryByRole("button", { name: /^does,/ })).toBeNull();
+    expect(screen.getByRole("button", { name: /^t\/d deletion, 2 occurrences/ })).toBeInTheDocument();
+  });
+
+  it("a tapped word plays and offers its lesson one tap away; the Transcript tab goes back to it", async () => {
+    phoneScreen();
+    const play = vi.spyOn(window.HTMLMediaElement.prototype, "play");
+    const tools = open();
+    await userEvent.click(await screen.findByRole("button", { name: /^that,/ }));
+    expect(play).toHaveBeenCalled();
+    expect(tools.history.at(-1)).toBe(`/analysis/${job.id}/w/0/1`);
+    // still reading: the transcript stays, the lesson waits in the bar below it
+    expect(lessonHeading("that")).toBeNull();
+    expect(screen.getByText(/one tap away/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Open lesson: “that”" }));
+    expect(tab("Lesson")).toHaveAttribute("aria-selected", "true");
+    expect(lessonHeading("that")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^that,/ })).toBeNull();
+    await waitFor(() => expect(screen.getByRole("complementary", { name: /Word lesson/ })).toHaveFocus());
+
+    // the lesson's own arrows walk on without leaving it
+    await userEvent.click(screen.getByRole("button", { name: "Next word (N)" }));
+    expect(lessonHeading("work")).toBeInTheDocument();
+
+    await userEvent.click(tab("Transcript"));
+    expect(lessonHeading("work")).toBeNull();
+    expect(wordButton("work")).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("a deep link arrives on the word's lesson", async () => {
+    phoneScreen();
+    open({ selection: { segment: 1, index: 0 }, from: "insights", path: `/analysis/${job.id}/w/1/0?from=insights` });
+    await waitFor(() => expect(lessonHeading("wanna")).toBeInTheDocument());
+    expect(tab("Lesson")).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("the bar under the transcript starts with the first change, and the skip link reaches the lesson", async () => {
+    phoneScreen();
+    open();
+    await userEvent.click(await screen.findByRole("button", { name: "Start with the first change" }));
+    expect(tab("Lesson")).toHaveAttribute("aria-selected", "true");
+    expect(lessonHeading("does")).toBeInTheDocument();
+
+    await userEvent.click(tab("Transcript"));
+    await userEvent.click(screen.getByRole("link", { name: "Skip to the word lesson" }));
+    expect(tab("Lesson")).toHaveAttribute("aria-selected", "true");
+    await waitFor(() => expect(screen.getByRole("complementary", { name: /Word lesson/ })).toHaveFocus());
+  });
+
+  it("goes back to two panes when the window widens, keeping the word", async () => {
+    const resize = setScreen([BREAKPOINTS.singlePane]);
+    open({ selection: { segment: 0, index: 1 } });
+    await waitFor(() => expect(lessonHeading("that")).toBeInTheDocument());
+    expect(tab("Transcript")).toBeInTheDocument();
+    resize([]);
+    expect(screen.queryByRole("tab", { name: "Transcript" })).toBeNull();
+    expect(lessonHeading("that")).toBeInTheDocument();
+    expect(wordButton("that")).toHaveAttribute("aria-pressed", "true");
   });
 });
 

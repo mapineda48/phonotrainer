@@ -136,7 +136,7 @@ export function LibraryPage() {
     });
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 px-6 py-8">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 px-4 py-6 sm:px-6 sm:py-8">
       <PageHeader
         title="Library"
         lede="Your analyses. Open one to study how each word was really said."
@@ -197,7 +197,7 @@ export function LibraryPage() {
                 value={query}
                 onChange={setQuery}
                 placeholder="Search analyses…"
-                className="min-w-56 flex-1"
+                className="min-w-[min(14rem,100%)] flex-1"
               />
               <Select label="Sort" items={SORTS} value={sort} onChange={setSort} />
               {engines.length > 1 && (
@@ -316,50 +316,56 @@ function JobRow({ job, olderRules, onOpen, onCancel, onRetry, onDelete }: RowPro
 
   return (
     <div className="flex items-start gap-3">
-      <span className="flex w-28 shrink-0 items-center gap-1.5 pt-0.5 text-sm font-semibold text-ink">
-        <StatusIcon
-          size={18}
-          aria-hidden="true"
-          className={cn("shrink-0", status.spins && "motion-ok:animate-spin")}
-        />
-        {status.label}
-      </span>
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <span className="truncate text-base font-semibold text-ink" title={job.source}>
-          {job.source}
-        </span>
-        <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-2">
-          {meta.map((part, index) => (
-            <span key={index} className="flex items-center gap-2">
-              {index > 0 && <span aria-hidden="true">·</span>}
-              {part}
-            </span>
-          ))}
-          {job.imported && <Chip tone="muted">imported</Chip>}
-          {rules !== null && (
-            <Chip tone={olderRules ? "outline" : "muted"}>
-              {olderRules ? `older rules (v${rules}): re-analyze to update` : `rules v${rules}`}
-            </Chip>
-          )}
-        </span>
-        {job.status === "running" && (
-          <ProgressBar
-            label={`Progress of ${job.source}`}
-            hideLabel
-            value={job.percent}
-            valueText={`${job.percent} % · ${stageSummary(job)}`}
-            className="mt-1 max-w-xl"
+      {/* a phone puts the status above the name instead of in a column of its own */}
+      <div className="flex min-w-0 flex-1 flex-col gap-1 sm:flex-row sm:items-start sm:gap-3">
+        <span className="flex shrink-0 items-center gap-1.5 pt-0.5 text-sm font-semibold text-ink sm:w-28">
+          <StatusIcon
+            size={18}
+            aria-hidden="true"
+            className={cn("shrink-0", status.spins && "motion-ok:animate-spin")}
           />
-        )}
-        {job.status === "queued" && (
-          <span className="text-sm text-ink-2">Waiting in line: analyses run one at a time.</span>
-        )}
-        {job.status === "error" && job.error && (
-          <span className="line-clamp-2 text-sm text-ink">
-            <span className="font-semibold">What went wrong: </span>
-            {job.error}
+          {status.label}
+        </span>
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <span
+            className="line-clamp-2 break-words text-base font-semibold text-ink sm:line-clamp-1"
+            title={job.source}
+          >
+            {job.source}
           </span>
-        )}
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-2">
+            {meta.map((part, index) => (
+              <span key={index} className="flex items-center gap-2">
+                {index > 0 && <span aria-hidden="true">·</span>}
+                {part}
+              </span>
+            ))}
+            {job.imported && <Chip tone="muted">imported</Chip>}
+            {rules !== null && (
+              <Chip tone={olderRules ? "outline" : "muted"}>
+                {olderRules ? `older rules (v${rules}): re-analyze to update` : `rules v${rules}`}
+              </Chip>
+            )}
+          </span>
+          {job.status === "running" && (
+            <ProgressBar
+              label={`Progress of ${job.source}`}
+              hideLabel
+              value={job.percent}
+              valueText={`${job.percent} % · ${stageSummary(job)}`}
+              className="mt-1 max-w-xl"
+            />
+          )}
+          {job.status === "queued" && (
+            <span className="text-sm text-ink-2">Waiting in line: analyses run one at a time.</span>
+          )}
+          {job.status === "error" && job.error && (
+            <span className="line-clamp-2 text-sm text-ink">
+              <span className="font-semibold">What went wrong: </span>
+              {job.error}
+            </span>
+          )}
+        </div>
       </div>
       {job.status === "error" && job.source_url && (
         <Button size="sm" icon={RotateCcw} onPress={onRetry}>

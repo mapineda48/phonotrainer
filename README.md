@@ -67,6 +67,11 @@ F0, each IPA symbol, each measure) has a **"What's this?"** button next to it. T
 explanation opens in a popover that works with the keyboard and on touch, never only
 on hover.
 
+It works on a laptop, a tablet or a phone, down to 320 px wide, without scrolling
+sideways (only the wide IPA tables scroll inside their own box). Below 768 px the rail
+becomes a **Menu** button at the top that opens the same navigation in a drawer. Below
+1024 px the analysis workspace shows one pane at a time (see below).
+
 ### Library and New analysis
 
 The **Library** (`/`) lists your analyses. Each one shows its status as an icon plus a
@@ -92,7 +97,11 @@ existing `out/`.
 ### Analysis: the transcript and the 5-step word lesson
 
 The analysis workspace (`/analysis/<id>`) puts the player and the transcript on the
-left and the lesson on the right.
+left and the lesson on the right. On a screen narrower than 1024 px the transcript, the
+lesson, the summary and review become four tabs under the player, which stays at the
+top while you scroll. Tapping a word plays it and shows it in a bar at the bottom, with
+**Open lesson** one tap away; the **Transcript** tab goes back to the same word, and a
+link to a word opens straight on its lesson.
 
 **The transcript.** Each word that changed is underlined in the style of its family of
 phenomena, and the word itself always stays in ink:
@@ -206,7 +215,9 @@ The **IPA chart** (`/learn/ipa`) lays out every symbol the analyzer can emit:
 - the vowels, diphthongs and r-colored vowels.
 
 Picking a symbol shows the mouth, its name and example, what it means for a learner,
-its phenomenon, and words from your clips that contain it.
+its phenomenon, and words from your clips that contain it: beside the chart on a wide
+screen, in a sheet over it below 1280 px. On a narrow screen the tables scroll sideways
+in their own box, with the row names fixed.
 
 ### Practice
 
@@ -232,7 +243,7 @@ practices a single phenomenon.
 - **The phenomena** you have met, as a chart that filters the list below.
 - **Every occurrence**, filtered by phenomenon, word and practice advice. Each one has a
   play button and an **Open** link to its word lesson. **Back to Insights** returns with
-  your filters.
+  your filters. Below 1280 px the table becomes a list, one occurrence per item.
 - **How one word was said across every recording**, by searching for it.
 
 ### Settings, the tour and the keyboard

@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -6,6 +6,7 @@ import { api } from "../../api";
 import { lookupPhone, PHONE_TABLE } from "../../articulation/phones";
 import { ipaTerm, lookupGlossary } from "../../didactic/glossary";
 import { expectNoAxeViolations } from "../../test/axe";
+import { phoneScreen } from "../../test/media";
 import { fullReference, renderPage } from "../../test/render";
 import type { CorpusStats, Occurrence } from "../../types";
 import { LESSONS } from "./content";
@@ -214,6 +215,26 @@ describe("IpaChartPage", () => {
   it("opens on the symbol in the URL", () => {
     renderPage(<IpaChartPage />, { path: `/learn/ipa?symbol=${encodeURIComponent("t̚")}`, reference: fullReference });
     expect(screen.getByRole("heading", { name: /unreleased voiceless alveolar stop/i })).toBeInTheDocument();
+  });
+
+  it("on a narrow screen shows the selected symbol in a sheet over the chart, not out of sight below it", async () => {
+    phoneScreen();
+    const user = userEvent.setup();
+    const { container, history } = renderPage(<IpaChartPage />, { path: "/learn/ipa", reference: fullReference });
+    expect(screen.queryByRole("complementary", { name: "Selected symbol" })).toBeNull();
+
+    const tap = screen.getByRole("button", { name: /^\[ɾ\] alveolar tap/ });
+    await user.click(tap);
+    const sheet = await screen.findByRole("dialog", { name: /\[ɾ\] alveolar tap/i });
+    expect(within(sheet).getByRole("heading", { name: "Alveolar tap" })).toBeInTheDocument();
+    expect(within(sheet).getByRole("link", { name: /sound of flapping/i })).toHaveAttribute("href", "/learn/flapping");
+    await expectNoAxeViolations(container);
+
+    // Esc closes it, clears the symbol from the URL and goes back to the symbol
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(history.at(-1)).toBe("/learn/ipa");
+    await waitFor(() => expect(tap).toHaveFocus());
   });
 });
 

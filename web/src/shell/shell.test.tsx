@@ -1,9 +1,11 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
+import { BREAKPOINTS } from "../hooks/useMediaQuery";
 import { AppRoutes } from "../routes";
 import { expectNoAxeViolations } from "../test/axe";
+import { phoneScreen, setScreen } from "../test/media";
 import { fullReference, renderPage } from "../test/render";
 import { startTour } from "../features/tour";
 import { AppShell } from "./AppShell";
@@ -76,6 +78,79 @@ describe("AppShell", () => {
   it("says so when a page does not exist", () => {
     renderPage(app, { path: "/nowhere", reference: fullReference });
     expect(screen.getByRole("heading", { level: 1, name: "This page does not exist" })).toBeInTheDocument();
+  });
+});
+
+describe("AppShell on a narrow screen", () => {
+  it("collapses the navigation into a Menu button that opens it in a drawer", async () => {
+    phoneScreen();
+    const { container, history } = renderPage(app, { path: "/learn", reference: fullReference });
+    // the skip link stays first, and the page keeps the whole width: no rail
+    expect(screen.getByRole("link", { name: "Skip to content" })).toHaveAttribute("href", "#main");
+    expect(screen.queryByRole("navigation", { name: "Main" })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("main")).toHaveLength(1);
+
+    const menu = screen.getByRole("button", { name: "Menu" });
+    await userEvent.click(menu);
+    const drawer = await screen.findByRole("dialog", { name: "Menu" });
+    const nav = within(drawer).getByRole("navigation", { name: "Main" });
+    for (const name of ["Library", "Learn", "Practice", "Insights", "Settings"]) {
+      expect(within(nav).getByRole("link", { name })).toBeInTheDocument();
+    }
+    expect(within(nav).getByRole("link", { name: "Learn" })).toHaveAttribute("aria-current", "page");
+    await expectNoAxeViolations(container);
+
+    // choosing a page goes there, closes the drawer and hands the focus back to Menu
+    await userEvent.click(within(nav).getByRole("link", { name: "Practice" }));
+    expect(history.at(-1)).toBe("/practice");
+    expect(await screen.findByRole("heading", { level: 1, name: "Practice" })).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Menu" })).not.toBeInTheDocument();
+    await waitFor(() => expect(menu).toHaveFocus());
+  });
+
+  it("closes the drawer with Esc and returns the focus to the Menu button", async () => {
+    phoneScreen();
+    renderPage(app, { path: "/learn", reference: fullReference });
+    const menu = screen.getByRole("button", { name: "Menu" });
+    await userEvent.click(menu);
+    await screen.findByRole("dialog", { name: "Menu" });
+    await userEvent.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog", { name: "Menu" })).not.toBeInTheDocument();
+    await waitFor(() => expect(menu).toHaveFocus());
+  });
+
+  it("opens Help's dialogs and the tour from the drawer once it has closed", async () => {
+    phoneScreen();
+    renderPage(app, { path: "/learn", reference: fullReference });
+    const menu = screen.getByRole("button", { name: "Menu" });
+
+    await userEvent.click(menu);
+    await userEvent.click(
+      within(await screen.findByRole("dialog", { name: "Menu" })).getByRole("button", { name: "Help" }),
+    );
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Keyboard shortcuts" }));
+    const shortcuts = await screen.findByRole("dialog", { name: "Keyboard shortcuts" });
+    expect(screen.queryByRole("dialog", { name: "Menu" })).not.toBeInTheDocument();
+    await userEvent.click(within(shortcuts).getByRole("button", { name: "Close" }));
+
+    await userEvent.click(menu);
+    await userEvent.click(
+      within(await screen.findByRole("dialog", { name: "Menu" })).getByRole("button", { name: "Help" }),
+    );
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Restart the tour" }));
+    // the tour starts after the drawer is gone and hands the focus back to Menu
+    await waitFor(() => expect(startTour).toHaveBeenCalledWith({ returnFocus: menu }));
+  });
+
+  it("switches between the rail and the Menu button when the window is resized", async () => {
+    const resize = setScreen([]);
+    renderPage(app, { path: "/learn", reference: fullReference });
+    expect(screen.getByRole("navigation", { name: "Main" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Menu" })).not.toBeInTheDocument();
+
+    resize([BREAKPOINTS.compactNav]);
+    expect(screen.queryByRole("navigation", { name: "Main" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Menu" })).toBeInTheDocument();
   });
 });
 

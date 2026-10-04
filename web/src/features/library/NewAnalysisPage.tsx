@@ -142,7 +142,7 @@ function NewAnalysisForm({ onStarted }: { onStarted: (job: Job) => void }) {
   const notes = reference.options.phone_engine_notes ?? {};
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-5 px-6 py-8">
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-5 px-4 py-6 sm:px-6 sm:py-8">
       <PageHeader
         eyebrow={
           <LinkButton href={paths.library()} variant="quiet" size="sm" icon={ArrowLeft} className="-ml-3 w-fit">
@@ -175,7 +175,7 @@ function NewAnalysisForm({ onStarted }: { onStarted: (job: Job) => void }) {
                 onChange={setPath}
                 placeholder="~/videos/episode.webm"
                 description="The file stays where it is: nothing is copied."
-                className="min-w-64 flex-1"
+                className="min-w-[min(16rem,100%)] flex-1"
               />
               <Button icon={FolderOpen} onPress={() => setBrowsing("media")} className="mb-6">
                 Browse…
@@ -396,7 +396,7 @@ function Started({ initial, onAnother }: { initial: Job; onAnother: () => void }
           : "Analysis started";
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-6 py-8">
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 py-6 sm:px-6 sm:py-8">
       <PageHeader
         title={title}
         lede={

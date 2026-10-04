@@ -51,7 +51,7 @@ export function PlayerBar({ duration, enabled, spanLabel, children }: Props) {
     <div
       role="group"
       aria-label="Playback"
-      className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-line bg-surface px-4 py-2.5"
+      className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-line bg-surface px-4 py-2.5 sm:gap-x-4"
     >
       <IconButton
         icon={player.playing ? Pause : Play}
@@ -59,12 +59,15 @@ export function PlayerBar({ duration, enabled, spanLabel, children }: Props) {
         variant="primary"
         isDisabled={!enabled}
         onPress={() => player.toggle()}
+        className="pointer-coarse:size-11"
       />
-      <span className="text-sm tabular-nums text-ink" aria-label={`Time ${fmtTime(time)} of ${fmtTime(duration)}`}>
+      {/* on a phone the waveform takes the rest of the first row and the time moves to
+          the second, with the speed; only text moves, so the focus order is unchanged */}
+      <span className="text-sm tabular-nums text-ink max-sm:order-1" aria-label={`Time ${fmtTime(time)} of ${fmtTime(duration)}`}>
         {fmtTime(time)} <span className="text-ink-muted">/ {fmtTime(duration)}</span>
       </span>
       {children}
-      <div className="flex flex-wrap items-center gap-3" {...tourAttr(TOUR.playerSpeed)}>
+      <div className="flex flex-wrap items-center gap-3 max-sm:order-2" {...tourAttr(TOUR.playerSpeed)}>
         <SpeedControl hideLabel />
         <ToggleButton
           size="sm"
@@ -73,11 +76,12 @@ export function PlayerBar({ duration, enabled, spanLabel, children }: Props) {
           isDisabled={!enabled}
           onChange={(value) => player.setLoop(value)}
         >
-          Loop
+          {/* a phone keeps the name for screen readers and shows the icon only */}
+          <span className="max-sm:sr-only">Loop</span>
         </ToggleButton>
       </div>
       {spanLabel && (
-        <Chip tone="muted" className="gap-1 pe-0.5">
+        <Chip tone="muted" className="gap-1 pe-0.5 max-sm:order-3">
           Playing only {spanLabel}
           <IconButton icon={X} size="sm" label="Play everything again" onPress={() => player.clearSpan()} />
         </Chip>

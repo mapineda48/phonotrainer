@@ -8,7 +8,7 @@ import { useEffect, useRef } from "react";
 
 import { useTimeSelector } from "../../../player/clock";
 import { usePlayer } from "../../../player/PlayerProvider";
-import { IconButton } from "../../../ui";
+import { cn, IconButton } from "../../../ui";
 
 const MAX_DRIFT = 0.2;
 
@@ -51,10 +51,16 @@ export function SyncedVideo({ src }: { src: string }) {
   );
 }
 
-/** Floats over the transcript, so it rides along instead of pushing the text down. */
-export function VideoDock({ src, onClose }: { src: string; onClose: () => void }) {
+/** Floats over the transcript, so it rides along instead of pushing the text down.
+ *  `className` places it (default: the bottom right corner of the transcript column). */
+export function VideoDock({ src, onClose, className }: { src: string; onClose: () => void; className?: string }) {
   return (
-    <div className="absolute bottom-3 right-3 z-20 w-[min(22rem,60%)] rounded-card bg-surface p-1.5 shadow-2 ring-1 ring-line-strong">
+    <div
+      className={cn(
+        "absolute z-20 rounded-card bg-surface p-1.5 shadow-2 ring-1 ring-line-strong",
+        className ?? "bottom-3 right-3 w-[min(22rem,60%)]",
+      )}
+    >
       <SyncedVideo src={src} />
       <IconButton
         icon={X}

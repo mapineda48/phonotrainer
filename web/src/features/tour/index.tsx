@@ -151,7 +151,7 @@ export function TourOffer() {
   return (
     <section
       aria-label="Guided tour"
-      className="flex flex-wrap items-center gap-3 border-b border-line bg-surface-2 px-6 py-2.5"
+      className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-line bg-surface-2 px-4 py-2.5 md:px-6"
     >
       <Route size={18} aria-hidden="true" className="shrink-0 text-ink" />
       <p className="min-w-0 flex-1 text-sm text-ink">
