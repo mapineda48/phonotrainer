@@ -30,7 +30,7 @@ def test_low_confidence_words_count_as_words_but_are_not_compared():
         mk_analysis_word("dog", 0.3, "d ɔ ɡ", "d ɔ ɡ"),
     ]))
     assert m["words"] == {"total": 2, "analyzed": 1, "low_confidence": 1,
-                          "low_confidence_pct": 50.0}
+                          "no_canonical": 0, "low_confidence_pct": 50.0}
     assert m["function_words"] == {"count": 1, "of": 2, "pct": 50.0}
     assert m["segment_loss"]["of"] == 1
 

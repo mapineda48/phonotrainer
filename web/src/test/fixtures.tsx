@@ -2,15 +2,12 @@
  *  The analysis is the same one `tests/conftest.py::mk_analysis` produces, so
  *  the tests on both halves talk about the same material. */
 
-import { render, screen, type RenderOptions } from "@testing-library/react";
-import type { ReactElement, ReactNode } from "react";
+import { screen } from "@testing-library/react";
 import { vi } from "vitest";
 
 import { JobsChannel, type JobsSocket } from "../jobs/channel";
-import { JobsProvider } from "../jobs/JobsProvider";
 import { Clock } from "../player/clock";
-import { PlayerContextProvider, type PlayerApi } from "../player/PlayerProvider";
-import { ReferenceProvider } from "../reference";
+import type { PlayerApi } from "../player/PlayerProvider";
 import type { AlignedPhone, Analysis, Job, Metrics, Reference, Word } from "../types";
 
 export const reference: Reference = {
@@ -315,26 +312,6 @@ export function fakeJobsChannel(jobs: Job[] = []) {
       return socket;
     },
   };
-}
-
-export function renderWith(
-  ui: ReactElement,
-  {
-    player = fakePlayer(),
-    jobsChannel,
-    ...options
-  }: { player?: PlayerApi; jobsChannel?: JobsChannel } & RenderOptions = {},
-) {
-  const Wrapper = ({ children }: { children: ReactNode }) => (
-    <ReferenceProvider value={reference}>
-      <PlayerContextProvider value={player}>
-        <JobsProvider channel={jobsChannel ?? fakeJobsChannel().channel}>
-          {children}
-        </JobsProvider>
-      </PlayerContextProvider>
-    </ReferenceProvider>
-  );
-  return { player, ...render(ui, { wrapper: Wrapper, ...options }) };
 }
 
 const ratio = (count: number, of: number) => ({

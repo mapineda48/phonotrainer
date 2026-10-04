@@ -1,0 +1,83 @@
+/* The articulator's own styles, imported by VocalTract: the panel the mouth is
+   drawn in, and the optional labels. The colours of the anatomy itself are the
+   --tract-* tokens in theme/tokens.css, read by palette.ts. */
+
+.tract {
+  position: relative;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--tract-air);
+  overflow: hidden;
+}
+
+.tract__canvas,
+.tract__svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* ---- labels: names of the parts, over the drawing ---- */
+
+.tract__labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* The anchor: a small dot on the part itself. */
+.tract__label {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+.tract__label::before {
+  content: "";
+  position: absolute;
+  left: -2.5px;
+  top: -2.5px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--tract-accent);
+  box-shadow: 0 0 0 1.5px var(--tract-air);
+}
+
+.tract__label-text {
+  position: absolute;
+  white-space: nowrap;
+  font-family: var(--font-ui);
+  font-size: 11.5px;
+  line-height: 1;
+  font-weight: 600;
+  color: var(--ink);
+  padding: 2px 4px;
+  border-radius: 4px;
+  background: color-mix(in oklab, var(--tract-air) 82%, transparent);
+}
+
+.tract__label--right .tract__label-text {
+  left: 6px;
+  top: 0;
+  transform: translateY(-50%);
+}
+
+.tract__label--left .tract__label-text {
+  right: 6px;
+  top: 0;
+  transform: translateY(-50%);
+}
+
+.tract__label--above .tract__label-text {
+  left: 0;
+  bottom: 6px;
+  transform: translateX(-50%);
+}
+
+.tract__label--below .tract__label-text {
+  left: 0;
+  top: 6px;
+  transform: translateX(-50%);
+}

@@ -14,7 +14,37 @@ vi.setConfig({ testTimeout: 20000 });
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  // The app routes with the real browser location (wouter) and writes display settings
+  // to <html> and localStorage: start every test from "/" with a clean slate.
+  window.history.replaceState(null, "", "/");
+  for (const name of ["data-theme", "data-palette", "data-patterns", "data-text", "data-motion"]) {
+    document.documentElement.removeAttribute(name);
+  }
+  try {
+    window.localStorage.clear();
+  } catch {
+    /* no storage in this environment */
+  }
 });
+
+// jsdom has no matchMedia; the settings read prefers-color-scheme through it.
+if (typeof window.matchMedia !== "function") {
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    writable: true,
+    value: (query: string): MediaQueryList =>
+      ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+        addListener: () => undefined,
+        removeListener: () => undefined,
+        dispatchEvent: () => false,
+      }) as MediaQueryList,
+  });
+}
 
 // jsdom does not implement these pieces, which the app does use.
 if (!globalThis.ResizeObserver) {

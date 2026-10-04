@@ -7,9 +7,6 @@ import { useJobsChannel } from "../jobs/JobsProvider";
 import type { JobsState } from "../jobs/channel";
 import type { Job } from "../types";
 
-export const isActive = (job: Job): boolean =>
-  job.status === "queued" || job.status === "running";
-
 export function useJobs(): JobsState {
   const channel = useJobsChannel();
   return useSyncExternalStore(channel.subscribe, channel.getSnapshot, channel.getSnapshot);

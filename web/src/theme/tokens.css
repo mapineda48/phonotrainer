@@ -1,0 +1,180 @@
+/* PhonoTrainer design tokens.
+ *
+ * Everything that changes between themes is a CSS custom property here, switched by
+ * attributes on <html> (or on any element, so a preview can show the other palette):
+ *   data-theme   = light | dark                (resolved; Settings → Appearance)
+ *   data-palette = standard | cvd              (Settings → Colors)
+ *   data-patterns, data-text, data-motion      (read by index.css, not here)
+ *
+ * Hue is reserved for the four phenomenon FAMILIES. State, metrics, charts and selection
+ * use ink, tints of ink, icons, text and texture. The family values below are the ones
+ * validated by an exhaustive palette search; src/theme/palette.test.ts parses THIS file
+ * and re-runs the same gates (contrast, CVD separation), so editing a value here without
+ * passing them fails the suite.
+ *
+ * The blocks marked `@palette <name> <mode>` and `@neutrals <mode>` are parsed by that
+ * test: keep hex values (#rrggbb) for the tested tokens, one declaration per line.
+ */
+
+/* ---- neutrals: light (default) ------------------------------------------------ */
+/* @neutrals light */
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+
+  --page: #f6f5f2;
+  --surface: #ffffff;
+  --surface-2: #efede8;
+  --ink: #1b1a18;
+  --ink-2: #45433e;
+  --ink-muted: #5f5c56;
+  --focus: #1f5fd1;
+  --line: rgba(27, 26, 24, 0.13);
+  --line-strong: rgba(27, 26, 24, 0.28);
+  --grid: #e4e2dc;
+  --scrim: rgba(17, 17, 16, 0.42);
+
+  /* status: icons only (text stays ink), always next to a word */
+  --good: #0ca30c;
+  --critical: #d03b3b;
+
+  /* data: one series in ink against a hatched reference band */
+  --data-ink: var(--ink-2);
+  --data-ref: var(--surface-2);
+  --data-ref-line: rgba(27, 26, 24, 0.22);
+  --wave: #b9b6ad;
+  --wave-played: var(--ink);
+
+  --tint-share: 14%;
+  --shadow-1: 0 0 0 1px var(--line), 0 1px 2px rgba(17, 17, 16, 0.06);
+  --shadow-2: 0 4px 16px rgba(17, 17, 16, 0.12);
+
+  /* the articulator's anatomy (deliberately not family hues: anatomy ≠ phenomenon) */
+  --tract-air: #e7ecef;
+  --tract-tissue: #ddd4c1;
+  --tract-bone: #fdfdfb;
+  --tract-tongue: #c9755f;
+  --tract-tongue-deep: #8f4633;
+  --tract-lip: #d8a695;
+  --tract-line: #5c5a54;
+  --tract-flow: #6e8fa8;
+  --tract-accent: #1a1a1a;
+}
+
+/* ---- neutrals: dark ----------------------------------------------------------- */
+/* @neutrals dark */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --page: #111110;
+  --surface: #1b1b1a;
+  --surface-2: #252523;
+  --ink: #f3f2ee;
+  --ink-2: #cfccc4;
+  --ink-muted: #a3a097;
+  --focus: #8ab4ff;
+  --line: rgba(243, 242, 238, 0.13);
+  --line-strong: rgba(243, 242, 238, 0.3);
+  --grid: #2c2c2a;
+  --scrim: rgba(0, 0, 0, 0.6);
+
+  --good: #3fbf55;
+  --critical: #ff6b5e;
+
+  --data-ref-line: rgba(243, 242, 238, 0.24);
+  --wave: #4f4e49;
+
+  --tint-share: 26%;
+  /* dark: elevation is a lighter surface step, not a shadow */
+  --shadow-1: 0 0 0 1px var(--line);
+  --shadow-2: 0 0 0 1px var(--line-strong);
+
+  --tract-air: #0e1417;
+  --tract-tissue: #46402f;
+  --tract-bone: #c2bcae; /* teeth: light, as teeth are, so they read against the gum, lips and tongue (L 0.79) */
+  --tract-tongue: #c06b53;
+  --tract-tongue-deep: #7c3a2a;
+  --tract-lip: #99624f;
+  --tract-line: #a8a59c;
+  --tract-flow: #8fb3cc;
+  --tract-accent: #f5f5f3;
+}
+
+/* ---- family hues: four blocks, order matters (later + more specific wins) ------ */
+
+/* @palette standard light — "Calm": blue · amber · plum · teal */
+:root,
+[data-palette="standard"] {
+  --fam-reduction: #3152a5;
+  --fam-td: #a26000;
+  --fam-assimilation: #832c5c;
+  --fam-boundary: #009c96;
+}
+
+/* @palette cvd light — Okabe-Ito families: blue · orange · vermilion · sky */
+[data-palette="cvd"] {
+  --fam-reduction: #005487;
+  --fam-td: #c07b00;
+  --fam-assimilation: #8a3103;
+  --fam-boundary: #3396cb;
+}
+
+/* @palette standard dark */
+[data-theme="dark"],
+[data-theme="dark"] [data-palette="standard"] {
+  --fam-reduction: #4a6ec4;
+  --fam-td: #c27405;
+  --fam-assimilation: #a44b79;
+  --fam-boundary: #18a7a1;
+}
+
+/* @palette cvd dark — lightness band widened to 0.82 on purpose: within the usual
+   0.48–0.67 band the best set only reaches ΔEok 10.1 under simulation; this one 23.8 */
+[data-theme="dark"][data-palette="cvd"],
+[data-theme="dark"] [data-palette="cvd"] {
+  --fam-reduction: #1574b5;
+  --fam-td: #ffad3c;
+  --fam-assimilation: #b94300;
+  --fam-boundary: #6ac7ff;
+}
+
+/* ---- derived: re-evaluated on every element that re-themes, so a nested preview
+        gets tints of ITS palette ---------------------------------------------------- */
+:root,
+[data-theme],
+[data-palette] {
+  --fam-reduction-tint: color-mix(in oklab, var(--fam-reduction) var(--tint-share), var(--surface));
+  --fam-td-tint: color-mix(in oklab, var(--fam-td) var(--tint-share), var(--surface));
+  --fam-assimilation-tint: color-mix(in oklab, var(--fam-assimilation) var(--tint-share), var(--surface));
+  --fam-boundary-tint: color-mix(in oklab, var(--fam-boundary) var(--tint-share), var(--surface));
+}
+
+/* ---- non-color tokens ---------------------------------------------------------- */
+:root {
+  --dur-fast: 120ms;
+  --dur: 200ms;
+  --dur-slow: 320ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+
+  --radius: 10px; /* the articulator's frame (articulation.css) */
+  --font-ui: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", system-ui,
+    -apple-system, "Segoe UI", sans-serif;
+  --font-ipa-stack: "Charis", "Charis SIL", "Doulos SIL", "Gentium Plus", serif;
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+  --ipa: var(--font-ipa-stack); /* the articulator's dev lab */
+}
+
+/* Motion: the system preference, or Settings → Motion = Reduce. The articulator still
+   follows the audio — that motion is the content, not decoration. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0ms;
+    --dur: 0ms;
+    --dur-slow: 0ms;
+  }
+}
+[data-motion="reduce"] {
+  --dur-fast: 0ms;
+  --dur: 0ms;
+  --dur-slow: 0ms;
+}

@@ -126,12 +126,15 @@ def contour_label(slope_st: float | None) -> str:
 
 
 class ProsodyExtractor:
-    def __init__(self, wav_path: str, spans: list[tuple[float, float]] | None = None):
-        """`spans` are the speaker turns (Whisper segments) whose F0 range is
-        adapted separately; without them the whole file is one turn."""
+    def __init__(self, wav_path, spans: list[tuple[float, float]] | None = None):
+        """`wav_path` is a WAV path or an already built `parselmouth.Sound` (an
+        excerpt keeps its own times). `spans` are the speaker turns (Whisper
+        segments) whose F0 range is adapted separately; without them the whole
+        sound is one turn."""
         import parselmouth
 
-        self.snd = parselmouth.Sound(str(wav_path))
+        self.snd = (wav_path if isinstance(wav_path, parselmouth.Sound)
+                    else parselmouth.Sound(str(wav_path)))
         self.f0_times, self.f0 = self._pitch(self.snd, F0_FLOOR, F0_CEIL)
         # (t0, t1, floor, ceiling) of every turn that was re-tracked
         self.ranges: list[tuple[float, float, float, float]] = []

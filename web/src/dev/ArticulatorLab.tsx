@@ -9,6 +9,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import "./lab.css";
 import { VIEW_HEAD } from "../articulation/anatomy";
 import { TractSvg, VocalTract } from "../articulation/VocalTract";
 import { PHONE_TABLE, type PhoneArticulation } from "../articulation/phones";
@@ -80,6 +81,28 @@ function useLabPlayer(): PlayerApi {
   );
 }
 
+/** Dark theme, colour-vision palette and reduced motion, flipped straight on
+ *  <html> the way Settings does it: the tract has to follow every one of them
+ *  live, without a reload. */
+function useDisplayToggles(): { name: string; on: boolean; toggle: () => void }[] {
+  const root = document.documentElement;
+  const read = () => ({
+    dark: root.getAttribute("data-theme") === "dark",
+    cvd: root.getAttribute("data-palette") === "cvd",
+    still: root.getAttribute("data-motion") === "reduce",
+  });
+  const [state, setState] = useState(read);
+  const flip = (attribute: string, on: string, off: string) => () => {
+    root.setAttribute(attribute, root.getAttribute(attribute) === on ? off : on);
+    setState(read());
+  };
+  return [
+    { name: "Dark", on: state.dark, toggle: flip("data-theme", "dark", "light") },
+    { name: "CVD palette", on: state.cvd, toggle: flip("data-palette", "cvd", "standard") },
+    { name: "Reduced motion", on: state.still, toggle: flip("data-motion", "reduce", "system") },
+  ];
+}
+
 export function ArticulatorLab() {
   const player = useLabPlayer();
   const [mode, setMode] = useState<Mode>("phone");
@@ -88,6 +111,8 @@ export function ArticulatorLab() {
   const [step, setStep] = useState(0.16);
   const [pose, setPose] = useState<Pose>(REST_POSE);
   const [svg, setSvg] = useState(false);
+  const [labels, setLabels] = useState(false);
+  const display = useDisplayToggles();
   /** Instant being held while scrubbing; null means "follow the clock". */
   const [scrub, setScrub] = useState<number | null>(null);
 
@@ -122,7 +147,7 @@ export function ArticulatorLab() {
 
   return (
     <PlayerContextProvider value={player}>
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(320px, 1fr) 420px", gap: 20, padding: 20, height: "100vh", boxSizing: "border-box" }}>
+      <div className="lab">
         <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 10 }}>
           <h1 style={{ margin: 0, fontSize: 17 }}>Articulator lab</h1>
           {mode === "sheet" && <ContactSheet />}
@@ -141,13 +166,14 @@ export function ArticulatorLab() {
                 height={620}
                 view={VIEW_HEAD}
                 label={`${phone.symbol}: ${phone.name}`}
+                labels={labels}
               />
             )}
           </div>
           {mode !== "pose" && mode !== "sheet" && (
-            <label className="tiny muted" style={{ display: "block" }}>
+            <label className="lab-tiny lab-muted" style={{ display: "block" }}>
               {scrub === null ? "following the clock" : `held at ${held.toFixed(3)} s`}
-              {phoneNow && <span className="ipa"> · {phoneNow.symbol}</span>}
+              {phoneNow && <span className="lab-ipa"> · {phoneNow.symbol}</span>}
               <input
                 type="range"
                 min={from}
@@ -163,10 +189,10 @@ export function ArticulatorLab() {
             </label>
           )}
 
-          <div className="row">
+          <div className="lab-row">
             <button
               type="button"
-              className="btn btn--sm"
+              className="lab-btn"
               onClick={() => {
                 setScrub(null);
                 player.toggle();
@@ -176,7 +202,7 @@ export function ArticulatorLab() {
             </button>
             <button
               type="button"
-              className="btn btn--sm"
+              className="lab-btn"
               aria-pressed={player.rate === 0.35}
               onClick={() => player.setRate(player.rate === 1 ? 0.35 : 1)}
             >
@@ -184,28 +210,41 @@ export function ArticulatorLab() {
             </button>
             <button
               type="button"
-              className="btn btn--sm"
+              className="lab-btn"
               aria-pressed={svg}
               onClick={() => setSvg((value) => !value)}
               title="Draw with the SVG fallback instead of WebGL"
             >
               SVG fallback
             </button>
-            <span className="spacer" />
-            <span className="tiny muted">
+            <button
+              type="button"
+              className="lab-btn"
+              aria-pressed={labels}
+              onClick={() => setLabels((value) => !value)}
+            >
+              Labels
+            </button>
+            {display.map(({ name, on, toggle }) => (
+              <button key={name} type="button" className="lab-btn" aria-pressed={on} onClick={toggle}>
+                {name}
+              </button>
+            ))}
+            <span className="lab-spacer" />
+            <span className="lab-tiny lab-muted">
               {mode === "pose" ? "sliders" : `${track.phones.length} phone(s)`}
             </span>
           </div>
         </div>
 
-        <div className="scroll" style={{ minWidth: 0 }}>
-          <div className="tabs" role="tablist">
+        <div className="lab-scroll" style={{ minWidth: 0 }}>
+          <div className="lab-tabs" role="tablist">
             {(["phone", "word", "pose", "sheet"] as Mode[]).map((value) => (
               <button
                 key={value}
                 type="button"
                 role="tab"
-                className="tab"
+                className="lab-tab"
                 aria-selected={mode === value}
                 onClick={() => setMode(value)}
               >
@@ -217,7 +256,7 @@ export function ArticulatorLab() {
           {mode === "phone" && <PhonePicker current={phone} onPick={setSymbol} />}
 
           {mode === "sheet" && (
-            <p className="tiny muted" style={{ padding: 12 }}>
+            <p className="lab-tiny lab-muted" style={{ padding: 12 }}>
               Every phone at its target, side by side. The fastest way to catch
               one that has drifted: a tongue through the palate, a mouth that
               never closes, two phones that came out identical.
@@ -226,14 +265,14 @@ export function ArticulatorLab() {
 
           {mode === "word" && (
             <div style={{ padding: 12 }}>
-              <p className="tiny muted">Space-separated IPA, the way the analysis emits it.</p>
+              <p className="lab-tiny lab-muted">Space-separated IPA, the way the analysis emits it.</p>
               <input
-                className="input"
+                className="lab-input"
                 style={{ width: "100%" }}
                 value={sequence}
                 onChange={(event) => setSequence(event.target.value)}
               />
-              <label className="tiny muted" style={{ display: "block", marginTop: 10 }}>
+              <label className="lab-tiny lab-muted" style={{ display: "block", marginTop: 10 }}>
                 {Math.round(step * 1000)} ms per phone
                 <input
                   type="range"
@@ -244,13 +283,13 @@ export function ArticulatorLab() {
                   onChange={(event) => setStep(Number(event.target.value) / 1000)}
                 />
               </label>
-              <div className="tract-panel__strip">
+              <div className="lab-strip">
                 {["b ɛ ɾ ɚ", "w ɑ n ə", "ð æ t", "tʃ ɜ tʃ", "f aɪ v", "j u", "s ɪ ŋ", "h i", "ɡ oʊ"].map(
                   (preset) => (
                     <button
                       key={preset}
                       type="button"
-                      className="tract-phone"
+                      className="lab-phone"
                       onClick={() => setSequence(preset)}
                     >
                       {preset}
@@ -264,8 +303,8 @@ export function ArticulatorLab() {
           {mode === "pose" && (
             <div style={{ padding: 12 }}>
               {POSE_KEYS.map((key) => (
-                <label key={key} className="tiny" style={{ display: "block", marginBottom: 6 }}>
-                  <span className="muted">
+                <label key={key} className="lab-tiny" style={{ display: "block", marginBottom: 6 }}>
+                  <span className="lab-muted">
                     {key} — {pose[key].toFixed(2)}
                   </span>
                   <input
@@ -280,7 +319,7 @@ export function ArticulatorLab() {
                   />
                 </label>
               ))}
-              <button type="button" className="btn btn--sm" onClick={() => setPose(REST_POSE)}>
+              <button type="button" className="lab-btn" onClick={() => setPose(REST_POSE)}>
                 Reset
               </button>
             </div>
@@ -300,12 +339,12 @@ function PhonePicker({
 }) {
   return (
     <div style={{ padding: 12 }}>
-      <div className="tract-panel__strip">
+      <div className="lab-strip">
         {PHONE_TABLE.map((phone) => (
           <button
             key={phone.symbol}
             type="button"
-            className="tract-phone"
+            className="lab-phone"
             aria-pressed={phone.symbol === current.symbol}
             onClick={() => onPick(phone.symbol)}
             title={phone.name}
@@ -314,17 +353,17 @@ function PhonePicker({
           </button>
         ))}
       </div>
-      <div className="card" style={{ marginTop: 12 }}>
-        <div className="row">
-          <span className="ipa" style={{ fontSize: 24 }}>
+      <div className="lab-card" style={{ marginTop: 12 }}>
+        <div className="lab-row">
+          <span className="lab-ipa" style={{ fontSize: 24 }}>
             {current.symbol}
           </span>
-          <span className="tiny muted">{current.name}</span>
+          <span className="lab-tiny lab-muted">{current.name}</span>
         </div>
-        <p className="tiny" style={{ margin: "6px 0 0" }}>
+        <p className="lab-tiny" style={{ margin: "6px 0 0" }}>
           {current.cue}
         </p>
-        <p className="tiny muted" style={{ margin: "6px 0 0" }}>
+        <p className="lab-tiny lab-muted" style={{ margin: "6px 0 0" }}>
           as in <strong>{current.example}</strong> · {current.manner} ·{" "}
           {current.voiced ? "voiced" : "voiceless"}
         </p>
@@ -338,7 +377,7 @@ function PhonePicker({
 function ContactSheet() {
   return (
     <div
-      className="scroll"
+      className="lab-scroll"
       style={{
         display: "grid",
         gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))",
@@ -355,8 +394,8 @@ function ContactSheet() {
               view={VIEW_HEAD}
             />
           </div>
-          <figcaption className="tiny muted" style={{ textAlign: "center" }}>
-            <span className="ipa">{phone.symbol}</span> · {phone.example}
+          <figcaption className="lab-tiny lab-muted" style={{ textAlign: "center" }}>
+            <span className="lab-ipa">{phone.symbol}</span> · {phone.example}
           </figcaption>
         </figure>
       ))}

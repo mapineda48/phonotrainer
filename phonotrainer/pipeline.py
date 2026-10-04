@@ -5,11 +5,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from . import __version__, phenomena, separation, variants
+from . import __version__, numerals, phenomena, separation, variants
 from .align_canonical import align_words
 from .asr import transcribe
 from .audio import extract_audio, load_wav
-from .canonical import dict_pronunciation
+from .canonical import canonical_source, dict_pronunciation
 from .diff import assign_real_to_words
 from .phones_real import DEFAULT_ENGINE, attract_to_canonical, build_engine
 from .prosody import ProsodyExtractor, peak_index, rhythm, word_class
@@ -24,6 +24,19 @@ DUPLICATE_TOL = 0.03  # s
 
 def _noop(msg: str) -> None:
     pass
+
+
+def _with_spoken_numerals(segments: list[dict]) -> list[dict]:
+    """The transcript segments, with `canonical_text` on every word written as
+    digits or symbols ("9" ".30." → "nine" "thirty"): its canonical is built
+    from those words. Copies; transcript.json keeps what Whisper wrote."""
+    out = []
+    for seg in segments:
+        spoken = numerals.expand_tokens([w["word"] for w in seg["words"]])
+        words = [dict(w, canonical_text=s) if s is not None else w
+                 for w, s in zip(seg["words"], spoken)]
+        out.append({**seg, "words": words})
+    return out
 
 
 def analyze(media_path: str | Path, out_dir: str | Path,
@@ -63,7 +76,7 @@ def analyze(media_path: str | Path, out_dir: str | Path,
     canonical_dump, real_dump = [], []
     normalized_phones = 0   # IMPROVEMENT 0: raw phones mapped onto the English inventory
     attracted_phones = 0    # IMPROVEMENT 1: phones attracted to the canonical form
-    segments = transcript["segments"]
+    segments = _with_spoken_numerals(transcript["segments"])
     n_seg = len(segments)
     # pass 1, acoustic: each segment over its own padded window
     acoustic = []
@@ -79,8 +92,9 @@ def analyze(media_path: str | Path, out_dir: str | Path,
                                   t_offset=t0, log_probs=log_probs)
         greedy = engine.greedy_phones(audio, t_offset=t0, log_probs=log_probs)
         if engine.form_scoring:
-            forms = variants.score_segment(engine.tokenizer, engine.blank_id, log_probs,
-                                           [w["word"] for w in seg["words"]])
+            forms = variants.score_segment(
+                engine.tokenizer, engine.blank_id, log_probs,
+                [canonical_source(w["word"], w.get("canonical_text")) for w in seg["words"]])
         else:
             forms = [None] * len(seg["words"])
         acoustic.append((canon_words, greedy, forms))
@@ -111,9 +125,10 @@ def analyze(media_path: str | Path, out_dir: str | Path,
                 w_start, w_end = cw["phones"][0]["start"], cw["phones"][-1]["end"]
             else:
                 w_start, w_end = w["start"], w["end"]
-            dic = dict_pronunciation(w["word"])
+            dic = dict_pronunciation(canonical_source(w["word"], w.get("canonical_text")))
             word_entries.append({
                 "word": w["word"],
+                "canonical_text": w.get("canonical_text"),
                 "start": w_start,
                 "end": w_end,
                 "canonical": cw["phones"],
@@ -157,6 +172,11 @@ def analyze(media_path: str | Path, out_dir: str | Path,
                 ),
                 "dict_ipa": dic["ipa"],
                 "oov": dic["oov"],
+                # a numeral's spoken form (9.30 → nine thirty), None for any other word
+                "canonical_text": w["canonical_text"],
+                # nothing to compare against (a bare symbol, a numeral fragment with
+                # no words of its own): no labels, and out of every ranking and metric
+                "no_canonical": not w["canonical"],
                 "phenomena": w["phenomena"],
                 "low_confidence": w["low_confidence"],
                 "boundary_link_next": w["boundary_link_next"],

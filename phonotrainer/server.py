@@ -17,6 +17,8 @@ and a minimal REST API on top of `jobs.JobStore`. Everything is local
     GET    /api/jobs/{id}/review         saved review.json
     GET    /api/jobs/{id}/review/sample  prioritized sample (n, seed)
     PUT    /api/jobs/{id}/review         save verdicts
+    GET    /api/jobs/{id}/contour        native pitch contour of a span (start, end)
+    POST   /api/jobs/{id}/compare        a learner's take against a span (nothing is kept)
     GET    /api/browse                   file browser (under $HOME)
     WS     /ws/jobs                      analysis state pushed live
 """
@@ -36,8 +38,9 @@ from fastapi import (FastAPI, File, Form, HTTPException, Query, Request,
                      UploadFile, WebSocket, WebSocketDisconnect)
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from pydantic import BaseModel, Field, ValidationError
+from starlette.datastructures import UploadFile as FormFile
 
-from . import __version__, ipa_maps, metrics as metrics_mod, phenomena, report
+from . import __version__, ipa_maps, learner_audio, metrics as metrics_mod, phenomena, report
 from . import review as review_mod, separation
 from .db import DEFAULT_DB, Corpus
 from .jobs import DOWNLOAD_DIR, MEDIA_SUFFIXES, JobError, JobNotFound, JobStore
@@ -67,7 +70,14 @@ MAX_SAMPLE = 500   # cap on words per review sample
 #   3: verdict and family keys renamed to English
 #   4: timit61 engine, dialogue track (/audio?track=dialogue), practice and
 #      metrics in /api/reference, /api/corpus/metrics
-API_VERSION = 4
+#   5: record yourself: /api/jobs/{id}/contour, /api/jobs/{id}/compare and the
+#      recording limits in /api/reference
+API_VERSION = 5
+
+# Room for the multipart envelope and the two span fields around the recording.
+FORM_OVERHEAD_BYTES = 64 * 1024
+# Measuring a take is CPU work (ffmpeg + two pitch passes): at most this many at once.
+TAKE_CONCURRENCY = 2
 
 # What each phone engine is, for whoever picks one in the interface. The
 # licensing line is not decoration: the default engine's training data is not
@@ -173,6 +183,12 @@ def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
     def _job_error(request: Request, exc: JobError):          # noqa: ARG001
         return JSONResponse({"detail": str(exc)}, status_code=400)
 
+    @app.exception_handler(learner_audio.TakeError)
+    def _take_error(request: Request, exc: learner_audio.TakeError):  # noqa: ARG001
+        # `detail` stays a sentence like every other error; `code` is for the UI.
+        return JSONResponse({"detail": exc.message, "code": exc.code},
+                            status_code=exc.status)
+
     def _store() -> JobStore:
         return app.state.store
 
@@ -276,6 +292,14 @@ def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
                 "default_n": review_mod.DEFAULT_N,
                 "default_seed": review_mod.DEFAULT_SEED,
                 "max_n": MAX_SAMPLE,
+            },
+            # record yourself: the interface stops recording at max_seconds
+            "recording": {
+                "max_seconds": learner_audio.MAX_TAKE_S,
+                "min_seconds": learner_audio.MIN_TAKE_S,
+                "max_bytes": learner_audio.MAX_UPLOAD_BYTES,
+                "max_span_seconds": learner_audio.MAX_SPAN_S,
+                "accepted_types": sorted(learner_audio.CONTAINER_OF_TYPE),
             },
         }
 
@@ -539,6 +563,102 @@ def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
         payload = {"seed": req.seed, "items": items}
         payload.update(review_mod.summarize(items))
         return payload
+
+    # --- record yourself (learner takes: measured, compared, never kept) -----
+    take_limiter = anyio.CapacityLimiter(TAKE_CONCURRENCY)
+
+    def _native_audio(job_id: str) -> tuple[Path, str]:
+        """The audio the analysis itself read: the dialogue stem when separation
+        ran (cleaner pitch, and the F0 already in analysis.json comes from it),
+        otherwise the mix."""
+        job = _job(job_id)
+        path = job.dialogue_audio()
+        if path is not None:
+            return path, "dialogue"
+        path = job.artifact("audio.wav")
+        if path is None:
+            raise HTTPException(404, f"{job_id} has no audio to compare against")
+        return path, "mix"
+
+    def _turn(analysis: dict, start: float, end: float) -> tuple[int, tuple[float, float]] | None:
+        """The segment (speaker turn) that overlaps [start, end] the most."""
+        best, overlap = None, 0.0
+        for i, seg in enumerate(analysis["segments"]):
+            try:
+                s0, s1 = float(seg["start"]), float(seg["end"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            shared = min(s1, end) - max(s0, start)
+            if shared > overlap:
+                best, overlap = (i, (s0, s1)), shared
+        return best
+
+    def _native(job_id: str, start: float, end: float) -> dict:
+        learner_audio.check_span(start, end)
+        analysis = _analysis(job_id)
+        wav, track = _native_audio(job_id)
+        turn = _turn(analysis, start, end)
+        contour = learner_audio.measure_native(wav, start, end,
+                                               turn=turn[1] if turn else None)
+        return {**contour, "audio": track, "segment": turn[0] if turn else None}
+
+    @app.get("/api/jobs/{job_id}/contour")
+    async def native_contour(job_id: str, start: float, end: float) -> dict:
+        """The native pitch contour of a span, measured the way a take is."""
+        return await anyio.to_thread.run_sync(_native, job_id, start, end,
+                                              limiter=take_limiter)
+
+    @app.post("/api/jobs/{job_id}/compare")
+    async def compare_take(job_id: str, request: Request) -> dict:
+        """A learner's recording against the span it shadows: both contours and
+        a plain-language comparison. Multipart: `file` (the MediaRecorder blob),
+        `start`, `end` (seconds, the span that was played).
+
+        The body is read by hand, not through FastAPI's File(): FastAPI parses
+        the form before any check runs, and Starlette spools a file part to disk
+        with no size limit. Content-Length is required and bounded first;
+        uvicorn never reads past it."""
+        _job(job_id)                                   # 404 before reading the body
+        length = request.headers.get("content-length")
+        if length is None:
+            raise learner_audio.TakeError("length_required",
+                                          "the upload must declare its length", 411)
+        try:
+            declared = int(length)
+        except ValueError as exc:
+            raise HTTPException(400, "invalid Content-Length") from exc
+        if declared > learner_audio.MAX_UPLOAD_BYTES + FORM_OVERHEAD_BYTES:
+            raise learner_audio.TakeError(
+                "too_large",
+                f"recordings are limited to {learner_audio.MAX_UPLOAD_BYTES // (1024 * 1024)} MB",
+                413)
+        form = await request.form(max_files=1, max_fields=4)
+        try:
+            upload = form.get("file")
+            if not isinstance(upload, FormFile):
+                raise learner_audio.TakeError("missing_file", "no recording was sent", 400)
+            start, end = _span_field(form, "start"), _span_field(form, "end")
+            data = await upload.read(learner_audio.MAX_UPLOAD_BYTES + 1)
+            content_type = upload.content_type
+        finally:
+            await form.close()                         # removes Starlette's spool file
+        learner_audio.check_span(start, end)
+
+        def work() -> dict:
+            take = learner_audio.measure_take(data, content_type)   # the likelier failure first
+            native = _native(job_id, start, end)
+            return {"native": native, "take": take,
+                    "comparison": learner_audio.compare(native, take)}
+
+        return await anyio.to_thread.run_sync(work, limiter=take_limiter)
+
+    def _span_field(form, name: str) -> float:
+        value = form.get(name)
+        try:
+            return float(value)
+        except (TypeError, ValueError) as exc:
+            raise learner_audio.TakeError(
+                "bad_span", f"{name} must be a number of seconds", 400) from exc
 
     # --- file browser -------------------------------------------------------
     @app.get("/api/browse")

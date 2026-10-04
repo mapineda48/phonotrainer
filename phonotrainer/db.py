@@ -148,6 +148,11 @@ def _looks_broken(exc: Exception) -> bool:
     return any(marker in str(exc).lower() for marker in _BROKEN)
 
 
+# A word with something to measure against: older analyses carry no
+# `no_canonical` flag, and an empty canonical says the same thing.
+_HAS_CANONICAL = "COALESCE(w.canonical_ipa, '') != ''"
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
@@ -414,17 +419,22 @@ class Corpus:
         totals["materials"] = self._rows(
             "SELECT COUNT(DISTINCT COALESCE(material, id)) AS n FROM analyses")[0]["n"]
         totals["phenomena"] = self._rows(
-            """SELECT phenomenon,
-                      COUNT(*) AS count,
-                      COUNT(DISTINCT analysis_id) AS analyses
-               FROM phenomena GROUP BY phenomenon ORDER BY count DESC"""
+            f"""SELECT p.phenomenon AS phenomenon,
+                       COUNT(*) AS count,
+                       COUNT(DISTINCT p.analysis_id) AS analyses
+                FROM phenomena p JOIN words w
+                  ON w.analysis_id = p.analysis_id AND w.segment = p.segment
+                 AND w.word_idx = p.word_idx
+                WHERE {_HAS_CANONICAL}
+                GROUP BY p.phenomenon ORDER BY count DESC"""
         )
         totals["top_words"] = self._rows(
-            """SELECT w.word_key AS word, COUNT(*) AS count
-               FROM phenomena p JOIN words w
-                 ON w.analysis_id = p.analysis_id AND w.segment = p.segment
-                AND w.word_idx = p.word_idx
-               GROUP BY w.word_key ORDER BY count DESC, word LIMIT 15"""
+            f"""SELECT w.word_key AS word, COUNT(*) AS count
+                FROM phenomena p JOIN words w
+                  ON w.analysis_id = p.analysis_id AND w.segment = p.segment
+                 AND w.word_idx = p.word_idx
+                WHERE {_HAS_CANONICAL}
+                GROUP BY w.word_key ORDER BY count DESC, word LIMIT 15"""
         )
         return totals
 
@@ -478,12 +488,15 @@ class Corpus:
     def _occurrence_filter(self, phenomenon: str | None, word: str | None,
                            analysis_id: str | None) -> tuple[str, list]:
         # With no word filter we list only what was tagged: the full list headed
-        # by divergence is mostly alignment failures.
+        # by divergence is mostly alignment failures. Nor words without a
+        # canonical ("9" in analyses made before numerals were spoken out): every
+        # phone there was an insertion against nothing, so they would head it.
         where, params = (["1=1"] if word else
                          ["""EXISTS (SELECT 1 FROM phenomena p0
                                      WHERE p0.analysis_id = w.analysis_id
                                        AND p0.segment = w.segment
-                                       AND p0.word_idx = w.word_idx)"""]), []
+                                       AND p0.word_idx = w.word_idx)""",
+                          _HAS_CANONICAL]), []
         if phenomenon:
             # Starting from idx_phen_name (instead of scanning the whole `words`
             # table) matters as soon as the corpus holds a few videos.

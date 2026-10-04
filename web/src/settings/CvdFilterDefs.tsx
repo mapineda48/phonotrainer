@@ -1,0 +1,42 @@
+/** SVG filters that simulate color-vision deficiencies (Machado, Oliveira & Fernandes
+ *  2009, severity 1.0), so Settings can show "how these look with…" side by side.
+ *  feColorMatrix works in linearRGB by default, which is where these matrices apply. */
+
+export type CvdKind = "protanopia" | "deuteranopia" | "tritanopia";
+
+const MATRICES: Record<CvdKind, number[][]> = {
+  protanopia: [
+    [0.152286, 1.052583, -0.204868],
+    [0.114503, 0.786281, 0.099216],
+    [-0.003882, -0.048116, 1.051998],
+  ],
+  deuteranopia: [
+    [0.367322, 0.860646, -0.227968],
+    [0.280085, 0.672501, 0.047413],
+    [-0.01182, 0.04294, 0.968881],
+  ],
+  tritanopia: [
+    [1.255528, -0.076749, -0.178779],
+    [-0.078411, 0.930809, 0.147602],
+    [0.004733, 0.691367, 0.3039],
+  ],
+};
+
+export const cvdFilterId = (kind: CvdKind) => `cvd-${kind}`;
+
+export function CvdFilterDefs() {
+  return (
+    <svg width="0" height="0" aria-hidden="true" focusable="false" className="absolute">
+      <defs>
+        {(Object.keys(MATRICES) as CvdKind[]).map((kind) => (
+          <filter id={cvdFilterId(kind)} key={kind} colorInterpolationFilters="linearRGB">
+            <feColorMatrix
+              type="matrix"
+              values={MATRICES[kind].map((row) => `${row.join(" ")} 0 0`).join("  ") + "  0 0 0 1 0"}
+            />
+          </filter>
+        ))}
+      </defs>
+    </svg>
+  );
+}

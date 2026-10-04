@@ -1,0 +1,261 @@
+/* The stylesheet entry: Tailwind v4 + the design tokens + the fonts. (The articulator
+ * brings its own stylesheet, src/articulation/articulation.css.) */
+@layer theme, base, components, utilities;
+
+@import "tailwindcss";
+@import "./tokens.css";
+@import "./fonts.css";
+
+/* `dark:` follows Settings → Appearance (resolved onto data-theme), not only the OS. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+/* `patterns:` = pattern emphasis on (Settings; on by default with the CVD palette). */
+@custom-variant patterns (&:where([data-patterns="on"], [data-patterns="on"] *));
+/* `motion-ok:` = animations allowed (neither the OS nor Settings asked to reduce). */
+@custom-variant motion-ok {
+  @media (prefers-reduced-motion: no-preference) {
+    &:where(:root:not([data-motion="reduce"]) *) {
+      @slot;
+    }
+  }
+}
+
+/* Only our tokens exist as colors: hue is reserved for the families, so the stock
+   palette (red-500, green-600…) is removed on purpose. */
+@theme {
+  --color-*: initial;
+}
+
+@theme inline {
+  --color-page: var(--page);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-muted: var(--ink-muted);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-focus: var(--focus);
+  --color-grid: var(--grid);
+  --color-scrim: var(--scrim);
+  --color-good: var(--good);
+  --color-critical: var(--critical);
+  --color-data-ink: var(--data-ink);
+  --color-data-ref: var(--data-ref);
+
+  --color-fam-reduction: var(--fam-reduction);
+  --color-fam-td: var(--fam-td);
+  --color-fam-assimilation: var(--fam-assimilation);
+  --color-fam-boundary: var(--fam-boundary);
+  --color-fam-reduction-tint: var(--fam-reduction-tint);
+  --color-fam-td-tint: var(--fam-td-tint);
+  --color-fam-assimilation-tint: var(--fam-assimilation-tint);
+  --color-fam-boundary-tint: var(--fam-boundary-tint);
+
+  --font-sans: var(--font-ui);
+  --font-ipa: var(--font-ipa-stack);
+  --font-mono: var(--mono);
+
+  --shadow-1: var(--shadow-1);
+  --shadow-2: var(--shadow-2);
+}
+
+@theme {
+  /* type scale (rem, ratio 1.125); 0.875rem is the smallest UI text */
+  --text-xs: 0.875rem;
+  --text-xs--line-height: 1.45;
+  --text-sm: 0.9375rem;
+  --text-sm--line-height: 1.5;
+  --text-base: 1rem;
+  --text-base--line-height: 1.55;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.5;
+  --text-xl: 1.266rem;
+  --text-xl--line-height: 1.4;
+  --text-2xl: 1.424rem;
+  --text-2xl--line-height: 1.3;
+  --text-3xl: 1.602rem;
+  --text-3xl--line-height: 1.25;
+  --text-4xl: 2.027rem;
+  --text-4xl--line-height: 1.15;
+
+  --radius-control: 6px;
+  --radius-card: 10px;
+  --radius-chip: 999px;
+
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* ---- base ---------------------------------------------------------------------- */
+@layer base {
+  html {
+    font-size: 100%;
+    -webkit-text-size-adjust: 100%;
+  }
+  html[data-text="large"] {
+    font-size: 112.5%;
+  }
+  html[data-text="larger"] {
+    font-size: 125%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--page);
+    color: var(--ink);
+    font-family: var(--font-ui);
+    font-size: 1rem;
+    line-height: 1.55;
+    font-optical-sizing: auto;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* One focus ring everywhere: 3 px, offset 2 px. React Aria marks keyboard focus with
+     data-focus-visible on its components; native elements use :focus-visible.
+     !important on purpose: most controls carry Tailwind's `outline-none` (to drop the
+     browser's own ring on mouse focus), and a utility beats any normal declaration of
+     this base layer — without it, keyboard focus was invisible on nearly every control.
+     An important declaration in an earlier layer wins over every later layer, so the
+     ring holds whatever utilities a component uses. The offset stays overridable. */
+  :focus-visible,
+  [data-focus-visible] {
+    outline: 3px solid var(--focus) !important;
+    outline-offset: 2px;
+  }
+  :focus:not(:focus-visible):not([data-focus-visible]) {
+    outline: none;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--focus) 30%, transparent);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+  [data-motion="reduce"] {
+    scroll-behavior: auto;
+  }
+  [data-motion="reduce"] *,
+  [data-motion="reduce"] *::before,
+  [data-motion="reduce"] *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---- non-color family encodings ------------------------------------------------ */
+@layer components {
+  /* IPA: always through <Ipa>, never per-glyph fallback (it misplaces combining marks) */
+  .ipa-text {
+    font-family: var(--font-ipa-stack);
+    font-size: 1.12em;
+    letter-spacing: 0;
+    font-variant-ligatures: normal;
+  }
+
+  /* A word marked with a phenomenon family: the text stays ink, the family is the
+     underline STYLE (solid / dashed / double / wavy / dotted) plus its color. */
+  .fam-u {
+    text-decoration-line: underline;
+    text-decoration-color: var(--fam-color, var(--ink));
+    text-decoration-thickness: 2px;
+    text-underline-offset: 0.24em;
+    text-decoration-skip-ink: none;
+  }
+  .fam-u-reduction {
+    --fam-color: var(--fam-reduction);
+    text-decoration-style: solid;
+  }
+  .fam-u-td {
+    --fam-color: var(--fam-td);
+    text-decoration-style: dashed;
+  }
+  .fam-u-assimilation {
+    --fam-color: var(--fam-assimilation);
+    text-decoration-style: double;
+    text-decoration-thickness: 3px;
+  }
+  .fam-u-boundary {
+    --fam-color: var(--fam-boundary);
+    text-decoration-style: wavy;
+    text-decoration-thickness: 1.5px;
+  }
+  .fam-u-lexical {
+    --fam-color: var(--ink);
+    text-decoration-style: dotted;
+  }
+  /* Any other change outside the families (e.g. an elided word): ink, dash-dot — a
+     shape no family and not the lexical contraction uses. CSS has no dash-dot
+     text-decoration, so it is drawn as a background line under the word. */
+  .fam-u-none {
+    --fam-color: var(--ink-muted);
+    text-decoration-line: none;
+    background-image: repeating-linear-gradient(
+      90deg,
+      var(--fam-color) 0 6px,
+      transparent 6px 9px,
+      var(--fam-color) 9px 11px,
+      transparent 11px 14px
+    );
+    background-repeat: no-repeat;
+    background-position: 0 100%;
+    background-size: 100% 2px;
+  }
+  [data-patterns="on"] .fam-u {
+    text-decoration-thickness: 3px;
+  }
+  [data-patterns="on"] .fam-u-none {
+    background-size: 100% 3px;
+  }
+  [data-patterns="on"] .fam-u-assimilation {
+    text-decoration-thickness: 4px;
+  }
+  [data-patterns="on"] .fam-u-boundary {
+    text-decoration-thickness: 2px;
+  }
+
+  /* Rendered always, shown only with pattern emphasis on (no re-render needed). */
+  .pattern-only {
+    display: none;
+  }
+  [data-patterns="on"] .pattern-only {
+    display: inline-flex;
+  }
+
+  /* Chart fills: solid family color, hatched with pattern emphasis on. The <pattern>
+     definitions live once in the shell (FamilyPatternDefs). */
+  .fam-fill-reduction {
+    fill: var(--fam-reduction);
+  }
+  .fam-fill-td {
+    fill: var(--fam-td);
+  }
+  .fam-fill-assimilation {
+    fill: var(--fam-assimilation);
+  }
+  .fam-fill-boundary {
+    fill: var(--fam-boundary);
+  }
+  [data-patterns="on"] .fam-fill-td {
+    fill: url(#pt-fam-td);
+  }
+  [data-patterns="on"] .fam-fill-assimilation {
+    fill: url(#pt-fam-assimilation);
+  }
+  [data-patterns="on"] .fam-fill-boundary {
+    fill: url(#pt-fam-boundary);
+  }
+
+  /* The reference band behind every MetricMeter: hatched ink, never a hue. */
+  .ref-band {
+    background-color: var(--data-ref);
+    background-image: repeating-linear-gradient(
+      135deg,
+      var(--data-ref-line) 0 1px,
+      transparent 1px 6px
+    );
+  }
+}

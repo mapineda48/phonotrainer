@@ -7,7 +7,6 @@ import {
   flattenWords,
   matchesFilter,
   phenomenaByFrequency,
-  wordFamilies,
   wordSpan,
 } from "./analysis";
 
@@ -77,15 +76,6 @@ describe("assorted helpers", () => {
       ["t_deletion", 2],
       ["contraction_lex", 1],
     ]);
-  });
-
-  it("resolves a word's color family", () => {
-    const word = makeWord("x", 0, "a", "a", { phenomena: ["t_deletion", "linking"] });
-    expect(wordFamilies(word, { t_deletion: "td", linking: "boundary" })).toEqual([
-      "td",
-      "boundary",
-    ]);
-    expect(wordFamilies(makeWord("y", 0, "a", "a"), {})).toEqual([]);
   });
 
   it("pads a word's span without going negative", () => {
