@@ -91,7 +91,7 @@ function PhenomenonCard({ word, name, narrow }: { word: Word; name: string; narr
         </p>
       )}
       {fromScoring && !narrow && <FormScoring word={word} />}
-      <TextLink href={paths.phenomenon(name)} className="inline-flex w-fit items-center gap-1 text-sm">
+      <TextLink href={paths.phenomenon(name)} className="inline-flex min-h-6 w-fit items-center gap-1 text-sm">
         More examples in Learn <ArrowRight size={14} aria-hidden="true" />
       </TextLink>
     </li>

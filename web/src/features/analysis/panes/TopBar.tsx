@@ -92,20 +92,21 @@ export function TopBar({
               Library
             </LinkButton>
           )}
-          <h1 className="truncate text-2xl font-bold text-ink">{job.source}</h1>
+          {/* a phone shows the long names of downloaded clips on two lines, not cut to a few words */}
+          <h1 className="line-clamp-2 break-words text-xl font-bold text-ink sm:text-2xl lg:line-clamp-1">{job.source}</h1>
           <p className="text-sm text-ink-2">
             {fmtDuration(analysis.meta.duration)} · {plural(analysis.segments.length, "phrase")} · {plural(words, "word")} ·{" "}
             <Explain term="engine">{engineOf(analysis)} engine</Explain>
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
           <SearchField
             label="Search for a word in the transcript"
             placeholder="Search a word…"
             value={query}
             onChange={onQuery}
             onSubmit={onSearchNext}
-            className="w-52"
+            className="w-full sm:w-52"
           />
           {matches !== null && (
             <span role="status" className="text-sm tabular-nums text-ink-2">

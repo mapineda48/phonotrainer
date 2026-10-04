@@ -228,6 +228,9 @@ export function SummaryTab({ analysis, filter, onToggle, onSetFilter }: Props) {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* the pane's own level-2 heading: its sections are h3, and on a narrow screen the
+          transcript's h2 is in another tab, so nothing else would sit between them and the h1 */}
+      <h2 className="sr-only">Summary of this clip</h2>
       <p className="text-sm text-ink-2">What this clip shows, next to published figures.</p>
 
       {reference.practice && (toProduce.length > 0 || toRecognize.length > 0) && (
