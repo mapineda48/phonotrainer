@@ -73,7 +73,8 @@ export function Segmented<K extends string>({
       data-tour={tourId}
     >
       <Label className={hideLabel ? "sr-only" : labelClass}>{label}</Label>
-      <div className="inline-flex w-fit rounded-control bg-surface p-0.5 shadow-[inset_0_0_0_1px_var(--line-strong)]">
+      {/* wraps whole options onto a second row rather than overflow a narrow screen */}
+      <div className="inline-flex w-fit max-w-full flex-wrap rounded-control bg-surface p-0.5 shadow-[inset_0_0_0_1px_var(--line-strong)]">
         {options.map((option) => {
           const Icon = option.icon;
           return (
@@ -85,7 +86,8 @@ export function Segmented<K extends string>({
                 "inline-flex cursor-default items-center gap-1.5 rounded-[5px] font-medium text-ink outline-none",
                 "transition-colors duration-(--dur-fast)",
                 "data-[hovered]:bg-surface-2 data-[selected]:bg-ink data-[selected]:text-page",
-                size === "sm" ? "h-8 px-2.5 text-sm" : "h-9 px-3 text-sm",
+                "whitespace-nowrap",
+                size === "sm" ? "min-h-8 px-2.5 text-sm" : "min-h-9 px-3 text-sm",
               )}
             >
               {Icon && <Icon size={16} aria-hidden="true" />}

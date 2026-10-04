@@ -249,7 +249,8 @@ export function TabList<T extends object>(props: TabListProps<T>) {
   return (
     <AriaTabList
       {...props}
-      className={composeClass(props.className, "flex gap-1 border-b border-line px-1")}
+      // wraps rather than overflow on a narrow screen (or with large text)
+      className={composeClass(props.className, "flex flex-wrap gap-x-1 border-b border-line px-1")}
     />
   );
 }
@@ -346,7 +347,8 @@ export function Disclosure({
       {/* padding on an inner box: a collapsed panel is hidden="until-found", which keeps
           its own box, so padding on the panel itself would leave 16 px of dead space */}
       <DisclosurePanel>
-        <div className="pb-4 ps-8">{children}</div>
+        {/* indented under the title; less on a phone, where the width is needed more */}
+        <div className="pb-4 ps-3 sm:ps-8">{children}</div>
       </DisclosurePanel>
     </AriaDisclosure>
   );
