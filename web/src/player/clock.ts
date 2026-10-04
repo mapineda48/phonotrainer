@@ -29,11 +29,6 @@ export class Clock {
   }
 }
 
-/** Current time in seconds (re-renders on every frame: use sparingly). */
-export function useTime(clock: Clock): number {
-  return useSyncExternalStore(clock.subscribe, clock.getSnapshot, clock.getSnapshot);
-}
-
 /**
  * Derive a value from the time and re-render only when that value changes.
  * `select` must be pure and return primitives (Object.is decides the re-render).

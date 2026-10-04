@@ -1,0 +1,21 @@
+/* Fonts — bundled, never from a CDN: the app runs offline.
+ *   UI:  Atkinson Hyperlegible Next (OFL-1.1, imported from @fontsource-variable in
+ *        main.tsx); designed for low-vision legibility (distinct I/l/1, open apertures).
+ *   IPA: Charis 7.000 (OFL-1.1, vendored unmodified in src/assets/fonts/charis/), the one
+ *        font that places t̚ ɾ̃ n̩ ŋ̍ ᵻ ‿ correctly. Always rendered through <Ipa>. */
+
+@font-face {
+  font-family: "Charis";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../assets/fonts/charis/Charis-Regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Charis";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("../assets/fonts/charis/Charis-Bold.woff2") format("woff2");
+}

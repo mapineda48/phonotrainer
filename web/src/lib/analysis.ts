@@ -1,6 +1,6 @@
 /** Helpers over analysis.json: flattening, lookup by time and filtering. */
 
-import type { Analysis, Segment, Word } from "../types";
+import type { Analysis, Word } from "../types";
 
 export interface FlatWord {
   word: Word;
@@ -50,12 +50,6 @@ export function findActiveIndex(
   return t <= spans[found].end + tolerance ? found : -1;
 }
 
-/** A word's phenomenon families (`contraction_lex` has no family). */
-export function wordFamilies(word: Word, familyOf: Record<string, string>): string[] {
-  const families = word.phenomena.map((p) => familyOf[p]).filter(Boolean);
-  return [...new Set(families)];
-}
-
 /** Phenomena present in the analysis, ordered by frequency. */
 export function phenomenaByFrequency(analysis: Analysis): [string, number][] {
   return Object.entries(analysis.summary.phenomena_counts).sort((a, b) => b[1] - a[1]);
@@ -88,10 +82,3 @@ export function wordSpan(word: Word, padStart = 0.02, padEnd = 0.06): { start: n
   const from = Math.max(0, center - MIN_AUDIBLE / 2);
   return { start: from, end: from + MIN_AUDIBLE };
 }
-
-export function segmentSpan(segment: Segment): { start: number; end: number } {
-  return { start: segment.start, end: segment.end };
-}
-
-/** Stable key for a word within the analysis. */
-export const wordKey = (segment: number, index: number): string => `${segment}:${index}`;

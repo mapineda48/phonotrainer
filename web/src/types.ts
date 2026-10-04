@@ -39,6 +39,10 @@ export interface Word {
   /** The corresponding full form ("want to"). Absent in older analyses. */
   lexical_expansion?: string | null;
   alignment_fallback: boolean;
+  /** How a numeral was said ("9.30" → "nine thirty"); absent before rules v3. */
+  canonical_text?: string | null;
+  /** No dictionary form to compare against: no labels, excluded from the metrics. */
+  no_canonical?: boolean;
   /** Absent in older analyses; null when the word does not link. */
   boundary_link_type?: LinkType | null;
   /** Absent in older analyses and with the timit61 engine. */
@@ -135,6 +139,8 @@ export interface AnalysisMeta {
     error?: string | null;
   } | null;
   form_scoring?: { weak_margin: number; h_drop_margin: number } | null;
+  /** Version of the labeling rules (phenomena.RULES_VERSION); absent in older analyses. */
+  rules_version?: number;
 }
 
 /** count out of `of`; pct is null when there was nothing to count. */
@@ -152,7 +158,17 @@ export interface Metrics {
   engine: string | null;
   /** Only in corpus aggregates. */
   analyses?: number;
-  words: { total: number; analyzed: number; low_confidence: number; low_confidence_pct: number | null };
+  /** Corpus aggregates: the rules_version of each pooled analysis, and whether they differ. */
+  rules?: (number | null)[];
+  mixed_rules?: boolean;
+  words: {
+    total: number;
+    analyzed: number;
+    low_confidence: number;
+    low_confidence_pct: number | null;
+    /** Words with no dictionary form to compare against (excluded from the measures). */
+    no_canonical?: number;
+  };
   deviate: Ratio;
   segment_loss: Ratio;
   syllable_loss: Ratio;

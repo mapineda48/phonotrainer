@@ -1,0 +1,591 @@
+{
+ "api_version": 4,
+ "families": [
+  {
+   "key": "reduction",
+   "label": "Reduction",
+   "members": [
+    "vowel_reduction",
+    "monophthongization",
+    "elision_syllable",
+    "function_elision"
+   ],
+   "member_labels": [
+    "vowel reduction",
+    "monophthongization",
+    "elided syllable",
+    "function-word elision"
+   ]
+  },
+  {
+   "key": "td",
+   "label": "t/d processes",
+   "members": [
+    "flapping",
+    "t_deletion",
+    "t_unreleased",
+    "glottalization",
+    "nt_reduction"
+   ],
+   "member_labels": [
+    "flapping",
+    "t/d deletion",
+    "unreleased t/d",
+    "glottalization",
+    "nt → n"
+   ]
+  },
+  {
+   "key": "assimilation",
+   "label": "Assimilation",
+   "members": [
+    "th_stopping",
+    "palatalization",
+    "place_assimilation"
+   ],
+   "member_labels": [
+    "th-stopping",
+    "palatalization",
+    "place assimilation"
+   ]
+  },
+  {
+   "key": "boundary",
+   "label": "Word boundary",
+   "members": [
+    "linking",
+    "h_dropping"
+   ],
+   "member_labels": [
+    "linking",
+    "h-dropping"
+   ]
+  }
+ ],
+ "family_of": {
+  "vowel_reduction": "reduction",
+  "monophthongization": "reduction",
+  "elision_syllable": "reduction",
+  "function_elision": "reduction",
+  "flapping": "td",
+  "t_deletion": "td",
+  "t_unreleased": "td",
+  "glottalization": "td",
+  "nt_reduction": "td",
+  "th_stopping": "assimilation",
+  "palatalization": "assimilation",
+  "place_assimilation": "assimilation",
+  "linking": "boundary",
+  "h_dropping": "boundary"
+ },
+ "labels": {
+  "vowel_reduction": "vowel reduction",
+  "monophthongization": "monophthongization",
+  "elision_syllable": "elided syllable",
+  "word_elision": "elided word",
+  "flapping": "flapping",
+  "t_deletion": "t/d deletion",
+  "t_unreleased": "unreleased t/d",
+  "glottalization": "glottalization",
+  "th_stopping": "th-stopping",
+  "palatalization": "palatalization",
+  "linking": "linking",
+  "h_dropping": "h-dropping",
+  "contraction_lex": "lexical contraction",
+  "place_assimilation": "place assimilation",
+  "nt_reduction": "nt → n",
+  "function_elision": "function-word elision"
+ },
+ "descriptions": {
+  "vowel_reduction": "A full vowel reduces to schwa in an unstressed syllable. does → dəz",
+  "monophthongization": "A diphthong is realized as a plain vowel. my → ma",
+  "elision_syllable": "A whole syllable is lost. probably → pɹɑbli, camera → kæmɹə",
+  "word_elision": "The word leaves no acoustic trace: fast speech swallows it.",
+  "flapping": "/t/ or /d/ between vowels sounds like a soft r. water → wɔɾɚ",
+  "t_deletion": "A final /t/ or /d/ drops out of a consonant cluster. next day → nɛks deɪ",
+  "t_unreleased": "A final /t/ or /d/ closes but is never released: an unreleased [t̚]. (The espeak engine cannot hear the closure and infers it from a /t/ missing after a vowel.) that → ðæt̚",
+  "glottalization": "/t/ closes into a glottal stop. button → bʌʔn̩",
+  "th_stopping": "θ and ð are pronounced as the stops t/d. that → dat",
+  "palatalization": "t+j and d+j merge into tʃ/dʒ at the end of a word. got you → gotcha",
+  "linking": "The word runs into the next vowel: a final consonant (does it → dʌ‿zɪt), an r (far away → fɑɹ‿əweɪ) or a w/j glide (go on → ɡoʊ‿wɑn).",
+  "h_dropping": "The unstressed h disappears. tell him → tell im",
+  "contraction_lex": "A lexicalized reduced form. want to → wanna",
+  "place_assimilation": "A final n/t/d takes the place of the next consonant. ten bucks → tɛm bʌks, in case → ɪŋ keɪs",
+  "nt_reduction": "/nt/ before a vowel loses its /t/: a plain n or a nasal flap. twenty → twɛni, winter → wɪɾ̃ɚ",
+  "function_elision": "A function word loses a consonant as well as its vowel. of → ə, them → əm"
+ },
+ "practice": {
+  "vowel_reduction": {
+   "practice": "produce",
+   "register": "universal",
+   "why": "Unstressed vowels turning to schwa is the engine of English rhythm, and the first thing the report says to produce (§4, stage 2)."
+  },
+  "monophthongization": {
+   "practice": "understand",
+   "register": "marked",
+   "why": "Diphthongs flattened into one vowel (Southern /aɪ/ → [aː]) are regional (§5): recognize them, don't imitate them."
+  },
+  "elision_syllable": {
+   "practice": "understand",
+   "register": "casual",
+   "why": "Schwa deletion (famly, prob'ly, camra) is very common but casual: understanding it comes first (§3E, §5)."
+  },
+  "word_elision": {
+   "practice": "understand",
+   "register": "casual",
+   "why": "A word swallowed by fast speech: something to hear, not to aim for."
+  },
+  "flapping": {
+   "practice": "produce",
+   "register": "universal",
+   "why": "Safe to produce and one of the most rewarding things to learn (§3A)."
+  },
+  "t_deletion": {
+   "practice": "understand",
+   "register": "casual",
+   "why": "Dropping the t/d of a cluster (next day, old man) belongs to casual speech; all dialects do it before a consonant (§3E, §5)."
+  },
+  "t_unreleased": {
+   "practice": "produce",
+   "register": "universal",
+   "why": "A final /t/ held without a burst (what, that) is the everyday American form; releasing it fully sounds over-careful (§3B)."
+  },
+  "glottalization": {
+   "practice": "produce",
+   "register": "universal",
+   "why": "Safe before a syllabic n (button, important — stage 3); before a vowel it is optional and led by young Western speakers (§3B)."
+  },
+  "th_stopping": {
+   "practice": "understand",
+   "register": "marked",
+   "why": "th → d/t is an AAVE and regional feature (§5): recognize it; a learner should keep working on θ/ð instead (§7)."
+  },
+  "palatalization": {
+   "practice": "produce",
+   "register": "universal",
+   "why": "didja, gotcha, doncha are universal and safe to produce (§3D)."
+  },
+  "linking": {
+   "practice": "produce",
+   "register": "universal",
+   "why": "Consonant–vowel linking, linking r and the w/j glides are fundamental to fluency and safe to produce (§3G)."
+  },
+  "h_dropping": {
+   "practice": "produce",
+   "register": "universal",
+   "why": "Safe in unstressed pronouns and auxiliaries — but never at the start of a sentence (§3C)."
+  },
+  "contraction_lex": {
+   "practice": "produce",
+   "register": "universal",
+   "why": "gonna, wanna, gotta, gimme, lemme, kinda are universal and safe; some forms are marked — see each form (§1)."
+  },
+  "place_assimilation": {
+   "practice": "understand",
+   "register": "casual",
+   "why": "tem bucks, ing case happen only in fast, natural speech; forced, they sound odd (§3F, §7)."
+  },
+  "nt_reduction": {
+   "practice": "understand",
+   "register": "marked",
+   "why": "winter → winner is very American and widespread but variable; the report files it under understand only (§5)."
+  },
+  "function_elision": {
+   "practice": "produce",
+   "register": "universal",
+   "why": "of → ə and them → əm are the weak forms the report says to produce (§2, stage 2): lotsa, kinda, tell 'em."
+  }
+ },
+ "lexical_practice": {
+  "gonna": {
+   "practice": "produce",
+   "register": "universal",
+   "why": "Universal informal form, safe to produce (§1)."
+  },
+  "wanna": {
+   "practice": "produce",
+   "register": "universal",
+   "why": "Universal informal form, safe to produce (§1)."
+  },
+  "gotta": {
+   "practice": "produce",
+   "register": "universal",
+   "why": "Universal informal form, safe to produce (§1)."
+  },
+  "hafta": {
+   "practice": "produce",
+   "register": "universal",
+   "why": "Universal informal form, safe to produce (§1)."
+  },
+  "lemme": {
+   "practice": "produce",
+   "register": "universal",
+   "why": "Universal informal form, safe to produce (§1)."
+  },
+  "gimme": {
+   "practice": "produce",
+   "register": "universal",
+   "why": "Universal informal form, safe to produce (§1)."
+  },
+  "dunno": {
+   "practice": "produce",
+   "register": "universal",
+   "why": "Universal informal form, safe to produce (§1)."
+  },
+  "kinda": {
+   "practice": "produce",
+   "register": "universal",
+   "why": "Universal informal form, safe to produce (§1)."
+  },
+  "outta": {
+   "practice": "produce",
+   "register": "universal",
+   "why": "Universal informal form, safe to produce (§1)."
+  },
+  "gotcha": {
+   "practice": "produce",
+   "register": "universal",
+   "why": "Universal informal form, safe to produce (§1)."
+  },
+  "gotchu": {
+   "practice": "produce",
+   "register": "universal",
+   "why": "Universal informal form, safe to produce (§1)."
+  },
+  "coulda": {
+   "practice": "produce",
+   "register": "universal",
+   "why": "Universal informal form, safe to produce (§1)."
+  },
+  "shoulda": {
+   "practice": "produce",
+   "register": "universal",
+   "why": "Universal informal form, safe to produce (§1)."
+  },
+  "woulda": {
+   "practice": "produce",
+   "register": "universal",
+   "why": "Universal informal form, safe to produce (§1)."
+  },
+  "didja": {
+   "practice": "produce",
+   "register": "universal",
+   "why": "Universal informal form, safe to produce (§1)."
+  },
+  "didya": {
+   "practice": "produce",
+   "register": "universal",
+   "why": "Universal informal form, safe to produce (§1)."
+  },
+  "dontcha": {
+   "practice": "produce",
+   "register": "universal",
+   "why": "Universal informal form, safe to produce (§1)."
+  },
+  "doncha": {
+   "practice": "produce",
+   "register": "universal",
+   "why": "Universal informal form, safe to produce (§1)."
+  },
+  "wouldja": {
+   "practice": "produce",
+   "register": "universal",
+   "why": "Universal informal form, safe to produce (§1)."
+  },
+  "couldja": {
+   "practice": "produce",
+   "register": "universal",
+   "why": "Universal informal form, safe to produce (§1)."
+  },
+  "'em": {
+   "practice": "produce",
+   "register": "universal",
+   "why": "Universal informal form, safe to produce (§1)."
+  },
+  "cmon": {
+   "practice": "produce",
+   "register": "universal",
+   "why": "Universal informal form, safe to produce (§1)."
+  },
+  "c'mon": {
+   "practice": "produce",
+   "register": "universal",
+   "why": "Universal informal form, safe to produce (§1)."
+  },
+  "hasta": {
+   "practice": "produce",
+   "register": "casual",
+   "why": "Common informal form: fine in relaxed speech (§1)."
+  },
+  "oughta": {
+   "practice": "produce",
+   "register": "casual",
+   "why": "Common informal form: fine in relaxed speech (§1)."
+  },
+  "useta": {
+   "practice": "produce",
+   "register": "casual",
+   "why": "Common informal form: fine in relaxed speech (§1)."
+  },
+  "usta": {
+   "practice": "produce",
+   "register": "casual",
+   "why": "Common informal form: fine in relaxed speech (§1)."
+  },
+  "supposta": {
+   "practice": "produce",
+   "register": "casual",
+   "why": "Common informal form: fine in relaxed speech (§1)."
+  },
+  "sposta": {
+   "practice": "produce",
+   "register": "casual",
+   "why": "Common informal form: fine in relaxed speech (§1)."
+  },
+  "s'posta": {
+   "practice": "produce",
+   "register": "casual",
+   "why": "Common informal form: fine in relaxed speech (§1)."
+  },
+  "sorta": {
+   "practice": "produce",
+   "register": "casual",
+   "why": "Common informal form: fine in relaxed speech (§1)."
+  },
+  "lotta": {
+   "practice": "produce",
+   "register": "casual",
+   "why": "Common informal form: fine in relaxed speech (§1)."
+  },
+  "lotsa": {
+   "practice": "produce",
+   "register": "casual",
+   "why": "Common informal form: fine in relaxed speech (§1)."
+  },
+  "betcha": {
+   "practice": "produce",
+   "register": "casual",
+   "why": "Common informal form: fine in relaxed speech (§1)."
+  },
+  "whatcha": {
+   "practice": "produce",
+   "register": "casual",
+   "why": "Common informal form: fine in relaxed speech (§1)."
+  },
+  "watcha": {
+   "practice": "produce",
+   "register": "casual",
+   "why": "Common informal form: fine in relaxed speech (§1)."
+  },
+  "whatchu": {
+   "practice": "produce",
+   "register": "casual",
+   "why": "Common informal form: fine in relaxed speech (§1)."
+  },
+  "whaddya": {
+   "practice": "produce",
+   "register": "casual",
+   "why": "Common informal form: fine in relaxed speech (§1)."
+  },
+  "whaddaya": {
+   "practice": "produce",
+   "register": "casual",
+   "why": "Common informal form: fine in relaxed speech (§1)."
+  },
+  "musta": {
+   "practice": "produce",
+   "register": "casual",
+   "why": "Common informal form: fine in relaxed speech (§1)."
+  },
+  "mighta": {
+   "practice": "produce",
+   "register": "casual",
+   "why": "Common informal form: fine in relaxed speech (§1)."
+  },
+  "ya": {
+   "practice": "produce",
+   "register": "casual",
+   "why": "Common informal form: fine in relaxed speech (§1)."
+  },
+  "cuz": {
+   "practice": "produce",
+   "register": "casual",
+   "why": "Common informal form: fine in relaxed speech (§1)."
+  },
+  "'cuz": {
+   "practice": "produce",
+   "register": "casual",
+   "why": "Common informal form: fine in relaxed speech (§1)."
+  },
+  "'cause": {
+   "practice": "produce",
+   "register": "casual",
+   "why": "Common informal form: fine in relaxed speech (§1)."
+  },
+  "tryna": {
+   "practice": "understand",
+   "register": "marked",
+   "why": "Younger and AAVE speech (§1): understand it; from a non-native speaker it can sound put on."
+  },
+  "finna": {
+   "practice": "understand",
+   "register": "marked",
+   "why": "Southern and AAVE (fixing to, §1): understand it only."
+  },
+  "imma": {
+   "practice": "understand",
+   "register": "marked",
+   "why": "I'm gonna reduced further, associated with AAVE: understand it only."
+  },
+  "cuppa": {
+   "practice": "understand",
+   "register": "marked",
+   "why": "Mostly British (§1): recognize it in American speech, don't adopt it."
+  }
+ },
+ "link_types": [
+  "consonant",
+  "r",
+  "glide_w",
+  "glide_j"
+ ],
+ "ipa_tokens": [
+  "aɪə",
+  "aɪɚ",
+  "ɑːɹ",
+  "oːɹ",
+  "ɔːɹ",
+  "uː",
+  "t̚",
+  "ju",
+  "eɪ",
+  "aɪ",
+  "eə",
+  "ɜː",
+  "n̩",
+  "ɾ̃",
+  "tʃ",
+  "ɡ̚",
+  "ɔː",
+  "ŋ̍",
+  "dʒ",
+  "b̚",
+  "l̩",
+  "k̚",
+  "ɛɹ",
+  "aʊ",
+  "oʊ",
+  "ɑː",
+  "ɪɹ",
+  "d̚",
+  "əl",
+  "ɔɪ",
+  "p̚",
+  "iː",
+  "iə",
+  "ʊɹ",
+  "m̩"
+ ],
+ "verdicts": [
+  "ok",
+  "wrong",
+  "unsure"
+ ],
+ "metrics_reference": {
+  "deviate": {
+   "low": 60.0,
+   "high": null,
+   "display": "> 60 %",
+   "cite": "Johnson 2004",
+   "source": "Johnson 2004, Massive reduction in conversational American English (ViC/Buckeye, ~88,000 words)",
+   "note": "words that depart from their citation form in at least one segment"
+  },
+  "segment_loss": {
+   "low": 25.0,
+   "high": 25.0,
+   "display": "≈ 25 %",
+   "cite": "Johnson 2004",
+   "source": "Johnson 2004 (ViC/Buckeye)",
+   "note": "words that lose at least one whole segment"
+  },
+  "syllable_loss": {
+   "low": 5.9,
+   "high": 5.9,
+   "display": "≈ 5.9 %",
+   "cite": "Johnson 2004",
+   "source": "Johnson 2004 (ViC/Buckeye)",
+   "note": "words that lose at least one syllable: about one word in 20"
+  },
+  "schwa_share": {
+   "low": 20.0,
+   "high": 25.0,
+   "display": "20–25 %",
+   "cite": "pedagogical estimates",
+   "source": "pedagogical estimates quoted in the report (practiceme.app: ~1 in 5 vowels; learnenglishsounds.com: ~25 % of syllables in connected speech)",
+   "note": "schwa is the most frequent vowel of spoken English"
+  },
+  "function_words": {
+   "low": 56.0,
+   "high": 56.0,
+   "display": "≈ 56 %",
+   "cite": "Johnson 2004",
+   "source": "Johnson 2004 (ViC: ~49,000 function vs ~38,500 content words)",
+   "note": "about half of what is heard is a function word, reduced by default"
+  },
+  "flapping": {
+   "low": 74.8,
+   "high": 81.6,
+   "display": "74.8–81.6 %",
+   "cite": "Patterson & Connine 2001",
+   "source": "Patterson & Connine 2001, Phonetica 58:254–275 (Switchboard: Northern 74.8 %, North Midland 81.6 %); 99 % in read speech (Zue & Laferriere 1979)",
+   "note": "flapped /t, d/ in the flapping context (after a vowel or /r/, before an unstressed vowel)"
+  },
+  "glottal_prevocalic": {
+   "low": 24.0,
+   "high": 24.0,
+   "display": "≈ 24 %",
+   "cite": "Eddington & Channer 2010",
+   "source": "Eddington & Channer 2010, American Speech 85.3:338–351 (Santa Barbara Corpus: 262 of 1,101 word-final prevocalic /t/)",
+   "note": "word-final /t/ before a vowel realized as a glottal stop; higher in young Western speakers"
+  }
+ },
+ "metric_labels": {
+  "deviate": "words that differ from the citation form",
+  "segment_loss": "words that lose a whole segment",
+  "syllable_loss": "words that lose a syllable",
+  "schwa_share": "reduced vowels (schwa) among all vowels",
+  "function_words": "function words among all words",
+  "weak_forms": "function words in their weak form",
+  "flapping": "t/d flapped where flapping can happen",
+  "glottal_before_syllabic_n": "glottal t before a syllabic n (button)",
+  "glottal_prevocalic": "final t before a vowel as a glottal stop"
+ },
+ "options": {
+  "whisper_models": [
+   "tiny",
+   "base",
+   "small",
+   "medium"
+  ],
+  "phone_engines": [
+   "timit61",
+   "espeak"
+  ],
+  "phone_engine_notes": {
+   "timit61": "Narrow phonetic recognizer (TIMIT-61): hears flaps, glottal stops, unreleased stops and weak forms. Weights Apache-2.0; trained on TIMIT (LDC), whose data is licensed for non-commercial research.",
+   "espeak": "The original engine (wav2vec2 trained on espeak-ng transcriptions). Unrestricted training data, but it tends to hear the dictionary form instead of what was said."
+  },
+  "defaults": {
+   "whisper_model": "small",
+   "phone_engine": "timit61",
+   "language": "en",
+   "attraction": null,
+   "separate_dialogue": true
+  }
+ },
+ "review": {
+  "default_n": 20,
+  "default_seed": 48,
+  "max_n": 500
+ }
+}

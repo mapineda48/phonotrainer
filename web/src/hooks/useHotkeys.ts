@@ -1,4 +1,5 @@
-/** Global keyboard shortcuts, ignoring anything typed into text fields. */
+/** Global keyboard shortcuts, ignoring anything typed into text fields and any key a
+ *  control has already handled (arrow keys inside a radiogroup, a slider, a menu…). */
 
 import { useEffect, useRef } from "react";
 
@@ -29,6 +30,9 @@ export function useHotkeys(map: HotkeyMap, enabled = true): void {
   useEffect(() => {
     if (!enabled) return;
     const onKeyDown = (event: KeyboardEvent) => {
+      // A focused control that used the key (React Aria calls preventDefault) owns it:
+      // ← on the Speed control changes the speed, it must not also seek.
+      if (event.defaultPrevented) return;
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       if (isTyping(event.target) || activatesItself(event.target, event.key)) return;
       const handler = ref.current[event.key];

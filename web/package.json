@@ -13,19 +13,33 @@
     "typecheck": "tsc -b --noEmit"
   },
   "dependencies": {
+    "@fontsource-variable/atkinson-hyperlegible-next": "^5.3.0",
+    "clsx": "^2.1.1",
+    "driver.js": "^1.9.0",
+    "lucide-react": "^1.51.0",
     "react": "^19.2.8",
+    "react-aria-components": "^1.21.1",
     "react-dom": "^19.2.8",
-    "three": "^0.186.0"
+    "tailwind-merge": "^3.7.0",
+    "tailwind-variants": "^3.3.1",
+    "three": "^0.186.0",
+    "wouter": "^3.13.0"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
     "@testing-library/jest-dom": "^7.0.0",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
+    "@types/culori": "^4.0.1",
+    "@types/node": "^22.20.5",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@types/three": "^0.186.0",
     "@vitejs/plugin-react": "^6.0.4",
+    "axe-core": "^4.13.0",
+    "culori": "^4.0.2",
     "jsdom": "^29.1.1",
+    "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",
     "vite": "^8.1.5",
     "vitest": "^4.1.10"
