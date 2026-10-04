@@ -59,56 +59,108 @@ make setup          # once: Python + npm dependencies
 make ui             # builds the SPA and opens http://127.0.0.1:8000
 ```
 
-From there: drag in a video/audio file (or select it by path, or import an
-existing `out/`), follow the analysis live and explore the result with
-synchronized audio. The new-analysis form picks the phone engine, and its
-training-data note is shown under the selector. It also has an option to separate
-the dialogue from the music, on by default, and a three-way phonetic attraction
-setting: the engine's default, on or off.
+The interface is built to teach, and to be read without relying on color. A rail on
+the left leads to five places: **Library**, **Learn**, **Practice**, **Insights** and
+**Settings**. Its **Help** menu restarts the tour, lists the keyboard shortcuts and
+explains the two phone engines. Every technical term (weak form, intonation unit,
+F0, each IPA symbol, each measure) has a **"What's this?"** button next to it. The
+explanation opens in a popover that works with the keyboard and on touch, never only
+on hover.
 
-Clicking a word plays it and compares it **phone by phone across three rows**:
-- dictionary (the CMUdict citation form);
-- the time-aligned canonical;
-- what was actually pronounced.
+### Library and New analysis
 
-With the default engine the canonical *is* the citation form placed in time, with
-function words in their strong form ("to" /tu/, "of" /ʌv/), so a weak form shows up
-as what it is: a deviation worth learning. With the `espeak` engine the canonical
-already bakes in some native processes (the canonical of *better* is [bɛɾɚ], flap
-included), and the dictionary row is what exposes them. For boundary phenomena
-(linking, palatalization) both the comparison and the playback extend into the
-following word, which is where they happen.
+The **Library** (`/`) lists your analyses. Each one shows its status as an icon plus a
+word (Queued, Analyzing, Ready, Error, Cancelled), and a running one also shows its
+current stage ("40 % · Hear the phones · phrase 3 of 10"). You can search, sort and
+filter by engine, and pick up where you left off. Each analysis has a menu to open its
+report, cancel, retry a failed download, or delete. Deleting always asks first and says
+what is kept: your media file is never touched. **Import results…** registers an
+existing `out/`.
 
-Every phenomenon comes with an example next to its label. It also carries the
-advice of the connected-speech report the rules were validated against:
-- **"safe to produce"**, e.g. flapping and weak forms;
-- or **"recognize only"**, e.g. place assimilation, finna and tryna.
+**New analysis** (`/new`) has three steps:
+1. **Choose the clip:** a path, with a folder browser; a file you upload by dragging it
+   in or picking it; or a YouTube link, with an audio-only switch.
+2. **Choose how to analyze it:**
+   - the phone engine, with its training-data note under each choice;
+   - dialogue separation, on by default;
+   - phonetic attraction (the engine's default, on or off);
+   - the Whisper model.
+3. **Start**, then follow the pipeline as named steps: download, extract the audio,
+   separate the dialogue, transcribe, hear the phones, compare and save. Each step says
+   what it does, and each stage change is announced to screen readers.
 
-It also carries its register (universal, casual or marked), and the summary can
-filter the transcript to either group. Boundary links say what links them: a
-consonant, an r, or a w/j glide. At boundaries the measured gap is shown in ms,
-which is what tells a link (~20 ms) apart from an ordinary boundary (~60 ms).
-Every segment can expand into its full phonetic transcription (actual vs
-canonical).
+### Analysis: the transcript and the 5-step word lesson
 
-The summary answers **"how reduced is this speech?"**: each figure is shown next to
-the published one it should be compared with, with its source. The figures are the
-share of words that depart from the dictionary, that lose a segment and that lose a
-syllable (Johnson 2004), the schwa share, function words, weak forms, and the
-flapping and glottal-stop rates.
+The analysis workspace (`/analysis/<id>`) puts the player and the transcript on the
+left and the lesson on the right.
 
-For intonation, each sentence of a segment gets a badge with its final contour
-(rising, falling, flat) against the one its type calls for: statements and
-wh-questions fall, yes/no questions rise. Statements of three words or more that
-rise are marked as uptalk. A prominence strip shows which words carried the stress
-and whether they were content or function words.
+**The transcript.** Each word that changed is underlined in the style of its family of
+phenomena, and the word itself always stays in ink:
 
-When the dialogue was separated, a **"Dialogue only"** toggle plays what the
-analysis heard instead of the original mix, keeping your place.
+| Family | Underline | Icon |
+|---|---|---|
+| reduction | solid | chevrons down |
+| t/d processes | dashed | scissors |
+| assimilation | double | merge |
+| word boundary | wavy, plus ‿ | link |
+| lexical contraction | dotted, plus a "wanna ← want to" chip | shrink |
+| other changes (e.g. a word that disappears) | dash-dot | dashed circle |
+
+Color is a third cue on top of the underline and the icon, and every word's accessible
+name states its changes ("that, t/d deletion"). Other marks:
+- a ring is the word you are studying;
+- a filled word is the one playing;
+- a dashed outline means low confidence;
+- bold is the most prominent word of its phrase.
+
+You can filter the transcript by change, or keep only the changes the report calls safe
+to produce, or only those to recognize. "How to read the marks" shows the whole legend.
+Each phrase card can open its pitch (F0), stress and IPA details: the intonation badge
+(final contour against the one its sentence type calls for, uptalk flagged), a
+prominence strip (content and function words), and the full transcription.
+
+Above the transcript you have:
+- the player, with a waveform you can seek, speed 0.5× / 0.75× / 1×, and loop;
+- **Listen to:** the original mix or the separated dialogue (it keeps your place);
+- the synchronized video;
+- **Follow playback**;
+- a word search.
+
+**The word lesson.** Selecting a word (by click, or with the keyboard) opens a lesson in
+five steps. The URL follows the word, so a lesson can be linked to
+(`/analysis/<id>/w/<phrase>/<word>`).
+1. **Listen:** the word, the word with the next one (for boundary changes, which only
+   happen across the two), or the whole phrase, at any speed.
+2. **Compare:** the dictionary form `/…/` against what was said `[…]`, then phone by phone.
+   Each phone is marked `=` same, `≠` changed, `–` dropped or `+` added, never by color
+   alone. Picking a sound plays it and explains it, with a link to the IPA chart. With the
+   default engine the dictionary form is the CMUdict citation form placed in time, with
+   function words in their strong form ("to" /tu/), so a weak form shows up as a
+   deviation worth learning.
+3. **Why it changes:** one card per phenomenon, with its description and example.
+   - It carries the advice of the connected-speech report the rules were validated
+     against: **Safe to produce** (e.g. flapping, weak forms) or **Recognize only**
+     (e.g. place assimilation, finna, tryna).
+   - It also gives the register (universal, casual or marked) and the reason.
+   - Boundary links say what links them: a consonant, an r, or a w/j glide.
+   - Low-confidence words get a calm notice first.
+4. **See the mouth:** the articulator below.
+5. **Practice:** a shadowing loop. The clip plays slowed down, then leaves a silence of the
+   same length for you to repeat it; three slow rounds, then one at full speed.
+
+Settings → Lessons → **Compact** shows only the step titles until you open one.
+
+The right pane has two more tabs:
+- **Summary** answers **"how reduced is this speech?"**. Each measure stands next to the
+  published figure it should be compared with, and its source. The measures are the words
+  that depart from the dictionary, that lose a segment or a syllable (Johnson 2004), the
+  schwa share, function words, weak forms, and the flapping and glottal-stop rates. The
+  chart of changes in the clip doubles as a filter.
+- **Review** is the human validation mode. It saves the same `review.json` as the CLI.
 
 ### The mouth, while you listen
 
-Above that comparison there is a **midsagittal section of the head** that moves
+The "See the mouth" step shows a **midsagittal section of the head** that moves
 with the audio: the tongue, the jaw, the lips and the velum take the shape each
 phone asks for, the point where the tract closes is marked, and the air is drawn
 leaving through the mouth or — for /m/, /n/, /ŋ/ — through the nose. A symbol is
@@ -117,9 +169,9 @@ a name for a movement; this is the movement.
 It is driven by the timings the analysis already produced, so it shows **what
 was actually said**, coarticulation included: the shapes the tongue passes
 through between two phones are not filler, they are the same blending the diff
-measures. A switch shows the canonical form instead, which is how you see the
+measures. A switch shows the dictionary form instead, which is how you see the
 gesture that went missing — the /t/ of *that* that never arrives. Any phone can
-be clicked to hold it still.
+be picked to hold it still, including one picked in the Compare step.
 
 Where a learner most needs it, it separates what the ear does not: /b/ closes
 both lips while /v/ tucks the lower lip under the teeth; /θ/ puts the tip
@@ -129,9 +181,90 @@ phone without a burst, and the nasal flap [ɾ̃] of *winter* taps with the velum
 down. Without WebGL the same drawing is rendered as plain SVG — smaller, but the
 mouth still moves.
 
-There is also: filtering by phenomenon, word search, looping, 0.5× speed,
-synchronized video and a human review mode that saves the same `review.json` as
-the CLI. The keyboard shortcuts are listed inside the app (the `?` button).
+### Learn
+
+**Learn** (`/learn`) teaches each phenomenon outside any analysis. It groups the
+phenomena by family. Each card gives the description, the report's advice and how many
+times the change occurs in your clips. A phenomenon's page (`/learn/<name>`) covers:
+- how to hear it, with a tip for Spanish speakers where the report gives one;
+- whether you can copy it, and why;
+- the mouth, playing the dictionary form against what is said;
+- up to eight **examples from your own clips**, each playable and with a link to its
+  lesson;
+- **Practice this**, which starts a practice session on that phenomenon alone.
+
+The **IPA chart** (`/learn/ipa`) lays out every symbol the analyzer can emit:
+- the consonants by place and manner, the t/d allophones, syllabic consonants;
+- the vowels, diphthongs and r-colored vowels.
+
+Picking a symbol shows the mouth, its name and example, what it means for a learner,
+its phenomenon, and words from your clips that contain it.
+
+### Practice
+
+**Practice** (`/practice`) is ear training built from your own corpus: sessions of ten
+items, answered with the mouse or with keys 1–4.
+- **Which pronunciation did you hear?** What was said, the dictionary form and other
+  ways the same word was said in the corpus, all in the same notation.
+- **Which change did you hear?** The right phenomenon among others from different
+  families.
+- **How many words did you hear?** The kind of phrase where reduced words disappear.
+
+After each answer comes the explanation, a 0.5× replay and links to Learn and to the
+word's lesson. Accuracy per phenomenon is kept in the browser only, and "focus on my
+weak spots" draws more items from the lowest scores. `/practice?focus=<phenomenon>`
+practices a single phenomenon.
+
+### Insights
+
+**Insights** (`/insights`) answers what a single analysis cannot.
+- **How reduced is what you hear:** the corpus measures against the published figures,
+  one phone engine at a time. The two engines are never added together, and each
+  measure is turned into plain listening advice.
+- **The phenomena** you have met, as a chart that filters the list below.
+- **Every occurrence**, filtered by phenomenon, word and practice advice. Each one has a
+  play button and an **Open** link to its word lesson. **Back to Insights** returns with
+  your filters.
+- **How one word was said across every recording**, by searching for it.
+
+### Settings, the tour and the keyboard
+
+**Settings** (`/settings`), also reachable from a quick popover in the rail:
+- **Appearance:** system, light or dark.
+- **Colors:** *Standard*, or an optional **color-vision friendly** palette. Both palettes
+  are tested for contrast and for the separation of the four families under simulated
+  protanopia, deuteranopia and tritanopia. The choice previews both palettes through
+  those simulations, so you can pick by eye.
+- **Pattern emphasis:** thicker underlines, the family icon after every marked word, and
+  hatched chart bars. It is on by default with the color-vision friendly palette.
+- **Text size** up to 125 %, **Motion** (follow the system or reduce), and **Lesson
+  guidance** (Full or Compact).
+
+The choices are stored in the browser and applied before the first paint, so the page
+never flashes the wrong theme.
+
+**The tour** is offered once, as a banner you can dismiss: a one-minute walk through the
+rail, the library, the transcript, the lesson, the speed control, Learn and the colors.
+Steps whose element is not on the current screen are skipped. Restart it any time from
+Help or Settings. Esc closes it and puts the focus back where it was.
+
+**Keyboard.** Everything works without a mouse, and **?** lists the shortcuts inside the
+app. In an analysis:
+
+| Keys | Action |
+|---|---|
+| Space | play / pause |
+| N, Shift+N | next / previous word (or filter or search match) |
+| P, Shift+P | replay the word / the word with the next one |
+| S | replay the phrase |
+| L | loop |
+| ← → | back / forward 2 s; on a focused word, previous / next word |
+| ↑ ↓, Home, End | on a focused word: previous / next phrase, first / last word |
+| Enter | on a focused word: open its lesson and play it |
+| F, V | follow playback, show the video |
+| 1 2 3, J K | in Review: ok / wrong / unsure, next / previous |
+
+In Practice, 1–4 answer and Enter moves on.
 
 For safety, the interface only opens files under `$HOME` and the working
 directory; for an external drive, use `phonotrainer ui --allow-dir /mnt/videos`.
@@ -172,8 +305,8 @@ two engines are never added together because they measure different things:
 
 A pool that mixes analyses labeled by different rule versions is flagged.
 
-In the interface, the **Corpus** tab does the same, and each occurrence opens its
-analysis at that exact word.
+In the interface, **Insights** does the same, and each occurrence opens its
+word lesson.
 
 ## Command-line usage
 
@@ -275,8 +408,11 @@ index — it can be deleted and rebuilt by re-analyzing or re-importing.
   the transcript is not re-rendered 60 times per second. Switching between the
   original mix and the dialogue track keeps the position. The list of analyses and
   their logs arrive through another external store (`jobs/channel.ts`), a
-  WebSocket with reconnection that every component shares via `JobsProvider`. The
-  colors are the same 4 validated categorical slots that `report.html` uses.
+  WebSocket with reconnection that every component shares via `JobsProvider`.
+  Controls come from React Aria Components and styling from Tailwind CSS over design
+  tokens (`src/theme/tokens.css`). Hue is reserved for the four phenomenon families,
+  and `src/theme/palette.test.ts` re-checks both palettes' contrast and simulated
+  color-vision separation on every test run.
 - **`web/src/articulation/`**: the articulator.
   - `phones.ts` gives every symbol of the closed inventory a target for eleven
     articulators.

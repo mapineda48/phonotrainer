@@ -8,11 +8,13 @@ exhaustive inventory of the environment: importing the full pipeline loads on th
 order of 60 distributions, almost all of them permissive and with no obligation
 beyond existing.
 
-**This repository redistributes no third-party code, weights or corpora.**
-Everything listed below is installed with `pip`/`npm` or downloaded on the first
-analysis into the user's cache (`~/.cache/huggingface`, `~/nltk_data`). That is
-why the obligation here is to *inform*, not to include the license texts — except
-for those of the web interface bundle, which does ship compiled (see §2).
+**This repository redistributes no third-party code, weights or corpora.** The
+one third-party file it carries is a font: Charis, vendored unmodified next to its
+`OFL.txt` in `web/src/assets/fonts/charis/` (§2). Everything else listed below is
+installed with `pip`/`npm` or downloaded on the first analysis into the user's cache
+(`~/.cache/huggingface`, `~/nltk_data`). That is why the obligation here is to
+*inform*, not to include the license texts — except for the web interface bundle,
+which does ship compiled and carries them in `dist/third-party-licenses.txt` (see §2).
 
 **Two of the default models were trained on data with a non-commercial or academic
 restriction**: the phone recognizer, on TIMIT, and the dialogue separator, on
@@ -82,38 +84,88 @@ anywhere.
 ## 2. Web interface — this one is redistributed compiled
 
 `web/dist/` is not version-controlled, but the backend serves it, so the bundle is
-distributed to whoever deploys the application. These three packages end up inside it:
+distributed to whoever deploys the application. The list below is what a production
+build actually contains: it was taken from the module ids of the built chunks, not from
+`package.json`, and each license was checked against the `LICENSE` file installed in
+`web/node_modules`.
+
+**npm packages compiled into the JavaScript bundle**
 
 | Package | Version | License | Copyright |
 |---|---|---|---|
 | `react` | 19.2.8 | MIT | Copyright (c) Meta Platforms, Inc. and affiliates |
 | `react-dom` | 19.2.8 | MIT | Copyright (c) Meta Platforms, Inc. and affiliates |
 | `scheduler` | 0.27.0 | MIT | Copyright (c) Meta Platforms, Inc. and affiliates |
+| `use-sync-external-store` | 1.7.0 | MIT | Copyright (c) Meta Platforms, Inc. and affiliates |
 | `three` | 0.186.0 | MIT | Copyright © 2010-2026 three.js authors |
+| `react-aria-components` | 1.21.1 | Apache-2.0 | Copyright 2019 Adobe |
+| `react-aria` | 3.52.1 | Apache-2.0 | Copyright 2019 Adobe |
+| `react-stately` | 3.50.0 | Apache-2.0 | Copyright 2019 Adobe |
+| `@internationalized/string` | 3.2.10 | Apache-2.0 | Copyright 2019 Adobe |
+| `@internationalized/number` | 3.6.8 | Apache-2.0 | Copyright 2019 Adobe |
+| `lucide-react` | 1.51.0 | ISC | Copyright (c) 2026 Lucide Icons and Contributors |
+| `clsx` | 2.1.1 | MIT | Copyright (c) Luke Edwards |
+| `regexparam` (used by wouter) | 3.0.0 | MIT | Copyright (c) Luke Edwards |
+| `tailwind-merge` | 3.7.0 | MIT | Copyright (c) 2021 Dany Castillo |
+| `tailwind-variants` | 3.3.1 | MIT | Copyright (c) 2020 Tailwind Variants |
+| `driver.js` | 1.9.0 | MIT | Copyright (c) Kamran Ahmed |
+| `wouter` | 3.13.0 | Unlicense | Alexey Taktarov (declared in its `package.json`; the npm package ships no license file) |
 
-`three` is the engine behind the articulator (the midsagittal section of the
-mouth in the word panel). It is loaded with a dynamic `import()`, so it travels
-in its own chunk and is only downloaded when that panel is opened; the chunk is
-part of the bundle all the same. `@types/three` is development-only and reaches
-nobody.
+The role of each: React renders the interface. React Aria Components (with react-aria,
+react-stately and `@internationalized/*`) supplies the accessible controls: keyboard,
+focus and ARIA. lucide-react draws the icons, wouter routes, and driver.js runs the guided
+tour. clsx, tailwind-merge and tailwind-variants compose class names.
 
-The minifier strips the `@license` banners, so `web/vite.config.ts` restores the
-MIT notices in the bundle header (the `phonotrainer:license-banner` plugin).
-Full texts: <https://github.com/facebook/react/blob/main/LICENSE> and
-<https://github.com/mrdoob/three.js/blob/dev/LICENSE>.
+`three` is the engine behind the articulator (the midsagittal section of the mouth in the
+word lesson and in Learn). It is loaded with a dynamic `import()`, so it travels in its
+own chunk and is only downloaded when a mouth is shown; the chunk is part of the bundle
+all the same. `@types/three` is development-only and reaches nobody.
 
-MIT is compatible with GPL-3.0-or-later: the combined work is distributed under
-the GPL and the MIT notices stay with it. No copyleft obligation is added.
+**Copied into the stylesheet.** Tailwind CSS is a build tool, but it emits its
+*preflight* (the base reset) into `dist/assets/index-*.css`: MIT, Copyright (c) Tailwind
+Labs, Inc. driver.js's stylesheet is imported too (MIT, as above).
 
-The rest of `node_modules` (vite, vitest, typescript, testing-library, jsdom…)
-is development-only: it is neither compiled in nor distributed. `lightningcss` (MPL-2.0)
-comes in as a transitive dependency of vite but is never activated
-(`css.transformer` is left undefined) and contributes zero bytes to the bundle.
+**Fonts, shipped as separate files** next to the bundle:
 
-The IPA typefaces (`Charis SIL`, `Doulos SIL`, `Gentium Plus`, `DejaVu Sans`)
-are named by family in CSS; they are **not embedded**, so they create no obligation.
+| Font | Version | License | Copyright | How it arrives |
+|---|---|---|---|---|
+| Atkinson Hyperlegible Next (variable) | `@fontsource-variable/atkinson-hyperlegible-next` 5.3.0 | OFL-1.1 | Copyright 2020-2024 The Atkinson Hyperlegible Next Project Authors | npm (fontsource), the interface font |
+| Charis | 7.000 | OFL-1.1, Reserved Font Names "Charis" and "SIL" | Copyright (c) 1997-2025 SIL Global | Vendored **unmodified** in `web/src/assets/fonts/charis/`, with its `OFL.txt` and a README giving its provenance; the IPA font |
 
----
+The OFL lets a font be bundled with any software, provided that each copy carries the
+copyright notice and the license; the fonts stay separate files under their own license,
+which is aggregation, not a combined work. Charis keeps its Reserved Font Name only
+because it is shipped as released. **If it is ever subset, the OFL requires renaming it**
+in `src/theme/fonts.css`. The font stacks also *name* "Charis SIL", "Doulos SIL" and
+"Gentium Plus" as fallbacks; those are not embedded and create no obligation.
+
+**How the notices travel.** The minifier strips the `@license` banners, so the
+`phonotrainer:license-banner` plugin in `web/vite.config.ts` puts a notice on top of every
+JavaScript chunk and of the stylesheet. Apache-2.0 and the OFL ask for the license *text*
+to accompany every copy, not just a notice, so the `phonotrainer:license-texts` plugin
+writes `dist/third-party-licenses.txt`: the full license file of every npm package found in
+the built chunks, plus Tailwind's and Charis's. It is generated from the build itself, so it
+cannot drift from what actually ships. None of the Apache-2.0 packages ships a `NOTICE`
+file.
+
+MIT, ISC and Apache-2.0 are compatible with GPL-3.0-or-later (Apache-2.0 with GPLv3 but
+not GPLv2, which is why the "or later" matters here too). The Unlicense is a public-domain
+dedication that the FSF lists as GPL-compatible. The combined work is distributed under the
+GPL and the permissive notices stay with it. No copyleft obligation is added.
+
+**Build and test tools, not distributed.** The rest of `web/node_modules` is
+development-only: it is neither compiled in nor distributed.
+- **Build:** vite, typescript, `@types/node` (MIT; types for `vite.config.ts` only),
+  `@vitejs/plugin-react`, and `tailwindcss` with
+  `@tailwindcss/vite` (MIT; only its preflight reaches the bundle, see above).
+  `@tailwindcss/vite` runs **`lightningcss` 1.32.0 (MPL-2.0)** to optimize the generated CSS.
+  Vite carries its own `lightningcss` 1.33.0, which stays inactive because `css.transformer`
+  is left undefined. MPL-2.0 is per-file copyleft on the tool's own source files; none of
+  its code is copied into the output, so it adds nothing to the bundle.
+- **Tests:** vitest, testing-library, jsdom, `culori` and `@types/culori` (MIT; the palette
+  checks in `src/theme/palette.test.ts`), and **`axe-core` 4.13.0 (MPL-2.0)**, the
+  accessibility assertions in the test suite. None of them is imported by the
+  application code.
 
 ## 3. Python dependencies (installed with pip, not redistributed)
 
