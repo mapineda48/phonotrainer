@@ -35,6 +35,24 @@ def clean_word(word: str) -> str:
     return "".join(m)
 
 
+def canonical_source(word: str, canonical_text: str | None = None) -> str:
+    """The text a word's canonical is built from: the spoken form of a numeral
+    ("9.30" → "nine thirty", see numerals.py) or, for any other word, the word
+    itself. Hyphens become spaces so "ninety-nine" is looked up as two words."""
+    if canonical_text is None:
+        return word
+    return canonical_text.replace("-", " ")
+
+
+def lookup_tokens(text: str) -> list[str]:
+    """The dictionary keys of a canonical source: one for a Whisper word (which
+    never holds a space), several for a spoken numeral ("five dollars")."""
+    if any(ch.isspace() for ch in text):
+        return [t for t in _WORD_RE.findall(text.lower()) if t.strip("'")]
+    w = clean_word(text)
+    return [w] if w else []
+
+
 @lru_cache(maxsize=1)
 def _g2p():
     from g2p_en import G2p
@@ -55,17 +73,20 @@ def _cmudict():
 
 @lru_cache(maxsize=4096)
 def dict_pronunciation(word: str) -> dict:
-    """Return {'ipa': str, 'arpabet': [..], 'oov': bool} for a word."""
-    w = clean_word(word)
-    if not w:
+    """Return {'ipa': str, 'arpabet': [..], 'oov': bool} for a word — or for a
+    canonical source of several words (canonical_source), concatenated."""
+    tokens = lookup_tokens(word)
+    if not tokens:
         return {"ipa": "", "arpabet": [], "oov": True}
-    entry = _cmudict().get(w)
-    if entry:
-        arpabet = _citation_entry(w, entry)
-        oov = False
-    else:
-        arpabet = [p for p in _g2p()(w) if p.strip() and p != " "]
-        oov = True
+    arpabet: list[str] = []
+    oov = False
+    for w in tokens:
+        entry = _cmudict().get(w)
+        if entry:
+            arpabet += _citation_entry(w, entry)
+        else:
+            arpabet += [p for p in _g2p()(w) if p.strip() and p != " "]
+            oov = True
     # Keeping stress: /bˈɛtɚ/ teaches that the flap lives in the unstressed syllable,
     # which is exactly the rule. The rules in phenomena.py look at `arpabet` (with its
     # stress digits), not at this string, which is for display only.

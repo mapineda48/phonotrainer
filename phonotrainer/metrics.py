@@ -38,7 +38,9 @@ logger = logging.getLogger("phonotrainer.metrics")
 #   3: the rules generation that labeled the analysis is recorded (`rules`), and
 #      a pool that mixes generations says so (`mixed_rules`); the weak-form
 #      criterion is the rules' own (ipa_maps.reduces_vowel).
-METRICS_VERSION = 3
+#   4: words without a canonical (bare symbols, numeral fragments) are counted
+#      apart (`words.no_canonical`) and add no labels and no vowels.
+METRICS_VERSION = 4
 
 # Figures from the report, each with where it comes from. `low`/`high` bound the
 # reference (high None: "above low"; low == high: a point value); `cite` is the
@@ -303,6 +305,12 @@ def _final_t_outcome(word: dict) -> str:
 FINAL_T_OUTCOMES = ("released", "flap", "glottal", "unreleased", "other")
 
 
+def has_canonical(word: dict) -> bool:
+    """Is there a canonical to measure this word against? Analyses made before
+    `no_canonical` was recorded say it with an empty canonical_aligned."""
+    return not word.get("no_canonical") and bool(word.get("canonical_aligned"))
+
+
 def compute(analysis: dict) -> dict:
     """The metrics of one analysis (the `summary.metrics` of analysis.json).
 
@@ -318,7 +326,7 @@ def compute(analysis: dict) -> dict:
     weak_min = float(thresholds.get("weak_margin", WEAK_MARGIN))
     h_min = float(thresholds.get("h_drop_margin", H_DROP_MARGIN))
 
-    total = low = analyzed = 0
+    total = low = analyzed = no_canon = 0
     deviate = seg_loss = 0
     syl_loss = syl_of = 0
     nuclei = reduced = 0
@@ -334,10 +342,15 @@ def compute(analysis: dict) -> dict:
         words = segment.get("words") or []
         for i, w in enumerate(words):
             total += 1
-            for label in w.get("phenomena") or ():
-                labels[label] = labels.get(label, 0) + 1
             if clean_word(w.get("word", "")) in FUNCTION_WORDS:
                 function += 1
+            if not has_canonical(w):
+                # "9" or "%" in an analysis made before numerals were spoken out:
+                # every phone heard there was an insertion against nothing
+                no_canon += 1
+                continue
+            for label in w.get("phenomena") or ():
+                labels[label] = labels.get(label, 0) + 1
             real_rows = w.get("realized_aligned") or []
             canon_rows = w.get("canonical_aligned") or []
             real = [p[0] for p in real_rows]
@@ -348,8 +361,6 @@ def compute(analysis: dict) -> dict:
             n, r = nucleus_counts(real)
             nuclei += n
             reduced += r
-            if not canon:
-                continue
             analyzed += 1
 
             ops = diff.align_word(_phones(real_rows), _phones(canon_rows))
@@ -395,6 +406,7 @@ def compute(analysis: dict) -> dict:
         # which rules labeled it: None for analyses made before this was recorded
         "rules": meta.get("rules_version"),
         "words": {"total": total, "analyzed": analyzed, "low_confidence": low,
+                  "no_canonical": no_canon,
                   "low_confidence_pct": ratio(low, total)["pct"]},
         "deviate": ratio(deviate, analyzed),
         "segment_loss": ratio(seg_loss, analyzed),
@@ -457,8 +469,8 @@ def aggregate(items: list[dict]) -> dict | None:
         parts = [p for p in parts if p]
         return ratio(sum(p["count"] for p in parts), sum(p["of"] for p in parts))
 
-    words = {k: sum(m["words"][k] for m in items)
-             for k in ("total", "analyzed", "low_confidence")}
+    words = {k: sum(m["words"].get(k, 0) for m in items)
+             for k in ("total", "analyzed", "low_confidence", "no_canonical")}
     words["low_confidence_pct"] = ratio(words["low_confidence"], words["total"])["pct"]
     variants = [m["weak_forms"]["variant"] for m in items if m["weak_forms"].get("variant")]
     variant = None

@@ -22,7 +22,9 @@ from .ipa_maps import (DIPHTHONGS, FIRST_ELEMENT, FLAP, GLOTTAL, LABIAL,
 #   1 (unrecorded): the espeak-era rules, before the TIMIT engine
 #   2: timit61 citation canonical, t_unreleased, nt_reduction, place_assimilation,
 #      function_elision, link types; no labels on unheard words
-RULES_VERSION = 2
+#   3: numerals get the canonical of their spoken form (9.30 → nine thirty); a word
+#      left without any canonical gets no labels at all
+RULES_VERSION = 3
 
 LINK_MAX_GAP = 0.10  # s between the end of a consonant and the next vowel, for linking
 
@@ -732,6 +734,13 @@ def detect(words: list[dict], first_in_segment: bool = True,
     _contractions(out, first_in_segment)
 
     for w in out:
+        if not w["canonical"]:
+            # nothing to measure against (a bare symbol, a numeral fragment with no
+            # words of its own): whatever the diff or a boundary rule found here is
+            # an artifact of comparing against nothing
+            w["phenomena_set"] = set()
+            w["boundary_link_next"] = False
+            w["boundary_link_type"] = None
         w["phenomena"] = sorted(w.pop("phenomena_set"))
     return out
 

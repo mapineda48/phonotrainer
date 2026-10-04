@@ -17,7 +17,7 @@ from functools import lru_cache
 
 import numpy as np
 
-from .canonical import clean_word
+from .canonical import canonical_source, lookup_tokens
 
 
 class AlignmentError(RuntimeError):
@@ -28,7 +28,7 @@ class AlignmentError(RuntimeError):
 def _word_phone_ids(tokenizer_id: int, word: str) -> tuple:
     """Canonical (espeak) phoneme ids for a word; cached by text."""
     tokenizer = _TOKENIZERS[tokenizer_id]
-    w = clean_word(word)
+    w = " ".join(lookup_tokens(word))
     if not w:
         return ()
     ids = tokenizer(w).input_ids
@@ -63,7 +63,10 @@ def align_words(engine, audio: np.ndarray, words: list[dict],
         lp = for_alignment(lp)
     frame_dur = engine.frame_duration(len(audio), lp.size(0))
 
-    per_word_ids = [engine.word_ids(w["word"]) for w in words]
+    # a numeral's canonical is that of its spoken form (numerals.py): "9.30" is
+    # aligned as "nine thirty", still as ONE transcript word
+    per_word_ids = [engine.word_ids(canonical_source(w["word"], w.get("canonical_text")))
+                    for w in words]
     targets = [tid for ids in per_word_ids for tid in ids]
 
     results = [
