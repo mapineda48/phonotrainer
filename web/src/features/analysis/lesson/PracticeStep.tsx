@@ -1,15 +1,19 @@
 /** Lesson step 5 — Practice: a shadowing loop. The clip plays at a slower speed, then a
  *  silence of the same length leaves room to say it, three times; then once at full
- *  speed. Nothing is recorded: the learner speaks, the app only paces. */
+ *  speed. The loop records nothing: it only paces.
+ *
+ *  Below it, "Record yourself" (record/RecordPanel) records the same span on request and
+ *  compares the learner's pitch with the original's. */
 
 import { Mic, Square } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { wordSpan } from "../../../lib/analysis";
 import { usePlayer } from "../../../player/PlayerProvider";
 import type { Segment, Word } from "../../../types";
 import { Button, ButtonRow, ProgressBar, Segmented } from "../../../ui";
 import { describePhase, shadowingPlan, type ShadowPhase } from "../lib/shadowing";
+import { RecordPanel, type OriginalPlayer } from "./record/RecordPanel";
 
 type What = "word" | "phrase";
 
@@ -18,12 +22,14 @@ interface Props {
   next: Word | null;
   segment: Segment;
   canPlay: boolean;
+  /** The analysis: needed to compare a recording with it. Without it, no recording. */
+  jobId?: string;
 }
 
 /** Long phrases are hard to shadow in one breath: start from the word. */
 const LONG_PHRASE_S = 6;
 
-export function PracticeStep({ word, next, segment, canPlay }: Props) {
+export function PracticeStep({ word, next, segment, canPlay, jobId }: Props) {
   const player = usePlayer();
   const playerRef = useRef(player);
   playerRef.current = player;
@@ -75,8 +81,40 @@ export function PracticeStep({ word, next, segment, canPlay }: Props) {
   const start = () => {
     clear();
     savedRate.current = player.rate;
+    setShadowStarts((n) => n + 1); // a take playing back stops
     run(shadowingPlan(span, Number(slow)), 0);
   };
+
+  /* Record yourself: the microphone must not hear the shadowing loop, and the original
+     plays at normal speed through the same player, giving the learner's speed back. */
+  const [recording, setRecording] = useState(false);
+  const [shadowStarts, setShadowStarts] = useState(0);
+  const recordRate = useRef<number | null>(null);
+  const onRecordingBusy = useCallback((busy: boolean) => {
+    setRecording(busy);
+    if (busy && timer.current !== null) stopRef.current();
+  }, []);
+  const stopRef = useRef(stop);
+  stopRef.current = stop;
+  const original = useMemo<OriginalPlayer>(
+    () => ({
+      play: (target) => {
+        const p = playerRef.current;
+        if (recordRate.current === null) recordRate.current = p.rate;
+        p.setRate(1);
+        p.play(target);
+        return Math.round((target.end - target.start) * 1000);
+      },
+      stop: () => {
+        const p = playerRef.current;
+        p.pause();
+        if (recordRate.current !== null) p.setRate(recordRate.current);
+        recordRate.current = null;
+      },
+      clock: player.clock,
+    }),
+    [player.clock],
+  );
 
   // a different word (or leaving the lesson) ends the session
   useEffect(() => () => clear(), []);
@@ -122,7 +160,7 @@ export function PracticeStep({ word, next, segment, canPlay }: Props) {
             Stop shadowing
           </Button>
         ) : (
-          <Button variant="primary" icon={Mic} isDisabled={!canPlay} onPress={start}>
+          <Button variant="primary" icon={Mic} isDisabled={!canPlay || recording} onPress={start}>
             Start shadowing
           </Button>
         )}
@@ -131,6 +169,18 @@ export function PracticeStep({ word, next, segment, canPlay }: Props) {
         {current ? describePhase(current) : ""}
       </div>
       {phase && <ProgressBar label="Shadowing progress" hideLabel value={percent} valueText={`${percent} %`} />}
+      {jobId && canPlay && (
+        <RecordPanel
+          // a different span is a different exercise: start it afresh
+          key={`${span.start}:${span.end}`}
+          jobId={jobId}
+          span={span}
+          isSingleWord={what === "word"}
+          original={original}
+          onBusyChange={onRecordingBusy}
+          stopSignal={shadowStarts}
+        />
+      )}
     </div>
   );
 }

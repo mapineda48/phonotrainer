@@ -121,13 +121,14 @@ interface ChartFrameProps {
   children: ReactNode;
   legend?: ReactNode;
   className?: string;
-  level?: 2 | 3;
+  /** Heading level of the title: 3 by default; deeper inside nested sections. */
+  level?: 2 | 3 | 4 | 5;
 }
 
 export function ChartFrame({ title, summary, table, children, legend, className, level = 3 }: ChartFrameProps) {
   const [asTable, setAsTable] = useState(false);
   const summaryId = useId();
-  const H = `h${level}` as "h2" | "h3";
+  const H = `h${level}` as "h2" | "h3" | "h4" | "h5";
   return (
     <figure className={cn("flex flex-col gap-3", className)} aria-describedby={summaryId}>
       <div className="flex flex-wrap items-start justify-between gap-2">

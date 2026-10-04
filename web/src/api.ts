@@ -10,10 +10,12 @@ import type {
   CorpusStats,
   Job,
   JobOptions,
+  NativePitchContour,
   Occurrence,
   Reference,
   Review,
   SampleItem,
+  TakeComparison,
   VerdictValue,
   WordVariant,
 } from "./types";
@@ -21,12 +23,14 @@ import type {
 export type AudioTrack = "mix" | "dialogue";
 
 /** API version this UI requires (see `server.API_VERSION`). */
-export const REQUIRED_API_VERSION = 4;
+export const REQUIRED_API_VERSION = 5;
 
 export class ApiError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    /** Machine-readable reason, when the endpoint gives one ("no_voice", "too_long"…). */
+    readonly code: string | null = null,
   ) {
     super(message);
     this.name = "ApiError";
@@ -37,13 +41,15 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, init);
   if (!res.ok) {
     let detail = `${res.status} ${res.statusText}`;
+    let code: string | null = null;
     try {
       const body = await res.json();
       if (body?.detail) detail = typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail);
+      if (typeof body?.code === "string") code = body.code;
     } catch {
       /* response with no JSON body */
     }
-    throw new ApiError(detail, res.status);
+    throw new ApiError(detail, res.status, code);
   }
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
@@ -107,6 +113,22 @@ export const api = {
     request<{ word: string; variants: WordVariant[] }>(
       `/api/corpus/variants?word=${encodeURIComponent(word)}`,
     ),
+
+  /** Record yourself: the clip's pitch over a span, measured the way a take is. */
+  contour: (id: string, span: { start: number; end: number }, signal?: AbortSignal) =>
+    request<NativePitchContour>(
+      `/api/jobs/${id}/contour?start=${span.start.toFixed(3)}&end=${span.end.toFixed(3)}`,
+      { signal },
+    ),
+  /** Record yourself: a take compared with the span it shadows. Measured on the local
+   *  server and deleted there; nothing is stored. */
+  compareTake: (id: string, take: Blob, span: { start: number; end: number }, signal?: AbortSignal) => {
+    const form = new FormData();
+    form.append("file", take, "take");
+    form.append("start", span.start.toFixed(3));
+    form.append("end", span.end.toFixed(3));
+    return request<TakeComparison>(`/api/jobs/${id}/compare`, { method: "POST", body: form, signal });
+  },
 
   /** "mix" = the original audio; "dialogue" = the separated speech the
    *  analysis actually read (only when the job has it). */

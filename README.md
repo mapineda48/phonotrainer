@@ -147,6 +147,14 @@ five steps. The URL follows the word, so a lesson can be linked to
 4. **See the mouth:** the articulator below.
 5. **Practice:** a shadowing loop. The clip plays slowed down, then leaves a silence of the
    same length for you to repeat it; three slow rounds, then one at full speed.
+   - **Record yourself** (R) records the same word or phrase from the microphone. The local
+     server measures your take exactly as it measured the clip, then deletes it; nothing is
+     saved. You can play the original and yours one after the other (A / B, or Alternate),
+     and see the two pitch contours overlaid: semitones from each voice's own middle, your
+     take stretched evenly to the original's length.
+   - The feedback is a description, not a grade: how each one ends (rise, fall or level),
+     where the pitch peaks, the pitch range, the length and any pauses. It needs a secure
+     page, which `http://127.0.0.1` and `http://localhost` are.
 
 Settings → Lessons → **Compact** shows only the step titles until you open one.
 
@@ -395,7 +403,13 @@ index — it can be deleted and rebuilt by re-analyzing or re-importing.
     notes and the report's reference figures, so the UI keeps no copy of any of
     them.
   - `/api/corpus/metrics` returns the corpus figures by engine.
-  - `API_VERSION` is 4.
+  - `GET /api/jobs/{id}/contour` and `POST /api/jobs/{id}/compare` measure a span of
+    the clip and a learner's recording of it (`phonotrainer/learner_audio.py`).
+    - Both go through the same `prosody.ProsodyExtractor`, and the two contours are
+      compared in plain words, with no score.
+    - The upload is checked for size, type and length, decoded by ffmpeg in a private
+      temporary directory, and deleted before the answer is sent.
+  - `API_VERSION` is 5.
 - **`phonotrainer/download.py`**: yt-dlp with a seam (`ydl_factory`) so that the
   tests never reach the network; progress is published like the pipeline's.
 - **`phonotrainer/db.py`**: the corpus. Three tables (analyses, words,
