@@ -48,6 +48,8 @@ interface Props {
   narrow: boolean;
   steps: StepState;
   onStepsChange: (id: StepId, open: boolean) => void;
+  /** The analysis, for recording yourself against it (step 5). */
+  jobId?: string;
 }
 
 export function WordLesson({
@@ -62,6 +64,7 @@ export function WordLesson({
   narrow,
   steps,
   onStepsChange,
+  jobId,
 }: Props) {
   const [picked, setPicked] = useState<PickedPhone | null>(null);
   const [held, setHeld] = useState<number | null>(null);
@@ -154,7 +157,11 @@ export function WordLesson({
           onHold={setHeld}
         />,
       )}
-      {step("practice", 5, <PracticeStep word={word} next={next} segment={segment} canPlay={canPlay} />)}
+      {step(
+        "practice",
+        5,
+        <PracticeStep word={word} next={next} segment={segment} canPlay={canPlay} jobId={jobId} />,
+      )}
     </article>
   );
 }

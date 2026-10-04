@@ -3,12 +3,13 @@ import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { Segmented, Tab, TabList, TabPanel, Tabs } from "../ui";
+import { Segmented, Switch, Tab, TabList, TabPanel, Tabs } from "../ui";
 import { useHotkeys, type HotkeyMap } from "./useHotkeys";
 
 function Harness({ map, enabled = true }: { map: HotkeyMap; enabled?: boolean }) {
   useHotkeys(map, enabled);
   const [speed, setSpeed] = useState("1");
+  const [first, setFirst] = useState(false);
   return (
     <div>
       <Segmented
@@ -29,7 +30,14 @@ function Harness({ map, enabled = true }: { map: HotkeyMap; enabled?: boolean })
         <TabPanel id="lesson">lesson</TabPanel>
         <TabPanel id="summary">summary</TabPanel>
       </Tabs>
+      <Switch isSelected={first} onChange={setFirst}>
+        Play the original first
+      </Switch>
       <input aria-label="Search" />
+      <input aria-label="Seed" type="number" />
+      <textarea aria-label="Note" />
+      <div aria-label="Editor" role="textbox" contentEditable suppressContentEditableWarning />
+      <input aria-label="Remember" type="checkbox" />
       <button type="button">Play</button>
       <div data-testid="handled" onKeyDown={(event) => event.preventDefault()} tabIndex={-1} />
     </div>
@@ -89,6 +97,45 @@ describe("useHotkeys", () => {
     await userEvent.keyboard("{ArrowRight}");
     expect(screen.getByRole("tab", { name: "Summary" })).toHaveAttribute("aria-selected", "true");
     expect(seek).not.toHaveBeenCalled();
+  });
+
+  // The bug: a switch (React Aria renders a checkbox <input>) counted as a text field,
+  // so after toggling "Play the original first" R / A / B stayed dead until focus moved.
+  it("keeps working on a focused switch or checkbox: only text entry swallows keys", async () => {
+    const record = vi.fn();
+    render(<Harness map={{ r: record }} />);
+    await userEvent.click(screen.getByRole("switch", { name: "Play the original first" }));
+    expect(screen.getByRole("switch", { name: "Play the original first" })).toHaveFocus();
+    await userEvent.keyboard("r");
+    expect(record).toHaveBeenCalledTimes(1);
+
+    await userEvent.click(screen.getByRole("checkbox", { name: "Remember" }));
+    await userEvent.keyboard("r");
+    expect(record).toHaveBeenCalledTimes(2);
+
+    await userEvent.click(screen.getByRole("radio", { name: "0.5×" }));
+    await userEvent.keyboard("r");
+    expect(record).toHaveBeenCalledTimes(3);
+  });
+
+  it("Space still toggles a focused switch, and does not also fire the shortcut", async () => {
+    const toggle = vi.fn();
+    render(<Harness map={{ " ": toggle }} />);
+    const sw = screen.getByRole("switch", { name: "Play the original first" });
+    await userEvent.click(sw);
+    expect(sw).toBeChecked();
+    await userEvent.keyboard(" ");
+    expect(sw).not.toBeChecked();
+    expect(toggle).not.toHaveBeenCalled();
+  });
+
+  it("text entry still swallows every key: text and number inputs, textarea, contenteditable", () => {
+    const record = vi.fn();
+    render(<Harness map={{ r: record, "1": record }} />);
+    for (const name of ["Search", "Note"]) fireEvent.keyDown(screen.getByRole("textbox", { name }), { key: "r" });
+    fireEvent.keyDown(screen.getByRole("spinbutton", { name: "Seed" }), { key: "1" });
+    fireEvent.keyDown(screen.getByRole("textbox", { name: "Editor" }), { key: "r" });
+    expect(record).not.toHaveBeenCalled();
   });
 
   it("does nothing while disabled", () => {

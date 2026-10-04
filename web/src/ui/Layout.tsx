@@ -291,7 +291,7 @@ interface DisclosureProps {
   tourId?: string;
   /** Heading level of the title: 3 by default (inside a section); 2 when the disclosure
    *  sits directly under the page's h1, so no level is skipped. */
-  level?: 2 | 3 | 4;
+  level?: 2 | 3 | 4 | 5;
 }
 
 export function Disclosure({

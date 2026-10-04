@@ -361,6 +361,93 @@ export interface Reference {
     defaults: JobOptions;
   };
   review: { default_n: number; default_seed: number; max_n: number };
+  /** Record yourself: what the server accepts (absent on servers before API 5). */
+  recording?: RecordingLimits;
+}
+
+export interface RecordingLimits {
+  /** The interface stops recording here. */
+  max_seconds: number;
+  min_seconds: number;
+  max_bytes: number;
+  max_span_seconds: number;
+  accepted_types: string[];
+}
+
+/* ---- Record yourself (POST /api/jobs/{id}/compare, GET /api/jobs/{id}/contour) ---- */
+
+/** One 10 ms frame: time, F0 in Hz, semitones from the recording's own median, intensity
+ *  in dB. Pitch is null on unvoiced frames (nothing is interpolated). */
+export type PitchFrame = [t: number, hz: number | null, st: number | null, db: number | null];
+
+export type PeakPlace = "early" | "middle" | "late";
+
+/** A recording's pitch, measured the same way for the clip and for the learner's take. */
+export interface PitchContour {
+  start: number;
+  end: number;
+  /** Without leading and trailing silence; null when nothing sounds. */
+  speech: { start: number; end: number } | null;
+  speech_s: number | null;
+  voiced_s: number;
+  median_hz: number | null;
+  f0_floor: number;
+  f0_ceiling: number;
+  /** p5–p95 of the voiced frames, in semitones; null with too little voicing. */
+  range_st: number | null;
+  /** null = too little voicing at the end to tell (not "flat"). */
+  final_contour: Contour | null;
+  final_slope_st: number | null;
+  peak: { time: number; position: number; where: PeakPlace; st: number } | null;
+  pauses: { start: number; end: number }[];
+  track: PitchFrame[];
+}
+
+export interface NativePitchContour extends PitchContour {
+  /** The audio measured: the dialogue stem when the analysis read it. */
+  audio: "dialogue" | "mix";
+  segment: number | null;
+}
+
+export interface TakePitchContour extends PitchContour {
+  /** The whole recording, silence included. */
+  duration_s: number;
+}
+
+export type ObservationKey = "ending" | "peak" | "range" | "length" | "pauses";
+
+/** A plain-language difference or likeness. Never a score. */
+export interface TakeObservation {
+  key: ObservationKey;
+  kind:
+    | "match"
+    | "mismatch"
+    | "same"
+    | "different"
+    | "similar"
+    | "narrower"
+    | "wider"
+    | "longer"
+    | "shorter"
+    | "more"
+    | "fewer"
+    | "unmeasured";
+  native: string | number | null;
+  take: string | number | null;
+  ratio?: number | null;
+  text: string;
+}
+
+export interface TakeComparison {
+  native: NativePitchContour;
+  take: TakePitchContour;
+  comparison: {
+    /** Take speech length ÷ native speech length (the uniform time stretch). */
+    time_scale: number | null;
+    /** [x, native_st, take_st]: x = seconds from the start of the native speech. */
+    overlay: [x: number, native: number | null, take: number | null][];
+    observations: TakeObservation[];
+  };
 }
 
 export interface BrowseEntry {

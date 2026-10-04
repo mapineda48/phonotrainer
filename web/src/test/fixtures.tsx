@@ -11,7 +11,7 @@ import type { PlayerApi } from "../player/PlayerProvider";
 import type { AlignedPhone, Analysis, Job, Metrics, Reference, Word } from "../types";
 
 export const reference: Reference = {
-  api_version: 4,
+  api_version: 5,
   families: [
     {
       key: "reduction",

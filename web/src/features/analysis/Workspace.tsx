@@ -377,6 +377,7 @@ function WorkspaceBody({
                   narrow={isNarrowEngine(engine)}
                   steps={steps}
                   onStepsChange={(id: StepId, open: boolean) => setSteps((all) => ({ ...all, [id]: open }))}
+                  jobId={job.id}
                 />
               ) : (
                 <EmptyState
