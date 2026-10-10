@@ -75,7 +75,10 @@ class MainActivity : ComponentActivity() {
     installSplashScreen().setKeepOnScreenCondition { !settingsRead }
     super.onCreate(savedInstanceState)
     enableEdgeToEdge()
-    if (savedInstanceState == null) takeTarget(intent)
+    if (savedInstanceState == null && takeTarget(intent)) {
+      // The launch intent carried the target: keep the intent (same identity) without it, as architecture 16.4 asks.
+      setIntent(Intent(intent).apply { removeExtra(InternalEntry.EXTRA_TARGET) })
+    }
     // Welcome on the first launch from the launcher only: never on a restore, never for an internal target.
     val mayWelcome = savedInstanceState == null && pendingTarget.value == null
     lifecycleScope.launch {
@@ -123,10 +126,13 @@ class MainActivity : ComponentActivity() {
     takeTarget(intent)
   }
 
-  /** Queues the target of an intent that came through the alias, then strips it from the activity's intent. */
-  private fun takeTarget(intent: Intent?) {
-    val target = InternalEntry.targetOf(intent) ?: return
+  /**
+   * Queues the target of an intent that came through the alias; true when there was one. A new intent never becomes
+   * the activity's intent (no `setIntent` in [onNewIntent]), so it cannot be applied again on a recreate.
+   */
+  private fun takeTarget(intent: Intent?): Boolean {
+    val target = InternalEntry.targetOf(intent) ?: return false
     pendingTarget.value = target
-    setIntent(Intent(intent).apply { removeExtra(InternalEntry.EXTRA_TARGET) })
+    return true
   }
 }

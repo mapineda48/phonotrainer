@@ -46,8 +46,10 @@ class DataStoreSettingsRepository @Inject constructor(
     }
   }
 
+  /** Writes [change] and returns once [settings] already shows it, so a caller can read its own write at once. */
   override suspend fun update(change: (UserSettings) -> UserSettings) {
-    store.edit { preferences -> preferences.write(change(preferences.toSettings())) }
+    val written = store.edit { preferences -> preferences.write(change(preferences.toSettings())) }
+    state.value = written.toSettings()
   }
 
   override suspend fun awaitLoaded() = loaded.await()

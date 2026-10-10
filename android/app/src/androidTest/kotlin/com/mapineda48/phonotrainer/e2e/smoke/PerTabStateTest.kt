@@ -1,6 +1,5 @@
 package com.mapineda48.phonotrainer.e2e.smoke
 
-import android.content.Intent
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.ExperimentalTestApi
@@ -11,8 +10,6 @@ import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performTextInput
-import androidx.lifecycle.Lifecycle
-import androidx.test.platform.app.InstrumentationRegistry
 import com.google.common.truth.Truth.assertThat
 import com.mapineda48.phonotrainer.core.domain.api.SettingsRepository
 import com.mapineda48.phonotrainer.core.navigation.LearnKey
@@ -33,7 +30,7 @@ import org.junit.Test
 /**
  * The per-tab state proof of architecture 16.2 (Android review H1, work-plan WP-02 Proof): the Library's list,
  * scrolled and searched, keeps its ViewModel instance and its state across a tab switch and a recreate, and its state
- * (with a new ViewModel) across a process-death-like restore from the saved state alone.
+ * (with a new ViewModel) across a restore from the saved state alone, as after process death.
  */
 @OptIn(ExperimentalTestApi::class)
 @HiltAndroidTest
@@ -62,7 +59,6 @@ class PerTabStateTest {
 
   @After
   fun tearDown() {
-    shell("settings put global always_finish_activities 0")
     if (robot.isLaunched()) robot.scenario.close()
   }
 
@@ -93,16 +89,15 @@ class PerTabStateTest {
   @Test
   fun aRestoreFromSavedStateAloneKeepsTheState() {
     val before = instanceId()
-    // "Don't keep activities": the activity is destroyed when it leaves the screen, its ViewModels are cleared, and
-    // coming back restores it from its saved state only, as after process death. Reset in tearDown.
-    shell("settings put global always_finish_activities 1")
-    robot.device.pressHome()
-    compose.waitUntil(PhonoRobot.TIMEOUT_MS) { robot.scenario.state == Lifecycle.State.DESTROYED }
-    val context = InstrumentationRegistry.getInstrumentation().targetContext
-    context.startActivity(
-      context.packageManager.getLaunchIntentForPackage(context.packageName)!!.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-    )
-    robot.waitForTag(LibraryTags.SEARCH)
+    robot.tab(Tab.LEARN)
+    robot.tab(Tab.HOME)
+    // Process death, as far as the app's state is concerned: every ViewModel is gone and the activity comes back from
+    // its saved state alone (back stacks, saveable state, SavedStateHandles; their Parcel round trip is
+    // PhonoNavSerializationTest's). A real kill would take this instrumentation, which runs in the app's process,
+    // with it; the black-box version belongs to the R8 smoke (:qasmoke, WP-19).
+    robot.scenario.onActivity { it.viewModelStore.clear() }
+    robot.scenario.recreate()
+    robot.assertShown(LibraryKey)
 
     assertLibraryState()
     assertThat(instanceId()).isNotEqualTo(before)
@@ -116,10 +111,6 @@ class PerTabStateTest {
   private fun instanceId(): String =
     compose.onNodeWithTag(LibraryTags.INSTANCE).fetchSemanticsNode().config
       .getOrNull(SemanticsProperties.Text)!!.joinToString { it.text }
-
-  private fun shell(command: String) {
-    InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(command).close()
-  }
 
   private companion object {
     const val QUERY = "walk"
