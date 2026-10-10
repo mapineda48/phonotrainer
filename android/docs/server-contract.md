@@ -408,7 +408,8 @@ Computed at start and cached, so `health` never imports a heavy module or waits 
 
 A request is **loopback** when its peer address (`request.client.host`, the ASGI `client`) parses as an IP address in
 `127.0.0.0/8`, `::1` or an IPv4-mapped loopback. Anything else, including a peer that is not an IP literal, is a
-**LAN** client. uvicorn runs with `proxy_headers=False` when phone access is on, so no header can change the peer.
+**LAN** client. uvicorn runs with `proxy_headers=False` in every mode (phone access off included), so no header can
+change the peer.
 
 ### 4.2 Route matrix
 
@@ -1274,8 +1275,9 @@ an over-long video, an unknown-size video that grows past the limit, and a refus
   `403 phone_access_off` (new paths only: nothing the browser client uses changes); `reference()` becomes a call to a new `build_reference()` shared with 6.8; a validation-error handler re-wraps
   errors only under `/api/phone/`; the record-yourself handlers are factored into functions the phone routes reuse
   (complete); `LoopbackHostGuard` is installed in every case (1.3); `serve(..., phone=None)` binds `0.0.0.0` when
-  phone access is on (or suspended) and no host was given, passes `proxy_headers=False` and `access_log=False`, opens
-  the browser at `127.0.0.1`, writes and removes `runtime.json`.
+  phone access is on (or suspended) and no host was given, passes `proxy_headers=False` in every mode, and
+  `access_log=False` when phone access is on (or suspended), opens the browser at `127.0.0.1`, writes and removes
+  `runtime.json`.
 - `phonotrainer/jobs.py`: `Job` gains `device_id`, `client_request_id`, `rerun_of`, `origin` (persisted in
   `job.json`, read with defaults, absent from `to_public()`) and a runtime `enqueue_seq`; the worker passes
   `phone_origin=True` to `download_fn` for phone-origin link jobs (9); `JobStore` gains `find_by_request(device_id, key)`,
