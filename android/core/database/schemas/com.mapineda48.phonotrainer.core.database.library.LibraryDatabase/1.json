@@ -1,0 +1,1112 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 1,
+    "identityHash": "d576e9b700152f890728ccf1fe8d812c",
+    "entities": [
+      {
+        "tableName": "clip",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`job_id` TEXT NOT NULL, `server_id` TEXT NOT NULL, `library_id` TEXT NOT NULL, `origin` TEXT NOT NULL, `revision` TEXT NOT NULL, `status` TEXT NOT NULL, `stage` TEXT, `percent` INTEGER, `queue_position` INTEGER, `title` TEXT NOT NULL, `source_kind` TEXT, `source_url` TEXT, `site` TEXT, `submitted_by_device` TEXT, `created_at` INTEGER, `started_at` INTEGER, `finished_at` INTEGER, `error_code` TEXT, `error_message` TEXT, `duration_ms` INTEGER, `segment_count` INTEGER, `word_count` INTEGER, `change_counts_json` TEXT, `rules_version` INTEGER, `phone_engine` TEXT, `has_dialogue` INTEGER, `audio_only_job` INTEGER, `media_kind` TEXT, `video_codec` TEXT, `video_width` INTEGER, `video_height` INTEGER, `video_rotation` INTEGER, `video_offset_ms` INTEGER, `missing_listings` INTEGER NOT NULL DEFAULT 0, `deleted_on_computer` INTEGER NOT NULL DEFAULT 0, `wanted` INTEGER, `removed_by_learner` INTEGER, `kept` INTEGER, `hidden` INTEGER, `video_wanted` INTEGER, `indexed_revision` TEXT, `index_rule_version` INTEGER, `first_seen_at` INTEGER, `on_phone_at` INTEGER, PRIMARY KEY(`job_id`))",
+        "fields": [
+          {
+            "fieldPath": "jobId",
+            "columnName": "job_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "serverId",
+            "columnName": "server_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "libraryId",
+            "columnName": "library_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "origin",
+            "columnName": "origin",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "revision",
+            "columnName": "revision",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "stage",
+            "columnName": "stage",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "percent",
+            "columnName": "percent",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "queuePosition",
+            "columnName": "queue_position",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sourceKind",
+            "columnName": "source_kind",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "sourceUrl",
+            "columnName": "source_url",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "site",
+            "columnName": "site",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "submittedByDevice",
+            "columnName": "submitted_by_device",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "startedAt",
+            "columnName": "started_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "finishedAt",
+            "columnName": "finished_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "errorCode",
+            "columnName": "error_code",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "errorMessage",
+            "columnName": "error_message",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "durationMs",
+            "columnName": "duration_ms",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "segmentCount",
+            "columnName": "segment_count",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "wordCount",
+            "columnName": "word_count",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "changeCountsJson",
+            "columnName": "change_counts_json",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "rulesVersion",
+            "columnName": "rules_version",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "phoneEngine",
+            "columnName": "phone_engine",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "hasDialogue",
+            "columnName": "has_dialogue",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "audioOnlyJob",
+            "columnName": "audio_only_job",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "mediaKind",
+            "columnName": "media_kind",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "videoCodec",
+            "columnName": "video_codec",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "videoWidth",
+            "columnName": "video_width",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "videoHeight",
+            "columnName": "video_height",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "videoRotation",
+            "columnName": "video_rotation",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "videoOffsetMs",
+            "columnName": "video_offset_ms",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "missingListings",
+            "columnName": "missing_listings",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
+            "fieldPath": "deletedOnComputer",
+            "columnName": "deleted_on_computer",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
+            "fieldPath": "wanted",
+            "columnName": "wanted",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "removedByLearner",
+            "columnName": "removed_by_learner",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "kept",
+            "columnName": "kept",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "hidden",
+            "columnName": "hidden",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "videoWanted",
+            "columnName": "video_wanted",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "indexedRevision",
+            "columnName": "indexed_revision",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "indexRuleVersion",
+            "columnName": "index_rule_version",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "firstSeenAt",
+            "columnName": "first_seen_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "onPhoneAt",
+            "columnName": "on_phone_at",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "job_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_clip_server_id_library_id",
+            "unique": false,
+            "columnNames": [
+              "server_id",
+              "library_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_clip_server_id_library_id` ON `${TABLE_NAME}` (`server_id`, `library_id`)"
+          },
+          {
+            "name": "index_clip_status",
+            "unique": false,
+            "columnNames": [
+              "status"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_clip_status` ON `${TABLE_NAME}` (`status`)"
+          },
+          {
+            "name": "index_clip_created_at_job_id",
+            "unique": false,
+            "columnNames": [
+              "created_at",
+              "job_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_clip_created_at_job_id` ON `${TABLE_NAME}` (`created_at`, `job_id`)"
+          },
+          {
+            "name": "index_clip_origin",
+            "unique": false,
+            "columnNames": [
+              "origin"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_clip_origin` ON `${TABLE_NAME}` (`origin`)"
+          }
+        ]
+      },
+      {
+        "tableName": "artifact",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`job_id` TEXT NOT NULL, `name` TEXT NOT NULL, `role` TEXT, `remote_status` TEXT, `remote_bytes` INTEGER, `remote_sha256` TEXT, `remote_type` TEXT, `remote_url` TEXT, `local_state` TEXT, `local_file` TEXT, `local_sha256` TEXT, `local_bytes` INTEGER, `part_bytes` INTEGER, `part_revision` TEXT, `etag` TEXT, `verify_failures` INTEGER, `pause_reason` TEXT, `last_error` TEXT, `updated_at` INTEGER, PRIMARY KEY(`job_id`, `name`), FOREIGN KEY(`job_id`) REFERENCES `clip`(`job_id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "jobId",
+            "columnName": "job_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "role",
+            "columnName": "role",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "remoteStatus",
+            "columnName": "remote_status",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "remoteBytes",
+            "columnName": "remote_bytes",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "remoteSha256",
+            "columnName": "remote_sha256",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "remoteType",
+            "columnName": "remote_type",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "remoteUrl",
+            "columnName": "remote_url",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "localState",
+            "columnName": "local_state",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "localFile",
+            "columnName": "local_file",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "localSha256",
+            "columnName": "local_sha256",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "localBytes",
+            "columnName": "local_bytes",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "partBytes",
+            "columnName": "part_bytes",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "partRevision",
+            "columnName": "part_revision",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "etag",
+            "columnName": "etag",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "verifyFailures",
+            "columnName": "verify_failures",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "pauseReason",
+            "columnName": "pause_reason",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "lastError",
+            "columnName": "last_error",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "job_id",
+            "name"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_artifact_local_state",
+            "unique": false,
+            "columnNames": [
+              "local_state"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_artifact_local_state` ON `${TABLE_NAME}` (`local_state`)"
+          },
+          {
+            "name": "index_artifact_role_local_state",
+            "unique": false,
+            "columnNames": [
+              "role",
+              "local_state"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_artifact_role_local_state` ON `${TABLE_NAME}` (`role`, `local_state`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "clip",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "job_id"
+            ],
+            "referencedColumns": [
+              "job_id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "short",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`job_id` TEXT NOT NULL, `first_segment` INTEGER NOT NULL, `rule_version` INTEGER NOT NULL, `ordinal` INTEGER NOT NULL, `last_segment` INTEGER NOT NULL, `start_ms` INTEGER NOT NULL, `end_ms` INTEGER NOT NULL, `play_start_ms` INTEGER NOT NULL, `play_end_ms` INTEGER NOT NULL, `default_spot_segment` INTEGER, `default_spot_word` INTEGER, `default_spot_change` TEXT, `default_spot_advice` TEXT, `default_spot_crosses` INTEGER, `marked_words` INTEGER NOT NULL, PRIMARY KEY(`job_id`, `first_segment`), FOREIGN KEY(`job_id`) REFERENCES `clip`(`job_id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "jobId",
+            "columnName": "job_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "firstSegment",
+            "columnName": "first_segment",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ruleVersion",
+            "columnName": "rule_version",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ordinal",
+            "columnName": "ordinal",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastSegment",
+            "columnName": "last_segment",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startMs",
+            "columnName": "start_ms",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "endMs",
+            "columnName": "end_ms",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "playStartMs",
+            "columnName": "play_start_ms",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "playEndMs",
+            "columnName": "play_end_ms",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "defaultSpotSegment",
+            "columnName": "default_spot_segment",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "defaultSpotWord",
+            "columnName": "default_spot_word",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "defaultSpotChange",
+            "columnName": "default_spot_change",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "defaultSpotAdvice",
+            "columnName": "default_spot_advice",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "defaultSpotCrosses",
+            "columnName": "default_spot_crosses",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "markedWords",
+            "columnName": "marked_words",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "job_id",
+            "first_segment"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_short_job_id_ordinal",
+            "unique": false,
+            "columnNames": [
+              "job_id",
+              "ordinal"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_short_job_id_ordinal` ON `${TABLE_NAME}` (`job_id`, `ordinal`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "clip",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "job_id"
+            ],
+            "referencedColumns": [
+              "job_id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "occurrence",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`job_id` TEXT NOT NULL, `segment` INTEGER NOT NULL, `word` INTEGER NOT NULL, `change` TEXT NOT NULL, `short_first_segment` INTEGER NOT NULL, `word_text` TEXT NOT NULL, `word_key` TEXT NOT NULL, `dict_ipa` TEXT, `realized_ipa` TEXT, `start_ms` INTEGER NOT NULL, `end_ms` INTEGER NOT NULL, `diff_cost` REAL NOT NULL, `low_confidence` INTEGER NOT NULL, `eligible` INTEGER NOT NULL, `crosses_boundary` INTEGER NOT NULL, `next_word_text` TEXT, `advice` TEXT NOT NULL, `family` TEXT NOT NULL, PRIMARY KEY(`job_id`, `segment`, `word`, `change`), FOREIGN KEY(`job_id`) REFERENCES `clip`(`job_id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "jobId",
+            "columnName": "job_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "segment",
+            "columnName": "segment",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "word",
+            "columnName": "word",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "change",
+            "columnName": "change",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "shortFirstSegment",
+            "columnName": "short_first_segment",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "wordText",
+            "columnName": "word_text",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "wordKey",
+            "columnName": "word_key",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dictIpa",
+            "columnName": "dict_ipa",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "realizedIpa",
+            "columnName": "realized_ipa",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "startMs",
+            "columnName": "start_ms",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "endMs",
+            "columnName": "end_ms",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "diffCost",
+            "columnName": "diff_cost",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lowConfidence",
+            "columnName": "low_confidence",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "eligible",
+            "columnName": "eligible",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "crossesBoundary",
+            "columnName": "crosses_boundary",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "nextWordText",
+            "columnName": "next_word_text",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "advice",
+            "columnName": "advice",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "family",
+            "columnName": "family",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "job_id",
+            "segment",
+            "word",
+            "change"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_occurrence_change_eligible_diff_cost",
+            "unique": false,
+            "columnNames": [
+              "change",
+              "eligible",
+              "diff_cost"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_occurrence_change_eligible_diff_cost` ON `${TABLE_NAME}` (`change`, `eligible`, `diff_cost`)"
+          },
+          {
+            "name": "index_occurrence_job_id_short_first_segment",
+            "unique": false,
+            "columnNames": [
+              "job_id",
+              "short_first_segment"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_occurrence_job_id_short_first_segment` ON `${TABLE_NAME}` (`job_id`, `short_first_segment`)"
+          },
+          {
+            "name": "index_occurrence_word_key",
+            "unique": false,
+            "columnNames": [
+              "word_key"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_occurrence_word_key` ON `${TABLE_NAME}` (`word_key`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "clip",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "job_id"
+            ],
+            "referencedColumns": [
+              "job_id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "request",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `seq` INTEGER NOT NULL, `kind` TEXT, `state` TEXT, `state_reason` TEXT, `held` INTEGER, `created_at` INTEGER, `updated_at` INTEGER, `link_shared` TEXT, `link_sent` TEXT, `link_key` TEXT, `site` TEXT, `title_hint` TEXT, `file_name` TEXT, `file_mime` TEXT, `file_bytes` INTEGER, `file_duration_ms` INTEGER, `file_sha256` TEXT, `copy_file` TEXT, `copy_bytes` INTEGER, `copy_complete` INTEGER, `source_uri` TEXT, `source_persisted` INTEGER, `audio_extracted` INTEGER, `whole_file_fallback` INTEGER, `audio_only` INTEGER, `separate_dialogue` INTEGER, `target_server_id` TEXT, `attempts` INTEGER, `next_attempt_at` INTEGER, `last_error_code` TEXT, `last_error_message` TEXT, `needed_bytes` INTEGER, `job_id` TEXT, `accepted_at` INTEGER, `rerun_count` INTEGER, `auto_rerun_used` INTEGER, `upload_offset` INTEGER, `sent_at` INTEGER, `in_line_at` INTEGER, `analyzing_at` INTEGER, `ready_at` INTEGER, `on_phone_at` INTEGER, `notified_ready` INTEGER, `notified_attention` INTEGER, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "seq",
+            "columnName": "seq",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "kind",
+            "columnName": "kind",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "state",
+            "columnName": "state",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "stateReason",
+            "columnName": "state_reason",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "held",
+            "columnName": "held",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "linkShared",
+            "columnName": "link_shared",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "linkSent",
+            "columnName": "link_sent",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "linkKey",
+            "columnName": "link_key",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "site",
+            "columnName": "site",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "titleHint",
+            "columnName": "title_hint",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "fileName",
+            "columnName": "file_name",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "fileMime",
+            "columnName": "file_mime",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "fileBytes",
+            "columnName": "file_bytes",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "fileDurationMs",
+            "columnName": "file_duration_ms",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "fileSha256",
+            "columnName": "file_sha256",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "copyFile",
+            "columnName": "copy_file",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "copyBytes",
+            "columnName": "copy_bytes",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "copyComplete",
+            "columnName": "copy_complete",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "sourceUri",
+            "columnName": "source_uri",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "sourcePersisted",
+            "columnName": "source_persisted",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "audioExtracted",
+            "columnName": "audio_extracted",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "wholeFileFallback",
+            "columnName": "whole_file_fallback",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "audioOnly",
+            "columnName": "audio_only",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "separateDialogue",
+            "columnName": "separate_dialogue",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "targetServerId",
+            "columnName": "target_server_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "attempts",
+            "columnName": "attempts",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "nextAttemptAt",
+            "columnName": "next_attempt_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "lastErrorCode",
+            "columnName": "last_error_code",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "lastErrorMessage",
+            "columnName": "last_error_message",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "neededBytes",
+            "columnName": "needed_bytes",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "jobId",
+            "columnName": "job_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "acceptedAt",
+            "columnName": "accepted_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "rerunCount",
+            "columnName": "rerun_count",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "autoRerunUsed",
+            "columnName": "auto_rerun_used",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "uploadOffset",
+            "columnName": "upload_offset",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "sentAt",
+            "columnName": "sent_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "inLineAt",
+            "columnName": "in_line_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "analyzingAt",
+            "columnName": "analyzing_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "readyAt",
+            "columnName": "ready_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "onPhoneAt",
+            "columnName": "on_phone_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "notifiedReady",
+            "columnName": "notified_ready",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "notifiedAttention",
+            "columnName": "notified_attention",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_request_state",
+            "unique": false,
+            "columnNames": [
+              "state"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_request_state` ON `${TABLE_NAME}` (`state`)"
+          },
+          {
+            "name": "index_request_job_id",
+            "unique": true,
+            "columnNames": [
+              "job_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_request_job_id` ON `${TABLE_NAME}` (`job_id`)"
+          },
+          {
+            "name": "index_request_link_key",
+            "unique": false,
+            "columnNames": [
+              "link_key"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_request_link_key` ON `${TABLE_NAME}` (`link_key`)"
+          },
+          {
+            "name": "index_request_file_sha256",
+            "unique": false,
+            "columnNames": [
+              "file_sha256"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_request_file_sha256` ON `${TABLE_NAME}` (`file_sha256`)"
+          },
+          {
+            "name": "index_request_seq",
+            "unique": true,
+            "columnNames": [
+              "seq"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_request_seq` ON `${TABLE_NAME}` (`seq`)"
+          }
+        ]
+      },
+      {
+        "tableName": "request_op",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `kind` TEXT, `request_id` TEXT, `job_id` TEXT, `audio_only` INTEGER, `created_at` INTEGER, `attempts` INTEGER, `next_attempt_at` INTEGER, `state` TEXT, `last_error_code` TEXT, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "kind",
+            "columnName": "kind",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "requestId",
+            "columnName": "request_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "jobId",
+            "columnName": "job_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "audioOnly",
+            "columnName": "audio_only",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "attempts",
+            "columnName": "attempts",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "nextAttemptAt",
+            "columnName": "next_attempt_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "state",
+            "columnName": "state",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "lastErrorCode",
+            "columnName": "last_error_code",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_request_op_state_created_at",
+            "unique": false,
+            "columnNames": [
+              "state",
+              "created_at"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_request_op_state_created_at` ON `${TABLE_NAME}` (`state`, `created_at`)"
+          }
+        ]
+      },
+      {
+        "tableName": "sync_meta",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`key` TEXT NOT NULL, `value` TEXT, PRIMARY KEY(`key`))",
+        "fields": [
+          {
+            "fieldPath": "key",
+            "columnName": "key",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "value",
+            "columnName": "value",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "key"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'd576e9b700152f890728ccf1fe8d812c')"
+    ]
+  }
+}

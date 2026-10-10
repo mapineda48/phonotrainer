@@ -1,0 +1,476 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 1,
+    "identityHash": "01ae67ce5bcf008f53412af7b2deb8a2",
+    "entities": [
+      {
+        "tableName": "short_seen",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`job_id` TEXT NOT NULL, `first_segment` INTEGER NOT NULL, `first_seen_at` INTEGER, `last_seen_at` INTEGER, `seen_count` INTEGER, PRIMARY KEY(`job_id`, `first_segment`))",
+        "fields": [
+          {
+            "fieldPath": "jobId",
+            "columnName": "job_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "firstSegment",
+            "columnName": "first_segment",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "firstSeenAt",
+            "columnName": "first_seen_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "lastSeenAt",
+            "columnName": "last_seen_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "seenCount",
+            "columnName": "seen_count",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "job_id",
+            "first_segment"
+          ]
+        }
+      },
+      {
+        "tableName": "clip_progress",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`job_id` TEXT NOT NULL, `resume_first_segment` INTEGER, `resume_position_ms` INTEGER, `last_opened_at` INTEGER, `last_watched_at` INTEGER, `excluded_from_mix` INTEGER, PRIMARY KEY(`job_id`))",
+        "fields": [
+          {
+            "fieldPath": "jobId",
+            "columnName": "job_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "resumeFirstSegment",
+            "columnName": "resume_first_segment",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "resumePositionMs",
+            "columnName": "resume_position_ms",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "lastOpenedAt",
+            "columnName": "last_opened_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "lastWatchedAt",
+            "columnName": "last_watched_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "excludedFromMix",
+            "columnName": "excluded_from_mix",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "job_id"
+          ]
+        }
+      },
+      {
+        "tableName": "feed_position",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`slot` TEXT NOT NULL, `mode_json` TEXT, `job_id` TEXT, `first_segment` INTEGER, `position_ms` INTEGER, `updated_at` INTEGER, PRIMARY KEY(`slot`))",
+        "fields": [
+          {
+            "fieldPath": "slot",
+            "columnName": "slot",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "modeJson",
+            "columnName": "mode_json",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "jobId",
+            "columnName": "job_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "firstSegment",
+            "columnName": "first_segment",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "positionMs",
+            "columnName": "position_ms",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "slot"
+          ]
+        }
+      },
+      {
+        "tableName": "saved_item",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `kind` TEXT, `job_id` TEXT, `segment` INTEGER, `word` INTEGER, `short_first_segment` INTEGER, `change` TEXT, `saved_at` INTEGER, `last_watched_at` INTEGER)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "kind",
+            "columnName": "kind",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "jobId",
+            "columnName": "job_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "segment",
+            "columnName": "segment",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "word",
+            "columnName": "word",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "shortFirstSegment",
+            "columnName": "short_first_segment",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "change",
+            "columnName": "change",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "savedAt",
+            "columnName": "saved_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "lastWatchedAt",
+            "columnName": "last_watched_at",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_saved_item_kind_job_id_segment_word",
+            "unique": true,
+            "columnNames": [
+              "kind",
+              "job_id",
+              "segment",
+              "word"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_saved_item_kind_job_id_segment_word` ON `${TABLE_NAME}` (`kind`, `job_id`, `segment`, `word`)"
+          }
+        ]
+      },
+      {
+        "tableName": "practice_stat",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`change` TEXT NOT NULL, `seen` INTEGER, `correct` INTEGER, PRIMARY KEY(`change`))",
+        "fields": [
+          {
+            "fieldPath": "change",
+            "columnName": "change",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "seen",
+            "columnName": "seen",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "correct",
+            "columnName": "correct",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "change"
+          ]
+        }
+      },
+      {
+        "tableName": "change_met",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`change` TEXT NOT NULL, `first_met_at` INTEGER, PRIMARY KEY(`change`))",
+        "fields": [
+          {
+            "fieldPath": "change",
+            "columnName": "change",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "firstMetAt",
+            "columnName": "first_met_at",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "change"
+          ]
+        }
+      },
+      {
+        "tableName": "study_set",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `kind` TEXT, `local_date` TEXT, `seed` INTEGER, `rule_version` INTEGER, `created_at` INTEGER, `cursor` INTEGER, `completed_at` INTEGER, `answered` INTEGER, `right` INTEGER)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "kind",
+            "columnName": "kind",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "localDate",
+            "columnName": "local_date",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "seed",
+            "columnName": "seed",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "ruleVersion",
+            "columnName": "rule_version",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "cursor",
+            "columnName": "cursor",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "completedAt",
+            "columnName": "completed_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "answered",
+            "columnName": "answered",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "right",
+            "columnName": "right",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "study_set_item",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`set_id` INTEGER NOT NULL, `position` INTEGER NOT NULL, `kind` TEXT, `job_id` TEXT, `first_segment` INTEGER, `spot_segment` INTEGER, `spot_word` INTEGER, `spot_change` TEXT, `saved_tag` INTEGER, `question_json` TEXT, `choice` TEXT, `correct` INTEGER, `dropped` INTEGER, PRIMARY KEY(`set_id`, `position`), FOREIGN KEY(`set_id`) REFERENCES `study_set`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "setId",
+            "columnName": "set_id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "position",
+            "columnName": "position",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "kind",
+            "columnName": "kind",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "jobId",
+            "columnName": "job_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "firstSegment",
+            "columnName": "first_segment",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "spotSegment",
+            "columnName": "spot_segment",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "spotWord",
+            "columnName": "spot_word",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "spotChange",
+            "columnName": "spot_change",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "savedTag",
+            "columnName": "saved_tag",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "questionJson",
+            "columnName": "question_json",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "choice",
+            "columnName": "choice",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "correct",
+            "columnName": "correct",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "dropped",
+            "columnName": "dropped",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "set_id",
+            "position"
+          ]
+        },
+        "foreignKeys": [
+          {
+            "table": "study_set",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "set_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "practice_session",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `focus` TEXT, `weak_spots` INTEGER, `seed` INTEGER, `questions_json` TEXT, `index` INTEGER, `answers_json` TEXT, `created_at` INTEGER, `finished_at` INTEGER)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "focus",
+            "columnName": "focus",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "weakSpots",
+            "columnName": "weak_spots",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "seed",
+            "columnName": "seed",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "questionsJson",
+            "columnName": "questions_json",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "index",
+            "columnName": "index",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "answersJson",
+            "columnName": "answers_json",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "finishedAt",
+            "columnName": "finished_at",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '01ae67ce5bcf008f53412af7b2deb8a2')"
+    ]
+  }
+}
