@@ -29,9 +29,10 @@ DOCUMENTATION_V4 = tuple(
 )
 LOOPBACK_V4 = ipaddress.ip_network("127.0.0.0/8")
 # The wildcard, the limited broadcast and the emulator's fixed addresses: 10.0.2.2 is its alias of the host's loopback
-# (architecture 21.6), 10.0.2.3 its DNS forwarder and 10.0.2.15 the guest itself; they are the same on every machine.
+# (architecture 21.6), 10.0.2.3 its DNS forwarder, 10.0.2.15 the guest on the cellular network and 10.0.2.16 the
+# guest on Wi-Fi; they are the same on every machine.
 ALLOWED_V4 = frozenset(
-    ipaddress.ip_address(a) for a in ("0.0.0.0", "255.255.255.255", "10.0.2.2", "10.0.2.3", "10.0.2.15")
+    ipaddress.ip_address(a) for a in ("0.0.0.0", "255.255.255.255", "10.0.2.2", "10.0.2.3", "10.0.2.15", "10.0.2.16")
 )
 
 # Well-known special-purpose blocks (RFC 6890 and friends). Their network address, written alone or with its own
@@ -47,7 +48,8 @@ SPECIAL_BLOCKS = tuple(
     )
 )
 DOCUMENTATION_V6 = ipaddress.ip_network("2001:db8::/32")
-ALLOWED_V6 = frozenset(ipaddress.ip_address(a) for a in ("::", "::1"))
+# The emulator's fixed IPv6 addresses, the same on every machine: fec0::2 its alias of the host, fec0::3 its DNS.
+ALLOWED_V6 = frozenset(ipaddress.ip_address(a) for a in ("::", "::1", "fec0::2", "fec0::3"))
 
 # Digits are ASCII on purpose: `\d` also matches other scripts' digits, which `ipaddress` rejects and no address or
 # pairing code is written with.
@@ -74,14 +76,17 @@ def _names_special_block(address, prefix: int | None) -> bool:
 
 
 def ipv4_allowed(address: ipaddress.IPv4Address, prefix: int | None = None) -> bool:
-    """True for addresses that identify nobody: documentation, loopback, wildcard, broadcast, 10.0.2.2, masks, ranges."""
+    """True for addresses that identify nobody: documentation, loopback, wildcard, broadcast, the emulator's fixed
+    addresses, multicast groups, masks, ranges."""
     if address in ALLOWED_V4 or address in LOOPBACK_V4 or any(address in n for n in DOCUMENTATION_V4):
+        return True
+    if address.is_multicast:  # a group address (mDNS, SSDP…) names a protocol, never a host or a person
         return True
     return _is_netmask(address) or _names_special_block(address, prefix)
 
 
 def ipv6_allowed(address: ipaddress.IPv6Address, prefix: int | None = None) -> bool:
-    if address in ALLOWED_V6 or address in DOCUMENTATION_V6:
+    if address in ALLOWED_V6 or address in DOCUMENTATION_V6 or address.is_multicast:
         return True
     return _names_special_block(address, prefix)
 
