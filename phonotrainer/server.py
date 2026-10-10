@@ -70,7 +70,9 @@ MAX_SAMPLE = 500   # cap on words per review sample
 #   5: record yourself: /api/jobs/{id}/contour, /api/jobs/{id}/compare and the
 #      recording limits in /api/reference
 #   6: the Android client's API under /api/phone/ (phone access, pairing, signed
-#      requests, the library listing, artifacts); nothing the browser uses changed
+#      requests, the library listing, artifacts, links, uploads, cancel, delete,
+#      re-run, the phone channel, discovery) and the downloader hardening;
+#      nothing the browser uses changed
 API_VERSION = 6
 
 # Room for the multipart envelope and the two span fields around the recording.

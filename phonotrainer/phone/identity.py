@@ -361,8 +361,9 @@ class Capabilities:
         self._free: tuple[float, int] | None = None
         self._lock = threading.Lock()
 
-    def free_bytes(self) -> int:
-        """Free space of the workspace's filesystem minus open upload reservations."""
+    def disk_free_bytes(self) -> int:
+        """Free space of the workspace's filesystem (cached for a few seconds),
+        not counting the open upload reservations."""
         now = self.clock()
         with self._lock:
             if self._free is None or now - self._free[0] >= FREE_BYTES_CACHE_S:
@@ -371,8 +372,11 @@ class Capabilities:
                 except OSError:
                     free = 0
                 self._free = (now, free)
-            free = self._free[1]
-        return max(0, free - int(self.reserved_bytes()))
+            return self._free[1]
+
+    def free_bytes(self) -> int:
+        """Free space of the workspace's filesystem minus open upload reservations."""
+        return max(0, self.disk_free_bytes() - int(self.reserved_bytes()))
 
     def low_on_space(self) -> bool:
         return self.free_bytes() < LOW_SPACE_BYTES

@@ -74,6 +74,8 @@ class PhoneSettings:
     discovery_port: int = DISCOVERY_PORT
     # --- additions (keep at the end) ------------------------------------------
     port: int | None = None        # the listening port; set by `serve`, enables runtime.json
+                                   # and the discovery responder (its replies carry the port)
+    discovery_host: str = "0.0.0.0"   # the responder's bind address (tests use 127.0.0.1)
 
     def __post_init__(self) -> None:
         if self.config_dir is not None:

@@ -9,27 +9,43 @@ index and the capabilities, plus the state that follows the operator's
 - the active approved addresses are recomputed every 30 s (and whenever
   server.json changes), so a laptop that joins an approved network becomes
   reachable by itself, and one that leaves it stops answering;
-- the state is `on`, `suspended` (on, but no approved network is up) or `off`.
+- the state is `on`, `suspended` (on, but no approved network is up) or `off`;
+- a monitor thread follows those changes about once a second, so the
+  discovery responder runs exactly while the state is `on`.
+
+It also owns the upload sessions, the phone channels' slots and the limits of
+phone-origin downloads (which the job store asks for).
 """
 
 from __future__ import annotations
 
+import logging
 import os
 import threading
+from types import SimpleNamespace
 from typing import Callable
 
+from ..download import DownloadLimits
 from ..jobs import JobStore
+from . import MIN_FREE_BYTES
 from .artifacts import ArtifactIndex
 from .auth import Authenticator
 from .config import RUNTIME_FILE, ConfigDir, ConfigError
+from .discovery import DiscoveryResponder
+from .events import ChannelSlots
 from .identity import (Capabilities, ServerIdentity, active_addresses, iso, library_id,
                        parse_iso)
 from .netinfo import Interface
 from .registry import PAIRING_FILE, DeviceRegistry, RateLimiter
 from .settings import PhoneSettings
+from .ssrf import check_link
+from .uploads import UploadSessions
+
+log = logging.getLogger("phonotrainer.phone")
 
 IDENTITY_CHECK_S = 1.0
 NETWORK_CHECK_S = 30.0
+MONITOR_INTERVAL_S = 1.0
 HELLO_LIMIT_PER_SOURCE = 20          # hello with a challenge, per minute
 HELLO_LIMIT_TOTAL = 120
 
@@ -50,9 +66,17 @@ class PhoneRuntime:
         self.registry = DeviceRegistry(self.config, self.clock)
         self.auth = Authenticator(self.registry, self.clock)
         self.library_id = library_id(store.root, self.clock)
+        self.uploads = UploadSessions(store.root, self.clock)
         self.capabilities = Capabilities(self.identity, store.root, settings.which,
-                                         settings.disk_usage, self.clock)
+                                         settings.disk_usage, self.clock,
+                                         reserved_bytes=self.uploads.reserved)
         self.artifacts = ArtifactIndex(store, settings.media_probe)
+        self.channels = ChannelSlots()
+        store.download_limits = self.download_limits
+        self._responder: DiscoveryResponder | None = None
+        self._discovery_failed = False      # the port was busy: not retried until off and on
+        self._monitor: threading.Thread | None = None
+        self._monitor_stop = threading.Event()
         self.hello_limiter = RateLimiter(HELLO_LIMIT_PER_SOURCE, HELLO_LIMIT_TOTAL, 60,
                                          self.clock)
         self._lock = threading.RLock()
@@ -109,14 +133,76 @@ class PhoneRuntime:
     def now_iso(self) -> str:
         return iso(self.clock())
 
+    # --- phone-origin downloads ---------------------------------------------------------
+    def download_limits(self) -> DownloadLimits:
+        """The bounds of a phone-origin link download, read now (server.json
+        may have changed): the duration and size limits, free space minus the
+        open upload reservations, and the SSRF check with this server's resolver."""
+        resolver = self.settings.resolver
+
+        def disk_usage(path):
+            free = int(self.settings.disk_usage(path).free) - int(self.uploads.reserved())
+            return SimpleNamespace(free=max(0, free))
+
+        return DownloadLimits(max_duration_s=self.identity.max_link_duration_s,
+                              max_bytes=self.identity.max_upload_bytes,
+                              min_free_bytes=MIN_FREE_BYTES, disk_usage=disk_usage,
+                              check_link=lambda url: check_link(url, resolver))
+
+    # --- discovery ----------------------------------------------------------------------
+    @property
+    def responder(self) -> DiscoveryResponder | None:
+        return self._responder
+
+    def sync_discovery(self) -> None:
+        """Run the responder exactly while phone access is on (not while
+        suspended or off). Its replies carry the listening port, so it needs
+        one (`serve` sets it). A busy port is reported once and retried only
+        after phone access was off or suspended in between."""
+        want = self.state == ON and self.settings.port is not None
+        stopping = None
+        with self._lock:
+            if want and self._responder is None and not self._discovery_failed:
+                responder = DiscoveryResponder(
+                    self.settings.discovery_port,
+                    lambda: (self.identity.server_id, self.identity.name),
+                    self.settings.port, self.api_version, self.active_interfaces, self.clock,
+                    host=self.settings.discovery_host)
+                if responder.start():
+                    self._responder = responder
+                    self.capabilities.discovery = True
+                else:
+                    self._discovery_failed = True
+                    self.capabilities.discovery = False
+            elif not want:
+                self._discovery_failed = False
+                stopping, self._responder = self._responder, None
+                self.capabilities.discovery = False
+        if stopping is not None:
+            stopping.stop()
+
+    def _monitor_loop(self) -> None:
+        while not self._monitor_stop.wait(MONITOR_INTERVAL_S):
+            try:
+                self.refresh()
+                self.sync_discovery()
+            except Exception:                     # noqa: BLE001 — the thread must not die
+                log.exception("Could not follow the phone access state.")
+
     # --- lifecycle (the app's lifespan) -----------------------------------------------
     def start(self) -> None:
         self._discard_stale_pairing()
         self.artifacts.start()
+        self.uploads.start()
         if self.settings.port is not None:
             self._started_at = self.now_iso()
             self._runtime_written = True
             self._write_runtime()
+        self.sync_discovery()
+        self._monitor_stop.clear()
+        self._monitor = threading.Thread(target=self._monitor_loop,
+                                         name="phonotrainer-phone-state", daemon=True)
+        self._monitor.start()
 
     def _discard_stale_pairing(self) -> None:
         """A leftover pairing.json goes at start: an outcome nobody read (the
@@ -139,6 +225,16 @@ class PhoneRuntime:
                 self.config.delete(PAIRING_FILE)
 
     def stop(self) -> None:
+        self._monitor_stop.set()
+        if self._monitor is not None:
+            self._monitor.join(timeout=2)
+            self._monitor = None
+        with self._lock:
+            responder, self._responder = self._responder, None
+        if responder is not None:
+            responder.stop()
+        self.capabilities.discovery = False
+        self.uploads.stop()
         self.artifacts.stop()
         if self._runtime_written:
             self._runtime_written = False
