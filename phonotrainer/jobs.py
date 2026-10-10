@@ -19,6 +19,7 @@ store a `result_dir` pointing outside the workspace.
 
 from __future__ import annotations
 
+import itertools
 import json
 import queue
 import re
@@ -43,6 +44,19 @@ CANCELLED = "cancelled"
 MEDIA_SUFFIXES = {".webm", ".mp4", ".mkv", ".mov", ".avi", ".m4v",
                   ".mp3", ".wav", ".m4a", ".flac", ".ogg", ".opus", ".aac"}
 VIDEO_SUFFIXES = {".webm", ".mp4", ".mkv", ".mov", ".avi", ".m4v"}
+# Types served for the original file. The table is closed on purpose: guessing
+# the type would allow serving text/html from the same origin as the SPA.
+MEDIA_TYPES = {
+    ".webm": "video/webm", ".mp4": "video/mp4", ".mkv": "video/x-matroska",
+    ".mov": "video/quicktime", ".avi": "video/x-msvideo", ".m4v": "video/x-m4v",
+    ".mp3": "audio/mpeg", ".wav": "audio/wav", ".m4a": "audio/mp4",
+    ".flac": "audio/flac", ".ogg": "audio/ogg", ".opus": "audio/ogg",
+    ".aac": "audio/aac",
+}
+
+# Who asked for a job, when a phone did (job.json `origin`): its link download
+# runs confined (see download.py).
+PHONE_ORIGIN = "phone"
 
 # job.json is only the record that survives a restart: the hot source of truth
 # is memory. Dumping it on every progress message would do I/O inside the lock
@@ -136,11 +150,19 @@ class Job:
     error: str | None = None
     meta: dict | None = None
     summary: dict | None = None
+    # Phone requests (absent from job.json for browser and CLI jobs, and never
+    # in to_public): the submitting device, the idempotency key that created
+    # the job, the job a re-run replaced, and "phone" for phone-origin jobs.
+    device_id: str | None = None
+    client_request_id: str | None = None
+    rerun_of: str | None = None
+    origin: str | None = None
 
     # --- runtime (not serialized) ------------------------------------------
     cancel_requested: bool = field(default=False, repr=False)
     delete_when_done: bool = field(default=False, repr=False)
     last_saved: float = field(default=0.0, repr=False)
+    enqueue_seq: int = field(default=0, repr=False)   # arrival order in the queue
 
     @property
     def imported(self) -> bool:
@@ -171,7 +193,7 @@ class Job:
 
     def to_dict(self) -> dict:
         """The shape persisted in job.json."""
-        return {
+        data = {
             "id": self.id,
             "source": self.source,
             "status": self.status,
@@ -188,6 +210,12 @@ class Job:
             "meta": self.meta,
             "summary": self.summary,
         }
+        # Optional fields only when set: a browser job's job.json is unchanged.
+        for key in ("device_id", "client_request_id", "rerun_of", "origin"):
+            value = getattr(self, key)
+            if value is not None:
+                data[key] = value
+        return data
 
     def to_public(self, full: bool = False) -> dict:
         """The shape the UI consumes. `full=False` omits the progress log."""
@@ -245,6 +273,10 @@ def _load_job(job_dir: Path) -> Job | None:
         error=raw.get("error"),
         meta=raw.get("meta"),
         summary=raw.get("summary"),
+        device_id=raw.get("device_id"),
+        client_request_id=raw.get("client_request_id"),
+        rerun_of=raw.get("rerun_of"),
+        origin=raw.get("origin"),
     )
     # A job left "running" on disk means the server died halfway through.
     if job.status in (RUNNING, QUEUED):
@@ -271,6 +303,8 @@ class JobStore:
         self._download_fn = download_fn
         self._lock = threading.RLock()
         self._jobs: dict[str, Job] = {}
+        self._enqueue_seq = itertools.count(1)
+        self._enqueue_lock = threading.Lock()
         self._listeners: set[Callable[[str, str], None]] = set()
         # The queue carries the Job, not its id: if it is deleted while queued,
         # the worker still holds it and can clean up its directory.
@@ -395,6 +429,19 @@ class JobStore:
             raise JobNotFound(f"unknown job: {job_id}")
         return job
 
+    def queue_positions(self) -> dict[str, int]:
+        """{job id: position} for the queued jobs not being cancelled, 1 for the
+        next to start, in arrival order (not `created`, which collides within
+        a second)."""
+        with self._lock:
+            waiting = sorted((j for j in self._jobs.values()
+                              if j.status == QUEUED and not j.cancel_requested),
+                             key=lambda j: j.enqueue_seq)
+            return {job.id: index for index, job in enumerate(waiting, start=1)}
+
+    def queue_position(self, job_id: str) -> int | None:
+        return self.queue_positions().get(job_id)
+
     # --- creation ------------------------------------------------------------
     def _new_id(self) -> str:
         stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
@@ -408,7 +455,9 @@ class JobStore:
             raise JobError(f"file does not exist: {media_path}")
         return self._enqueue(source or media_path.name, media_path, options)
 
-    def adopt_upload(self, filename: str, data_writer, options: dict | None = None) -> Job:
+    def adopt_upload(self, filename: str, data_writer, options: dict | None = None, *,
+                     device_id: str | None = None, client_request_id: str | None = None,
+                     rerun_of: str | None = None, origin: str | None = None) -> Job:
         """Create the job and let `data_writer(destination)` write the uploaded file."""
         job_id = self._new_id()
         media_dir = self.root / job_id / "media"
@@ -418,24 +467,37 @@ class JobStore:
         if not dest.is_file() or dest.stat().st_size == 0:
             _rmtree(self.root / job_id)      # leave no traces of a failed upload
             raise JobError("the uploaded file arrived empty")
-        return self._enqueue(dest.name, dest, options, job_id=job_id)
+        return self._enqueue(dest.name, dest, options, job_id=job_id, device_id=device_id,
+                             client_request_id=client_request_id, rerun_of=rerun_of,
+                             origin=origin)
 
     def _enqueue(self, source: str, media_path: Path, options: dict | None,
-                 job_id: str | None = None) -> Job:
+                 job_id: str | None = None, **phone_fields) -> Job:
         job_id = job_id or self._new_id()
         job_dir = self.root / job_id
         job_dir.mkdir(parents=True, exist_ok=True)
         job = Job(id=job_id, source=source, dir=job_dir,
-                  options=dict(options or {}), media_path=str(media_path.resolve()))
-        with self._lock:
-            self._jobs[job_id] = job
-        self._save(job)
-        self._notify("upsert", job_id)
-        self._queue.put(job)
+                  options=dict(options or {}), media_path=str(media_path.resolve()),
+                  **phone_fields)
+        return self._queue_new(job)
+
+    def _queue_new(self, job: Job) -> Job:
+        # One creation at a time, so the arrival order (`enqueue_seq`) is the
+        # order in which the worker takes the jobs. The store lock itself is
+        # not held across the save, as everywhere else.
+        with self._enqueue_lock:
+            with self._lock:
+                job.enqueue_seq = next(self._enqueue_seq)
+                self._jobs[job.id] = job
+            self._save(job)
+            self._notify("upsert", job.id)
+            self._queue.put(job)
         return job
 
     def create_from_url(self, url: str, options: dict | None = None,
-                        audio_only: bool = False) -> Job:
+                        audio_only: bool = False, *, device_id: str | None = None,
+                        client_request_id: str | None = None, rerun_of: str | None = None,
+                        origin: str | None = None) -> Job:
         """Queue an analysis that starts by downloading the video."""
         url = str(url).strip()
         if not url:
@@ -444,13 +506,9 @@ class JobStore:
         job_dir = self.root / job_id
         job_dir.mkdir(parents=True, exist_ok=True)
         job = Job(id=job_id, source=url, dir=job_dir, options=dict(options or {}),
-                  source_url=url, audio_only=audio_only)
-        with self._lock:
-            self._jobs[job_id] = job
-        self._save(job)
-        self._notify("upsert", job_id)
-        self._queue.put(job)
-        return job
+                  source_url=url, audio_only=audio_only, device_id=device_id,
+                  client_request_id=client_request_id, rerun_of=rerun_of, origin=origin)
+        return self._queue_new(job)
 
     def import_dir(self, result_dir: str | Path, source: str | None = None) -> Job:
         """Register an existing output directory (out/) as a finished job."""
