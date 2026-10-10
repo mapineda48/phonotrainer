@@ -145,16 +145,19 @@ New options on the existing command (`phonotrainer/cli.py`):
 |---|---|
 | `--phone-access` | turns phone access on, **remembers it** (`server.json`, 3.2), approves the networks the computer is on now (below) and starts the server with it |
 | `--no-phone-access` | turns it off, remembers it, starts without it |
-| `--phone-interface <name>` | repeatable; also approves a virtual interface that is excluded by default (below) |
+| `--phone-interface <name>` | repeatable; also approves a virtual interface that is excluded by default (below); without `--phone-access`, with phone access already on, it approves only the interfaces it names |
 | neither | uses the remembered value; the default for a computer that never chose is off (S-01, Q-5 default) |
 
 **Approved networks** (security review M-6). Phone access stays on across restarts (Q-5), but a laptop must not
 expose it on a café, hotel or office Wi-Fi it joins later. Turning phone access on (`--phone-access` or
 `phonotrainer phone on`) records, in `server.json`, one entry per up IPv4 interface that is not loopback and not a
-virtual interface (`docker*`, `br-*`, `virbr*`, `veth*`, `tun*`, `tap*`, `wg*`, unless named with
-`--phone-interface`): the interface name, the network (address and prefix, for example `192.0.2.0/24`) and the MAC
-address of that network's default gateway when the kernel knows it (`/proc/net/route` and `/proc/net/arp`, read by
-`netinfo`, 10.1; omitted when unknown). At each start, and every 30 s while running, the server computes the
+virtual interface (one the kernel reports as virtual: `/sys/class/net/<name>` under `/sys/devices/virtual/`, or a
+hardware type other than Ethernet; or one whose name starts with `docker`, `br-`, `virbr`, `veth`, `tun`, `tap`,
+`wg`, `tailscale`, `zt`, `ppp`, `nordlynx`, `proton`, `cscotun`, `gpd`, `ipsec`, `vboxnet`, `vmnet`, `podman`,
+`cni`, `lxcbr`, `lxdbr`, `flannel`, `cali`, `vxlan`, `ham`, `nebula`), unless named with `--phone-interface`: the
+interface name, the network (address and prefix, for example `192.0.2.0/24`) and the MAC address of that
+network's default gateway when the kernel knows it (`/proc/net/route` and `/proc/net/arp`, read by `netinfo`,
+10.1; omitted when unknown). At each start, and every 30 s while running, the server computes the
 **active approved addresses**: the local addresses of up interfaces whose (name, network, gateway MAC) match an
 approved entry (a missing MAC on either side matches on name and network). If phone access is remembered on but no
 approved network is up, the server starts with phone access **suspended**: it binds and writes `runtime.json` as with
@@ -1262,7 +1265,7 @@ an over-long video, an unknown-size video that grows past the limit, and a refus
 | `uploads.py` | sessions, single PUT, resumable PATCH (complete), janitor | `UploadSessions` |
 | `events.py` | `/api/phone/events` | `phone_events()` |
 | `discovery.py` | UDP responder | `DiscoveryResponder`, `parse_probe()`, `make_reply()` |
-| `netinfo.py` | local IPv4 interfaces with address, prefix and default-gateway MAC for the banner, `phone pair` and the approved networks (`socket.if_nameindex()`, `SIOCGIFADDR`/`SIOCGIFNETMASK` ioctls, `/proc/net/route`, `/proc/net/arp`; Linux, as the project) | `interfaces() -> list[Interface]` |
+| `netinfo.py` | local IPv4 interfaces with address, prefix and default-gateway MAC for the banner, `phone pair` and the approved networks (`socket.if_nameindex()`, `SIOCGIFADDR`/`SIOCGIFNETMASK` ioctls, `/proc/net/route`, `/proc/net/arp`; Linux, as the project); `Interface` gains `virtual: bool = False`, the kernel's answer (`/sys/class/net/<name>` under `/sys/devices/virtual/`, or a hardware type other than Ethernet) | `interfaces() -> list[Interface]` |
 | `cli.py` | `phonotrainer phone …` and the `ui` banner | `phone` (click group), `banner()` |
 | `renditions.py` | complete: compact data, Opus, poster, phone video, low-priority worker | `RenditionWorker` |
 
