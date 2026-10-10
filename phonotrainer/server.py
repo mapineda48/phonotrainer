@@ -54,8 +54,8 @@ from .phones_real import ENGINE_ALIASES
 
 DEFAULT_WORKSPACE = Path("workspace")
 WEB_DIST = Path(__file__).resolve().parents[1] / "web" / "dist"
-
-# MEDIA_TYPES (imported from jobs): the types served for the original file.
+# MEDIA_TYPES, the closed table of types served for the original file, lives in
+# jobs.py next to the media suffixes (the phone artifacts use it too).
 
 MAX_SAMPLE = 500   # cap on words per review sample
 

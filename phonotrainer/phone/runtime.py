@@ -21,8 +21,9 @@ from typing import Callable
 from ..jobs import JobStore
 from .artifacts import ArtifactIndex
 from .auth import Authenticator
-from .config import RUNTIME_FILE, ConfigDir
-from .identity import Capabilities, ServerIdentity, active_addresses, iso, library_id
+from .config import RUNTIME_FILE, ConfigDir, ConfigError
+from .identity import (Capabilities, ServerIdentity, active_addresses, iso, library_id,
+                       parse_iso)
 from .netinfo import Interface
 from .registry import PAIRING_FILE, DeviceRegistry, RateLimiter
 from .settings import PhoneSettings
@@ -110,15 +111,32 @@ class PhoneRuntime:
 
     # --- lifecycle (the app's lifespan) -----------------------------------------------
     def start(self) -> None:
-        # A leftover pairing.json (a code or an outcome nobody read) goes: the
-        # source address it may hold must not outlive the seconds it is needed.
-        with self.config.locked():
-            self.config.delete(PAIRING_FILE)
+        self._discard_stale_pairing()
         self.artifacts.start()
         if self.settings.port is not None:
             self._started_at = self.now_iso()
             self._runtime_written = True
             self._write_runtime()
+
+    def _discard_stale_pairing(self) -> None:
+        """A leftover pairing.json goes at start: an outcome nobody read (the
+        source address it holds must not outlive the seconds it is needed), or
+        a code that expired, locked or is unreadable. A valid code created just
+        before the server started (by a test harness) is kept."""
+        with self.config.locked():
+            try:
+                state = self.config.read_json(PAIRING_FILE)
+            except ConfigError:
+                state = {}
+            if state is None:
+                return
+            try:
+                valid = ("code_sha256" in state and not state.get("locked")
+                         and parse_iso(state["expires_at"]) > self.clock())
+            except (KeyError, TypeError, ValueError):
+                valid = False
+            if not valid:
+                self.config.delete(PAIRING_FILE)
 
     def stop(self) -> None:
         self.artifacts.stop()

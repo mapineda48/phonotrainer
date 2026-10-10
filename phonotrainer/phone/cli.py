@@ -70,11 +70,16 @@ def prepare_phone_access(choice: bool | None, extra_interfaces: Iterable[str],
 def banner(settings: PhoneSettings, port: int, host: str | None = None) -> list[str]:
     """The phone lines of the `ui` start banner (no secret is ever printed)."""
     identity = _open_identity(ConfigDir(settings.config_dir))
-    active = _shown(active_addresses(identity.approved_networks, settings.netinfo()), host)
-    if not active:
+    approved = active_addresses(identity.approved_networks, settings.netinfo())
+    if not approved:
         return ["Phone access is ON, but this computer is not on a network you approved "
                 "for phones.",
                 "Run `phonotrainer phone on` here to approve this network."]
+    active = _shown(approved, host)
+    if not active:
+        return [f"Phone access is ON, but this server listens on {host} only: phones "
+                "cannot reach it.",
+                "Start it without --host to let paired phones on this Wi-Fi reach it."]
     lines = ["Phone access is ON: paired phones on this Wi-Fi can reach this computer at"]
     lines += [f"  {iface.address}:{port}   ({iface.name})" for iface in active]
     lines += [f"Pair a phone:            {PAIR_COMMAND}",
@@ -119,8 +124,8 @@ def status() -> None:
         click.echo("Approved networks: none")
     click.echo(f"Paired phones: {len(DeviceRegistry(config, time.time).devices())}")
     if running:
-        click.echo(f"Server: running with phone access {running.get('state', 'on')} "
-                   f"on port {running.get('port')}")
+        click.echo(f"Server: running (phone access {running.get('state', 'on')}), "
+                   f"port {running.get('port')}")
     else:
         click.echo("Server: not running with phone access")
 

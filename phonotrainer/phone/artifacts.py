@@ -328,6 +328,11 @@ class ArtifactIndex:
         self._queue.put(job_id)
 
     def _on_store_event(self, event: str, job_id: str) -> None:
+        if event == "deleted":
+            with self._lock:
+                self._checksums.pop(job_id, None)
+                self._media.pop(job_id, None)
+            return
         if event == "upsert":
             try:
                 if self.store.get(job_id).status == DONE:
@@ -364,5 +369,6 @@ class ArtifactIndex:
             self._unsubscribe = None
         if self._thread is not None:
             self._queue.put(None)
-            self._thread.join(timeout=5)
+            # A daemon thread: Ctrl-C never waits for a large file being hashed.
+            self._thread.join(timeout=1)
             self._thread = None

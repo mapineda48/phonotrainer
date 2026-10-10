@@ -267,6 +267,16 @@ class ServerIdentity:
         return cleaned
 
 
+def enable_phone_access(settings, extra_interfaces: Iterable[str] = ()) -> list[dict]:
+    """What `phonotrainer phone on` does, for code that builds its own server
+    (the host-side fake computer, the tests): phone access on in
+    `settings.config_dir`, with the networks `settings.netinfo()` reports now
+    approved. Returns the approved entries for those networks."""
+    identity = ServerIdentity(ConfigDir(settings.config_dir), settings.clock)
+    identity.load()
+    return identity.turn_on(settings.netinfo(), extra_interfaces)
+
+
 # --- the workspace's library id ----------------------------------------------------
 
 def library_id(workspace: str | Path, clock: Callable[[], float]) -> str:
