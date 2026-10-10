@@ -1,8 +1,5 @@
-"""`phonotrainer ui --phone-access` and `phonotrainer phone on|off|status|pair`
-(server-contract 2.1, 2.2; S-01, S-04).
-
-Milestone A covers what the scripted smoke of server-contract 11.4 needs; the
-rest of the `phone` group (list, revoke, name) arrives with milestone B.
+"""`phonotrainer ui --phone-access` and `phonotrainer phone on|off|status|pair|list|revoke|name`
+(server-contract 2.1, 2.2, 3.2; S-01, S-04).
 """
 
 import json
@@ -40,8 +37,11 @@ def config(isolated_config):
     return ConfigDir(isolated_config)
 
 
-def run(*args):
-    result = CliRunner().invoke(main, list(args), catch_exceptions=False)
+RENAME_LINE = 'Rename this computer for your phone with: phonotrainer phone name "…"'
+
+
+def run(*args, input=None):
+    result = CliRunner().invoke(main, list(args), catch_exceptions=False, input=input)
     return result
 
 
@@ -73,10 +73,13 @@ def test_ui_phone_access_is_remembered_and_served(served, netinfo, config):
         in result.output
     assert "  192.0.2.10:8000   (wlan0)" in result.output
     assert "Pair a phone:            phonotrainer phone pair" in result.output
+    # the first start (it created the computer's identity) says how to rename it
+    assert result.output.splitlines()[-1] == RENAME_LINE
     # remembered: the next start without the flag has it on too
     served.clear()
-    run("ui", "--no-open")
+    again = run("ui", "--no-open")
     assert isinstance(served[0]["phone"], PhoneSettings)
+    assert "Rename this computer" not in again.output
 
 
 def test_ui_no_phone_access_turns_it_off(served, netinfo, config):
@@ -177,11 +180,15 @@ def test_serve_with_reload_never_trusts_proxy_headers(uvicorn_calls, tmp_path, i
 def test_phone_on_and_off(netinfo, config):
     result = run("phone", "on")
     assert result.exit_code == 0
-    assert result.output.splitlines() == ["Approved for phones: wlan0 192.0.2.0/24",
-                                          "Phone access is now ON.",
-                                          "Restart `phonotrainer ui` to apply it."]
+    assert result.output.splitlines() == [
+        "Approved for phones: wlan0 192.0.2.0/24",
+        "Phone access is now ON.",
+        "Restart `phonotrainer ui` to apply it.",
+        # the first time: this command created the computer's identity
+        'Rename this computer for your phone with: phonotrainer phone name "…"']
     fake_running_server(config)
-    assert "Restart" not in run("phone", "on").output
+    again = run("phone", "on").output
+    assert "Restart" not in again and "Rename" not in again
     result = run("phone", "off")
     assert result.output.strip() == "Phone access is now OFF."
     assert identity(config).approved_networks == []
@@ -297,3 +304,118 @@ def test_waiting_exits_4_when_locked_and_3_when_expired(config, capsys):
 
     assert phone_cli.wait_for_pairing(registry, code.expires_at, clock=clock, sleep=later) == 3
     assert "expired" in capsys.readouterr().out
+
+
+# --- phone list / revoke / name (2.2, 3.2) ------------------------------------------------------
+
+def pair_device(config, name, clock=None, app_version=1, app_version_name="1.0.0"):
+    """Pair one phone straight through the registry (what the server does);
+    returns (device, token)."""
+    registry = DeviceRegistry(config, clock or FakeClock())
+    code = registry.create_code().code
+    return registry.pair(code, name, app_version, app_version_name, "192.0.2.23")
+
+
+def test_list_shows_paired_phones_and_all_adds_revoked_ones(config):
+    assert run("phone", "list").output.strip() == "No paired phones."
+    pixel, _ = pair_device(config, "Pixel 9")
+    tablet, _ = pair_device(config, "Tablet", app_version=2, app_version_name=None)
+    result = run("phone", "list")
+    assert result.exit_code == 0
+    lines = result.output.splitlines()
+    assert len(lines) == 2
+    assert lines[0].startswith(f"Pixel 9   {pixel.device_id[:12]}   paired 2026-10-")
+    assert re.search(r"   last seen (just now|\d+ \w+ ago)   ", lines[0])
+    assert lines[0].endswith("app 1.0.0 (1)")
+    assert lines[1].startswith(f"Tablet   {tablet.device_id[:12]}") and lines[1].endswith("app 2")
+    assert pixel.device_id not in result.output              # only a prefix of the id
+
+    DeviceRegistry(config, FakeClock()).revoke(tablet.device_id)
+    assert "Tablet" not in run("phone", "list").output
+    everything = run("phone", "list", "--all").output.splitlines()
+    assert len(everything) == 2 and "   revoked 2026-10-" in everything[1]
+
+
+def test_relative_last_seen():
+    now = 1791622800.0
+    assert phone_cli.relative(None, now) == "never"
+    assert phone_cli.relative("2026-10-10T09:00:00+00:00", now) == "just now"
+    assert phone_cli.relative("2026-10-10T08:59:00+00:00", now) == "1 minute ago"
+    assert phone_cli.relative("2026-10-10T06:00:00+00:00", now) == "3 hours ago"
+    assert phone_cli.relative("2026-10-08T09:00:00+00:00", now) == "2 days ago"
+    assert phone_cli.relative("garbage", now) == "unknown"
+
+
+def test_revoke_by_name_or_id_prefix(config):
+    pixel, _ = pair_device(config, "Pixel 9")
+    tablet, _ = pair_device(config, "Tablet")
+    result = run("phone", "revoke", "pixel 9")                    # names match without case
+    assert result.exit_code == 0
+    assert result.output.strip() == (f"Revoked: Pixel 9 ({pixel.device_id[:12]}). "
+                                     "It stops working at its next request.")
+    registry = DeviceRegistry(config, FakeClock())
+    assert registry.active(pixel.device_id) is None
+    assert registry.active(tablet.device_id) is not None
+    assert run("phone", "revoke", tablet.device_id[:10]).exit_code == 0
+    assert DeviceRegistry(config, FakeClock()).devices() == []
+
+
+def test_revoke_not_found_and_ambiguous(config):
+    first, _ = pair_device(config, "Pixel 9")
+    pair_device(config, "Pixel 9")
+    missing = run("phone", "revoke", "Nokia")
+    assert missing.exit_code == 1
+    assert 'No paired phone matches "Nokia"' in missing.output
+    ambiguous = run("phone", "revoke", "Pixel 9")
+    assert ambiguous.exit_code == 2
+    assert ambiguous.output.startswith('More than one phone matches "Pixel 9"')
+    assert len(ambiguous.output.splitlines()) == 3
+    assert len(DeviceRegistry(config, FakeClock()).devices()) == 2   # nothing revoked
+    assert run("phone", "revoke", first.device_id).exit_code == 0   # the whole id is exact
+    assert run("phone", "revoke").exit_code == 2                     # a usage error
+
+
+def test_revoke_all_asks_first(config):
+    for name in ("Pixel 9", "Tablet", "Old phone"):
+        pair_device(config, name)
+    declined = run("phone", "revoke", "--all", input="n\n")
+    assert "Revoke all 3 phones? [y/N]" in declined.output
+    assert "Nothing was revoked." in declined.output
+    assert len(DeviceRegistry(config, FakeClock()).devices()) == 3
+    accepted = run("phone", "revoke", "--all", input="y\n")
+    assert accepted.output.strip().endswith("Revoked 3 phones.")
+    assert DeviceRegistry(config, FakeClock()).devices() == []
+    pair_device(config, "New phone")
+    assert run("phone", "revoke", "--all", "--yes").output.strip() == "Revoked 1 phone."
+    assert run("phone", "revoke", "--all", "--yes").output.strip() == "No paired phones."
+
+
+def test_name_renames_the_computer_for_phones(config):
+    result = run("phone", "name", "  Study\u202e desk\u200b ")
+    assert result.exit_code == 0
+    assert result.output.strip() == 'Phones now see this computer as "Study desk".'
+    assert identity(config).name == "Study desk"
+    for bad in ("", "   ", "\u200b\u202e", "x" * 41):
+        refused = run("phone", "name", bad)
+        assert refused.exit_code == 1
+        assert "1 to 40 characters" in refused.output
+    assert identity(config).name == "Study desk"
+    assert run("phone", "name", "y" * 40).exit_code == 0
+
+
+def test_no_output_ever_holds_a_token_key_or_hash(netinfo, config):
+    outputs = [run("phone", "on").output]
+    fake_running_server(config)
+    outputs.append(run("phone", "pair", "--no-wait").output)
+    pairing = json.loads((config.path / "pairing.json").read_text())
+    device, token = pair_device(config, "Pixel 9")
+    stored = json.loads((config.path / "devices.json").read_text())["devices"]
+    for args in (("phone", "status"), ("phone", "list", "--all"), ("phone", "name", "Desk"),
+                 ("phone", "revoke", "Pixel 9"), ("phone", "list", "--all"), ("phone", "off")):
+        outputs.append(run(*args).output)
+    secrets_ = [token, token[4:], device.key.hex(), pairing["salt"], pairing["code_sha256"],
+                *(row["key_sha256"] for row in stored)]
+    for output in outputs:
+        for secret in secrets_:
+            assert secret not in output
+        assert not re.search(r"\b[0-9a-f]{32,}\b", output)

@@ -286,12 +286,13 @@ def ui(workspace: str, port: int, host: str | None, no_open: bool, reload: bool,
     from pathlib import Path
 
     roots = [Path.home(), Path.cwd(), *(Path(d) for d in allow_dirs)]
-    phone = prepare_phone_access(phone_access, phone_interfaces)
+    notes: list[str] = []
+    phone = prepare_phone_access(phone_access, phone_interfaces, notes=notes)
     shown = host if host not in (None, "0.0.0.0") else "127.0.0.1"
     console.print(f"[bold]PhonoTrainer UI[/] → [cyan]http://{shown}:{port}[/]  "
                   f"(workspace: {workspace})")
     if phone is not None:
-        for line in banner(phone, port, host):
+        for line in [*banner(phone, port, host), *notes]:
             console.print(line, markup=False, highlight=False, soft_wrap=True)
     serve(workspace=workspace, host=host, port=port, reload=reload,
           open_browser=not no_open, allowed_roots=roots, phone=phone)
