@@ -39,6 +39,9 @@ go to `android/artifacts/qa-evidence/`, which git ignores.
 | `torture.py` | The [emulator] steps of the queue torture test and the platform stop paths; it refuses any device but an emulator. It compares the queue before and after each step: a step passes only with no unexpected error state and with the state changes it declares (process-kill: a shared copy `PREPARING` to `COPY_FAILED` `copy_interrupted`, QT-13). |
 | `capture.py` | Starts the emulator with `-tcpdump` and checks every connection went to the computer. |
 | `gmd_lock.py` | Runs a Gradle Managed Device task under the one lock of this computer: `gmd_lock.py -- ./gradlew …`. |
+| `host_computer.py` | The host-side fake computer (server-contract 12) every emulator step uses: this checkout's server with synthetic analyses, a downloader that refuses every link and a resolver that never asks DNS, on a throwaway directory deleted at exit, with one seeded synthetic clip. It prints its address, the seeded clip and a pairing code to stdout for the harness (`pair`, `status` and `quit` on stdin); `--lan` serves the test phone on the approved Wi-Fi address; `--self-check` runs a phone session against a fresh one. |
 | `computer.py` | The real computer for the real-computer QA pass only, on throwaway directories; local files only, never a link. |
 
-The host-side fake computer (`host_computer.py`, server-contract 12) comes with the server's phone access.
+`host_computer.py` and `computer.py` need the repository's virtual environment; started with another interpreter,
+`host_computer.py` finds it (`--python`, `PHONOTRAINER_PYTHON`, `.venv` here or in the main checkout) and runs again
+with it. Its tests that start a server are skipped where no such interpreter exists (CI).
