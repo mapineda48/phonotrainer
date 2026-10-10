@@ -8,12 +8,14 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonObject
+import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import org.junit.After
 import org.junit.Test
+import java.time.Duration
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 
@@ -117,6 +119,17 @@ class ChannelTest {
   }
 
   @Test
+  fun pingsAreAnsweredUntilTheComputerBecomesUnreachable() {
+    val client = phone.client.newBuilder().pingInterval(Duration.ofMillis(PING_MS)).build()
+    val channel = Channel(phone, client = client).skipGreeting()
+
+    assertThat(channel.awaitFailure(timeoutMs = PING_MS * 5)).isFalse()
+    computer.reachability = Reachability.Unreachable
+
+    assertThat(channel.awaitFailure(timeoutMs = PING_MS * 20)).isTrue()
+  }
+
+  @Test
   fun dropChannelClosesEveryChannel() {
     val channel = Channel(phone).skipGreeting()
 
@@ -129,14 +142,18 @@ class ChannelTest {
   private fun JsonObject.jobStatus(): String? = obj("job").str("status")
 
   /** A phone's channel with its frames in a queue. */
-  private inner class Channel(phone: TestPhone, host: String? = null) : WebSocketListener() {
+  private inner class Channel(
+    phone: TestPhone,
+    host: String? = null,
+    client: OkHttpClient = phone.client,
+  ) : WebSocketListener() {
     private val frames = LinkedBlockingQueue<JsonObject>()
     private val failures = LinkedBlockingQueue<Int>()
 
     init {
       val request = Request.Builder().url(computer.url("/api/phone/events"))
       host?.let { request.header("Host", it) }
-      opened += phone.client.newWebSocket(request.build(), this)
+      opened += client.newWebSocket(request.build(), this)
     }
 
     override fun onMessage(webSocket: WebSocket, text: String) {
@@ -156,6 +173,11 @@ class ChannelTest {
 
     fun failureCode(): Int = failures.poll(TestPhone.TIMEOUT_S, TimeUnit.SECONDS) ?: error("the upgrade was accepted")
 
-    fun awaitFailure(): Boolean = failures.poll(TestPhone.TIMEOUT_S, TimeUnit.SECONDS) != null
+    fun awaitFailure(timeoutMs: Long = TestPhone.TIMEOUT_S * 1000): Boolean =
+      failures.poll(timeoutMs, TimeUnit.MILLISECONDS) != null
+  }
+
+  private companion object {
+    const val PING_MS = 100L
   }
 }
