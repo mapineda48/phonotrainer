@@ -352,6 +352,7 @@ Each WP below adds its own proof list ("Proof") and acceptance ("Done when").
 | `android/core/recorder/**` | WP-30 | complete | |
 | `android/core/testing-jvm/**` | INTEGRATOR | all | base fakes, `TestClock`, `MainDispatcherRule` |
 | `android/core/testing-jvm/src/main/kotlin/**/testing/computer/**` | WP-05a | core | `FakeComputer`; `FakeComputerClient` from B1 |
+| `android/core/testing-jvm/src/test/kotlin/**/testing/computer/**` | WP-05a | core | the fake computer's own JVM tests |
 | `android/core/testing-jvm/src/main/kotlin/**/testing/fixtures/**` | WP-12 | core | `AnalysisFixtures` (delivery review D-17) |
 | `android/core/testing-jvm/src/main/kotlin/**/testing/fake/content/**` | WP-04 | core | |
 | `android/core/testing-jvm/src/main/kotlin/**/testing/fake/network/**` | WP-05b | core | fakes of `AllowedPeers`, `VerifiedPeers`, `ArtifactTransfer`, `JobChannel` |
