@@ -194,6 +194,26 @@ def isolated_config(tmp_path_factory, monkeypatch):
     return path
 
 
+# What serve() writes into the environment (for `uvicorn --reload`'s factory).
+SERVE_ENV = ("PHONOTRAINER_WORKSPACE", "PHONOTRAINER_ROOTS", "PHONOTRAINER_PHONE_ACCESS",
+             "PHONOTRAINER_PORT", "PHONOTRAINER_CONFIG_DIR")
+
+
+@pytest.fixture
+def uvicorn_calls(monkeypatch):
+    """`uvicorn.run` recorded instead of run: a list of (app, keyword arguments).
+    The environment serve() writes is restored after the test."""
+    import os
+
+    import uvicorn
+
+    for name in SERVE_ENV:
+        monkeypatch.setenv(name, os.environ.get(name, ""))
+    calls = []
+    monkeypatch.setattr(uvicorn, "run", lambda app, **kw: calls.append((app, kw)))
+    return calls
+
+
 @pytest.fixture
 def fake_clock():
     return FakeClock()

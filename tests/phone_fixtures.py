@@ -189,14 +189,15 @@ def fake_resolver(host: str) -> list[str]:
 
 def asgi_call(app, method: str, raw_path: bytes, *, client=("192.0.2.20", 50000),
               server=("192.0.2.10", 8000), headers: list[tuple[bytes, bytes]] | None = None,
-              websocket: bool = False) -> dict:
+              websocket: bool = False, host: bytes | None = None) -> dict:
     """Call the app with a hand-built scope (the path exactly as given, never
-    normalized). Returns {"status", "headers", "body"} for HTTP, and for a
-    WebSocket {"accepted": bool, "closed": bool}."""
+    normalized; `Host` is the server address unless `host` is given). Returns
+    {"status", "headers", "body"} for HTTP, and for a WebSocket
+    {"accepted": bool, "closed": bool}."""
     from urllib.parse import unquote
 
     path_bytes, _, query = raw_path.partition(b"?")
-    host = f"{server[0]}:{server[1]}".encode()
+    host = host if host is not None else f"{server[0]}:{server[1]}".encode()
     scope = {
         "type": "websocket" if websocket else "http",
         "asgi": {"version": "3.0"}, "http_version": "1.1",

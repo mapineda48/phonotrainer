@@ -353,6 +353,71 @@ def test_proxy_headers_never_change_the_peer(phone_app):
         assert resp.status_code == 403 and resp.json() == LAN_FORBIDDEN
 
 
+def _uvicorn_app(app, **kwargs):
+    """`app` wrapped exactly as uvicorn serves it (its ProxyHeadersMiddleware
+    included when `proxy_headers` is on)."""
+    import uvicorn
+
+    config = uvicorn.Config(app, log_config=None, **kwargs)
+    config.load()
+    return config.loaded_app
+
+
+FORWARDED = [(b"x-forwarded-for", b"203.0.113.9"), (b"sec-fetch-site", b"same-origin")]
+
+
+@pytest.mark.parametrize("phone_on", [False, True])
+def test_forwarded_for_cannot_skip_the_loopback_host_rule(
+        uvicorn_calls, monkeypatch, phone_store, phone_settings, tmp_path, phone_on):
+    """A DNS-rebinding page sends `X-Forwarded-For` with a foreign Host: through
+    uvicorn's own stack, built from the arguments serve() gives it, in both
+    modes, it is still a loopback request with a bad Host."""
+    from phonotrainer import server
+
+    if phone_on:
+        enable_phone_access(phone_settings)
+    phone = phone_settings if phone_on else None
+    app = create_app(store=phone_store, phone=phone, web_dist=tmp_path / "nb",
+                     allowed_roots=[tmp_path])
+    monkeypatch.setattr(server, "create_app", lambda *a, **kw: app)
+    server.serve(workspace=tmp_path / "ws", open_browser=False, phone=phone)
+    (served, kwargs), = uvicorn_calls
+    assert served is app and kwargs["proxy_headers"] is False
+    wrapped = _uvicorn_app(app, **kwargs)
+    peer = {"client": ("127.0.0.1", 50000), "server": ("127.0.0.1", 8000)}
+    with TestClient(app):
+        for method, path in (("GET", b"/api/browse"), ("POST", b"/api/jobs"),
+                             ("GET", b"/api/jobs")):
+            resp = asgi_call(wrapped, method, path, host=b"attacker.example",
+                             headers=FORWARDED, **peer)
+            assert resp["status"] == 400, path
+            assert json.loads(resp["body"])["code"] == "bad_host"
+        # the same request with an honest Host is the owner's browser: served
+        resp = asgi_call(wrapped, "GET", b"/api/browse", host=b"127.0.0.1:8000",
+                         headers=FORWARDED, **peer)
+        assert resp["status"] == 200
+
+
+@pytest.mark.parametrize("phone_on", [False, True])
+def test_a_rewritten_peer_on_a_loopback_address_is_still_refused(
+        phone_store, phone_settings, tmp_path, phone_on):
+    """Defence in depth: even with uvicorn trusting proxy headers (which serve()
+    never does), a connection that arrived on a loopback address cannot pass
+    for a remote peer and skip the Host rule."""
+    if phone_on:
+        enable_phone_access(phone_settings)
+    app = create_app(store=phone_store, phone=phone_settings if phone_on else None,
+                     web_dist=tmp_path / "nb", allowed_roots=[tmp_path])
+    wrapped = _uvicorn_app(app, proxy_headers=True, forwarded_allow_ips="127.0.0.1")
+    with TestClient(app):
+        resp = asgi_call(wrapped, "GET", b"/api/browse", client=("127.0.0.1", 50000),
+                         server=("127.0.0.1", 8000), host=b"attacker.example",
+                         headers=FORWARDED)
+        # phone access on: the rewritten peer is a LAN client on an unapproved address
+        expected = (403, "lan_forbidden") if phone_on else (400, "bad_host")
+        assert (resp["status"], json.loads(resp["body"])["code"]) == expected
+
+
 # --- body limits (4.7) ------------------------------------------------------------------------------
 
 def test_json_bodies_must_declare_a_small_length(phone_app):

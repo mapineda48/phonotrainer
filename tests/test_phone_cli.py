@@ -120,25 +120,36 @@ def test_ui_bound_to_one_address_says_who_can_reach_it(served, netinfo, config):
     assert "  192.0.2.10:8000   (wlan0)" in result.output
 
 
-def test_serve_with_phone_access(monkeypatch, tmp_path, isolated_config):
-    import uvicorn
-
+def test_serve_with_phone_access(uvicorn_calls, monkeypatch, tmp_path, isolated_config):
     from phonotrainer import server
 
-    calls = []
-    monkeypatch.setattr(uvicorn, "run", lambda app, **kw: calls.append((app, kw)))
     monkeypatch.setattr(server, "create_app", lambda *a, **kw: ("app", a, kw))
     settings = PhoneSettings(config_dir=isolated_config)
     server.serve(workspace=tmp_path / "ws", open_browser=False, phone=settings)
-    (app, kw), = calls
+    (app, kw), = uvicorn_calls
     assert kw == {"host": "0.0.0.0", "port": 8000, "reload": False, "factory": False,
                   "proxy_headers": False, "access_log": False}
     assert app[2]["phone"].port == 8000
-    calls.clear()
+    uvicorn_calls.clear()
     server.serve(workspace=tmp_path / "ws", open_browser=False)
-    (app, kw), = calls
-    assert kw == {"host": "127.0.0.1", "port": 8000, "reload": False, "factory": False}
+    (app, kw), = uvicorn_calls
+    # phone access off: as before, except that proxy headers are never trusted
+    assert kw == {"host": "127.0.0.1", "port": 8000, "reload": False, "factory": False,
+                  "proxy_headers": False}
     assert "phone" not in app[2] or app[2]["phone"] is None
+
+
+@pytest.mark.parametrize("phone_on", [True, False])
+def test_serve_with_reload_never_trusts_proxy_headers(uvicorn_calls, tmp_path, isolated_config,
+                                                      phone_on):
+    from phonotrainer import server
+
+    phone = PhoneSettings(config_dir=isolated_config) if phone_on else None
+    server.serve(workspace=tmp_path / "ws", open_browser=False, reload=True, phone=phone)
+    (app, kw), = uvicorn_calls
+    assert app == "phonotrainer.server:app_from_env"
+    assert kw["reload"] is True and kw["factory"] is True
+    assert kw["proxy_headers"] is False
 
 
 # --- phone on / off / status ------------------------------------------------------------------

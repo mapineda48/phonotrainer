@@ -8,6 +8,10 @@ upgrades: both see `http` and `websocket` scopes alike.
   `localhost`, `*.localhost`, this machine's host name or `<hostname>.local`.
   Otherwise a page in the owner's browser could use DNS rebinding to read the
   disk browser (`/api/browse`) through a name that resolves to 127.0.0.1.
+  "Loopback" is the peer address or the local address the connection arrived
+  on: only this machine can reach a loopback address, and no header can change
+  that one, so a proxy header that rewrote the peer (uvicorn runs with
+  `proxy_headers=False`, this is the second line) still cannot skip the rule.
 - `PhoneAccessMiddleware` (phone access on or suspended): LAN clients reach only
   `/api/phone/*`, only on the local addresses of approved networks, and only
   with `Host` equal to the address they connected to; phone paths with dot
@@ -144,8 +148,9 @@ class LoopbackHostGuard:
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] in ("http", "websocket"):
             client = (scope.get("client") or (None,))[0]
-            if is_loopback(client) and not _loopback_host_ok(_header(scope, b"host"),
-                                                             self.names):
+            local = (scope.get("server") or (None,))[0]
+            if ((is_loopback(client) or is_loopback(local))
+                    and not _loopback_host_ok(_header(scope, b"host"), self.names)):
                 await _deny(scope, receive, send, 400, "bad_host")
                 return
         await self.app(scope, receive, send)

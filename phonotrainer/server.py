@@ -776,11 +776,16 @@ def serve(workspace: str | Path = DEFAULT_WORKSPACE, host: str | None = None,
           phone: PhoneSettings | None = None) -> None:
     """Start uvicorn with the app (used by `phonotrainer ui`).
 
-    Without `phone` nothing changes: loopback by default. With it (phone access
-    on, or suspended) the default bind address is every IPv4 interface, the
-    browser still opens the loopback address, uvicorn's proxy headers and access
-    log are off (the log would print every client address and path), and
-    `runtime.json` tells `phonotrainer phone …` that this server is running.
+    Without `phone`: loopback by default, as before. With it (phone access on,
+    or suspended) the default bind address is every IPv4 interface, the browser
+    still opens the loopback address, uvicorn's access log is off (it would
+    print every client address and path), and `runtime.json` tells
+    `phonotrainer phone …` that this server is running.
+
+    uvicorn's proxy headers are off in every mode: PhonoTrainer never runs
+    behind a proxy, and with them on any local page could send
+    `X-Forwarded-For` and pass for a remote peer, which `LoopbackHostGuard`
+    (the DNS-rebinding defence) would then not check.
     """
     import uvicorn
 
@@ -801,7 +806,8 @@ def serve(workspace: str | Path = DEFAULT_WORKSPACE, host: str | None = None,
     if phone is None:
         uvicorn.run("phonotrainer.server:app_from_env" if reload
                     else create_app(workspace, allowed_roots=allowed_roots),
-                    host=host, port=port, reload=reload, factory=reload)
+                    host=host, port=port, reload=reload, factory=reload,
+                    proxy_headers=False)
         return
 
     from dataclasses import replace
