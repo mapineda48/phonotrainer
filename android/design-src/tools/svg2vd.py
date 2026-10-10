@@ -27,7 +27,11 @@ Convert text to paths and expand symbols before exporting.
 Usage
   python3 svg2vd.py in.svg [-o out.xml] [--size 24] [--current-color '#000000']
                    [--color ink='#1b1a18'] [--colors theme.json] [--tint '?attr/colorControlNormal']
-                   [--precision 3] [--lenient]
+                   [--precision 3] [--lenient] [--no-merge] [--max-path 3000]
+
+Every pathData stays under Android lint's VectorPath limit (3000 characters, a run of blanks counting
+once): merges stop short of it and a longer path is split at subpath boundaries when that cannot change
+a pixel (otherwise the conversion fails).
 """
 
 from __future__ import annotations
@@ -920,6 +924,9 @@ class Converter:
             width_dp, height_dp = length(w_attr), length(h_attr)
         else:
             width_dp, height_dp = vw, vh
+        if max(width_dp, height_dp) > LINT_VECTOR_DP:
+            warn(f"intrinsic size {fmt(width_dp, 2)} x {fmt(height_dp, 2)} dp is over lint's VectorRaster limit "
+                 f"({LINT_VECTOR_DP} dp a side); pass --size (the viewport, and so the geometry, stays the same)")
         start = (1.0, 0.0, 0.0, 1.0, -minx, -miny)
         nodes = self.walk(root, start, {}, 1.0)
         if not nodes:
@@ -1008,8 +1015,86 @@ def _overlaps(b, boxes) -> bool:
     return any(b[0] < o[2] and o[0] < b[2] and b[1] < o[3] and o[1] < b[3] for o in boxes)
 
 
-def merge_paths(parent: ET.Element) -> None:
+# Android lint's VectorPath check (lint-checks 32.4.1, the version AGP 9.4.1 runs) reports any pathData whose
+# length is 3000 or more when minSdk >= 21, and the app runs lint with warningsAsErrors. Lint counts every
+# character except that a run of whitespace counts once (VectorPathDetector.countPathLength).
+LINT_PATH_LIMIT = 3000
+# Its VectorRaster check (VectorDetector) reports a <vector> whose android:width or android:height is over 200 dp.
+# The intrinsic size only sets the default bounds: a vector is drawn at the size it is given, so a large picture
+# keeps its viewport and declares a smaller intrinsic size (--size).
+LINT_VECTOR_DP = 200
+
+
+def lint_path_length(d: str) -> int:
+    """The length lint's VectorPath check measures: a run of whitespace counts as one character."""
+    n, prev_ws = 0, False
+    for ch in d:
+        ws = ch.isspace()
+        if not ws or not prev_ws:
+            n += 1
+        prev_ws = ws
+    return n
+
+
+def _subpaths(d: str) -> list[str]:
+    """Split absolute path data (M/L/C/Z only, as written by segs_to_d) at each moveto."""
+    return [part for part in re.split(r"(?=M)", d) if part]
+
+
+def split_long_paths(parent: ET.Element, limit: int) -> None:
+    """Split any path whose data reaches `limit` into consecutive paths with the same paint.
+
+    The pieces are whole subpaths, so the geometry is untouched. Splitting is only done when it cannot
+    change a pixel: an opaque stroke-only path (a union of strokes in one colour), or a path whose
+    subpaths in different pieces do not overlap (no double alpha, no winding interaction between them).
+    Otherwise the conversion fails and the master must be split by hand.
+    """
+    data_key = f"{{{ANDROID}}}pathData"
+    for c in list(parent):
+        if c.tag == "group":
+            split_long_paths(c, limit)
+            continue
+        d = c.get(data_key)
+        if c.tag != "path" or d is None or lint_path_length(d) < limit:
+            continue
+        subs = _subpaths(d)
+        pieces: list[list[str]] = [[]]
+        for sub in subs:
+            if lint_path_length(sub) >= limit:
+                raise ConversionError(f"a single subpath of {lint_path_length(sub)} characters reaches lint's "
+                                      f"VectorPath limit ({limit}); simplify it in the SVG master")
+            if pieces[-1] and lint_path_length("".join(pieces[-1]) + sub) >= limit:
+                pieces.append([])
+            pieces[-1].append(sub)
+        stroke_only = f"{{{ANDROID}}}fillColor" not in c.attrib and not list(c)
+        opaque = all(not v.startswith("#") or len(v) != 9 or v[1:3] == "FF"
+                     for k, v in c.attrib.items() if k.endswith("Color")) and not any(
+            k.endswith("Alpha") for k in c.attrib)
+        if not (stroke_only and opaque):
+            pad = float(c.get(f"{{{ANDROID}}}strokeWidth", "0")) / 2
+            boxes = [[_box(sub, pad) for sub in piece] for piece in pieces]
+            for i, a in enumerate(boxes):
+                for b in boxes[i + 1:]:
+                    if any(_overlaps(box, b) for box in a):
+                        raise ConversionError(f"a path of {lint_path_length(d)} characters reaches lint's "
+                                              f"VectorPath limit ({limit}) and its parts overlap, so splitting "
+                                              "could change the picture; split it in the SVG master")
+        if c.get(f"{{{ANDROID}}}name"):
+            raise ConversionError(f"named path {c.get(f'{{{ANDROID}}}name')!r} reaches lint's VectorPath limit")
+        index = list(parent).index(c)
+        parent.remove(c)
+        for k, piece in enumerate(pieces):
+            twin = ET.Element(c.tag, dict(c.attrib))
+            twin.set(data_key, "".join(piece))
+            for child in c:
+                twin.append(child)
+            parent.insert(index + k, twin)
+
+
+def merge_paths(parent: ET.Element, limit: int = LINT_PATH_LIMIT) -> None:
     """Join adjacent paths that share every attribute except pathData (fewer nodes to draw).
+
+    A merge never makes a path reach `limit` (lint's VectorPath length, see LINT_PATH_LIMIT).
 
     Opaque stroke-only paths always merge. Filled or translucent ones merge only when their boxes
     do not overlap: overlapping translucent shapes would lose their double-alpha look, and a merged
@@ -1031,10 +1116,11 @@ def merge_paths(parent: ET.Element) -> None:
 
     for c in kids:
         if c.tag == "group":
-            merge_paths(c)
+            merge_paths(c, limit)
         prev = merged[-1] if merged else None
         mergeable = (prev is not None and c.tag == "path" and prev.tag == "path" and not list(c) and not list(prev)
-                     and key(c) == key(prev) and name_key not in c.attrib and name_key not in prev.attrib)
+                     and key(c) == key(prev) and name_key not in c.attrib and name_key not in prev.attrib
+                     and (not limit or lint_path_length(prev.get(data_key) + c.get(data_key)) < limit))
         # Overlapping shapes may only merge when they are opaque strokes alone: a merged path paints all its
         # fills before all its strokes (an earlier outline would show through a later fill), nonzero winding
         # can punch holes where opposite-wound fills overlap, and translucent paint would double up.
@@ -1092,7 +1178,8 @@ def theme_map(palette: Path, theme: str) -> dict[str, str]:
 
 
 def convert_file(src: Path, size, current, variables, tint, precision, lenient,
-                 recolor: dict[str, str] | None = None, strict_palette: bool = False, merge: bool = True) -> str:
+                 recolor: dict[str, str] | None = None, strict_palette: bool = False, merge: bool = True,
+                 max_path: int = LINT_PATH_LIMIT) -> str:
     try:
         tree = ET.parse(src)
     except ET.ParseError as exc:
@@ -1100,8 +1187,10 @@ def convert_file(src: Path, size, current, variables, tint, precision, lenient,
     resolver = Resolver(current, variables, recolor, strict_palette)
     conv = Converter(tree.getroot(), resolver, precision, lenient)
     vec = conv.convert(size, tint)
+    if max_path:
+        split_long_paths(vec, max_path)
     if merge:
-        merge_paths(vec)
+        merge_paths(vec, max_path)
     for hx in sorted(resolver.off_palette):
         warn(f"{hx} is not an illustration token; it was kept as is in the themed output")
     return serialize(vec, src.name, conv.used_gradients)
@@ -1122,6 +1211,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--theme", choices=("light", "dark"), help="target theme for --palette (light keeps colours)")
     ap.add_argument("--strict-palette", action="store_true", help="fail on colours that are not illustration tokens")
     ap.add_argument("--no-merge", action="store_true", help="keep one <path> per SVG shape")
+    ap.add_argument("--max-path", type=int, default=LINT_PATH_LIMIT,
+                    help=f"keep every pathData under this lint VectorPath length (default {LINT_PATH_LIMIT}; 0: no cap)")
     args = ap.parse_args(argv)
     size = None
     if args.size:
@@ -1132,7 +1223,8 @@ def main(argv: list[str] | None = None) -> int:
         if args.palette and args.theme:
             recolor = theme_map(Path(args.palette), args.theme)
         xml = convert_file(Path(args.svg), size, args.current_color, load_colors(args), args.tint,
-                           args.precision, args.lenient, recolor, args.strict_palette, not args.no_merge)
+                           args.precision, args.lenient, recolor, args.strict_palette, not args.no_merge,
+                           args.max_path)
     except ConversionError as exc:
         print(f"svg2vd: error: {exc}", file=sys.stderr)
         return 1

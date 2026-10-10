@@ -22,7 +22,7 @@ Master geometry (`android/design-src/svg/brand/mark-stylus-p.svg`, a 100 × 100 
 | Adaptive icon background | `launcher-background.svg` | `ic_launcher_background` | kraft drum paper `#D2C3A3`, drum rules and a halftone corner in ink, a soft sheen |
 | Adaptive icon foreground | `launcher-foreground.svg` | `ic_launcher_foreground` | ink `#1B1A18`, inside the 66 dp safe zone |
 | Monochrome (themed icons) | `launcher-monochrome.svg` | `ic_launcher_monochrome` | single colour |
-| Adaptive icon | — | `mipmap-anydpi-v26/ic_launcher`, `ic_launcher_round` | background + foreground + monochrome |
+| Adaptive icon | — | `mipmap-anydpi/ic_launcher`, `ic_launcher_round` (no `-v26` qualifier: minSdk 29; no legacy raster mipmaps) | background + foreground + monochrome |
 | Splash icon | `splash-mark.svg` | `splash_mark` (+ `drawable-night`) | ink on page `#F8F6EF`; bone `#F3F0E8` on soot `#121110` |
 | Animated splash | `splash-mark.svg` (named paths `stylus_stroke`, `stylus_blot`) | `splash_mark_animated` (+ night) | the stroke drawn by `trimPathEnd` in 600 ms, the blot appears by 700 ms; once |
 | Notification icon | `notification.svg` | `ic_notification` | white silhouette, 24 dp |
@@ -38,14 +38,16 @@ figure (10:1 on the tile), on dark sheets the tile does (9.85:1 against `#1C1B1F
 From `android/design-src/`:
 
 ```sh
-python3 tools/svg2vd.py svg/brand/launcher-background.svg -o export/res/drawable/ic_launcher_background.xml
-python3 tools/svg2vd.py svg/brand/launcher-foreground.svg -o export/res/drawable/ic_launcher_foreground.xml
-python3 tools/svg2vd.py svg/brand/launcher-monochrome.svg -o export/res/drawable/ic_launcher_monochrome.xml
-python3 tools/svg2vd.py svg/brand/notification.svg       -o export/res/drawable/ic_notification.xml
-python3 tools/svg2vd.py svg/brand/splash-mark.svg        -o export/res/drawable/splash_mark.xml
-python3 tools/svg2vd.py svg/brand/splash-mark.svg --palette palette.json --theme dark -o export/res/drawable-night/splash_mark.xml
+python3 tools/brand_export.py                                            # every brand resource into export/res/
 python3 tools/roundtrip.py svg/brand/*.svg --out <a scratch directory>   # renders and compares every round trip
-python3 tools/check_palette.py                                           # gates G10 cover the icon and the splash
+python3 tools/lint_vectors.py                                            # lint VectorPath and VectorRaster rules
+python3 tools/check_palette.py                                           # gate G10 covers the icon and the splash
 ```
 
-The animated splash, the adaptive-icon XML and the window colours are specified in design.md 7.1 and 12.4.
+`brand_export.py` runs `svg2vd.py` on each master (launcher layers, notification icon, splash light and night), wraps
+the splash in the one-shot animated vector, writes the two adaptive-icon XMLs and the window colours from
+`palette.json`; the splash drawable keeps its 288 viewport and declares 144 dp (lint `VectorRaster`). The launcher
+background's halftone corner is 64 Bezier-circle dots; `svg2vd.py` keeps every `pathData` under lint's `VectorPath`
+limit (3,000 characters, design.md 12.3), so it is written as four paths of the same paint (the dots never overlap, so
+the pixels are those of one path). The animated splash, the adaptive-icon XML and the window colours are specified in
+design.md 7.1 and 12.4.

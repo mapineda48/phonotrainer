@@ -9,7 +9,8 @@ Reads the masters in svg/brand/ and writes the staging tree export/res/ (design.
   drawable/ic_notification.xml
   drawable/splash_mark.xml, drawable-night/splash_mark.xml          (static splash icon)
   drawable/splash_mark_animated.xml, drawable-night/...             (AVD, one shot, 700 ms)
-  mipmap-anydpi-v26/ic_launcher.xml, ic_launcher_round.xml          (adaptive icon)
+  mipmap-anydpi/ic_launcher.xml, ic_launcher_round.xml              (adaptive icon; minSdk 29, so no -v26
+                                                                     qualifier: lint reports it as ObsoleteSdkInt)
   values/colors.xml, values-night/colors.xml                        (window and splash colours)
 
 The vectors come from svg2vd.py; the animated splash wraps the generated splash vector
@@ -134,14 +135,17 @@ def main(argv: list[str] | None = None) -> int:
     svg2vd("launcher-foreground.svg", res / "drawable/ic_launcher_foreground.xml")
     svg2vd("launcher-monochrome.svg", res / "drawable/ic_launcher_monochrome.xml")
     svg2vd("notification.svg", res / "drawable/ic_notification.xml")
-    svg2vd("splash-mark.svg", res / "drawable/splash_mark.xml")
-    svg2vd("splash-mark.svg", res / "drawable-night/splash_mark.xml", *dark)
+    # The splash master is the 288 dp splash canvas; the drawable declares half of it (lint's VectorRaster limit is
+    # 200 dp a side). The system draws the icon into its 288 dp icon view, so only the default bounds change.
+    splash = ["--size", "144"]
+    svg2vd("splash-mark.svg", res / "drawable/splash_mark.xml", *splash)
+    svg2vd("splash-mark.svg", res / "drawable-night/splash_mark.xml", *splash, *dark)
 
     for qualifier in ("drawable", "drawable-night"):
         vd = (res / qualifier / "splash_mark.xml").read_text(encoding="utf-8")
         (res / qualifier / "splash_mark_animated.xml").write_text(animated(vd), encoding="utf-8")
 
-    mip = res / "mipmap-anydpi-v26"
+    mip = res / "mipmap-anydpi"
     mip.mkdir(parents=True, exist_ok=True)
     for name in ("ic_launcher.xml", "ic_launcher_round.xml"):
         (mip / name).write_text(ADAPTIVE, encoding="utf-8")

@@ -9,7 +9,8 @@ For every SVG given (default: tools/fixtures/*.svg and svg/brand/*.svg) this scr
 4. compares the two PNGs with ImageMagick (normalized RMSE) and writes a side-by-side
    montage for a human look.
 
-A difference above --threshold fails the run (exit status 1). Chrome ("google-chrome")
+A difference above --threshold fails the run (exit status 1); RENDERER_TOLERANCE lists the
+masters whose residue is Chrome's arc rasterization, with the measurements that show it. Chrome ("google-chrome")
 and ImageMagick ("magick") must be on PATH; the script itself is standard-library Python.
 
 Usage
@@ -30,6 +31,18 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import svg2vd  # noqa: E402
 import vd2svg  # noqa: E402
+
+# Masters whose difference comes from Chrome, not from the conversion: Chrome rasterizes an SVG elliptical arc
+# natively and a cubic Bezier through its own flattening, and the anti-aliasing of the two differs along a long
+# stroked arc. ic_site_x (Lucide "at-sign": a 307 degree arc of radius 10 with a 2 unit stroke) measures, against
+# the source: 0.0129 at 2x, 0.0204 at 4x, 0.0117 at 8x; against an exact cubic version of the same arc (written
+# independently, 6 decimals): 0.0013, 0.0009, 0.0005; and the source against that exact cubic version 0.0128,
+# 0.0203, 0.0116. So the converter's output is the arc, and the residue is the renderer's (design.md 13).
+# Android draws both the VectorDrawable and every other icon as cubics, so nothing differs on the phone.
+# Each entry raises the threshold for that file only, by the measured renderer residue plus a small margin.
+RENDERER_TOLERANCE = {
+    "ic_site_x.svg": 0.025,
+}
 
 
 def svg_size(path: Path) -> tuple[float, float]:
@@ -113,10 +126,12 @@ def main(argv: list[str] | None = None) -> int:
             shoot(back, b_png, w, h, args.scale)
             value = rmse(a_png, b_png)
             subprocess.run(["magick", str(a_png), str(b_png), "+append", str(out / f"{stem}.compare.png")], check=True)
-            ok = value <= args.threshold
+            limit = max(args.threshold, RENDERER_TOLERANCE.get(src.name, 0.0))
+            ok = value <= limit
             failed += 0 if ok else 1
             paths = xml.count("<path")
-            print(f"{src.name:40} {theme:6} {paths:5d} {len(xml):9d} {value:8.4f}  {'ok' if ok else 'DIFFERS'}")
+            verdict = ("ok" if value <= args.threshold else f"ok (renderer arc tolerance {limit:g})") if ok else "DIFFERS"
+            print(f"{src.name:40} {theme:6} {paths:5d} {len(xml):9d} {value:8.4f}  {verdict}")
     print("\nall round trips match" if not failed else f"\n{failed} round trip(s) differ or failed")
     return 1 if failed else 0
 

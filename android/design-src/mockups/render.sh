@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Render the Phonautograph mockups to android/docs/design/<page>-<theme>.png (412 x 915 dp at 2x).
 # usage: render.sh [page ...]        (default: every page in PAGES)
-# Needs google-chrome and ImageMagick (magick). Google Fonts load over the network; Charis comes from web/.
+# Needs google-chrome and ImageMagick (magick). Fonts are the staged TTFs in design-src/export/res/font/ (offline).
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 out="$(cd "$here/../../docs" && pwd)/design"
@@ -12,7 +12,7 @@ PAGES=(
   01-home 02-home-full=01-home:auto:"&full=1" 03-home-first-run 04-watch-video 05-watch-audio-offline::"&palette=cvd"
   06-watch-portrait 07-watch-question 08-watch-set-end 09-mode-picker 10-lesson-compare 11-lesson-boundary:1560
   12-learn 13-phenomenon 14-practice 15-library 16-clip-page 17-requests:auto:"&full=1" 18-request-detail:auto:"&full=1" 19-share-connected
-  20-share-queued 21-connect-none 22-settings-display 23-welcome 24-saved-empty 27-watch-large-text 25-illustrations:auto:"&full=1" 26-brand:auto:"&full=1"
+  20-share-queued 21-connect-none 22-settings-display 22-settings-full=22-settings-display:auto:"&full=1" 23-welcome 24-saved-empty 27-watch-large-text 25-illustrations:auto:"&full=1" 26-brand:auto:"&full=1"
 )
 want=("$@")
 render() { # output page height extra theme

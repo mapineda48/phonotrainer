@@ -1,9 +1,16 @@
 /* Phonautograph: tokens and components of the PhonoTrainer Android design system, as HTML for the mockups.
    Values mirror design-src/palette.json (gated by tools/check_palette.py) and android/docs/design.md.
    Query parameters: ?theme=light|dark  &palette=standard|cvd  &patterns=on|off  &scale=1|1.3|2 (font scale). */
-@import url("https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@200..800&family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&display=block");
-@font-face { font-family: "Charis"; src: url("../../../../web/src/assets/fonts/charis/Charis-Regular.woff2") format("woff2"); font-weight: 400; font-display: block; }
-@font-face { font-family: "Charis"; src: url("../../../../web/src/assets/fonts/charis/Charis-Bold.woff2") format("woff2"); font-weight: 700; font-display: block; }
+/* Fonts: the staged TTFs (design-src/export/res/font/), so the renders are reproducible offline and use the exact
+   bytes the app bundles. "Phono Arrows" is Charis limited to the arrows, placed after each UI face: neither
+   Atkinson Hyperlegible Next nor Newsreader has U+2190-2194, and design.md 4.1 sets inline arrows in Charis. */
+@font-face { font-family: "Atkinson Hyperlegible Next"; src: url("../../export/res/font/atkinson_hyperlegible_next.ttf") format("truetype"); font-weight: 200 800; font-style: normal; font-display: block; }
+@font-face { font-family: "Newsreader"; src: url("../../export/res/font/newsreader.ttf") format("truetype"); font-weight: 200 800; font-style: normal; font-display: block; }
+@font-face { font-family: "Newsreader"; src: url("../../export/res/font/newsreader_italic.ttf") format("truetype"); font-weight: 200 800; font-style: italic; font-display: block; }
+@font-face { font-family: "Charis"; src: url("../../export/res/font/charis_regular.ttf") format("truetype"); font-weight: 400; font-display: block; }
+@font-face { font-family: "Charis"; src: url("../../export/res/font/charis_bold.ttf") format("truetype"); font-weight: 700; font-display: block; }
+@font-face { font-family: "Phono Arrows"; src: url("../../export/res/font/charis_regular.ttf") format("truetype"); font-weight: 200 599; unicode-range: U+2190-2194; font-display: block; }
+@font-face { font-family: "Phono Arrows"; src: url("../../export/res/font/charis_bold.ttf") format("truetype"); font-weight: 600 800; unicode-range: U+2190-2194; font-display: block; }
 
 :root, :root[data-theme="light"] {
   --page: #f8f6ef; --sheet: #fffdf8; --galley: #efebe2; --deep: #e5e0d4;
@@ -42,8 +49,8 @@
 :root[data-theme="dark"][data-palette="cvd"] { --fam-reduction: #1574b5; --fam-td: #ffad3c; --fam-assimilation: #b94300; --fam-boundary: #6ac7ff;
   --tint-reduction: #22313e; --tint-td: #503d27; --tint-assimilation: #42271c; --tint-boundary: #31434d; }
 :root {
-  --font-ui: "Atkinson Hyperlegible Next", system-ui, sans-serif;
-  --font-display: "Newsreader", Georgia, serif;
+  --font-ui: "Atkinson Hyperlegible Next", "Phono Arrows", sans-serif;
+  --font-display: "Newsreader", "Phono Arrows", serif;
   --font-ipa: "Charis", serif;
   --fs: 1; /* font scale preview */
   --r-xs: 4px; --r-s: 8px; --r-m: 12px; --r-card: 14px; --r-l: 20px; --r-xl: 28px;

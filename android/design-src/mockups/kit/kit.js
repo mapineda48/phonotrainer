@@ -103,7 +103,7 @@
     return `<svg aria-hidden="true" width="${size}" height="${size}" viewBox="${vb}"><defs><clipPath id="${id}">${clip}</clipPath><radialGradient id="${id}s" cx=".3" cy=".22" r=".75"><stop offset="0" stop-color="#fff" stop-opacity="${o.mono ? 0 : .22}"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient></defs>
       <g clip-path="url(#${id})"><rect width="108" height="108" fill="${tile}"/><rect width="108" height="108" fill="url(#${id}s)"/>
       <g stroke="#1b1a18" stroke-opacity=".13" stroke-width=".9">${rules}</g><g fill="#1b1a18" fill-opacity=".24">${dots}</g>
-      <g transform="translate(54.5 55) scale(.76) translate(-60 -52)"><path d="${MARK}" fill="none" stroke="${ink}" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/><circle cx="80" cy="75.4" r="7.2" fill="${ink}"/></g></g></svg>`;
+      <g transform="translate(54.2 54.6) scale(.66) translate(-60 -52)"><path d="${MARK}" fill="none" stroke="${ink}" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/><circle cx="80" cy="75.4" r="7.2" fill="${ink}"/></g></g></svg>`;
   };
 
   function statusbar(onMedia) {

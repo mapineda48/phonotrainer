@@ -1,12 +1,16 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=412">
-<title>Settings: Display</title>
+<title>Settings (P-12): the Display group</title>
 <link rel="stylesheet" href="kit/theme.css">
 <script src="kit/icons.js"></script><script src="kit/art.js"></script><script src="kit/kit.js"></script>
 <style>
+  /* Settings (SettingsKey) is one scrolling page: Display, Playback and captions and Learning are groups on it;
+     Your computer, Storage, Notifications, Help and About are rows that open the sub-page keys (design.md 10.2 P-12).
+     The default render is the first screen (the Display group); &full=1 renders the whole page. */
   .content { padding: 0 16px 120px; }
-  .grp { margin-top: 18px; }
-  .grp .lab { display: flex; gap: 8px; align-items: center; font-weight: 700; font-size: 16px; margin-bottom: 8px; }
+  .item { margin-top: 14px; }
+  .item .lab { font-weight: 700; font-size: 16px; margin-bottom: 8px; }
+  .item .sub { font-size: 14px; color: var(--ink-2); line-height: 1.35; margin: -4px 0 8px; }
   .radio { display: grid; grid-template-columns: 24px 1fr; gap: 10px; padding: 12px 14px; border-radius: 14px; background: var(--sheet); box-shadow: inset 0 0 0 1.5px var(--line-strong); margin-top: 8px; }
   .radio.on { box-shadow: inset 0 0 0 2.5px var(--ink); }
   .dot { width: 22px; height: 22px; border-radius: 11px; box-shadow: inset 0 0 0 2px var(--outline); margin-top: 2px; }
@@ -14,6 +18,10 @@
   .swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 10px; }
   .sw { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 14px; }
   .sw .abc { font-weight: 600; font-size: 16px; }
+  .sw-row { display: flex; gap: 12px; align-items: center; margin-top: 14px; min-height: 56px; }
+  .val { font-size: 15px; color: var(--ink-2); white-space: nowrap; }
+  .pages { margin-top: 6px; }
+  .pages .listrow .ico-well { width: 40px; height: 40px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; box-shadow: inset 0 0 0 1.5px var(--ink); flex: none; }
 </style>
 <script>
   // Each preview shows its own palette whatever the active one is.
@@ -32,17 +40,42 @@
 <body>
 <div class="phone grain">
   <div data-statusbar></div>
-  <div class="topbar"><span class="iconbtn" aria-label="Back"><span data-icon="arrow-left" data-size="24"></span></span><h1>Display</h1></div>
+  <div class="topbar"><span class="iconbtn" aria-label="Back"><span data-icon="arrow-left" data-size="24"></span></span><h1>Settings</h1></div>
   <div class="content">
-    <p class="lede">Make the screen comfortable for your eyes. Changes apply at once and are remembered on this phone.</p>
-    <div class="grp"><div class="lab">Appearance</div>
+    <p class="lede">All settings apply at once and are remembered on this phone.</p>
+
+    <div class="grouphead"><span class="kicker" role="heading" aria-level="2"><span data-icon="palette" data-size="18"></span>Display</span></div>
+    <div class="item"><div class="lab">Appearance</div>
       <div class="seg" role="radiogroup" aria-label="Appearance"><span class="on"><span data-icon="monitor" data-size="18"></span>System</span><span><span data-icon="sun" data-size="18"></span>Light</span><span><span data-icon="moon" data-size="18"></span>Dark</span></div></div>
-    <div class="grp"><div class="lab">Colors</div>
+    <div class="item"><div class="lab">Colors</div>
       <div class="radio on" role="radio" aria-checked="true"><span class="dot"></span><div><b>Standard</b><div class="small ink2">Calm blue, amber, plum and teal.</div><div class="swatches" data-preview="standard"></div></div></div>
       <div class="radio" role="radio" aria-checked="false"><span class="dot"></span><div><b>Color-vision friendly</b><div class="small ink2">Blue, orange, vermilion and sky — kept apart even with red-green or blue-yellow color blindness. Turns on pattern emphasis.</div><div class="swatches" data-preview="cvd"></div></div></div></div>
-    <div class="grp"><div class="row gap12"><div class="grow"><b>Show patterns as well as colors</b><div class="small ink2">Adds the family icon after each marked word and thicker underlines. Follows the Colors setting.</div></div><span class="switch" role="switch" aria-checked="false"></span></div></div>
-    <div class="grp"><div class="lab">Motion</div><div class="seg" role="radiogroup" aria-label="Motion"><span class="on">Follow system</span><span>Reduce</span></div></div>
+    <div class="item"><div class="lab">Show patterns as well as colors</div>
+      <div class="sub">Adds the family icon after each marked word and thicker underlines.</div>
+      <div class="seg" role="radiogroup" aria-label="Show patterns as well as colors"><span class="on">Follow Colors</span><span>On</span><span>Off</span></div></div>
+    <div class="item"><div class="lab">Motion</div><div class="seg" role="radiogroup" aria-label="Motion"><span class="on">Follow system</span><span>Reduce</span></div></div>
     <p class="small ink2" style="margin-top:14px;display:flex;gap:8px"><span data-icon="info" data-size="18"></span>Text size follows your phone's font size, IPA included.</p>
+
+    <div class="grouphead" style="margin-top:26px"><span class="kicker" role="heading" aria-level="2"><span data-icon="captions" data-size="18"></span>Playback and captions</span></div>
+    <div class="item"><div class="lab">Default speed</div><div class="seg" role="radiogroup" aria-label="Default speed"><span>0.5×</span><span>0.75×</span><span class="on">1×</span></div></div>
+    <div class="sw-row"><div class="grow"><b>Play each short when it appears</b></div><span class="switch on" role="switch" aria-checked="true"></span></div>
+    <div class="listrow" style="border-top:0"><div class="t"><b>At the end of a short</b><span>Replay it once</span></div><span data-icon="chevron-down" data-size="20"></span></div>
+    <div class="item"><div class="lab">Captions</div><div class="seg" role="radiogroup" aria-label="Captions"><span class="on">Marks</span><span>Plain</span><span>IPA</span><span>Off</span></div></div>
+    <div class="sw-row"><div class="grow"><b>Listen first</b></div><span class="switch" role="switch" aria-checked="false"></span></div>
+    <div class="item"><div class="lab">Listen to</div><div class="seg" role="radiogroup" aria-label="Listen to"><span class="on">Original mix</span><span>Dialogue only</span></div></div>
+    <div class="listrow"><div class="t"><b>Clips left out of the Mix</b></div><span data-icon="chevron-right" data-size="20"></span></div>
+
+    <div class="grouphead" style="margin-top:26px"><span class="kicker" role="heading" aria-level="2"><span data-icon="graduation-cap" data-size="18"></span>Learning</span></div>
+    <div class="sw-row"><div class="grow"><b>Questions after each set</b></div><span class="switch on" role="switch" aria-checked="true"></span></div>
+    <div class="item"><div class="lab">Lesson guidance</div><div class="seg" role="radiogroup" aria-label="Lesson guidance"><span class="on">Full</span><span>Compact</span></div></div>
+
+    <div class="pages" style="margin-top:26px;border-top:1px solid var(--line-strong)">
+      <div class="listrow"><span class="ico-well"><span data-icon="monitor-check" data-size="22"></span></span><div class="t"><b>Your computer</b><span>Connected to Study desk</span></div><span data-icon="chevron-right" data-size="20"></span></div>
+      <div class="listrow"><span class="ico-well"><span data-icon="hard-drive" data-size="22"></span></span><div class="t"><b>Storage</b><span>1.4 GB of 2 GB</span></div><span data-icon="chevron-right" data-size="20"></span></div>
+      <div class="listrow"><span class="ico-well"><span data-icon="bell" data-size="22"></span></span><div class="t"><b>Notifications</b></div><span data-icon="chevron-right" data-size="20"></span></div>
+      <div class="listrow"><span class="ico-well"><span data-icon="circle-help" data-size="22"></span></span><div class="t"><b>Help</b></div><span data-icon="chevron-right" data-size="20"></span></div>
+      <div class="listrow"><span class="ico-well"><span data-icon="scale" data-size="22"></span></span><div class="t"><b>About and licences</b></div><span data-icon="chevron-right" data-size="20"></span></div>
+    </div>
   </div>
   <div data-navbar="Home"></div>
 </div>

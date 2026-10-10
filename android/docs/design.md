@@ -1,6 +1,6 @@
 # PhonoTrainer for Android: design system ("Phonautograph")
 
-Status: v1 design system, 2026-10-10. Owner: design lead.
+Status: v1 design system, revision 2 (2026-10-10: closes the design items of the cross-track review, mirrors spec revision 3). Owner: design lead.
 
 Inputs: `android/docs/product-spec.md` (the authority on content, hierarchy, states and interactions; this document
 never changes behaviour, it decides how things look and move), `android/docs/architecture.md` section 17 (the
@@ -325,10 +325,32 @@ the provenance manifest `FONTS.txt`) and to `THIRD-PARTY-NOTICES.md` (the "7.3 F
 owns, work-plan 3.2). Variable fonts load from `res/font` on API 26+ with
 `Font(R.font.x, weight, variationSettings = FontVariation.Settings(FontVariation.weight(w), FontVariation.Setting("opsz", size)))`.
 
-Glyph gaps (asset review): Atkinson Hyperlegible Next and Newsreader have no "→" (U+2192); Atkinson also lacks U+00AD
-and U+00B5, Newsreader U+2009. A trailing arrow in a label ("All clips →", "See Insights →", "Next question →") is
-drawn as the `ic_arrow_right` icon after the word (or set in Charis, which has a matching arrow), never left to the
-system fallback font; the "→" inside IPA lines is already Charis. The font files stay unmodified.
+**Glyph rule** (the font files stay unmodified; nothing is left to the system fallback font). Checked against the
+staged files' character maps: Atkinson Hyperlegible Next and Newsreader have no arrows (U+2190 "←", U+2192 "→",
+U+2194 "↔"), no "✓" (U+2713), no "✕" (U+2715) and no "▾" (U+25BE); Atkinson also lacks U+00AD (soft hyphen) and
+U+00B5 (µ), Newsreader U+2009 (thin space). Charis has the three arrows, drawn at a weight that sits well beside
+Atkinson. So:
+
+| Where the glyph appears | How it is drawn |
+|---|---|
+| Inside IPA (`/ˈwɔtɚ/ → [ˈwɔɾɚ]`, the "≠ changed · /t/ → [ɾ]" pill) | `IpaText` (4.3): the whole string is Charis already |
+| Inside running UI text: change names ("nt → n"), contraction chips ("wanna ← want to"), examples in prose ("“did you” → “didja”") | the arrow alone is set in Charis (same size and weight as the text) through a span; the string itself is unchanged, so TalkBack reads what it read before |
+| Trailing arrow of an action label ("All clips →", "See Insights →", "Next question →", "Next change →", "Learn more →", "Learn about {change} →") | not text: the `ic_arrow_right` icon (18 dp, ink, after the word, 4 dp gap), decorative (no content description); the string resource holds the words only |
+| "▾" of a menu or the feed's mode button ("Mix ▾", "Newest first ▾") | `ic_chevron_down` (18 dp) after the word, decorative (the control's role says it opens a menu) |
+| "✓" in a status ("✓ Seen", "✓ played 2×", "Clip data ✓") | `ic_step_done` (16 dp); decorative where the words carry the state ("Seen", "played 2×"); content description "ready" in the per-clip download line, where it replaces a word |
+| "✕" on a removable chip ("Only: flapping ✕") | `ic_close` (16 dp) at the chip's end; the chip's action label comes from the spec ("Practice everything instead" is the visible alternative) |
+| U+00AD, U+00B5, U+2009 | never in a string resource (a plain space in display numbers; "µs" is not used) |
+
+Compose implementation note (`:core:designsystem`, WP-03): `PhonoText(text: String, style: TextStyle, …)` is the
+`Text` every feature uses for UI copy; it builds an `AnnotatedString` once per string (`remember(text)`) that wraps
+each U+2190-U+2194 in `SpanStyle(fontFamily = PhonoFonts.Charis)` and passes the rest through untouched (`IpaText`
+stays separate). Trailing arrows, chevrons, checks and crosses come from the components that own them:
+`PhonoButton(…, trailingIcon = PhonoIcons.ArrowRight)`, `LinkButton(…, trailingArrow = true)`, `MenuButton` (chevron),
+`StatusLine` (check), `FilterChip(onRemove)` (cross), each icon with `contentDescription = null` unless the table
+says otherwise. Two JVM tests guard the rule: one fails when a value in `strings.xml` contains "▾", "✓", "✕",
+U+00AD, U+00B5, U+2009 or ends in " →"; one reads the cmap of the bundled TTFs and fails when a character of
+`strings.xml` (outside IPA) is in neither the UI face nor, for the arrows, Charis. The mockups follow the same rule
+(`kit/theme.css` maps U+2190-2194 to Charis behind both UI faces).
 
 Why a third face: Newsreader is the "print" voice of the phonautograph page; it pairs with Charis without imitating
 it. It is fenced in: never for body, labels, buttons or anything under 15 sp; the UI stays Atkinson exactly as on the
@@ -443,8 +465,9 @@ the fibres and halftones of non-content surfaces are skipped (the audio drum kee
   rail, bars and top bars, 28 dp in empty-state wells.
 - **Motion**: only `loader-circle` rotates (when motion is allowed); nothing else animates.
 - **Sources**: `tools/lucide_icons.py --lucide <lucide-static or lucide-react icons dir> --svg-dir …` writes one SVG
-  per inventory entry; `svg2vd.py` converts it (121 of 122 round-trip within 0.02 RMSE; `ic_site_x` measures 0.0204,
-  anti-aliasing along its long arc, visually identical; section 13).
+  per inventory entry; `svg2vd.py` converts it (all 122 round-trip; 121 within 0.02 RMSE, and `ic_site_x` at 0.0204 against its
+  source, a residue of Chrome's arc rasterization that `roundtrip.py` records as a per-file tolerance with its
+  evidence; section 13).
 
 The full inventory (resource name, Lucide name, stroke, meaning, where used) is `design-src/icons.json`. Summary:
 
@@ -477,11 +500,11 @@ width 10, round caps and joins, plus the blot `circle(80, 75.4, r 7.2)`.
 
 | Asset | Geometry | Colours | Source |
 |---|---|---|---|
-| Adaptive icon background | 108 × 108 dp, full bleed | launcher kraft `#D2C3A3`, white sheen (radial, 22 % → 0 at the top left), 5 drum rules (y 34-74, ink 13 %, 0.9 dp), halftone corner (bottom right, ink 24 %) | `svg/brand/launcher-background.svg` |
+| Adaptive icon background | 108 × 108 dp, full bleed | launcher kraft `#D2C3A3`, white sheen (radial, 22 % → 0 at the top left), 5 drum rules (y 34-74, ink 13 %, 0.9 dp), halftone corner (bottom right, ink 24 %: 64 dots, written as four paths of the same paint to stay under lint's `VectorPath` limit, 12.3) | `svg/brand/launcher-background.svg` |
 | Adaptive icon foreground | the mark scaled 0.66 (mark centre (60, 52) placed at (54.2, 54.6); stroke 6.6 dp): inside the 66 dp safe circle, farthest point 29.4 dp from the centre | ink `#1B1A18` | `svg/brand/launcher-foreground.svg` |
 | Monochrome (themed icons, API 33+) | the foreground geometry only | single colour | `svg/brand/launcher-monochrome.svg` |
 | Notification icon | 24 dp, the mark scaled 0.27, stroke 10.5 | white on transparent (alpha only) | `svg/brand/notification.svg` |
-| Splash icon (API 31+ and the compat library) | 288 dp canvas, mark inside the 192 dp circle (scale 1.78) | ink on page (light), bone on soot (dark) | `svg/brand/splash-mark.svg` |
+| Splash icon (API 31+ and the compat library) | 288 dp canvas, mark inside the 192 dp circle (scale 1.78); the drawable keeps the 288 viewport and declares 144 × 144 dp (lint `VectorRaster`, 12.3): the platform and the compat library both draw it into their 288 dp icon view, so the shown size is unchanged | ink on page (light), bone on soot (dark) | `svg/brand/splash-mark.svg` |
 | Animated splash | the stroke drawn by `trimPathEnd` 0 → 1 over 600 ms (standard easing), then the blot fades in (fillAlpha 0 → 1, 600 → 700 ms); runs once | as the splash icon | AVD made from the splash VD |
 
 Why kraft and not soot: the soot tile of the concept disappeared on dark share sheets (judge 2). The kraft tile is
@@ -510,6 +533,10 @@ from one vector (2.5). Decorative: hidden from TalkBack; the empty state's title
 | `ill_set_done` | Summary card at the end of a set (F-08) | Stacked slips with a round check stamp | 200 × 120 |
 | `ill_spot_practice` | Home Practice card; Practice title | An ear and a small target | 96 × 72 |
 | `ill_spot_insights` | Home Insights teaser | Hatched bars under a dashed reference line and a magnifier | 96 × 72 |
+
+The "Size" column is the viewport. Drawables larger than 200 dp a side declare half their viewport as intrinsic
+size (380 × 214 → 190 × 107 dp; lint `VectorRaster`, 12.3); they are always drawn at the size the layout gives them
+(full width at 380:214, 9.21), so nothing is rasterized small.
 
 Reference compositions: `design-src/mockups/kit/art.js` (rendered in `docs/design/25-illustrations-*.png`). They
 fix the composition and the vocabulary; the makers redraw them as clean vectors (asset brief).
@@ -751,7 +778,7 @@ Reading order: header → media → slip → captions (+ hint line) → rail →
 | Empty, clips on the way | Empty state "Your clips are still coming to this phone." + progress; once shorts exist, a last card "3 more clips on the way" in the end-card frame of 9.15 |
 | Decode failure | Media area 9.5 ("This video can't play on this phone. Listening still works."); `VideoAvailability.CannotPlayOnThisPhone` |
 | Corrupt or missing local file | Caution notice in the short's media footprint: "This short couldn't be played." (one time); the clip reads "Needs downloading again" (9.18) and swiping moves on |
-| Track missing | Plays the other track; a quiet line under the clip line names the track that plays (the spec gives no exact copy) |
+| Track missing | Plays the other track; a quiet line under the clip line (bodySmall, ink2, `ic_track` 16 dp) says which, from `FeedPlaybackState.trackFallback` (spec F-06 Partial, D-47): `DIALOGUE_NOT_ON_PHONE` "Playing the original mix: the dialogue track isn't on this phone yet." · `MIX_NOT_ON_PHONE` "Playing the dialogue only: the original mix isn't on this phone yet." · `NO_DIALOGUE_TRACK` "Playing the original mix: this clip has no dialogue-only track."; no line when `null` |
 | Volume at 0 | Notice under the captions: speaker icon + "Turn the volume up: this is all about sound." |
 | Clip deleted while watching | Snackbar at the next swipe: "A clip was deleted on your computer and removed from this phone." |
 | TalkBack | Nothing autoplays; the card is one node with the summary "Short 4 of 15, {clip}. Listen for flapping in “water”. 14 seconds." and the actions Play/Pause, Next short, Previous short, Replay phrase, Slower, Open lesson, Save |
@@ -820,8 +847,9 @@ ring (open = ink disc); title titleLarge; a status at the end ("✓ played 2×")
 
 - **Mode picker** (render `09`): sheet with title "What the feed shows" + lede; options as 56 dp rows (selected =
   ink fill + check): Mix · Today's set (with progress), Saved (count); "ONE CHANGE" group: per family a header (icon
-  + name in its line style + the line-style name) and change chips "Flapping · 34 shorts" (zero = muted "nt → n · 0 ·
-  Learn", routes to Learn); "ONE CLIP, IN ORDER" group: clip rows with "left at short 4".
+  + name in its line style + the line-style name) and change chips "Flapping · 34 shorts" (the change's **short
+  count**, spec D-48, `ChangeCount.shorts`: the same number as the Home chip and the Learn card; zero = muted "nt → n · 0 · Learn", routes
+  to Learn); "ONE CLIP, IN ORDER" group: clip rows with "left at short 4".
 - **More sheet**: list rows with icons: "Listen to: Original mix | Dialogue only" (segmented), captions mode
   (segmented Marks / Plain / IPA / Off), "Listen first" (switch), "Pitch, stress and IPA of this phrase", "Record
   yourself", "Open the clip page", "Download the video" (when absent), "Leave this clip out of the Mix", "What do the
@@ -869,12 +897,12 @@ left "You've seen every short. New ones appear when your computer finishes a cli
 |---|---|---|
 | 1 | **Masthead** | Stylus P (36 dp) + wordmark "Phono*Trainer*" (Newsreader 30, "Trainer" italic) + Settings; double rule; italic dateline ("Sunday, 4 October") + "Home"; lede "What to study today, and how your clips are doing." |
 | 2 | **Computer status card** | 9.17 |
-| 3 | **Today's set** | Stacked hero card with crop marks; halftone in the top-right corner (never under text); kicker "TODAY'S SET"; "Today · about 5 minutes" (displayMedium); "8 shorts, 5 questions · 2 saved shorts back"; the **stations thread**: a dotted trace with 8 station circles (each the spotlight's family icon in its colour on sheet; saved ones with a 2 dp ink ring and a bookmark) and 5 question slugs; legend "8 shorts · one change each" / "5 questions"; "Start" (primary lg) + "What's in today's set" icon button. States: mid-set "Today · 3 of 8 done" + "Continue" (done stations filled ink); finished "Done for today" + "What you met: flapping ×3, linking ×2…" + quiet "Another set"; first run "Today's set starts with your first clip." with dashed empty stations; short set "Only 4 shorts today: add a clip for more."; "Preparing today's set…" after 300 ms |
+| 3 | **Today's set** | Stacked hero card with crop marks; halftone in the top-right corner (never under text); kicker "TODAY'S SET"; "Today · about 5 minutes" (displayMedium); "8 shorts, 5 questions · 2 saved shorts back"; the **stations thread**: a dotted trace with 8 station circles (each the spotlight's family icon in its colour on sheet; saved ones with a 2 dp ink ring and a bookmark) and 5 question slugs; legend "8 shorts · one change each" / "5 questions"; "Start" (primary lg, full width). There is no control that lists the set (spec D-45): the thread is the content. TalkBack reads the card as one sentence (F-03-AC10): "Today's set: 8 shorts with flapping, linking, h-dropping and 2 more changes; 2 saved shorts back; then 5 questions." (each distinct spotlight change named once, in set order, at most three, then "and {N} more changes"; from `SetRepository.today()`'s items in set order: `StudySetItem.Short.spotlight.change`, `savedTag` and `done`, and `StudySetItem.QuestionItem` for the slugs, work-plan A.5). States: mid-set "Today · 3 of 8 done" + "Continue" (done stations filled ink); finished "Done for today" + "What you met: flapping ×3, linking ×2…" + quiet "Another set"; first run "Today's set starts with your first clip." with dashed empty stations; short set "Only 4 shorts today: add a clip for more."; "Preparing today's set…" after 300 ms |
 | 4 | **Keep watching** | Poster (16:9, duration chip) + title + "Short 4 of 15" + "Listen for: [change chip] in “pick it up”" (word in its mark) + "Keep watching" (primary, full width) |
 | 5 | **Add a clip** | Two cards: dashed-outline icon well + "Paste a link" / "From YouTube, X or another site" and "Choose a file" / "Video or audio on this phone"; section note "Short dialogue teaches the most" |
 | 6 | **New on this phone** | Card with the faint "NEW" stamp, circle-check, "Ready to watch: {title}", "New on this phone · 12 shorts", "Watch" |
 | 7 | **Your clips** shelf | Horizontal row of 176 dp clip cards (9.18) + "All clips →" |
-| 8 | **Watch by change** | One card: per family a header (icon + name in its line style + "solid line · the sound weakens" etc.) and 48 dp change chips "Flapping · 34"; zero = "Not in your clips yet" (muted, opens Learn) |
+| 8 | **Watch by change** | One card: per family a header (icon + name in its line style + "solid line · the sound weakens" etc.) and 48 dp change chips "Flapping · 34" (the short count, D-48: the shorts the change mode plays, `ChangeCount.shorts` of `OccurrenceRepository.changeCounts()`); zero = "Not in your clips yet" (muted, opens Learn) |
 | 9 | **Practice** | Card: "10 questions · about 3 minutes", "Worth reviewing: t/d deletion · 4 of 9", a 9-cell accuracy meter (filled = right), "12 saved shorts", the `ill_spot_practice` spot, "Start" |
 | 10 | **Insights teaser** (v1-complete) | Card: "7 in 10" (displayLarge, italic "in"), "words you hear don't sound the way the dictionary writes them.", "See Insights →", the `ill_spot_insights` spot. Absent if Insights is cut |
 
@@ -974,15 +1002,20 @@ save"); "phrase 3 of 10" comes from `RequestProgress.segment`/`segments`.
 
 Every row below is one `RequestState` (architecture 8.4; names exact), or the derived queue pause; the actions are
 `RequestAction` values (architecture 3.4). "Watch" and "Open it" are navigation (`RequestRow`'s `onOpen`), not
-request actions.
+request actions. A row shows only what `Request.actions` holds (architecture 8.4, the one authority); for a failure
+the title, the body and the order of the actions are those of the failure code's row in spec 8.6 (or 7.7 for the
+phone-side copy codes), intersected with `Request.actions`, as `RequestFailureCopy` gives them (architecture 19). The
+failure rows below show the common cases; for example a `playlist` or `download_unavailable` link failure offers only
+Open the link and Remove.
 
 | State (icon + words) | Domain state · actions | Group | Actions |
 |---|---|---|---|
 | Preparing the file 40 % (hourglass + bar) | `PREPARING` · `CANCEL_PREPARING` | Preparing | Cancel |
-| Couldn't keep the file (circle-alert) | `COPY_FAILED` · `REMOVE`, `TRY_AUDIO_ONLY` | Needs your attention | Remove (+ Try audio only for a video refused for space) |
+| Couldn't keep the file (circle-alert) | `COPY_FAILED` with `lastError.code` `copy_no_space`, `copy_unreadable` or `copy_interrupted` (architecture 8.3) · `REMOVE`, `TRY_AUDIO_ONLY` (only for a video's `copy_no_space` while the source can still be read, D-49) | Needs your attention | Reason lines from spec 7.7: `copy_no_space` with Try audio only available (a file picked in the app, or a shared one while its sheet is still open) "Not enough space on this phone to keep this video until your computer is reachable. Free {N} MB or choose Audio only." + Try audio only, Remove; without it (a shared file whose sheet has closed) "Not enough space on this phone to keep this video. Free {N} MB, then share it again and choose Audio only." + Remove only ({N} from `RequestError.neededBytes`); `copy_unreadable` "PhonoTrainer couldn't read this file. Open it once in the app that has it, then share it again." + Remove; `copy_interrupted` "Couldn't keep the file: the copy didn't finish. Share it again." + Remove. Try audio only returns the same request to "Preparing the file" for the audio track (no second request) |
 | The copy kept on this phone is missing (circle-alert) | `COPY_MISSING` · `REMOVE` | Needs your attention | Remove ("Share the file again to analyze it.") |
 | Waiting on this phone (clock) · reason: "Your computer isn't reachable" / "Not on Wi-Fi" / "Will try again in 2 min" / "Couldn't send yet: will try again" | `WAITING` (reason from `ComputerStatus` and `Request.waiting`: `nextAttemptAt`, `attempts` ≥ 3) · `SEND_NOW`, `REMOVE` | Waiting on this phone | Send now (only when connected), Remove |
-| Waiting on this phone, stopped by the learner (clock) | `WAITING` with `waiting.held` · `SEND_NOW`, `REMOVE` | Waiting on this phone | Send now, Remove (reason line: the spec gives none yet) |
+| Waiting on this phone, a file too large for one background run (clock) | `WAITING` with `waiting.needsAppOpen` (spec D-41), whatever the connection state | Waiting on this phone | as above; a second reason line under the first (bodyMedium, ink2, `ic_info` 16 dp): "Open PhonoTrainer on your home Wi-Fi to send this file: large files are sent while the app is open." Links in the queue are not held by it |
+| Waiting on this phone, stopped by the learner (clock) | `WAITING` with `waiting.held` · `SEND_NOW`, `REMOVE` | Waiting on this phone | Send now (only when connected; it clears the hold), Remove; reason line "Stopped by you: it waits here until you tap Send now." (D-46) |
 | Sending 40 % · 125 of 312 MB (send + bar) | `SENDING` · `STOP_SENDING`, `REMOVE` | Sending | Stop sending, Remove |
 | Sent to your computer (send) | `SENT` · `CANCEL` | On your computer | Cancel (confirm dialog) |
 | Waiting in line · 2nd (clock) "Analyses run one at a time." | `IN_LINE` · `CANCEL` | On your computer | Cancel (confirm dialog) |
@@ -993,8 +1026,11 @@ request actions.
 | Getting it on this phone 70 % (download + bar) | `GETTING_ON_PHONE` | Getting it on this phone | — |
 | Done recently (circle-check) | `ON_PHONE` (last 7 days) | Done recently | Watch |
 | Couldn't download (link) | `NEEDS_ATTENTION` (download error codes) · `TRY_AGAIN`, `TRY_AUDIO_ONLY`, `OPEN_LINK`, `REMOVE` | Needs your attention | Try again (primary), Try audio only, Open the link, Remove |
+| Live streams can't be analyzed (link) | `NEEDS_ATTENTION` (`live_stream`, spec 8.6, D-40) · `TRY_AGAIN`, `OPEN_LINK`, `REMOVE` | Needs your attention | title "Live streams can't be analyzed", reason "This video is live or hasn't started yet. Once it has ended and is saved as a video, try again."; Try again (primary), Open the link, Remove |
+| This video is too long for your computer (link) | `NEEDS_ATTENTION` (`too_long`, D-40) · `OPEN_LINK`, `SHOW_DETAILS`, `REMOVE` | Needs your attention | title "This video is too long for your computer", reason "Your computer analyzes link videos up to {limit} long. Share a shorter video; the limit can be changed on your computer (see its README)." ({limit} from `Capabilities.maxLinkDurationS`, "1 hour" / "45 minutes"; unknown: "up to the length set on your computer"); Open the link (primary), Show details, Remove; no Try again, no Try audio only |
+| Your computer is low on space (job) | `NEEDS_ATTENTION` (`no_space`, D-49) · by kind: links `TRY_AUDIO_ONLY`, files `TRY_AGAIN`; `REMOVE` | Needs your attention | reason "{free space}"; Try audio only (links) or Try again (files, once space is freed), Remove |
 | Analysis failed | `NEEDS_ATTENTION` (analysis error codes) · `TRY_AGAIN`, `SHOW_DETAILS`, `REMOVE` | Needs your attention | Try again, Show details, Remove |
-| Refused by your computer at sending | `NEEDS_ATTENTION` (`lastError.atSending`) · `TRY_AUDIO_ONLY`, `REMOVE` | Needs your attention | Try audio only (videos too large), Remove |
+| Refused by your computer at sending | `NEEDS_ATTENTION` (`lastError.atSending`) · `TRY_AUDIO_ONLY`, `REMOVE` | Needs your attention | Try audio only (videos too large: the same request returns to "Preparing the file" while the audio is taken from the kept copy; nothing is re-run on the computer, architecture 8.4), Remove |
 | Interrupted ("Your computer stopped during the analysis.") | `NEEDS_ATTENTION` (`interrupted`, after the one automatic re-run) · `TRY_AGAIN`, `REMOVE` | Needs your attention | Try again, Remove |
 | Your computer no longer has this file ("Share it again.") | `NEEDS_ATTENTION` (`source_gone`, architecture 8.6) · `REMOVE` | Needs your attention | Remove |
 | Cancelled (circle-slash) | `CANCELLED` · `TRY_AGAIN`, `REMOVE` | Needs your attention | Try again, Remove |
@@ -1058,8 +1094,9 @@ primary.
 | Not paired | `NotConnected` | dotted line, computer node outlined with a question mark | unplug · "This phone isn't connected to your computer yet. It waits on your phone until you connect." | Add to queue |
 | Needs attention | `ConnectAgain`, `ComputerTooOld`, `AppTooOld`, `DifferentComputer` (the queue-wide pause of architecture 8.4) | dotted line, computer node with key-round / circle-arrow-up / monitor-x | circle-alert · "Your computer needs attention ({reason}). This waits on your phone." | Add to queue |
 | Preparing the file (files) | `IntakeProgress` (copy, or audio extraction for "Audio only") | the bridge kept; a progress bar on the phone node: "Preparing the file… 40 %"; Back asks "Stop adding this video?" (dialog, 9.23) | | — |
-| After the tap | `AddResult.Added` / `AddFilesResult` | the sheet keeps the bridge and shows "Added to your queue." / "Sending to your computer…" → "Sent to your computer." with "Open PhonoTrainer" and "See requests"; closes after 2 s (not with TalkBack, not while the notification permission dialog is pending) | | |
+| After the tap | `AddResult.Added` / `AddFilesResult` | the sheet keeps the bridge and shows "Added to your queue." / "Sending to your computer…" → "Sent to your computer." with "Open PhonoTrainer" and "See requests"; closes after 2 s (not with TalkBack, and not while the notification question is open: the in-app question "Get a notification when your clip is ready?" or the system dialog; the 2 s count starts again once it is answered, spec 8.4 item 8, D-51) | | |
 | Empty / errors / partial / duplicate | `AddResult.NoLink`, `OutOfSpace`, `DuplicateFound`; `FileRefusal` reasons | the bridge is hidden; a caution notice with the spec copy ("There's no link in what you shared.", "2 of 3 added…", "You already added this link." + "Open it" / "Analyze again anyway") | | |
+| No space during the copy (video) | `COPY_FAILED` `copy_no_space` while the sheet is open, with `TRY_AUDIO_ONLY` in `Request.actions` (the sheet holds its sources through `RequestRepository.holdSources`, D-49, SH-AC15) | the bridge kept, the phone node with circle-alert | caution notice "Not enough space on this phone to keep this video until your computer is reachable. Free {N} MB or choose Audio only." | Try audio only (+ Remove): the same request goes back to "Preparing the file… 40 %" for the audio track; no request is left half-made |
 
 ### 9.23 Dialogs, snackbars, banners, coach marks
 
@@ -1068,7 +1105,9 @@ primary.
   ("Stop analyzing “{title}” on your computer?", "Forget this computer…" with the spec's sentence, "Forget your
   practice history?", "Remove all videos", the mass-deletion question "Your computer no longer lists 9 of 10 clips.
   Remove them from this phone?" (`ClipRepository.pendingMassDeletion`, spec 7.9) and, in the share sheet during a
-  copy, "Stop adding this video?").
+  copy, "Stop adding this video?"). The notification question (spec F-23) is a non-destructive dialog: "Get a
+  notification when your clip is ready?", buttons "Not now" (quiet) and "Notify me" (primary, then the system
+  prompt); it is dismissible and dismissing it counts as "Not now".
 - **Snackbar**: inverse surface (ink / bone), 12 dp radius, 56 dp, text + one underlined action ("Undo"), above the
   bottom bar; polite announcement; no timer shorter than 10 s; with TalkBack it waits.
 - **Banner**: a full-width caution card under the top bar for persistent conditions (credential revoked, the clip was
@@ -1078,8 +1117,8 @@ primary.
   no longer on this phone."; `REQUEST_REMOVED` "This request was removed."; `CLIPS_REMOVED` "1 clip deleted on your
   computer was removed from this phone." (in the feed, 9.8's wording); `LIBRARY_CHANGED` "Your computer is using a
   different library. Clips from the other one stay on this phone until you remove them."; `TOO_LATE_TO_CANCEL` "Too
-  late to cancel: “{title}” is ready. Remove it from this phone if you don't want it."; `CANCEL_UNDONE` (the spec
-  gives no copy yet).
+  late to cancel: “{title}” is ready. Remove it from this phone if you don't want it."; `CANCEL_UNDONE` "Cancel
+  undone: “{title}” won't be cancelled." (D-47; the title is the message's argument).
 - **Coach mark**: an inverse slip (ink fill, onInk text, 12 dp radius, a 14 dp pointer toward its anchor), icon +
   bold tip + one sentence + "Got it" (underlined, 48 dp); one at a time, never pausing, never on a timer; TalkBack
   announces it as a dialog with "Got it".
@@ -1100,17 +1139,23 @@ primary.
 ### 9.25 Learn, IPA chart, Insights, Settings components
 
 - **Change card** (Learn, render `12`): family icon + name in its line style; description with IPA; practice badge +
-  register; "34 shorts in your clips" (square-play) or "Not in your clips yet" (muted).
+  register; "34 shorts in your clips" (square-play; the short count, D-48, `ChangeCount.shorts`, equal to the Home chip) or "Not in your clips
+  yet" (muted).
 - **Phenomenon page** (render `13`): chips row, description, "How to hear it", the "For Spanish speakers" tip as a
   tip notice, "Can you copy it?", the mouth demo card (still + segmented "What is said | Dictionary" + "Slow |
-  Normal" + "Play the movement"), "Watch examples" (primary lg) + "Practice this", "Examples from your clips" rows (44
-  dp play circle, the phrase with the word marked, clip · time).
+  Normal" + "Play the movement"), "Watch examples" (primary lg) + "Practice this", then the **occurrence line** "12 times in your clips" (titleMedium,
+  tabular; occurrences, not shorts, D-48: `ChangeCount.occurrences`; + "Counted in the clips on this phone." in bodySmall ink2 when some clips are
+  not on the phone) directly above "Examples from your clips" rows (44 dp play circle, the phrase with the word
+  marked, clip · time).
 - **IPA symbol button**: ≥ 48 dp square, Charis 24, the sound's name under it at large text; weak vowels marked by a
   dotted underline and the word "weak"; selected = ink fill. The chart reflows by group, never scrolls sideways.
 - **Insights meter**: label, big value (titleLarge tabular), a 14 dp bar (ink2 fill) over a hatched reference band
   (30° hatch, hairline outline) with "Published: > 60 % · Johnson 2004", "Show as a table".
-- **Settings rows** (render `22`): groups with a kicker; rows 56 dp (title + description + control); Colors as radio
-  cards with a live preview of the four families (icon + "abc" underlined in each style) for each palette.
+- **Settings rows** (renders `22`, `22-settings-full`): groups with a kicker (icon + name + rule); rows 56 dp (title +
+  description + control); Colors as radio cards with a live preview of the four families (icon + "abc" underlined in
+  each style) for each palette; "Show patterns as well as colors" as a three-way segmented "Follow Colors | On |
+  Off" (spec F-22: follows Colors / on / off); the sub-page rows (Your computer, Storage, Notifications, Help, About
+  and licences) as 56 dp rows with a 40 dp icon well, an optional status line and a chevron.
 
 ---------------------------------------------------------------------------------------------------------------
 
@@ -1142,14 +1187,14 @@ Practice session (inside T4): the quiz card of 9.14 full screen with "Question 3
 | P-03 | **Requests** | Top bar; lede; the connection line; groups in the spec order, each with a kicker head (icon + name + italic count + rule) and request cards (9.19); empty: `ill_requests_empty` + "Nothing in progress. …" + "Add a clip" | `17-requests` |
 | P-04 | **Request detail** | Top bar "Request" + menu; lede; source card with the milestone timeline (dots on a 2 dp ink spine: done = ink disc + check, current = ring + loader, next = outline with the place icon, each with its time); "What your computer is doing" (headlineMedium) + estimate; the six stage rows with status words and teaching lines; "Show the log", "Cancel"; for failures the alert card on top with "Show details" | `18-request-detail` |
 | P-05 | **Add a clip** | Top bar; lede (web); "Paste a link" field with "Paste" (clipboard read only on tap) and the recognised site label ("YouTube", "YouTube Shorts", "X", "Other website: downloads may not work."); "Choose a file" (picker; then a list of chosen files with name, duration, size); options (Audio only, Separate the dialogue) as switch rows with their sentences; the legal line; the bridge and the connection line of 9.22; primary "Analyze" / "Add to queue" | (share sheet `19`, `20`) |
-| P-06 | **Connect to your computer** | Top bar; lede (spec); the three-step instruction card for the computer side (numbered; the command shown in a galley code well, Atkinson 15 sp, selectable, with "Copy"); "Looking for your computer…" (radar) then found computers as radio rows (name, "PhonoTrainer {version}", status word); "Enter the address instead"; code entry: six 48 dp digit cells (ink ring on focus, numeric keypad), optional phone-name field, "Connect"; success: "Connected to {name}" + the sentence. Empty: `ill_no_computer` + "No computer answered." + the numbered checklist + "Search again" + "Enter the address instead". Offline: wifi-off notice + "Open Wi-Fi settings". Errors under the code cells as critical-icon lines (wrong code, expired, too many tries; focus stays in the cells); a typed address without phone access or a too-old computer reads as a caution line under the field, the too-old row is not selectable. Modes (`ConnectKey.mode`): `FIRST_RUN` adds "Not now" (quiet) with "You can connect later from Home."; `FROM_HOME` as described; `CONNECT_AGAIN` offers only the paired computer, any other found computer is a muted row "This phone is connected to {name}. Forget it first in Settings to connect to another computer."; `NEW_ADDRESS` opens on the address field and accepts only the paired computer | `21-connect-none` |
-| P-07 | **Connection details** | Top bar; the status card (9.17); the "Why?" checklist (numbered, not checkboxes); last probe result in words ("No answer after 3 s"); address, short server id, API version, pending counts, background restriction, decoder capability ("AV1 up to …"); "Copy diagnostics"; `ill_no_computer` at the top when not reachable | — |
-| P-08 | **Phenomenon page** | Top bar with the change name in its line style + "What's this?"; chips; description; "How to hear it"; the Spanish-speaker tip (where the content has one); caveat; "Can you copy it?"; "The mouth" demo; "Watch examples" + "Practice this"; "Examples from your clips" (up to 8). Empty examples: `ill_no_examples` + web copy + "Add a clip" | `13-phenomenon` |
+| P-06 | **Connect to your computer** | Top bar; lede (spec); the three-step instruction card for the computer side (numbered; the command shown in a galley code well, Atkinson 15 sp, selectable, with "Copy"); "Looking for your computer…" (radar) then found computers as radio rows (name, "PhonoTrainer {version}", status word; exactly one found is preselected); **conflict** (`SearchState.Found.conflict`: two answers share a name, or one server id answers from two addresses; spec D-39, F-02-AC10): every answer is its own row, none is preselected, and a caution notice sits above the list (triangle-alert + "Two computers answered with the same name. If you aren't sure which one is yours, enter the address shown on your computer instead." + "Enter the address instead" as a secondary button inside the notice); "Enter the address instead" (field "Computer address and port", placeholder "As shown on your computer", "Check"); code entry: six 48 dp digit cells (ink ring on focus, numeric keypad), optional phone-name field, "Connect"; success: "Connected to {name}" + the sentence. Empty: `ill_no_computer` + "No computer answered." + the numbered checklist (first item "Is PhonoTrainer running with phone access on? If your computer joined a new network, run phonotrainer phone on there.", D-42; `phonotrainer phone on` set in the code style of the instruction card) + "Search again" + "Enter the address instead". Offline: wifi-off notice + "Open Wi-Fi settings". Errors under the code cells as critical-icon lines (wrong code, expired, too many tries; focus stays in the cells); a typed address without phone access or a too-old computer (`CheckResult.PhoneAccessOff` / `TooOld`) reads as a caution line under the field ("That address answered, but phone access isn't on there for this network. On your computer, run phonotrainer phone on, then try again." / "Needs a newer PhonoTrainer on your computer"), the too-old row is not selectable. Modes (`ConnectKey.mode`): `FIRST_RUN` adds "Not now" (quiet) with "You can connect later from Home."; `FROM_HOME` as described; `CONNECT_AGAIN` offers only the paired computer, any other found computer is a muted row "This phone is connected to {name}. Forget it first in Settings to connect to another computer."; `NEW_ADDRESS` opens on the address field and accepts only the paired computer | `21-connect-none` |
+| P-07 | **Connection details** | Top bar; the status card (9.17); the "Why?" checklist (numbered, not checkboxes; the phone-access item as in P-06); last probe result in words, from `ProbeOutcomeCopy` (WP-15, next to `ConnectionStatusCard`) ("No answer after 3 s"; for `ProbeOutcome.PhoneAccessOff`, phone access off or not approved, "Your computer answered, but phone access is off there or not approved for this network.", D-42); facts as label/value rows: the computer's address, "This phone on this Wi-Fi: {address}" (D-39, F-22-AC4; `ConnectionDiagnostics.phoneAddress`, tabular, selectable), short server id, API version, pending counts, background restriction, decoder capability ("AV1 up to …"); "Copy diagnostics" (its text carries no address and no id); `ill_no_computer` at the top when not reachable | — |
+| P-08 | **Phenomenon page** | Top bar with the change name in its line style + "What's this?"; chips; description; "How to hear it"; the Spanish-speaker tip (where the content has one); caveat; "Can you copy it?"; "The mouth" demo; "Watch examples" + "Practice this"; the occurrence line "12 times in your clips" (9.25, D-48); "Examples from your clips" (up to 8). Empty examples: `ill_no_examples` + web copy + "Add a clip" | `13-phenomenon` |
 | P-09 | **IPA chart + symbol sheet** | Top bar; lede; sections (Consonants by manner, "Sounds that replace t and d", Syllabic consonants, Vowels, Diphthongs, Vowels with r) as wrapping grids of 56 dp symbol buttons; nothing selected: "Choose a symbol — Each symbol is one sound. Start with [ɾ], [t̚] or [ə]"; the symbol sheet: symbol (Charis 40), name, the mouth with "Play the movement", glossary text, "As in …", the change it signals, "In your clips" (up to 6 playable rows) | — |
 | P-10 | **Insights** (v1-complete) | Top bar; overview line ("10 clips on this phone · 4,321 words · 42 min of speech"); metric meters (9.25) each with "What's this?" and "Show as a table"; "What this means for your listening" takeaways; "Changes across your clips" rows (icon + name + count + a family-hatched bar on sheet; tap → change mode). Empty: "Your clips are counted here — …" | — |
 | P-11 | **Saved** | Top bar; lede; "Watch saved" (primary); rows: word (in its mark), change chip, clip, "Play", "Last watched {time}", unsave (bookmark-check toggle). Empty: `ill_saved_empty` + "Nothing saved yet" + the spec sentence + "Go to Watch" | `24-saved-empty` |
-| P-12 | **Settings** and sub-pages | Groups (Display, Playback and captions, Learning, Your computer, Storage, Notifications, Help, About and licences) as rows with icons. Display, Playback and captions and Learning are groups on the Settings page itself; the sub-pages are exactly the navigation keys (architecture 16.1): Your computer (`YourComputerKey`: the status card 9.17, actions, "Forget this computer…" danger), Storage (`StorageKey`, 9.20), Notifications (`NotificationSettingsKey`: "Notifications are off for PhonoTrainer" + "Open settings" when denied), Help (`HelpKey`: "Restart the tour", "What do the marks mean?" opening the same legend sheet as the short's More sheet, "How PhonoTrainer works"), About (`AboutKey`: version, licence line, the source location, the privacy statement) and its "Open-source licences" list (`LicencesKey`: every component, font and the Lucide icons with their licence texts, readable offline). Display: Appearance segmented with icons, Colors radio cards with previews, "Show patterns as well as colors" switch, Motion segmented, the text-size note | `22-settings-display` (the Display group, cropped and titled for legibility; it is not a sub-page) |
-| F-14 | **Words we use** (`GlossaryIndexKey`, from Learn's entry tile) | Top bar "Words we use"; lede (the spec gives none yet); a search field (live count, as the Library's); two kicker groups, terms and metrics, as 56 dp rows (term in titleMedium + its first sentence in bodyMedium ink2 + chevron); a row opens the "What's this?" sheet (9.13); no match: one line + "Clear the search", no illustration (9.21) | — |
+| P-12 | **Settings** and sub-pages | Groups (Display, Playback and captions, Learning, Your computer, Storage, Notifications, Help, About and licences) as rows with icons. Display, Playback and captions and Learning are groups on the Settings page itself; the sub-pages are exactly the navigation keys (architecture 16.1): Your computer (`YourComputerKey`: the status card 9.17, actions, "Forget this computer…" danger), Storage (`StorageKey`, 9.20), Notifications (`NotificationSettingsKey`: "Notifications are off for PhonoTrainer" + "Open settings" when denied), Help (`HelpKey`: "Restart the tour", "What do the marks mean?" opening the same legend sheet as the short's More sheet, "How PhonoTrainer works"), About (`AboutKey`: version, licence line, the source location, the privacy statement) and its "Open-source licences" list (`LicencesKey`: every component, font and the Lucide icons with their licence texts, readable offline). The page (`SettingsKey`): top bar "Settings" + back, the lede "All settings apply at once and are remembered on this phone.", the three groups (kicker with icon and rule: Display palette, Playback and captions captions, Learning graduation-cap), then the five sub-page rows (9.25). Display: Appearance segmented with icons, Colors radio cards with previews, "Show patterns as well as colors" three-way segmented "Follow Colors / On / Off", Motion segmented, the text-size note | `22-settings-display` (the Settings page as it opens: top bar, lede, the Display group), `22-settings-full` (the whole page) |
+| F-14 | **Words we use** (`GlossaryIndexKey`, from Learn's entry tile) | Top bar "Words we use"; lede "Plain-English explanations of the terms and measures PhonoTrainer uses. Each one also opens from the “?” next to it."; a search field "Search the words we use…" with the live count "{n} of {total} terms" under it (announced, as the Library's); two kicker groups "Terms" and "Measures", as 56 dp rows (term in titleMedium + the first sentence of its explanation in bodyMedium ink2 + chevron); a row opens the "What's this?" sheet (9.13); no match: "No term matches “{text}”." + "Clear the search" (quiet), no illustration (9.21) | — |
 | P-13 | **Welcome** | Wordmark + "Skip" (quiet); a stacked, crop-marked stage with the page's illustration and, on page 1, a sample slip ("Flapping · Safe to produce · “water” /ˈwɔtɚ/ → [ˈwɔɾɚ]"); kicker "1 of 3"; title (displayMedium); one sentence (18 sp ink2); page indicator (current = 28 dp ink capsule) + "Next" / "Get started" (primary lg) | `23-welcome` |
 
 ### 10.3 Sheets and overlays
@@ -1242,26 +1287,37 @@ belong to WP-03 in `android/design-src/convert/`; the design tools of section 13
 | Font and icon licences | `assets/licenses/*.txt` | `:core:designsystem` `assets/licenses/` (merged into the APK; About reads them) |
 | Icons `ic_*.xml` | `res/drawable/` | `:core:designsystem` `res/drawable/` |
 | Illustrations `ill_*.xml` | `res/drawable/` + `res/drawable-night/` | `:core:designsystem` |
-| Launcher layers and monochrome | `res/drawable/ic_launcher_background.xml`, `ic_launcher_foreground.xml`, `ic_launcher_monochrome.xml`; `res/mipmap-anydpi-v26/ic_launcher.xml`, `ic_launcher_round.xml` | `:core:designsystem`; the two adaptive-icon XMLs go to `res/mipmap-anydpi/` (with minSdk 29 the `-v26` qualifier is obsolete and lint, run with `warningsAsErrors`, reports `ObsoleteSdkInt`). No legacy raster mipmaps: every supported device (API 29+) draws the adaptive icon, which is what spec F-25's "legacy icons" would otherwise cover |
+| Launcher layers and monochrome | `res/drawable/ic_launcher_background.xml`, `ic_launcher_foreground.xml`, `ic_launcher_monochrome.xml`; `res/mipmap-anydpi/ic_launcher.xml`, `ic_launcher_round.xml` | `:core:designsystem`, same paths. The adaptive-icon XMLs are staged in `mipmap-anydpi/` (no `-v26` qualifier: with minSdk 29 lint, run with `warningsAsErrors`, would report `ObsoleteSdkInt`). No legacy raster mipmaps: every supported device (API 29+) draws the adaptive icon, which is what spec F-25's "legacy icons" would otherwise cover (D-50) |
 | Splash `splash_mark.xml`, `splash_mark_animated.xml` (+ night) | `res/drawable/`, `res/drawable-night/` | `:core:designsystem` |
 | Notification icon `ic_notification.xml` | `res/drawable/` | `:core:designsystem`; any `NotificationCompat.setColor` accent is ink, never the launcher kraft (white on kraft is about 1.7:1) |
 | Frozen-name aliases `ic_stat_phono` (→ `ic_notification`), `phono_window_background` (→ `phono_page`) | `res/values/brand_aliases.xml` | `:core:designsystem` (work-plan 4.1 names these for `:app`'s manifest and themes) |
 | Window and splash colours | `res/values/colors.xml`, `res/values-night/colors.xml` (`phono_page`, `phono_ink`, `phono_launcher_tile`) | `:core:designsystem` |
 | Themes `Theme.Phono`, `Theme.Phono.Starting`, `Theme.Phono.ShareSheet` | written by WP-03 from 12.4 | `:core:designsystem` `res/values/themes.xml` (+ `values-v31/`), referenced by `:app`'s manifest and by `ShareActivity` (work-plan 4.1 freezes the three names) |
 
-Two checks the converted resources must pass in `:core:designsystem`:
-- **Lint `VectorPath`** (minSdk ≥ 21, so it applies): a single `pathData` of 3,000 characters or more is reported, and
-  lint runs with `warningsAsErrors`. One staged file crosses it: `ic_launcher_background.xml` (its merged halftone
-  path is 8,031 characters). WP-03 splits that path into several `<path>` elements under the limit in
-  `design-src/convert/` (same paint, same pixels) or the design track re-exports it with the merge capped; a
-  `tools:ignore` is the last resort. Every other path in the export counts under 3,000 (lint does not count blanks;
-  the longest, in `ill_no_computer`, is 3,134 characters with blanks).
+Checks the converted resources must pass in `:core:designsystem`:
+- **Lint vector checks**, verified against the lint that AGP 9.4.1 runs (lint-checks 32.4.1, read from
+  `VectorPathDetector` and `VectorDetector`, then confirmed by running `lintDebug` with `warningsAsErrors` on the
+  staged `res/` in a minSdk 29 library: before the fixes 3 `VectorPath`, 22 `VectorRaster` and 1 `ObsoleteSdkInt`
+  errors; after them "No issues found", also with lint's whole default check set):
+  - `VectorPath`: a `pathData` of **3,000 or more** characters, counted with every run of whitespace as one character,
+    in a file whose root is `<vector>` (minSdk ≥ 21). `svg2vd.py` keeps every path under it: merges stop short of the
+    limit, and a longer path is split at subpath boundaries when that cannot change a pixel (otherwise it fails and
+    the master must be split). The launcher background's halftone is four paths; `ill_no_computer`'s densest dot row
+    two. Longest path in the export: 2,976.
+  - `VectorRaster`: a `<vector>` whose `android:width` or `android:height` is **over 200 dp**. The ten 380 × 214
+    illustrations declare 190 × 107 dp and the splash icon 144 × 144 dp, with unchanged viewports (7.1, 7.2); the
+    intrinsic size is only the default bounds.
+  - `InvalidVectorPath` (scientific notation) is not checked when minSdk ≥ 23; `svg2vd.py` never writes it anyway.
+  `tools/lint_vectors.py` applies both counts to the staging tree (exit 1 on any hit) and must stay green; no
+  `tools:ignore` is needed.
 - **Licence entries**: `THIRD-PARTY-NOTICES.md` 7.3 "Fonts and icons" (WP-03) lists the five font files from
   `assets/licenses/FONTS.txt` (name, version, source, SHA-256, OFL-1.1; Charis with its Reserved Font Names) and the
   Lucide icons (v1.51.0, ISC, Feather-derived glyphs MIT, the 122 names in `icons.json`, also present as SVG sources
   under `design-src/svg/icons/` and in `design-src/mockups/kit/icons.js`). The illustrations, the launcher icon, the
   splash and the notification icon are original to this project (no third-party art, no logos, no generated images)
-  and need no entry.
+  and need no entry. WP-03 also writes `assets/licenses/bundled.json` from `FONTS.txt` and `icons.json` (one entry
+  per font family and one for the Lucide set), which the build's licence check and the "Open-source licences" list
+  read (architecture 20.6, D-50).
 
 ### 12.4 Splash and window
 
@@ -1290,19 +1346,21 @@ and CVD palettes.
 | Tool | What it does | Verified |
 |---|---|---|
 | `check_palette.py [palette.json] [--report] [--verbose]` | Runs gates G1-G11 (section 3); exit 1 on any failure, 2 on a malformed file | 499 checks pass; a deliberately broken palette fails with 10 named failures |
-| `svg2vd.py in.svg [-o out.xml] [--size 24] [--palette palette.json --theme dark] [--strict-palette] [--tint ?attr/x] [--color name=#hex] [--lenient]` | SVG subset → VectorDrawable: path, circle, ellipse, rect (rx/ry), line, polyline, polygon, g, transforms (flattened exactly; elliptical radial gradients via nested groups), fill/stroke/opacity, linear and radial gradients (objectBoundingBox and userSpaceOnUse, gradientTransform, spreadMethod, href), clipPath, `var(--token)` and theme swaps; merges paths that share a paint; refuses `stroke-dasharray`, `<pattern>`, text, images and filters with a clear message | Fixtures + brand masters + all 122 icons |
+| `svg2vd.py in.svg [-o out.xml] [--size 24] [--precision 3] [--palette palette.json --theme dark] [--strict-palette] [--tint ?attr/x] [--color name=#hex] [--lenient] [--no-merge] [--max-path 3000]` | SVG subset → VectorDrawable: path, circle, ellipse, rect (rx/ry), line, polyline, polygon, g, transforms (flattened exactly; elliptical radial gradients via nested groups), fill/stroke/opacity, linear and radial gradients (objectBoundingBox and userSpaceOnUse, gradientTransform, spreadMethod, href), clipPath, `var(--token)` and theme swaps; merges paths that share a paint, never past lint's `VectorPath` limit, and splits a longer path at subpath boundaries when no pixel can change; warns when the intrinsic size is over 200 dp; refuses `stroke-dasharray`, `<pattern>`, text, images and filters with a clear message | Fixtures + brand masters + all 122 icons |
 | `vd2svg.py drawable.xml [-o out.svg] [--scale 4] [--background #hex] [--attr name=#hex] [--trim-end 1]` | VectorDrawable (or the drawable inside an AnimatedVectorDrawable) → SVG for review: group transforms in Android's order, clip-paths, trim paths, aapt gradients, tint | Round trip |
-| `roundtrip.py [svgs…] --out DIR [--palette palette.json]` | SVG → VD → SVG, renders both with headless Chrome, compares with ImageMagick (normalized RMSE), writes side-by-side PNGs; exit 1 above the threshold (0.02) | All fixtures, brand masters, illustrations (light and dark) and 121 of 122 icons pass; `ic_site_x` measures 0.0204 (anti-aliasing along its long arc; the geometry is exact), so a run over every icon exits 1 until the threshold or that case is settled |
+| `roundtrip.py [svgs…] --out DIR [--palette palette.json]` | SVG → VD → SVG, renders both with headless Chrome, compares with ImageMagick (normalized RMSE), writes side-by-side PNGs; exit 1 above the threshold (0.02), except the masters listed in `RENDERER_TOLERANCE` with their evidence | Every fixture, brand master, illustration (light and dark) and all 122 icons pass. `ic_site_x` (Lucide "at-sign", a 307° arc) is the one listed: against its source it measures 0.0129 / 0.0204 / 0.0117 at 2× / 4× / 8×, against an independently written exact-cubic version of the same arc 0.0013 / 0.0009 / 0.0005, and the source against that cubic version 0.0128 / 0.0203 / 0.0116. The residue is Chrome drawing a native arc differently from cubics (Android draws only cubics), not the converter, and it does not grow with scale; its tolerance is 0.025 for that file only |
+| `lint_vectors.py [res…]` | Applies lint's `VectorPath` (≥ 3,000, whitespace runs count once) and `VectorRaster` (> 200 dp) rules to every staged vector, also inside animated vectors; exit 1 on any hit (12.3) | 158 vectors, 1,037 paths, longest 2,976; agrees with `lintDebug` (AGP 9.4.1) on the old and the new export |
+| `export_vectors.py [--out DIR] [--only icons\|illustrations\|brand]` | Regenerates every staged vector from its master: icons (precision 3), illustrations light and night (precision 2, strict palette, intrinsic size halved above 200 dp), then `brand_export.py` | Its output is the staged tree byte for byte |
 | `lucide_icons.py --lucide DIR [--svg-dir DIR] [--js FILE]` | Extracts the `icons.json` inventory from a Lucide install (lucide-static SVGs or lucide-react ESM), read-only; writes SVG sources and the mockups' icon table | 122 icons |
-| `brand_export.py [--out DIR]` | Writes the brand resources into the staging tree: launcher layers, the two adaptive-icon XMLs, notification icon, static and animated splash (light and night), `colors.xml` (light and night) from `palette.json` | Its outputs match `svg2vd.py` run on each brand master |
-| `../mockups/render.sh [page…]` | Renders the mockups to `docs/design/` at 2× with Chrome and quantizes them | 27 pages × 2 themes |
+| `brand_export.py [--out DIR]` | Writes the brand resources into the staging tree: launcher layers, the two adaptive-icon XMLs (`mipmap-anydpi/`), notification icon, static and animated splash (light and night; 144 dp intrinsic), `colors.xml` (light and night) from `palette.json` | Its outputs match `svg2vd.py` run on each brand master |
+| `../mockups/render.sh [page…]` | Renders the mockups to `docs/design/` at 2× with Chrome and quantizes them; fonts are the staged TTFs (offline, the exact bytes the app bundles) | 28 renders × 2 themes |
 
 Workflow for an illustration: draw in the light illustration tokens (no dashes, no patterns: expand hatching into
-clipped line paths and dots into circles) → `svg2vd.py ill_x.svg --strict-palette --precision 2 -o
-drawable/ill_x.xml` → `svg2vd.py ill_x.svg --palette palette.json --theme dark --strict-palette --precision 2 -o
-drawable-night/ill_x.xml` → `roundtrip.py` on the source → look at the comparison PNGs. With `--precision 2` the
-staged illustrations regenerate byte for byte from their SVG masters (icons and brand layers use the default
-precision, 3, and regenerate byte for byte too).
+clipped line paths and dots into zero-length round-capped strokes or circles) → `export_vectors.py --only
+illustrations` (it runs `svg2vd.py ill_x.svg --strict-palette --precision 2 [--size 190x107]` for `drawable/` and the
+same with `--palette palette.json --theme dark` for `drawable-night/`) → `lint_vectors.py` → `roundtrip.py` on the
+source → look at the comparison PNGs. `export_vectors.py` regenerates the whole staged vector tree byte for byte
+from the masters (icons and brand layers at the default precision, 3; illustrations at 2).
 
 ---------------------------------------------------------------------------------------------------------------
 
@@ -1310,7 +1368,7 @@ precision, 3, and regenerate byte for byte too).
 
 | File (`-light.png`, `-dark.png`) | Shows |
 |---|---|
-| `01-home` | Home, populated: masthead, status card with analyzing / needs attention / bringing, Today's set hero with stations |
+| `01-home` | Home, populated: masthead, status card with analyzing / needs attention / bringing, Today's set hero with stations and a full-width "Start" (no list control, D-45) |
 | `02-home-full` | Home full scroll: all ten blocks in spec order, spot illustrations, Watch by change with line-style names |
 | `03-home-first-run` | Home first run: not connected, the teaching card with `ill_welcome_clips`, Today's set placeholder |
 | `04-watch-video` | A short with landscape video: header with beads and prev/next, slip with the Now pill and the tether, marked captions, intonation badge, hint line, rail with Speed 0.75×, stylus-trace progress with the filled pin |
@@ -1321,13 +1379,14 @@ precision, 3, and regenerate byte for byte too).
 | `09-mode-picker` | The feed mode picker sheet |
 | `10-lesson-compare` | Lesson sheet, step 2: paused-context pill, forms, legend above sorts, selected ≠ sort, sound card with the "≠ changed" pill and the mouth still |
 | `11-lesson-boundary` | Full-height lesson for “did” + “you”: per-word headers, dropped sort, gap box, Why it changes, shadowing running (8-phase bar) |
-| `12-learn`, `13-phenomenon` | Learn tab; the Flapping page with the mouth demo and examples |
+| `12-learn`, `13-phenomenon` | Learn tab (cards with the short count); the Flapping page with the mouth demo, the occurrence line "12 times in your clips" and examples |
 | `14-practice` | Practice tab: kinds, focus chip, weak-spots switch, accuracy |
 | `15-library`, `16-clip-page` | All clips with In progress; the Clip page Shorts tab |
 | `17-requests`, `18-request-detail` | Requests with the alert card, the route line, the named six-stage stepper and its teaching line; the request detail timeline and stages |
 | `19-share-connected`, `20-share-queued` | The share confirmation bridge in both states |
-| `21-connect-none` | "No computer answered." with `ill_no_computer` and the numbered checklist |
-| `22-settings-display` | The Display group of the Settings page with palette previews (cropped and titled "Display" for legibility; Display is a group, not a sub-page, 10.2 P-12) |
+| `21-connect-none` | "No computer answered." with `ill_no_computer` and the numbered checklist (first item with `phonotrainer phone on`, D-42) |
+| `22-settings-display` | The Settings page as it opens (`SettingsKey`): top bar "Settings", lede, the Display group with palette previews; Display is a group of this page, not a sub-page (10.2 P-12) |
+| `22-settings-full` | The whole Settings page: Display, Playback and captions, Learning as groups, then the rows that open Your computer, Storage, Notifications, Help, About and licences |
 | `23-welcome` | Welcome page 1 |
 | `24-saved-empty` | Saved, empty state |
 | `25-illustrations` | The illustration set, light and dark from one vector |
