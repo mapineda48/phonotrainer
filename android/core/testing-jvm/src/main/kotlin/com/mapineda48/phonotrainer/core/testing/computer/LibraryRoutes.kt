@@ -60,7 +60,8 @@ internal fun ComputerCore.reference(@Suppress("UNUSED_PARAMETER") call: Call): M
 
 /** The job named by a path segment, or `404 unknown_job`. */
 internal fun ComputerCore.knownJob(id: String): Job =
-  jobs[id] ?: throw Refusal(HTTP_NOT_FOUND, "unknown_job", "There is no such job on this computer.")
+  jobs[id]?.takeIf { ComputerCore.JOB_ID_RE.matches(id) }
+    ?: throw Refusal(HTTP_NOT_FOUND, "unknown_job", "There is no such job on this computer.")
 
 /** `GET /api/phone/jobs/{id}/artifacts/{name}`: the file, `Range`, `If-Range`, `ETag` and the download knobs. */
 internal fun ComputerCore.artifact(call: Call): MockResponse {

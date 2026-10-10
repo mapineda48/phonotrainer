@@ -138,23 +138,30 @@ internal class ComputerCore(
     }
   }
 
+  /**
+   * The order of the server's middleware and routing (server-contract 4.2 to 4.4, 4.7; WP-01's
+   * `PhoneAccessMiddleware`): suspension, Host, non-phone paths, unsafe paths, phone access, body framing, the route,
+   * the signature, the handler.
+   */
   private fun handle(call: Call): MockResponse {
     expireUploads()
     takeRule(faults, call.method, call.rawPath)?.let { return faultResponse(it) }
-    call.segments = checkedSegments(call.rawPath)
-    if (call.segments.size < 2 || call.segments[0] != "api" || call.segments[1] != "phone") return nonPhone(call)
-    if (apiVersion < API_VERSION_CORE) throw Refusal(HTTP_NOT_FOUND, null, "Not Found")
-    checkHost(call)
+    if (apiVersion < API_VERSION_CORE) return oldServer(call)
     if (lanForbidden) throw lanForbiddenRefusal()
+    checkHost(call)
+    val raw = call.rawPath.split('/').filter { it.isNotEmpty() }
+    if (raw.size < 2 || raw[0] != "api" || raw[1] != "phone") throw lanForbiddenRefusal()
+    call.segments = checkedSegments(call.rawPath)
+    val hello = call.segments == listOf("api", "phone", "hello")
+    if (!phoneAccess && !hello) {
+      throw Refusal(HTTP_FORBIDDEN, "phone_access_off", "Phone access is off on this computer.")
+    }
     val route = Route.match(call.method, call.segments.drop(2))
+    checkBodyFraming(call, route)
     if (route == null || !route.available(capabilities)) {
       throw Refusal(HTTP_NOT_FOUND, "unknown_route", "There is no such phone route.")
     }
-    if (!phoneAccess && route != Route.HELLO) {
-      throw Refusal(HTTP_FORBIDDEN, "phone_access_off", "Phone access is off on this computer.")
-    }
     if (route.signed) authenticate(call)
-    if (route.jsonBody) checkJsonLength(call)
     val response = route.handler(this, call)
     takeRule(drops, call.method, call.rawPath)?.let {
       return response.newBuilder().onResponseStart(SocketEffect.CloseSocket()).build()
@@ -162,22 +169,19 @@ internal class ComputerCore(
     return response
   }
 
-  /** Every non-phone route: a LAN client never reaches it (4.2); an old server answers `/api/health` (6.2). */
-  private fun nonPhone(call: Call): MockResponse {
-    if (call.segments == listOf("api", "health") && call.method == "GET" && apiVersion < API_VERSION_CORE) {
-      return json(
-        HTTP_OK,
-        buildJsonObject {
-          put("ok", true)
-          put("version", "0.1.0")
-          put("api_version", apiVersion)
-          put("workspace", "workspace")
-          put("web_built", true)
-        },
-      )
-    }
-    if (apiVersion < API_VERSION_CORE) throw Refusal(HTTP_NOT_FOUND, null, "Not Found")
-    throw lanForbiddenRefusal()
+  /** A server older than API 6 has no phone routes: `/api/health` answers with its version (6.2). */
+  private fun oldServer(call: Call): MockResponse {
+    if (call.method != "GET" || call.rawPath != "/api/health") throw Refusal(HTTP_NOT_FOUND, null, "Not Found")
+    return json(
+      HTTP_OK,
+      buildJsonObject {
+        put("ok", true)
+        put("version", "0.1.0")
+        put("api_version", apiVersion)
+        put("workspace", "workspace")
+        put("web_built", true)
+      },
+    )
   }
 
   /** Percent-decoded segments; `.`/`..` segments and encoded slashes are refused (4.2). */
@@ -208,11 +212,23 @@ internal class ComputerCore(
   fun lanForbiddenRefusal() =
     Refusal(HTTP_FORBIDDEN, "lan_forbidden", "This part of PhonoTrainer is only available on the computer itself.")
 
-  /** JSON bodies on phone routes: `Content-Length` required, at most 16 KiB (4.7). */
-  private fun checkJsonLength(call: Call) {
-    val length = call.header("Content-Length")?.toLongOrNull()
-      ?: throw Refusal(HTTP_LENGTH_REQUIRED, "length_required", "The request must declare its length.")
-    if (length > MAX_JSON_BYTES) throw Refusal(HTTP_TOO_LARGE, "too_large", "The request body is too large.")
+  /**
+   * Body framing before any route runs (4.7): a JSON route needs `Content-Length`, a chunked body needs one too,
+   * and only the file routes (upload bodies, compare) may exceed 16 KiB.
+   */
+  private fun checkBodyFraming(call: Call, route: Route?) {
+    if (route != null && route.fileBody) return
+    val length = call.header("Content-Length")
+    val chunked = call.header("Transfer-Encoding")?.contains("chunked", ignoreCase = true) == true
+    if (length == null) {
+      if (route?.jsonBody == true || chunked) {
+        throw Refusal(HTTP_LENGTH_REQUIRED, "length_required", "The request must declare its length.")
+      }
+      return
+    }
+    val bytes = length.trim().takeIf { it.isNotEmpty() && it.all(Char::isDigit) }?.toLongOrNull()
+      ?: throw invalidRequest("Content-Length is not valid.")
+    if (bytes > MAX_JSON_BYTES) throw Refusal(HTTP_TOO_LARGE, "too_large", "The request body is too large.")
   }
 
   // ---------------------------------------------------------------------------------------------------------------
@@ -220,17 +236,11 @@ internal class ComputerCore(
 
   private class Signature(val deviceId: String, val ts: Long, val nonce: String, val mac: String)
 
+  /** The header exactly as server-contract 4.3 writes it: fields in order, lower-case hex. */
   private fun parseSignature(header: String?): Signature? {
-    if (header == null || !header.startsWith("PT1 ")) return null
-    val fields = header.removePrefix("PT1 ").split(',').associate { part ->
-      val trimmed = part.trim()
-      trimmed.substringBefore('=') to trimmed.substringAfter('=', "")
-    }
-    val device = fields["device"]?.takeIf { it.isNotEmpty() } ?: return null
-    val ts = fields["ts"]?.takeIf { it.all(Char::isDigit) && it.isNotEmpty() }?.toLongOrNull() ?: return null
-    val nonce = fields["nonce"]?.takeIf { HEX32.matches(it) } ?: return null
-    val mac = fields["mac"]?.takeIf { HEX64.matches(it) } ?: return null
-    return Signature(device, ts, nonce, mac)
+    val match = header?.trim()?.let(SIGNATURE_HEADER::matchEntire) ?: return null
+    val (device, ts, nonce, mac) = match.destructured
+    return Signature(device, ts.toLong(), nonce, mac)
   }
 
   private fun credentialRejected() = Refusal(
@@ -247,7 +257,7 @@ internal class ComputerCore(
     if (abs(signature.ts - now) > CLOCK_WINDOW_S) {
       throw Refusal(
         HTTP_UNAUTHORIZED, "clock_skew", "This phone's clock differs from this computer's.",
-        extra = mapOf("server_time" to JsonPrimitive(now)),
+        extra = mapOf("server_time" to JsonPrimitive(now)), headers = mapOf("WWW-Authenticate" to "PT1"),
       )
     }
     val nowMillis = clock.nowMillis()
@@ -612,8 +622,9 @@ internal class ComputerCore(
     private const val BASE32 = "abcdefghijklmnopqrstuvwxyz234567"
     private val JOB_STAMP = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss", Locale.ROOT).withZone(ZoneOffset.UTC)
 
-    val HEX32 = Regex("^[0-9a-f]{32}$")
-    val HEX64 = Regex("^[0-9a-f]{64}$")
+    val SIGNATURE_HEADER = Regex(
+      "^PT1 device=([A-Za-z0-9_]{1,64}),\\s*ts=([0-9]{1,12}),\\s*nonce=([0-9a-f]{32}),\\s*mac=([0-9a-f]{64})$",
+    )
     val UUID_RE = Regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
     val JOB_ID_RE = Regex("^\\d{8}-\\d{6}-[0-9a-f]{4}$")
 

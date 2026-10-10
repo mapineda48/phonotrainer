@@ -57,11 +57,12 @@ class HelloAndPairingTest {
   }
 
   @Test
-  fun helloRefusesAMalformedChallenge() {
-    val response = phone.get("/api/phone/hello?device_id=dev_x&challenge=XYZ")
-
-    assertThat(response.code).isEqualTo(400)
-    assertThat(response.errorCode).isEqualTo("invalid_request")
+  fun helloRefusesAMalformedOrHalfChallenge() {
+    for (query in listOf("device_id=dev_x&challenge=XYZ", "device_id=dev_x", "challenge=${"ab".repeat(16)}")) {
+      val response = phone.get("/api/phone/hello?$query")
+      assertThat(response.code).isEqualTo(400)
+      assertThat(response.errorCode).isEqualTo("invalid_request")
+    }
   }
 
   @Test

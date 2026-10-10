@@ -34,11 +34,11 @@ internal fun ComputerCore.hello(call: Call): MockResponse {
   }
   val deviceId = call.query("device_id")
   val challenge = call.query("challenge")
+  if ((deviceId == null) != (challenge == null)) throw invalidRequest("device_id and challenge go together.")
   if (challenge != null && !CHALLENGE.matches(challenge)) throw invalidRequest("The challenge is not valid.")
-  if (deviceId != null && challenge != null) {
-    rateLimit("hello", call.connection?.remoteAddress ?: "unknown", perSource = 20, total = 120)
-  }
-  val device = if (deviceId != null && challenge != null) devices[deviceId] else null
+  if (deviceId != null && !DEVICE_ID.matches(deviceId)) throw invalidRequest("The device id is not valid.")
+  if (deviceId != null) rateLimit("hello", call.connection?.remoteAddress ?: "unknown", perSource = 20, total = 120)
+  val device = deviceId?.let { devices[it] }
   return json(
     HTTP_OK,
     buildJsonObject {
@@ -56,7 +56,6 @@ internal fun ComputerCore.hello(call: Call): MockResponse {
 
 /** `POST /api/phone/pair`: the code rules of 2.3 and the re-activation proof of 6.2. */
 internal fun ComputerCore.pair(call: Call): MockResponse {
-  rateLimit("pair", call.connection?.remoteAddress ?: "unknown", perSource = 10, total = 30)
   val body = jsonBody(call)
   val code = body.string("code")?.takeIf { CODE.matches(it) } ?: throw invalidRequest("The code must be 6 digits.")
   val deviceName = body.string("device_name")?.let(::cleanText)?.takeIf { it.length in 1..MAX_DEVICE_NAME }
@@ -69,6 +68,8 @@ internal fun ComputerCore.pair(call: Call): MockResponse {
   if ((previousId == null) != (previousProof == null)) {
     throw invalidRequest("previous_device_id and previous_token_proof go together.")
   }
+  // A well-formed request is an attempt (malformed ones never reach the code), as in WP-01's registry.
+  rateLimit("pair", call.connection?.remoteAddress ?: "unknown", perSource = 10, total = 30)
   if (appVersion < minAppVersion) {
     throw Refusal(HTTP_UPGRADE_REQUIRED, "app_too_old", "This app is older than this computer accepts.")
   }
@@ -207,5 +208,6 @@ internal fun cleanText(text: String): String = Normalizer.normalize(text, Normal
 internal fun requestKey(text: String?): String? = text?.takeIf { ComputerCore.UUID_RE.matches(it) }?.lowercase(Locale.ROOT)
 
 private val CHALLENGE = Regex("^[0-9a-f]{32,64}$")
+private val DEVICE_ID = Regex("^[A-Za-z0-9_]{1,64}$")
 private val CODE = Regex("^[0-9]{6}$")
 private const val MAX_DEVICE_NAME = 60

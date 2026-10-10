@@ -91,11 +91,14 @@ internal class Job(
 
   fun ownedBy(deviceId: String?): Boolean = deviceId != null && this.deviceId == deviceId
 
-  /** First 16 hex digits of sha256 over `[status, error.code, [[name, status, sha256], …]]` (server-contract 6.3). */
+  /**
+   * First 16 hex digits of sha256 over `[status, error.code, [[name, status, sha256], …]]` (server-contract 6.3),
+   * serialized compactly as WP-01's `revision_of` does.
+   */
   val revision: String
     get() {
-      val listed = artifacts.values.joinToString(", ") { "[${quote(it.name)}, ${quote(it.status.wire)}, ${quote(it.sha256)}]" }
-      val text = "[${quote(status.wire)}, ${quote(errorCode)}, [$listed]]"
+      val listed = artifacts.values.joinToString(",") { "[${quote(it.name)},${quote(it.status.wire)},${quote(it.sha256)}]" }
+      val text = "[${quote(status.wire)},${quote(errorCode)},[$listed]]"
       return PhoneCrypto.sha256Hex(text.toByteArray(Charsets.UTF_8)).substring(0, REVISION_HEX)
     }
 

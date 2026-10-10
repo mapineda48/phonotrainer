@@ -40,6 +40,9 @@ internal enum class Route(
 
   private val pattern = path.split('/')
 
+  /** Routes whose body is a file (uploads, a recorded take): not bound by the 16 KiB JSON limit (4.7). */
+  val fileBody: Boolean get() = this == PUT_UPLOAD || this == PATCH_UPLOAD || this == COMPARE
+
   fun available(capabilities: FakeCapabilities): Boolean = needs(capabilities)
 
   companion object {
