@@ -1,9 +1,10 @@
 # PhonoTrainer for Android: product specification
 
-Status: v1 specification, revision 2, 2026-10-04. Owner: product owner. Revision 1 consolidated three independent
+Status: v1 specification, revision 3, 2026-10-10. Owner: product owner. Revision 1 consolidated three independent
 drafts (learner-first, reliability-first, feed-first) into one set of decisions. Revision 2 answers two reviews
 (requirements coverage, evidence and over-reach): every blocker and high finding is either fixed in place or
-answered with evidence in 15.5.
+answered with evidence in 15.5. Revision 3 closes, before implementation, every request the architecture and design
+tracks addressed to the product track (decisions D-37 to D-52, 15.6).
 
 Audience: the design agent (content, hierarchy, states and interactions are fixed here; visuals are not), the
 architect, the engineers and QA.
@@ -170,7 +171,7 @@ listens, slows down, repeats and practises, at home or away, with everything alr
 |---|---|---|---|
 | C1 | Home Wi-Fi, computer on, phone access on, paired | everything | "Connected to {computer}" + sync status |
 | C2 | Away (mobile data or another Wi-Fi) | all study on the phone; sharing creates waiting requests | "Not on Wi-Fi" or "Your computer isn't reachable", and that requests wait on this phone |
-| C3 | Home Wi-Fi, computer asleep, off, or phone access off | same as C2 | "Your computer isn't reachable · last seen {time}" + "Why?" checklist |
+| C3 | Home Wi-Fi, computer asleep, off, or phone access off (or not approved for this network, 7.2) | same as C2 | "Your computer isn't reachable · last seen {time}" + "Why?" checklist |
 | C4 | Inside YouTube or X, any network | share → analyze now (C1) or wait on the phone (C2, C3) | in the share confirmation, before the learner confirms |
 | C5 | Computer busy with a long analysis | study; new requests wait in line on the computer | queue position and an honest estimate |
 | C6 | No network at all | all study on the phone | "Offline · requests wait on this phone" |
@@ -274,8 +275,8 @@ changes met, and saved shorts (F-17).
 | Your computer | "your computer" | The PhonoTrainer server (`phonotrainer ui`) on the owner's computer. | |
 | Phone access | "phone access" | The opt-in server mode that accepts paired phones from the home network. | NEW S-01 |
 | Pairing | "Connect to your computer" | One-time exchange (discovery or a typed address, then a 6-digit code shown in the computer's terminal) that makes phone and computer trust each other. | NEW S-03, S-04 |
-| Device credential | (not shown) | Secret the phone presents on every request; revocable on the computer. | NEW S-04, S-05 |
-| Online | "Connected" | The paired computer answered within the current probe interval, with the expected identity, accepted the credential and has a compatible version (7.5). | NEW S-02 |
+| Device credential | (not shown) | Secret created at pairing and kept on both sides. After pairing it never travels again: the phone signs every request with it, and the computer proves its identity with it (7.4). Revocable on the computer. | NEW S-04, S-05 |
+| Online | "Connected" | The paired computer answered within the current probe interval, proved it is the paired computer, accepted this phone's signed requests and has a compatible version (7.5). | NEW S-02 |
 | Request | "request" | Something the learner asked the computer to process: a link or a file. | on the phone, then a job |
 | Device queue | "Waiting on this phone" | Requests stored on the phone and not yet accepted by the computer. | on the phone |
 | Line | "Waiting in line" | Requests accepted by the computer and not started (one analysis at a time). | job `queued` |
@@ -511,7 +512,12 @@ the common case and without exposing anything unless the operator opted in. Mech
 3. **Search** starts automatically (7.3: the phone sends one discovery probe on the Wi-Fi; computers with phone
    access on answer it directly): "Looking for your computer…" for up to 10 s; computers appear as found, each
    with its name, "PhonoTrainer {version}" and a status word; if exactly one is found it is preselected. No
-   address is shown in the list.
+   address is shown in the list. **Same name or same identity** (D-39): names and server ids are public, so when
+   two answers share a name, or the same server id answers from two addresses, every answer is listed as its own
+   row, **none is preselected**, and a note above the list reads "Two computers answered with the same name. If
+   you aren't sure which one is yours, enter the address shown on your computer instead." + "Enter the address
+   instead". (A computer with two network connections on the same Wi-Fi, or two computers that kept the default
+   name "PhonoTrainer computer", look the same way; the note covers every case without accusing anyone.)
 4. "Enter the address instead": one field "Computer address and port" (placeholder "As shown on your computer";
    never an example address) and "Check", which asks that address for its identity.
 5. **Code**: "Enter the code shown on your computer", 6 digits, numeric keypad, paste allowed; optional field
@@ -528,8 +534,9 @@ the common case and without exposing anything unless the operator opted in. Mech
 | First run | the screen as above |
 | Offline (not on Wi-Fi) | "Connect to your home Wi-Fi first. Your computer is reachable only there." + "Open Wi-Fi settings" (system screen) |
 | Loading (searching) | "Looking for your computer…" (≤ 10 s) |
-| Empty (nothing found) | "No computer answered." + checklist "Is PhonoTrainer running with phone access on?", "Are this phone and your computer on the same Wi-Fi?", "Some routers keep devices apart (guest networks).", "Is a VPN on? Turn it off at home: it can hide your computer." + "Search again" + "Enter the address instead" |
-| Unreachable: a typed address answers without phone access (possible only when PhonoTrainer was started by hand on a network address without phone access; discovery never lists such a computer) | "That address answered, but phone access isn't on there. Turn it on, then try again." |
+| Empty (nothing found) | "No computer answered." + checklist "Is PhonoTrainer running with phone access on? If your computer joined a new network, run phonotrainer phone on there.", "Are this phone and your computer on the same Wi-Fi?", "Some routers keep devices apart (guest networks).", "Is a VPN on? Turn it off at home: it can hide your computer." + "Search again" + "Enter the address instead" |
+| Unreachable: a typed address answers without phone access (possible only when PhonoTrainer was started by hand on a network address without phone access, or when phone access is on but this network is not approved for phones, 7.2; discovery never lists such a computer) | "That address answered, but phone access isn't on there for this network. On your computer, run phonotrainer phone on, then try again." |
+| Two answers with the same name or identity | every answer listed, none preselected, the note of behaviour 3 + "Enter the address instead" |
 | Unreachable: too old | row (or "Check" result) reads "Needs a newer PhonoTrainer on your computer"; not selectable |
 | Error: wrong code | "That code didn't match. Check the code on your computer." (field keeps focus; nothing stored) |
 | Error: code expired | "That code has expired. Your computer can show a new one." |
@@ -548,19 +555,33 @@ the common case and without exposing anything unless the operator opted in. Mech
 - **F-02-AC4** Given discovery finds nothing within 10 s (the fake computer does not answer probes), When the learner
   enters the address and port shown on the computer and the code, Then pairing succeeds.
 - **F-02-AC5** Given a paired phone, When the computer's LAN address changes and discovery finds it, Then the next
-  time the phone is on the home Wi-Fi it reconnects without asking anything (same server identity).
+  time the phone is on the home Wi-Fi it reconnects without asking anything (the new address proves it is the paired
+  computer).
 - **F-02-AC6** Given a paired phone whose computer changed address and does not answer discovery, When the stored
-  address fails, Then the status offers "Enter the new address", and a typed address that answers with the same
-  server id is accepted without pairing again.
+  address fails, Then the status offers "Enter the new address", and a typed address that proves it is the paired
+  computer is accepted without pairing again.
 - **F-02-AC7** Given an address that answers without phone access, When "Check" is tapped, Then the phone reports
   that phone access is off there and stores nothing.
 - **F-02-AC8** Given a paired phone, When the operator revokes it on the computer, Then the next call fails with the
   credential-rejected code, the banner shows, the device queue pauses, and every clip stays studiable.
 - **F-02-AC9** Given the repository, When it is searched (11.7), Then no address, code or credential appears in
   committed files.
+- **F-02-AC10** Given an unpaired phone and two fake computers answering discovery with the same name (and, in a
+  second run, one server id answering from two addresses), When the list shows, Then every answer is a row, none is
+  preselected, and the note "Two computers answered with the same name. If you aren't sure which one is yours, enter
+  the address shown on your computer instead." with "Enter the address instead" is above the list.
+- **F-02-AC11** Given a paired phone and an address that answers with the paired server id but without a valid proof
+  of identity (a fake computer that knows the server id but not this phone's credential), When the phone probes it,
+  Then the status reads "A different computer answered", no request, file, recording or signed call is sent there,
+  and nothing is deleted on the phone.
+- **F-02-AC12** Given a paired phone and a fake computer whose phone access is on but not approved for the current
+  network (it answers `lan_forbidden`), When the phone probes it, Then the status reads "Your computer isn't
+  reachable", and Connection details shows the last probe result "Your computer answered, but phone access is off
+  there or not approved for this network."
 
 **Data.** `GET /api/health` (exists; MUST stop leaking the workspace path and add identity: S-02, S-06);
-discovery NEW S-03; pairing, device list and revoke from the terminal and CLI NEW S-04; authentication NEW S-05.
+discovery NEW S-03; pairing, device list and revoke from the terminal and CLI NEW S-04; identity proof and signed
+requests NEW S-02, S-05.
 **Priority:** v1-core.
 
 ---
@@ -590,7 +611,12 @@ today, and the way into every clip and every feed.
    - "Why?" when not reachable (→ Connection details); "Sync now" when connected.
 3. **Today's set card** (F-08): "Today · about 5 minutes" + "8 shorts, 5 questions · 2 saved shorts back" +
    "Start"; mid-set "Today · 3 of 8 done" + "Continue"; finished "Done for today" + "What you met: flapping ×3, linking
-   ×2…" + quiet "Another set".
+   ×2…" + quiet "Another set". The card itself shows what the set holds, one mark per short (its spotlight change's
+   family; saved shorts marked as saved; shorts already watched marked as done) and one per question, and TalkBack
+   reads it as part of one sentence: "Today's set: 8 shorts with flapping, linking, h-dropping and 2 more changes;
+   2 saved shorts back; then 5 questions." (each distinct spotlight change named once, in set order, at most three
+   names, then "and {N} more changes"). The card has no other control: there is no list or detail view of a set
+   (D-45); the set is met short by short in Watch.
 4. **Keep watching card** (when the last feed position is not today's set): poster, clip title, "Short 4 of
    15", the spotlight ("Listen for: flapping in “water”"), "Keep watching".
 5. **Add a clip**: "Paste a link" and "Choose a file" (→ Add a clip, F-19). The clipboard is never read
@@ -599,7 +625,11 @@ today, and the way into every clip and every feed.
 7. **Your clips** shelf: the 10 most recently studied or added clips (poster or audio art, title, length,
    "15 shorts", family icons with counts, availability icon + word) + "All clips" (→ Library).
 8. **Watch by change**: the 16 changes grouped by family, each chip with icon, name and short count ("Flapping
-   · 34"); a change with 0 shorts is shown as "Not in your clips yet" and opens its Learn page instead.
+   · 34"); a change with 0 shorts is shown as "Not in your clips yet" and opens its Learn page instead. A change's
+   **short count** is the number of shorts its change mode plays: playable shorts that contain at least one
+   spotlight candidate with that change (F-07), so "Flapping · 34" opens a feed of exactly 34 shorts (D-48). The
+   same count is used by the mode picker (F-06) and the Learn change cards (F-15); occurrence counts are a different
+   unit and appear only on phenomenon pages.
 9. **Practice card**: "10 questions · about 3 minutes", the weakest change ("Worth reviewing: t/d deletion · 4
    of 9"), "12 saved shorts" (→ Saved), "Start".
 10. **Insights teaser** (v1-complete; absent if Insights is cut): one takeaway from Insights (F-18), e.g. "About 7
@@ -640,6 +670,11 @@ today, and the way into every clip and every feed.
   position.
 - **F-03-AC9** Given a failed job created from the browser client, When Home shows, Then no request count includes
   it.
+- **F-03-AC10** Given today's set of 8 shorts (2 of them saved shorts) whose spotlights are, in order, flapping,
+  linking, h-dropping, flapping, t/d deletion, vowel reduction, linking and flapping, and 5 questions, When TalkBack
+  focuses the Today's set card, Then it reads "Today's set: 8 shorts with flapping, linking, h-dropping and 2 more
+  changes; 2 saved shorts back; then 5 questions." as part of the card's sentence, and the card's only control is
+  "Start".
 
 **Data.** Local catalogue (from the NEW S-11 listing; fields of `GET /api/jobs` [BE 2]: `id, source, source_url,
 status, percent, last_message, has_media, is_video, has_dialogue_audio, summary{segments, words, duration,
@@ -799,7 +834,8 @@ the lesson one tap away, and an end to every session.
    D-12). A short is *eligible for Mix and change modes* when it has a spotlight candidate (F-07); shorts
    without one appear only "In order", labelled "No labelled change here: listen to the rhythm."
 3. **Modes** as in 5.3. The **mode picker** ("Mix ▾", always visible at the top) lists Mix, Saved, the 16
-   changes by family with counts of playable shorts ("Flapping · 34 shorts"; 0 shown muted and routed to Learn),
+   changes by family with counts of playable shorts (the short count of F-03 item 8: "Flapping · 34 shorts"; 0
+   shown muted and routed to Learn),
    and every clip on the phone. Picking one changes the mode. "Leave this clip out of the Mix" (short "More"
    sheet) excludes a clip from the Mix; reversible in Settings.
 4. **Movement**: vertical swipe, and "Next short" / "Previous short" buttons and accessibility actions, move one
@@ -846,7 +882,7 @@ the lesson one tap away, and an end to every session.
 | Offline / Unreachable | works for every short on the phone; the feed header shows "On this phone"; counts in the mode picker are of playable shorts only |
 | Error: decode failure | the short plays as audio with captions and says "This video can't play on this phone. Listening still works." (no crash); the phone then asks the computer for a phone video (S-12) |
 | Error: corrupt or missing local file | "This short couldn't be played." The clip is marked "Needs downloading again" and re-queued; a one-time notice; swiping moves on |
-| Partial | video not on the phone → audio with poster and the chip above; clip data present but chosen track missing → the other track is used and the card says which |
+| Partial | video not on the phone → audio with poster and the chip above; clip data present but chosen track missing → the other track is used and a quiet line under the clip line says which (D-47): "Playing the original mix: the dialogue track isn't on this phone yet." / "Playing the dialogue only: the original mix isn't on this phone yet." / (a clip analysed without a dialogue track while "Dialogue only" is chosen) "Playing the original mix: this clip has no dialogue-only track." |
 | Clip deleted on the computer while watching | the current short finishes; at the next swipe the clip's shorts are gone with "A clip was deleted on your computer and removed from this phone." |
 | TalkBack on | nothing plays until "Play" is activated (F-07) |
 
@@ -875,6 +911,10 @@ the lesson one tap away, and an end to every session.
   seen; When 16 s have played in that visit, Then it is seen.
 - **F-06-AC12** Given the learner left the feed in the flapping mode at short 5 and went to Learn, When the Watch tab
   is opened, Then the feed shows the flapping mode at short 5 (the Watch tab's last mode and position, 5.2).
+- **F-06-AC13** Given "Listen to: Dialogue only" and a clip whose dialogue track is still downloading while its
+  original mix is on the phone, When its short plays, Then the original mix plays and the card reads "Playing the
+  original mix: the dialogue track isn't on this phone yet."; When the dialogue track arrives, Then the next short of
+  that clip plays the dialogue and the line is gone.
 
 **Data.** `analysis.json` per clip: `segments[].start/end/text/words[]/intonation_units/emphasis_word_idx/f0_track`,
 words' `start, end, phenomena, low_confidence, diff_cost, dict_ipa, realized_ipa, canonical_aligned,
@@ -1313,6 +1353,12 @@ keys (web glossary), and the 16 changes (server description + practice badge + r
 this"). Learn holds a searchable index "Words we use" (terms and metrics). TalkBack name "What's this: {term}"
 (web). Closing returns focus to the "?" control.
 
+**"Words we use" page** (opened from Learn; copy fixed by D-47): title "Words we use"; lede "Plain-English
+explanations of the terms and measures PhonoTrainer uses. Each one also opens from the “?” next to it."; search field
+"Search the words we use…" with a live count "{n} of {total} terms" (as the Library's); two groups, "Terms" and
+"Measures", each row showing the term and the first sentence of its explanation; a row opens the same "What's this?"
+sheet. No match: "No term matches “{text}”." + "Clear the search" (no illustration: it is not an empty state).
+
 **States.** Always available offline and before pairing (bundled). A term missing from the content shows the
 server description if one exists, otherwise no "?" is shown (never an empty sheet). Loading/Error/Partial: n/a.
 
@@ -1321,6 +1367,8 @@ server description if one exists, otherwise no "?" is shown (never an empty shee
   web entry with its example, and closing it returns focus to the "?".
 - **F-14-AC2** Given a fresh install with no pairing and no network, When any "?" is opened, Then its content shows.
 - **F-14-AC3** Given the "Words we use" index, When the learner searches "schwa", Then the entry is found.
+- **F-14-AC4** Given the "Words we use" index, When the learner searches "xyzzy", Then "No term matches “xyzzy”." and
+  "Clear the search" show, TalkBack hears "0 of {total} terms", and "Clear the search" restores every row.
 
 **Data.** Glossary content identical to `web/src/didactic/glossary/*` from a single source (S-18);
 `reference.descriptions`, `practice`. **Priority:** v1-core.
@@ -1337,7 +1385,8 @@ turns a page into a feed of one change.
    copy." (web); "How to study a change" (web's three steps, adapted: "Read what happens and whether you can copy
    it." · "Watch it in your clips, slowly if you need to." · "Train your ear in Practice."); sections per family +
    "Whole-word changes"; each change card: icon, name in its family line style, description with IPA, practice
-   badge + register, "34 shorts in your clips" / "Not in your clips yet". Entries to "IPA chart", "Insights",
+   badge + register, "34 shorts in your clips" (the short count of F-03 item 8) / "Not in your clips yet". Entries
+   to "IPA chart", "Insights",
    "Words we use".
 2. **Phenomenon page**: description; "How to hear it" (`listenFor`); "For Spanish speakers: …" where the content
    has a tip (3 changes today); caveat note; "Can you copy it?" (badge, why, register meaning, web); "The mouth"
@@ -1345,10 +1394,12 @@ turns a page into a feed of one change.
    movement", sound buttons; web `MouthDemo`; omitted for `word_elision`, which has none); primary **"Watch
    examples"** (change mode) and "Practice this" (Practice with focus); "Examples from your clips" (up to 8,
    clearest first, one per word, each playable with "Open in its lesson", web `pickExamples`).
-3. Counts and examples come from the clips on the phone (computed locally, D-16), counting only eligible
-   occurrences (playable, not low confidence); when some clips of the catalogue are not on this phone, the page
-   says "Counted in the clips on this phone." (The computer's raw `phenomena_counts` use a different unit and
-   are never compared with them.)
+3. Counts and examples come from the clips on the phone (computed locally, D-16), in two named units (D-48): the
+   Learn change card shows **shorts** ("34 shorts in your clips", the same number as the Home chip and the mode
+   picker, so it matches the feed "Watch examples" opens); the phenomenon page shows **occurrences**, eligible
+   occurrences only (playable, not low confidence): "12 times in your clips" above "Examples from your clips". When
+   some clips of the catalogue are not on this phone, the page says "Counted in the clips on this phone." (The
+   computer's raw `phenomena_counts` use a different unit and are never compared with them.)
 
 **States**
 | State | Behaviour |
@@ -1361,8 +1412,9 @@ turns a page into a feed of one change.
 | Partial | counts from the phone only, labelled as above |
 
 **Acceptance criteria**
-- **F-15-AC1** Given 12 eligible flapping occurrences on the phone and no network, When the Flapping page opens, Then
-  it shows "12 in your clips" and up to 8 playable examples.
+- **F-15-AC1** Given 12 eligible flapping occurrences in 9 shorts on the phone and no network, When the Flapping page
+  opens, Then it shows "12 times in your clips" and up to 8 playable examples, and Learn's Flapping card reads
+  "9 shorts in your clips".
 - **F-15-AC2** Given "Watch examples" on Flapping, When Watch opens, Then the mode is "Flapping" and it ends with the
   change end card.
 - **F-15-AC3** Given the vowel_reduction page, When it renders, Then the "For Spanish speakers" tip from the web
@@ -1537,7 +1589,10 @@ state, and the web's pipeline stepper with teaching lines so waiting also teache
      one sentence + primary action.
    - "Preparing": files being copied into the app ("Preparing the file… 40 %").
    - "Waiting on this phone": reason it waits ("Your computer isn't reachable", "Not on Wi-Fi", "Will try again
-     in 2 min", "Couldn't send yet: will try again"), age ("Added yesterday", "Added 15 days ago"), size for files.
+     in 2 min", "Couldn't send yet: will try again", and after "Stop sending" "Stopped by you: it waits here until you
+     tap Send now."), age ("Added yesterday", "Added 15 days ago"), size for files. A file too large to send in one
+     background run (7.7) adds the line "Open PhonoTrainer on your home Wi-Fi to send this file: large files are sent
+     while the app is open." (D-41).
    - "Sending": "Sending 40 % · 125 of 312 MB".
    - "On your computer": "Waiting in line · 2nd" ("Analyses run one at a time.", web) or "Analyzing 61 % · Hear
      the phones · phrase 3 of 10" (web `stageSummary`).
@@ -1562,13 +1617,13 @@ state, and the web's pipeline stepper with teaching lines so waiting also teache
    | State (icon + words) | Actions |
    |---|---|
    | Preparing the file (copy, or audio extraction for "Audio only") | "Cancel" |
-   | Couldn't keep the file (copy interrupted by a restart, file unreadable, or no space; 7.7) | "Remove" (+ "Try audio only" for a video refused for space) |
+   | Couldn't keep the file (copy interrupted by a restart, file unreadable, or no space; 7.7) | "Remove" (+ "Try audio only" for a video refused for space, only while the file can still be read: a file picked in the app; a shared file must be shared again, D-49) |
    | The copy kept on this phone is missing (deleted outside the app) | "Remove" ("Share the file again to analyze it.") |
    | Waiting on this phone | "Send now" (only when connected), "Remove" (files: "The copy kept on this phone is deleted too.") |
-   | Sending | "Stop sending" (back to waiting), "Remove" |
-   | Waiting in line / Analyzing | "Cancel" (confirm "Stop analyzing “{title}” on your computer?"); offline: becomes "Cancel waiting for your computer" with "Undo" |
+   | Sending | "Stop sending" (back to waiting, held until "Send now", D-46), "Remove" |
+   | Sent / Waiting in line / Analyzing | "Cancel" (confirm "Stop analyzing “{title}” on your computer?"); offline: becomes "Cancel waiting for your computer" with "Undo"; "Undo" confirms with "Cancel undone: “{title}” won't be cancelled." |
    | Getting it on this phone | none (progress only) |
-   | Couldn't download (link) | "Try again", "Try audio only", "Open the link", "Remove" |
+   | Couldn't download (link) | "Try again", "Try audio only", "Open the link", "Remove" (the exact title, body and actions per failure code are in 8.6, including a live stream or a video longer than the computer's limit) |
    | Analysis failed | "Try again", "Show details", "Remove" |
    | Refused by your computer at sending (file type, file too large, a link to a private address) | "Try audio only" (videos too large), "Remove" |
    | Interrupted (after the one automatic re-run, 7.7) | "Try again", "Remove" |
@@ -1591,7 +1646,7 @@ state, and the web's pipeline stepper with teaching lines so waiting also teache
 | Offline / Unreachable | computer-side states show "Last known: Analyzing 40 % (10 min ago)"; actions that need the computer read "…when connected" |
 | Error | queue store unreadable: "Your requests could not be loaded." + "Try again"; the queue is never cleared by this error |
 | Partial | after "Forget this computer": requests that computer had accepted are no longer tracked; the learner confirmed their removal when forgetting (7.9) |
-| Computer restarted mid-analysis | every own job of that computer that was waiting in line or analyzing is re-run once automatically, in its original order; if a re-run fails again → "Needs your attention" with "Your computer stopped during the analysis." |
+| Computer restarted mid-analysis | every own job of that computer that was waiting in line or analyzing is re-run once automatically, in its original order, and reads "Starting again on your computer" until the computer accepts the re-run; if a re-run fails again → "Needs your attention" with "Your computer stopped during the analysis." |
 
 **Acceptance criteria**
 - **F-20-AC1** Given a link request waiting on this phone, When the (fake) computer becomes reachable, Then it moves
@@ -1615,6 +1670,16 @@ state, and the web's pipeline stepper with teaching lines so waiting also teache
   collapsed "Started on your computer" group with "Hide on this phone", and no count or notification includes it.
 - **F-20-AC9** Given a waiting file request whose copy was deleted outside the app, When the queue is checked at
   start, Then the request shows the copy-missing state with "Remove", and nothing is sent.
+- **F-20-AC10** Given a 600 MB file request waiting, no upload speed measured yet on this phone, and the app in the
+  background, When the (fake) computer becomes reachable and a background sync runs, Then the file is not sent, the
+  links waiting behind it are sent, and its row reads "Open PhonoTrainer on your home Wi-Fi to send this file: large
+  files are sent while the app is open."; When the app is opened, Then the upload starts as a visible transfer.
+- **F-20-AC11** Given a file request "Sending" to the (fake) computer, When the learner taps "Stop sending", Then the
+  upload stops, the request is "Waiting on this phone" with "Stopped by you: it waits here until you tap Send now.",
+  and it is not sent again while connected until "Send now" is tapped.
+- **F-20-AC12** Given an accepted request that shows "Cancel waiting for your computer" while offline, When the learner
+  taps "Undo", Then the request returns to its previous state, "Cancel undone: “{title}” won't be cancelled." shows
+  once, and no cancel reaches the computer at the next connection.
 
 **Data.** Local requests; `POST /api/jobs/youtube` `{url, options, audio_only}`, `POST /api/jobs/upload`
 (made idempotent by S-09; resumable by S-10 in v1-complete), `POST /api/jobs/{id}/cancel`, `DELETE /api/jobs/{id}`
@@ -1692,11 +1757,13 @@ All settings apply at once and are remembered on this phone. Groups and items (d
   Replay it once / Stop / Go to the next one"; captions "Marks / Plain / IPA / Off"; "Listen first" (off);
   "Listen to: Original mix / Dialogue only"; clips left out of the Mix.
 - **Learning**: "Questions after each set" (on); "Lesson guidance: Full / Compact".
-- **Your computer**: name, status, last seen, last sync, "Check now", "Connection details" (address, short server
-  id, API version, last probe result in words, pending counts, background restriction, "Copy diagnostics" without
-  the credential), "Enter the new address", "Connect again", "Forget this computer…" ("This phone stops talking
-  to {name}. Your clips stay on this phone; requests waiting here stay too. Requests {name} already accepted
-  will no longer be followed here." default button "Cancel").
+- **Your computer**: name, status, last seen, last sync, "Check now", "Connection details" (the computer's address,
+  "This phone on this Wi-Fi: {address}" (D-39: the operator compares it with the "Paired: … (from {address})" line
+  the computer's terminal prints after pairing), short server id, API version, last probe result in words, pending
+  counts, background restriction, "Copy diagnostics" without the credential, without any address (only whether it is
+  a private or link-local one) and without ids), "Enter the new address", "Connect again", "Forget this computer…"
+  ("This phone stops talking to {name}. Your clips stay on this phone; requests waiting here stay too. Requests
+  {name} already accepted will no longer be followed here." default button "Cancel").
 - **Storage**: F-21.
 - **Notifications**: "When a clip is ready", "When a request needs attention" (both on), link to the system
   channel settings.
@@ -1715,6 +1782,9 @@ All settings apply at once and are remembered on this phone. Groups and items (d
 - **F-22-AC3** Given "Forget this computer" is confirmed, When Home shows, Then the credential is gone, the status
   reads "Not connected to a computer", every clip and waiting request remains, and the clips read "From a computer
   you forgot".
+- **F-22-AC4** Given a paired phone on Wi-Fi, When Connection details opens, Then it shows "This phone on this Wi-Fi:"
+  with the phone's current address on that network; and When "Copy diagnostics" is tapped, Then the copied text
+  contains no address of the phone or the computer, no server or device id and no credential.
 
 **Priority:** v1-core.
 
@@ -1724,13 +1794,16 @@ All settings apply at once and are remembered on this phone. Groups and items (d
 
 - **Channels**: "Clips ready" (default importance): "Ready to watch: {title} — 15 shorts, tap to start." (tap →
   feed "In order" on that clip; grouped when several); "Needs attention" (default): "Couldn't download {site}
-  link — Tap to try again or try audio only." (tap → request detail); "Transfers" (low, silent): ongoing
+  link — Tap to try again or try audio only." for `download_forbidden`, and for every other failure its 8.6 title
+  + " — Tap to see what you can do." (D-40), so a notification never offers an action the request lacks (tap →
+  request detail); "Transfers" (low, silent): ongoing
   progress only while a transfer started from the foreground runs (an upload the learner sent, or a download they
   asked for), with "Stop". Transfers started in the background run without a notification as ordinary resumable
   work (7.7).
 - Only this phone's own requests notify; jobs started from the browser client never do.
 - Permission (Android 13+) is asked in context the first time a request is created: "Get a notification when your
-  clip is ready?" then the system prompt; never at first launch. Denial is respected; Home and Requests carry the
+  clip is ready?" with two buttons, "Notify me" (then the system prompt) and "Not now" (no system prompt; the
+  question is not asked again, and Settings > Notifications keeps the way to turn them on); never at first launch. Denial is respected; Home and Requests carry the
   same information.
 - No notification for routine sync, percent ticks or missed days; no daily reminder in v1 (Later). Notifications
   never contain the computer's address or links with tracking parameters.
@@ -1751,6 +1824,9 @@ All settings apply at once and are remembered on this phone. Groups and items (d
 - **F-23-AC2** Given notification permission denied, When a request fails, Then no notification appears and Home
   shows "1 needs your attention".
 - **F-23-AC3** Given a job created from the browser client fails, When sync runs, Then no notification appears.
+- **F-23-AC4** Given notifications allowed and this phone's link job failing with `too_long` on the fake computer,
+  When the failure is noticed, Then one "Needs attention" notification reads "This video is too long for your
+  computer — Tap to see what you can do." and opens that request's detail.
 
 **Priority:** v1-core.
 
@@ -1759,13 +1835,15 @@ All settings apply at once and are remembered on this phone. Groups and items (d
 ### F-24 About and licences (v1-core)
 
 Version; the computer's API version last seen; "PhonoTrainer is free software under the GNU GPL-3.0-or-later" with
-the licence text; source location (the public repository); every third-party component and font with its licence
-(the same entries recorded in `THIRD-PARTY-NOTICES.md`), readable offline.
+the licence text; source location (the public repository); every third-party component, font and vendored icon set
+with its licence (the same entries recorded in `THIRD-PARTY-NOTICES.md`), readable offline. Fonts and icons are not
+libraries, so they are listed from their bundled licence texts, not from the dependency report (D-50).
 
 **Acceptance criteria**
 - **F-24-AC1** Given no network, When "Open-source licences" opens, Then every bundled licence text is readable.
-- **F-24-AC2** Given the release dependency report, When About lists components, Then every runtime dependency and
-  font of the release build appears with its licence (the same list X-AC3 checks).
+- **F-24-AC2** Given the release dependency report and the bundled fonts and icon set, When About lists components,
+  Then every runtime dependency, font and vendored icon set of the release build appears with its licence (the same
+  list X-AC3 checks).
 
 **Priority:** v1-core.
 
@@ -1780,7 +1858,7 @@ with its source):
 
 | Asset | Purpose / constraint |
 |---|---|
-| Adaptive launcher icon (background, foreground, monochrome) + legacy icons from one geometry | recognizable at share-sheet size next to WhatsApp and others |
+| Adaptive launcher icon (background, foreground, monochrome) from one geometry; no legacy (pre-adaptive) icons, which no supported Android version uses (minSdk 29, D-50) | recognizable at share-sheet size next to WhatsApp and others |
 | Splash mark (one-shot animation) | no loop; no blank flash in light or dark |
 | Notification icon (monochrome) | legible in the status bar |
 | Welcome illustrations (3) | one per Welcome page |
@@ -1850,7 +1928,15 @@ audio-only visual cover a missing poster or video.
 
 - Default unchanged: `phonotrainer ui` listens on loopback only and the browser client works exactly as today.
 - **Phone access** is an explicit operator choice (S-01). Once turned on it stays on across restarts until turned
-  off (default of Q-5), and every start with phone access on prints that it is on and how to pair.
+  off (default of Q-5), **on the networks the operator approved** (D-42): turning it on approves the networks the
+  computer is on at that moment (the home Wi-Fi), and on any other network (a café, an office, a new router) phone
+  access is **suspended** until the operator approves that network with `phonotrainer phone on`; while suspended the
+  computer refuses every phone request and does not answer discovery. Every start with phone access on prints that
+  it is on (or suspended, and how to approve the network) and how to pair. These are terminal messages for the
+  operator; the phone sees a suspended computer as one whose phone access is off (7.5).
+- The computer's display name, which phones see in discovery and on Connect, defaults to "PhonoTrainer computer",
+  never the computer's host name (which often carries the owner's name); the operator can rename it from the
+  terminal.
 - With phone access on, every non-loopback request (API, artifacts, job channel) needs a valid device credential,
   and the dangerous routes are unavailable to LAN clients (S-05, S-06, 11.5).
 - Nothing in the app or the repository encodes an address, a host name or a credential. The fixed discovery port
@@ -1871,9 +1957,10 @@ audio-only visual cover a missing poster or video.
    manual entry always remains.
 5. **Re-discovery**: the phone stores the last working address for the paired server id. On a network change or
    after failed probes it tries the last address first, then discovery; it accepts a new address only when the
-   same server id answers and the credential is accepted. The change appears only in Connection details ("Your
+   address **proves it is the paired computer** (7.4: an answer to a fresh challenge that only the paired computer
+   can compute) and accepts this phone's signed requests (D-37). The change appears only in Connection details ("Your
    computer's address changed"). If discovery cannot find it, the status offers "Enter the new address"; a typed
-   address that answers with the same server id is accepted without pairing again.
+   address that proves it is the paired computer is accepted without pairing again.
 6. No discovery runs in the background (battery, NFR-04).
 
 ### 7.4 Pairing and trust
@@ -1882,13 +1969,17 @@ audio-only visual cover a missing poster or video.
   valid 5 minutes, and invalidated after 5 wrong attempts; pairing calls are rate-limited. There is no browser
   page for pairing (D-35).
 - The phone sends the code and a device name it shows to the learner (the phone's model, editable) and receives a
-  **per-device credential**, stored only on the phone in protected, non-backed-up storage (11.1), sent on every
-  call, artifact download and on the job channel.
+  **per-device credential**, stored only on the phone in protected, non-backed-up storage (11.1). The credential
+  travels once, in the pairing answer, and never again (D-38): every later call, artifact download and job-channel
+  connection is **signed** with it, so a signed request proves the phone without revealing the secret, and a
+  recorded request cannot be replayed.
 - **Identity, not address**: the phone trusts the computer's persistent random server id, which belongs to the
-  machine, not to a workspace (S-02, D-34). Before sending its credential it checks that the address answers with
-  the paired server id (identity-only health); a different id yields "A different computer answered at this
-  address.": the phone sends it no credential, request or recording, and never deletes anything because of its
-  listing.
+  machine, not to a workspace (S-02, D-34). The server id is public (every discovery answer carries it), so it is
+  never proof on its own (D-37). Before sending anything to an address, the phone checks that the address **proves
+  it is the paired computer**: it answers a fresh random challenge from the phone with a proof that only a holder of
+  this phone's credential can compute. A missing or wrong proof, or a different server id, yields "A different
+  computer answered at this address.": the phone sends it no request, file, recording or signed call, and never
+  deletes anything because of its listing.
 - From the terminal, the operator lists paired phones (name, paired date, last seen) and revokes one or all
   (S-04). A revoked or unknown credential gets a stable error code: the phone shows "Connect again", **pauses**
   the device queue (requests are kept, never failed or discarded) and stops background calls until paired again.
@@ -1900,8 +1991,8 @@ audio-only visual cover a missing poster or video.
 
 ### 7.5 What "online" means, and every connectivity state
 
-A **probe** is a call to the computer's health endpoint: first identity-only, then authenticated, returning
-server id, library id, API version, minimum app version, capabilities and queue length (S-02). Its timeout is
+A **probe** is a call to the computer's health endpoint: first the identity proof of 7.4, then authenticated (signed),
+returning server id, library id, API version, minimum app version, capabilities and queue length (S-02). Its timeout is
 3 s, or 10 s while the computer was last known to be analyzing (its CPU is saturated then, 2.3); the health
 endpoint answers without waiting on the analysis worker (S-02).
 
@@ -1909,8 +2000,8 @@ The computer is **online** ("Connected") when all of these hold:
 1. the phone has a Wi-Fi or Ethernet network (traffic to the computer goes over that network even if it has no
    internet access);
 2. the latest probe to the stored address succeeded within the current probe interval;
-3. the answer carries the paired server id;
-4. the credential was accepted;
+3. the address proved it is the paired computer (the paired server id with a valid proof, 7.4);
+4. the computer accepted this phone's signed request;
 5. the computer's API version is one this app supports, and this app is at least the computer's minimum.
 
 An open job channel counts as continuous proof only while its WebSocket pings are answered; a missing answer is
@@ -1936,16 +2027,18 @@ mobile data or with no network: those states are reported without trying.
 | Connected | definition above | "Connected to {name}" (+ "· analyzing 1 · 2 in line" when busy) | sends | run |
 | Syncing | connected and transferring | "Syncing · bringing 3 clips · 42 %" | sends | run |
 | Not reachable | Wi-Fi, two probes fail | "Your computer isn't reachable · last seen {time}" + "Why?" (+ "Enter the new address" after a network change) | wait; retry on schedule | paused; resume later |
-| Different computer | server id mismatch | "A different computer answered" + "Details" | paused | paused |
+| Different computer | server id mismatch, or no valid proof of identity (7.4) | "A different computer answered" + "Details" | paused | paused |
 | Connect again | credential rejected | "Your computer no longer recognizes this phone" + "Connect again" | paused (kept) | paused |
 | Computer too old | API older than the app needs | "Update PhonoTrainer on your computer" | paused | paused |
 | App too old | computer needs a newer app | "Update this app" | paused | paused |
 | Computer low on space | computer reports low disk or upload limit | "Your computer is low on space" | uploads paused; links still sent | run |
 
 "Why?" opens Connection details with a plain checklist ("Is your computer awake?", "Is PhonoTrainer running with
-phone access on?", "Is this phone on the same Wi-Fi?", "Is a VPN on? Turn it off at home: it can hide your
-computer.", "Some routers keep devices apart (guest networks).") and the last probe result in words ("No answer
-after 3 s"). TalkBack announces only transitions ("Connected", "Offline", "Clip ready"), never percent ticks or
+phone access on? If your computer joined a new network, run phonotrainer phone on there.", "Is this phone on the same
+Wi-Fi?", "Is a VPN on? Turn it off at home: it can hide your computer.", "Some routers keep devices apart (guest
+networks).") and the last probe result in words ("No answer after 3 s"; for a computer whose phone access is off or
+suspended on this network, "Your computer answered, but phone access is off there or not approved for this
+network."). TalkBack announces only transitions ("Connected", "Offline", "Clip ready"), never percent ticks or
 the "Checking" state.
 
 ### 7.6 What syncs in each direction
@@ -1997,7 +2090,11 @@ before it can wait. The request is recorded first in the state "Preparing the fi
   the file: the copy didn't finish. Share it again." with "Remove";
 - **no space mid-copy**: the partial copy is deleted and the request shows "Not enough space on this phone to keep
   this video until your computer is reachable. Free {N} MB or choose Audio only." with "Try audio only" (videos)
-  and "Remove";
+  and "Remove". "Try audio only" starts a new copy of the audio track only, so it is offered only while the file can
+  still be read (D-49): in the share sheet while it is open, and later in Requests for a file picked in the app
+  (lasting read permission, F-19). A shared file whose sheet has closed can't be read again: its row shows "Not
+  enough space on this phone to keep this video. Free {N} MB, then share it again and choose Audio only." with
+  "Remove";
 - **the file can't be read** (permission revoked, the source app removed it, a cloud file not on the phone while
   offline): "PhonoTrainer couldn't read this file. Open it once in the app that has it, then share it again."
   with "Remove";
@@ -2038,6 +2135,13 @@ and refuses early ("Too large for your computer's limit (2 GB). Choose Audio onl
   job). An upload started from the background (for example after the phone joins the home Wi-Fi with the app
   closed) runs as ordinary deferrable work without a notification; Android forbids starting a foreground service
   from the background, and the resumable or restartable design makes that safe.
+- **Large files wait for the app** (v1-core, D-41): Android stops background work after a few minutes, and a
+  v1-core upload that is cut short restarts from zero, so a file starts in the background only when this phone's
+  measured upload speed says it can finish within one background run. A larger file stays "Waiting on this phone"
+  (never failed) with the line "Open PhonoTrainer on your home Wi-Fi to send this file: large files are sent while
+  the app is open.", and is sent the next time the app is open and connected, as a user-visible transfer. Links are
+  not held up by it (Ordering, above). With resumable uploads (v1-complete) each background run continues where
+  the last one stopped, and the rule and its line no longer apply.
 
 **Retries**
 | Failure | Class | Behaviour |
@@ -2051,7 +2155,9 @@ and refuses early ("Too large for your computer's limit (2 GB). Choose Audio onl
 | Job interrupted by a computer restart (`interrupted`, S-15), whether it was analyzing or waiting in line | transient job failure | one automatic re-run (S-22) for each own interrupted job, in the original acceptance order; the re-run replaces the failed job; a second interruption → "Needs your attention" |
 
 **Cancellation.** Preparing → the copy stops and the record is deleted. Waiting → removed at once and its file
-copy deleted. Sending → upload stopped; "Stop sending" returns it to waiting, "Remove" discards it (the computer
+copy deleted. Sending → upload stopped; "Stop sending" returns it to waiting, **held**: it is not sent again,
+even while connected, until the learner taps "Send now" (D-46; reason line "Stopped by you: it waits here until you
+tap Send now."); "Remove" discards it (the computer
 drops the partial upload, S-10). Accepted → "Cancel" when connected, or "Cancel waiting for your computer"
 (visible, undoable) when not; sent before anything else at the next connection. If the job finished before the
 cancel arrives, the clip is kept and the learner is told (F-20).
@@ -2105,7 +2211,7 @@ app updates (SC-04, NFR-07).
 | "Remove the video" | phone | deletes the video layer; the clip stays studiable | none |
 | Clip deleted on the computer (web or CLI) | a `deleted` event on the job channel from the paired server id, or the clip missing from two consecutive complete listings of the same server id and library id | removes the clip, its files, its saved items and its positions (after the learner leaves it if open); per-change practice stats are kept; one notice "1 clip deleted on your computer was removed from this phone." If more than half of the clips would disappear at once, the learner is asked first: "Your computer no longer lists 9 of 10 clips. Remove them from this phone?" | n/a |
 | The computer switches to another library (workspace) | the library id in the listing changed | nothing is deleted; clips of the previous library stay, tagged "From another library", and are never touched by the new library's listings; one notice "Your computer is using a different library. Clips from the other one stay on this phone until you remove them." | n/a |
-| A listing from a different server id | identity check | nothing is deleted and nothing is sent ("A different computer answered") | n/a |
+| A listing from a different server id, or from an address without a valid proof of identity | identity check | nothing is deleted and nothing is sent ("A different computer answered") | n/a |
 | "Remove" a failed or cancelled request | phone | removes the request and its file copy | deletes this phone's failed or cancelled job when connected (S-06) |
 | "Hide on this phone" (a failed job started from the browser client) | phone | hides it from "Started on your computer" | none |
 | Delete a finished analysis | — | not possible from the phone in v1: "Delete it on your computer." (Q-2) | — |
@@ -2275,7 +2381,8 @@ and no Home. Content in order:
    your computer." if the computer confirms while the sheet is open), with "Open PhonoTrainer" and "See
    requests". It closes by itself 2 s after the request is stored (and, for files, after the copy completes),
    showing whichever message is current; Back closes it at once (for a file still copying, Back asks first, 7.7).
-   With TalkBack on it does not close by itself. The final outcome is always visible in Requests, on Home and, if
+   With TalkBack on it does not close by itself, nor while the notification question of item 9 is open (D-51); the
+   2 s count starts again once it is answered. The final outcome is always visible in Requests, on Home and, if
    allowed, in a notification.
 9. The first time a request is created, this is when notifications are asked for (F-23), after the request is
    safely stored.
@@ -2316,8 +2423,10 @@ the computer to re-run from what it stored (S-22).
 | `download_unavailable` (private, removed, age-restricted, login required) | job | "This video can't be downloaded" / "It is private, removed, or needs a login, which PhonoTrainer can't do." | Open the link · Remove |
 | `unsupported_site` | job | "This website isn't supported" / "Your computer doesn't know how to download from this site. Try a YouTube or X link." | Open the link · Remove |
 | `playlist` | job | "That's a playlist" / "Share a single video instead." | Open the link · Remove |
+| `live_stream` (links from the phone, 8.7) | job, before any download | "Live streams can't be analyzed" / "This video is live or hasn't started yet. Once it has ended and is saved as a video, try again." | Try again · Open the link · Remove |
+| `too_long` (links from the phone, 8.7) | job, before or during the download | "This video is too long for your computer" / "Your computer analyzes link videos up to {limit} long. Share a shorter video; the limit can be changed on your computer (see its README)." ({limit} from the computer's capabilities, e.g. "1 hour"; when unknown: "up to the length set on your computer"; a video refused for its size, above the computer's upload limit, shows the same lines and "Show details" names the reason) | Open the link · Show details · Remove |
 | `network` | job | "Your computer couldn't reach the website." | Try again · Remove |
-| `no_space` | job | "Your computer is low on space" / "{free space}" | Try audio only · Remove |
+| `no_space` | job | "Your computer is low on space" / "{free space}" | Try audio only (links) · Try again (files, once space is freed) · Remove |
 | `not_media` / `extract_failed` | job | "Your computer couldn't read this file." + cleaned detail | Remove |
 | `tool_missing` | job | "Your computer can't process this yet" / "It is missing a tool (ffmpeg). See the README on your computer." | Try again · Remove |
 | `interrupted` | job | after one automatic re-run: "Your computer stopped during the analysis" / "Start PhonoTrainer again, then try again." | Try again · Remove |
@@ -2335,6 +2444,14 @@ app, or the browser) only on tap. Failures of jobs started from the browser clie
 
 - Before the gate, S-23 is in place: the downloader prefers H.264 at 720p or less, its JavaScript runtime is
   configured and documented, its version is recorded, and its errors map to the codes above.
+- **Links from the phone are confined** (S-23, D-43): the computer downloads only through the downloader's
+  site-specific support (no generic page scraping, so "Other website" links work only for sites the downloader
+  knows); it refuses live and not-yet-started streams (`live_stream`) and videos longer than its link limit,
+  **1 hour by default** and editable on the computer (`too_long`), before any media is downloaded, and checks its free
+  space first (`no_space`). Links sent from the browser client are unchanged (S-21). The reference data set's
+  longest clip is about 10 minutes and the guidance asks for 30–60 s of dialogue, so the default refuses none of
+  the material the app is designed for, while a multi-hour video or a never-ending stream cannot occupy the single
+  analysis worker for hours.
 - During device QA, **the owner himself** shares one YouTube video link, one YouTube Shorts link and one X post
   with video from the test phone (Q-4). Each is followed end to end on the development computer (share →
   analysis → on the phone) and the outcome, including any 403 diagnosis, is recorded in the QA report as it is
@@ -2381,9 +2498,16 @@ app, or the browser) only on tap. Failures of jobs started from the browser clie
 - **SH-AC14** Given a multi-select of 2 MP4 files and 1 AMR file, When it is shared, Then 2 requests are created and
   the sheet says "2 of 3 added. 1 file type isn't supported".
 - **SH-AC15** Given the phone without space for the copy, When a video is shared, Then the sheet states the space
-  needed and offers "Audio only", and no request is left half-made.
+  needed and offers "Try audio only" (7.7), and no request is left half-made.
 - **SH-AC16** Given a pure playlist link (fake computer answering the `playlist` failure), When the job fails, Then
   "That's a playlist" shows with "Open the link" and "Remove".
+- **SH-AC17** Given a link whose job fails with `live_stream` (fake computer), When the learner opens it, Then "Live
+  streams can't be analyzed" shows with its body and "Try again", "Open the link" and "Remove", and no "Show details"
+  text contains terminal escape codes.
+- **SH-AC18** Given a fake computer whose capabilities give a link limit of 3600 s and a link whose job fails with
+  `too_long`, When the learner opens it, Then "This video is too long for your computer" shows with "Your computer
+  analyzes link videos up to 1 hour long." in its body, and "Open the link", "Show details" and "Remove" are offered
+  (no "Try again" and no "Try audio only").
 
 ---------------------------------------------------------------------------------------------------------------
 
@@ -2611,9 +2735,12 @@ never queued, never backed up.
 ### 11.5 What the computer must restrict for LAN clients (functional; S-05 to S-08)
 
 - Phone access is off by default and enabled only by an explicit operator action (S-01).
-- Every non-loopback request (API, artifacts, job channel) requires a valid device credential; pairing endpoints
-  are rate-limited; loopback use by the browser client keeps working without a credential.
-- Before authentication, health reveals only display name, server id and API version.
+- Every non-loopback request (API, artifacts, job channel) must be signed with a valid device credential (a
+  signature, never the credential itself; replays refused); pairing endpoints are rate-limited; loopback use by the
+  browser client keeps working without a credential.
+- Before authentication, health reveals only display name, server id, API version, whether phone access is on and
+  the computer's clock, plus, to a paired phone's challenge, the proof of identity of 7.4.
+- Phone access answers only on the networks the operator approved (7.2); elsewhere it is suspended.
 - Unavailable to LAN clients: the disk browser (`/api/browse`), analysis from a server path (`POST /api/jobs` with
   `path`), folder import, review writes, deleting finished analyses; cancel, delete and re-run only for the
   device's own requests (own failed or cancelled jobs for delete).
@@ -2627,9 +2754,13 @@ never queued, never backed up.
 
 ### 11.6 Transport risk (accepted for v1, documented) and how cleartext is confined
 
-Plain HTTP on the home network (the server has no TLS [BE 15.3]): someone on the same Wi-Fi could read clips and
-capture a phone's credential. Mitigations: opt-in phone access, per-device revocable credentials, restricted routes
-for LAN clients.
+Plain HTTP on the home network (the server has no TLS [BE 15.3]): someone on the same Wi-Fi could read clips,
+links and requests in transit. A phone's credential could be captured only by someone recording the pairing exchange
+itself, the one moment it travels (the code that starts it is shown only in the computer's terminal, single use,
+valid 5 minutes). After pairing the credential never travels again: every request is signed with it, so a recorded
+request reveals no reusable secret and cannot be replayed (D-38). Mitigations: opt-in phone access on approved
+networks only, per-device revocable credentials, signed requests, the computer's proof of identity before the phone
+sends anything (7.4), restricted routes for LAN clients.
 
 **How cleartext is allowed** (an Android network security configuration can only name hosts known at build time,
 and the computer's address is known only at runtime and must never be committed):
@@ -2674,11 +2805,11 @@ touches `web/` (D-35). Discovery, renditions and pairing introduce no dependency
 
 | Id | Requirement | Why (evidence) | Tier |
 |---|---|---|---|
-| S-01 | **Phone access, opt-in.** Default stays loopback-only and unchanged. An explicit operator action turns phone access on; once on it stays on across restarts until turned off (Q-5), remembered in the operator's PhonoTrainer configuration directory outside the repository and the workspace; each start with it on prints that it is on, the address and port to use, and how to show a pairing code, without writing secrets to logs. | 127.0.0.1 default, no LAN mode [AD 4.4] | v1-core |
-| S-02 | **Identity and capabilities.** A persistent random server id per machine, kept with the paired devices in the operator's configuration directory (never in the repository or a workspace), so a workspace switch never breaks pairing (D-34); a library id per workspace; an editable display name; API version; minimum supported app version; capability flags (link downloads available, dialogue separation available, renditions available, maximum upload size, free space). Identity-only answer before authentication; no paths ever. Health answers without waiting on the analysis worker. | no instance id, health leaks the workspace [BE 16.4, AD 4.3]; CPU saturated during analysis (2.3) | v1-core |
+| S-01 | **Phone access, opt-in.** Default stays loopback-only and unchanged. An explicit operator action turns phone access on; once on it stays on across restarts until turned off (Q-5), remembered in the operator's PhonoTrainer configuration directory outside the repository and the workspace, **on the networks approved when it was turned on** (approving another network is one terminal command; on an unapproved network phone access is suspended: no phone request is accepted and discovery is silent, D-42); each start with it on prints that it is on (or suspended, with the command that approves the network), the address and port to use, and how to show a pairing code, without writing secrets to logs. | 127.0.0.1 default, no LAN mode [AD 4.4] | v1-core |
+| S-02 | **Identity and capabilities.** A persistent random server id per machine, kept with the paired devices in the operator's configuration directory (never in the repository or a workspace), so a workspace switch never breaks pairing (D-34); a library id per workspace; an editable display name, by default "PhonoTrainer computer" and never the host name (D-42); API version; minimum supported app version; capability flags (link downloads available, dialogue separation available, renditions available, maximum upload size, free space). Identity-only answer before authentication, with a **proof of identity** for a paired phone's random challenge, computed with that phone's credential, so the server id alone never proves who answers (D-37); no paths ever. Health answers without waiting on the analysis worker. | no instance id, health leaks the workspace [BE 16.4, AD 4.3]; CPU saturated during analysis (2.3) | v1-core |
 | S-03 | **Discovery**: while phone access is on, answer a phone's broadcast probe on one fixed UDP port in the unprivileged range with a unicast reply carrying server id, display name, HTTP port and API version only. No mDNS dependency. | some desktop firewalls block 5353 [AD 1.2] | v1-core (fallback if cut: manual address only) |
 | S-04 | **Pairing and device management, terminal only.** A CLI command shows an on-demand 6-digit code, single use, valid 5 minutes, invalidated after 5 wrong attempts; pairing calls rate-limited; exchange for a per-device credential; the CLI lists paired phones (name, paired date, last seen) and revokes one or all. No browser page (D-35). | no auth anywhere [BE 15.2, 16.6] | v1-core |
-| S-05 | **Authentication** of every non-loopback API call, artifact download and job-channel connection; a stable error code for a rejected credential. | [BE 15.2] | v1-core |
+| S-05 | **Authentication** of every non-loopback API call, artifact download and job-channel connection by **signed requests**: the credential is exchanged once at pairing and never sent again; each request carries a signature with a timestamp and a single-use nonce, so a recorded request cannot be replayed (D-38); a stable error code for a rejected credential. | [BE 15.2] | v1-core |
 | S-06 | **LAN restrictions**: 11.5 in full (no browse, path-create, import, review writes, deletion of finished analyses; cancel, delete and re-run only of the device's own requests; no absolute paths). | [BE 15.1, AD 4.3] | v1-core |
 | S-07 | **SSRF guard** for links from LAN clients, refused at creation with the `refused_address` code. | [BE 15.1] | v1-core |
 | S-08 | **Host validation** while phone access is on. | [BE 15.2] | v1-core |
@@ -2687,7 +2818,7 @@ touches `web/` (D-35). Discovery, renditions and pairing introduce no dependency
 | S-11 | **Sync listing**: a lean, complete listing (no progress logs) of every job: id, status, revision (changes whenever a served artifact or status changes), title, summary, duration, has-video, submitting device, library id, and per artifact its name, bytes, checksum and status (ready, being prepared, failed, unavailable); for a video original also its codec, width, height and start offset against the analysed timeline. Stable ordering by id. The live job channel keeps its `deleted` events. (No cursor and no tombstones: at this scale the complete listing is a few KB, and deletions are detected as in 7.9.) | no revision, sizes or checksums [BE 16.1, 16.15]; ids are the only unique key [AD 2.1] | v1-core |
 | S-12 | **Phone renditions, each optional with a fallback**: (a) a pre-compressed compact clip data file served as `application/gzip` without `Content-Encoding`; (b) compressed speech audio for the mix and the dialogue track on exactly the analysed timeline; (c) a poster for every video clip; (d) a **phone video on request**: when a paired phone asks for it (the original is above 1080p or the phone cannot decode it), an H.264 ≤ 720p video, orientation kept, starting at the analysed timeline's zero. (a)–(c) are made after each analysis and back-filled for existing clips. All renditions run outside the analysis worker at low priority and never delay a waiting analysis; each reports its own status in the listing; a missing original makes (d) "unavailable", never a stuck "being prepared". Range support on all of them. | WAV and AV1 only; AV1 on the test phone unverified; `libx264` absent, `libopenh264` present [BE 5, 14, 16.2; AD 2.2] | v1-complete (fallbacks: `analysis.json`, the WAVs, the poster fallback, the original or audio only) |
 | S-13 | **Machine-readable job state**: stage identifier (download, extract, separate, transcribe, phones, save), queue position, error code (taxonomy of 8.6, including `playlist` from the downloader's playlist error and `refused_address`), a clean human message without terminal escape codes, a title once known, the submitting device, the link kept; download progress names the actual site, not always "YouTube". | free text with ANSI codes [BE 3, 16.9, 16.16] | v1-core |
-| S-14 | **Job channel for phones**: the job channel available to authenticated phones; leaner channel events (no full progress log per event) SHOULD. | heavy full-job messages [BE 7] | v1-core (lean events: v1-complete) |
+| S-14 | **Job channel for phones**: the job channel available to authenticated phones, with **lean events** (no artifacts and no progress log per event; the phone fetches artifacts through the listing when a job's revision changes). | heavy full-job messages [BE 7] | v1-core (lean events included, D-44) |
 | S-15 | **Interrupted jobs** (running or waiting in line at a restart) carry the `interrupted` code (today only text). | `phonotrainer/jobs.py:250-252` | v1-core |
 | S-16 | **Record yourself** (`/contour`, `/compare`, existing) available to paired phones with the same limits. | [BE 10] | v1-complete |
 | S-17 | **Reference** (`/api/reference`) available to paired phones, cacheable by API version. | [BE 12] | v1-core |
@@ -2696,7 +2827,7 @@ touches `web/` (D-35). Discovery, renditions and pairing introduce no dependency
 | S-20 | **Link path proven on the owner's own shares**: during device QA the owner shares one YouTube video, one YouTube Shorts and one X post from the test phone; each is followed end to end on the development computer; the outcome is recorded as it is (8.7). | 0 successes [AD 2.1] | v1 release gate |
 | S-21 | **Compatibility**: with phone access off, behaviour and API for the browser client are exactly as before; the SPA's version check keeps passing. | [AD 4.4] | v1-core |
 | S-22 | **Re-run**: re-run an own failed, cancelled or interrupted job from what the computer stored (its link, or its uploaded file), with the same options or audio only for links; idempotent (S-09); the new job replaces the old one; "unavailable" with a clear code when the stored file is gone. Used by "Try again", "Try audio only" and the automatic re-run after an interruption. | the phone deletes its copy after upload (8.3); no retry route exists and path creation is forbidden to phones (S-06) | v1-core (fallback if cut: the phone keeps each file copy until the clip is "Ready on your computer" and re-uploads; links are re-created) |
-| S-23 | **Link path hardening**: the video format selection prefers H.264 at 720p or less, then VP9, then other codecs (today AV1 is chosen even when H.264 is offered, `phonotrainer/download.py:21`); the downloader's JavaScript runtime is configured (Node, which the web build already requires; any new runtime is recorded in `THIRD-PARTY-NOTICES.md`) and documented in the README; the installed downloader version is reported in the QA report, and "update the downloader" is the README's first remedy for HTTP 403 (it stays unpinned on purpose: sites change and only new releases follow them); downloader errors map to the codes of 8.6. Tested with the existing fake downloader, never against a real site. | 0 of 3 downloads succeeded with 403; no JS runtime configured; AV1 preferred [AD 2.1, BE 9] | v1-core |
+| S-23 | **Link path hardening**: the video format selection prefers H.264 at 720p or less, then VP9, then other codecs (today AV1 is chosen even when H.264 is offered, `phonotrainer/download.py:21`); the downloader's JavaScript runtime is configured (Node, which the web build already requires; any new runtime is recorded in `THIRD-PARTY-NOTICES.md`) and documented in the README; the installed downloader version is reported in the QA report, and "update the downloader" is the README's first remedy for HTTP 403 (it stays unpinned on purpose: sites change and only new releases follow them); downloader errors map to the codes of 8.6. **Links from phones are confined** (8.7, D-43): site-specific extractors only (the generic one is off), the link re-checked against private addresses at creation, re-run and download; live and upcoming streams refused (`live_stream`); videos longer than `max_link_duration_s` (default 3600 s, editable on the computer) or larger than the upload limit refused (`too_long`); free space checked before the download (`no_space`); browser and CLI downloads unchanged (S-21). Tested with the existing fake downloader, never against a real site. | 0 of 3 downloads succeeded with 403; no JS runtime configured; AV1 preferred [AD 2.1, BE 9] | v1-core |
 | S-L1 | Link metadata probe (title, duration, thumbnail) before download. | [BE 16.8] | Later |
 | S-L2 | Learner progress storage and sync between web and phone. | [AD 2.7] | Later (Q-3) |
 | S-L3 | TLS for phone access with a certificate pinned at pairing. | [BE 15.3] | Later (Q-1) |
@@ -2740,9 +2871,10 @@ S-18 is build tooling and S-20 a QA gate.
   the merged release dependency list, Then it contains no analytics, crash-reporting, advertising or cloud SDK.
 - **X-AC2** (English only): Given the `android/` tree, When the language scan runs, Then it reports 0 findings
   outside IPA symbols and phonetic examples, and no `res/values-<language>` directory exists.
-- **X-AC3** (licences): Given the release build's dependency report and bundled fonts, When the licence check runs,
-  Then every artifact has an entry in the Android section of `THIRD-PARTY-NOTICES.md` with a GPL-3.0-compatible
-  licence, and the check fails the build otherwise.
+- **X-AC3** (licences): Given the release build's dependency report and its bundled fonts and vendored icon set, When
+  the licence check runs, Then every library has an entry in the Android section of `THIRD-PARTY-NOTICES.md` with a
+  GPL-3.0-compatible licence, every font and the icon set have their entry and bundled licence text, and the check
+  fails the build otherwise.
 - **X-AC4** (no sensitive data): Given the files to commit under `android/` (and any server change), When the secret
   and path scan runs, Then it finds no IP address, host name, home path, user name, serial, adb id, credential,
   pairing code or keystore.
@@ -2778,7 +2910,7 @@ efficiency work; it is built right after v1-core, and each item has a named fall
 | Area | v1-core | v1-complete |
 |---|---|---|
 | Android project | `android/` in this repository; Artemi toolchain and standards; English only; GPL-compatible dependencies recorded; ignore-rule trap handled; stable release signing (11.7) | — |
-| Server | S-01 to S-09, S-11, S-13, S-14 (channel), S-15, S-17, S-18 (build tooling), S-21, S-22, S-23 | S-10 resumable uploads, S-12 renditions (incl. phone video on request), S-14 lean events, S-16 record yourself |
+| Server | S-01 to S-09, S-11, S-13, S-14 (channel with lean events, D-44), S-15, S-17, S-18 (build tooling), S-21, S-22, S-23 | S-10 resumable uploads, S-12 renditions (incl. phone video on request), S-16 record yourself |
 | Onboarding and connection | F-01, F-02, 7.2 to 7.5 | — |
 | Dashboard | F-03 Home, F-04 Library, F-05 Clip page (header, Shorts, Summary counts, On this phone) | F-05 Transcript tab and "How reduced is this speech?" |
 | Feed | F-06, F-07, F-08, F-09: shorts v1, Mix in sets, In order, change and Saved modes, spotlight, captions with marks and modes, Listen first (opt-in), gestures, end cards, questions, saved shorts, audio-only visual, offline behaviour | — |
@@ -2800,9 +2932,10 @@ efficiency work; it is built right after v1-core, and each item has a named fall
 5. Sets, questions, Saved, Practice.
 6. Assets, accessibility pass, device QA on the test phone, the link gate (8.7). Device-specific checks wait until
    the phone is attached [AD 1.3]. **v1-core is done here.**
-7. v1-complete in the order of 14.4 read backwards (the item cut last is built first): lean channel events
-   (S-14), renditions (S-12), resumable uploads (S-10), Insights, the Transcript tab, record yourself, phrase
-   details, and the articulator port (the largest port item [AD 2.5]).
+7. v1-complete in the order of 14.4 read backwards (the item cut last is built first): renditions (S-12),
+   resumable uploads (S-10), Insights, the Transcript tab, record yourself, phrase details, and the articulator port
+   (the largest port item [AD 2.5]). (Lean channel events, formerly first here, ship in v1-core with the phone
+   channel, D-44.)
 
 ### 14.3 Release gates (definition of done)
 
@@ -2825,7 +2958,7 @@ None of these is a product requirement of the brief; each fallback keeps the bri
 | 5 | F-18 Insights and the Home teaser, and the Clip Summary meters | Learn counts and change modes remain |
 | 6 | S-10 resumable uploads | a single upload with Content-Length and the idempotency key that restarts from zero; the local copy is kept until acceptance |
 | 7 | S-12 renditions | `analysis.json` and the WAVs for the study pack; the poster fallback; the original video when the phone plays it, otherwise audio only with "This video can't play on this phone. Listening still works." |
-| 8 | S-14 lean channel events | the existing full-job events |
+| 8 | Withdrawn on 2026-10-10: S-14 lean channel events ship in v1-core, because the phone channel is new and lean from its first version (server-contract 7, D-44) | — |
 | 9 | "Leave this clip out of the Mix" | none needed |
 | — | S-03 discovery, only if it fails on the owner's network | manual address entry (always present) |
 | — | S-22 re-run, only if it slips | the phone keeps each file copy until the clip is "Ready on your computer" and re-uploads on "Try again"; links are re-created and the failed job removed |
@@ -2883,7 +3016,7 @@ from [F], nothing beyond the brief and the evidence.
 | D-12 | **The feed plays only files on the phone; no streaming from the computer in v1.** | [L] streams when online with fallback; [R] local only; [F] streaming allowed (1.5 s target) → **[R]** | Offline-first, no stalls when the computer sleeps, one playback path; renditions make local copies small (7.10). |
 | D-13 | **The mouth articulator ships in v1-complete** (lesson step 4, Learn demos, IPA chart), after v1-core, with a text fallback if cut. | all three agree it ships; revision 2 tiers it | It is a step of the web lesson and the core of Learn and the IPA chart; it is the largest port item (about 2,450 lines plus tests [AD 2.5]), so it must not block the brief's core. |
 | D-14 | **No horizontal swipe gestures in the feed** (the clip page opens from the clip line). | [F] swipe left → clip page; [R] no horizontal gestures → **[R]** | Conflicts with the system back gesture at the edges and with TalkBack and switch users; the clip line gives the same path. |
-| D-15 | **Trust the server id, not the address; never read the Wi-Fi name.** | [R] explicit, [L], [F] agree | DHCP changes the address [AD 4.7]; the Wi-Fi name needs location permission; reachability is the brief's own condition ("recognizes that the server is up" [Brief]). |
+| D-15 | **Trust the server id, not the address; never read the Wi-Fi name.** (Revision 3: the server id counts only with the computer's proof of identity at that address, D-37.) | [R] explicit, [L], [F] agree | DHCP changes the address [AD 4.7]; the Wi-Fi name needs location permission; reachability is the brief's own condition ("recognizes that the server is up" [Brief]). |
 | D-16 | **Corpus views (Learn counts and examples, Practice pool and variants, Insights, change modes) are computed on the phone** from downloaded clips. | all three agree | Offline-first; the corpus endpoints are server-only [WF 9.2]; pooling `{count, of}` is exact. |
 | D-17 | **Every request is stored on the phone first and sent with an idempotency key; requests never expire; failed downloads are not retried automatically; interrupted jobs (running or waiting in line) are re-run once by the computer, in their original order.** | [L], [F] manual retry after interruption; [R] one automatic resubmission → **[R]**, made implementable by S-22 | The brief's queue promise; duplicates are created today [BE 16.7]; 403s repeat and would occupy the single worker [BE 9]; a restart fails every queued and running job (`phonotrainer/jobs.py:250-252`), which is the computer's fault, not the link's. |
 | D-18 | **minSdk 29; compileSdk 37; targetSdk 36; no local-network permission flow.** | [L] minSdk 29, target open; [R] target 36; [F] target 37 with the flow → revision 1 **[F]**; revision 2 **[R]** | The test phone runs API 36; an app targeting 36 keeps implicit local-network access even on Android 17 [TC 6], so targeting 37 only adds a permission flow, its denial states and emulator tests for a device nobody has. compileSdk 37 keeps the Artemi toolchain. |
@@ -2894,7 +3027,7 @@ from [F], nothing beyond the brief and the evidence.
 | D-23 | **Record yourself offline = comparison by ear; pitch comparison only when connected; takes never queued or stored.** | all three agree | `/compare` is server-side; takes are deliberately never kept [BE 10]. |
 | D-24 | **Default listening track "Original mix"; "Dialogue only" one tap away.** | [L] mix (web default); [F] mix; [R] lists dialogue first → **[L]/[F]** | Web default [WF 3.4]; the mix is real-world listening. |
 | D-25 | **One spotlight per short, chosen by a fixed deterministic order (saved word, mode's change, safe before recognize-only, clearest, earliest); Listen first is an opt-in setting (off); a short replays once at its end, then stops.** | [L] focus word, listen first, stop at the end; [F] spotlight, captions shown, replay once; [R] neither → **[F]** spotlight, captions and replay; **[L]**'s listen first as an option | Noticing needs one target; a 7-level weighted priority and listen-first by default had no web precedent and changed the captioned shorts the owner described (15.5). |
-| D-26 | **Phone access, once turned on, stays on across restarts until turned off.** | [F] explicit at each start; [L], [R] a flag → **owner default for Q-5** | The brief expects the phone to work when it "recognizes that the server is up" [Brief]; it remains opt-in, visible at every start and revocable. |
+| D-26 | **Phone access, once turned on, stays on across restarts until turned off** (revision 3: on the networks the operator approved, D-42). | [F] explicit at each start; [L], [R] a flag → **owner default for Q-5** | The brief expects the phone to work when it "recognizes that the server is up" [Brief]; it remains opt-in, visible at every start and revocable. |
 | D-27 | **Saved shorts come back in later sets (up to 2 per set, when not watched for 3 days); spaced-repetition intervals are Later (Q-6).** | [L] intervals 1/3/7/14/30 with "Learned" → revision 1 **[L]**; revision 2 simplified | "Meet it again" survives with one rule and no new prompts; a scheduling system with a self-check has no web precedent [WF 3.12]. |
 | D-28 | **Playback stops when the app leaves the foreground in v1.** | [F] → **[F]** | The feed is visual; battery; background listening is Later. |
 | D-29 | **One paired computer at a time; to change, "Forget this computer" first; clips keep a tag of their computer and library and are never deleted by another computer's or library's listing.** | [L], [R] keep old clips; [F] removes them → **[L]/[R]**; revision 2 removed the multi-computer flows | Non-destructive; one owner with one computer, so switching flows were over-built (15.5). |
@@ -2934,13 +3067,15 @@ from [F], nothing beyond the brief and the evidence.
 
 ### 15.3 Questions for the owner (non-blocking; the default applies if unanswered)
 
+Status on 2026-10-10: none of Q-1 to Q-7 was answered, so every default below applies (D-52).
+
 | Id | Question | Default if unanswered |
 |---|---|---|
 | Q-1 | Is plain HTTP between the phone and your computer acceptable on your home Wi-Fi for v1 (phone access is opt-in, phones are paired and revocable, cleartext is confined to your computer in code)? | Yes; encrypted transport with a certificate pinned at pairing goes to the backlog. |
 | Q-2 | Should the phone be able to delete a finished analysis on your computer? | No in v1; the phone removes only its own copy and its own failed requests. |
 | Q-3 | Should practice progress and saved shorts also sync with the browser client? | No in v1; they stay on the phone and in its backup. |
 | Q-4 | During device QA, will you share one YouTube video, one YouTube Shorts link and one X post from your phone yourself, so the link path is tested end to end on your computer? | Yes, and only your own shares count: no agent sends a link to your computer in any other way (D-36); the result is reported as it is. |
-| Q-5 | Once you turn phone access on, should it stay on across restarts of `phonotrainer ui` until you turn it off? | Yes; every start prints that it is on, and you can turn it off or revoke phones at any time. |
+| Q-5 | Once you turn phone access on, should it stay on across restarts of `phonotrainer ui` until you turn it off? | Yes, on the networks it was turned on in (your home Wi-Fi; another network needs `phonotrainer phone on` there, D-42); every start prints that it is on, and you can turn it off or revoke phones at any time. |
 | Q-6 | Do you want saved shorts to come back on a spaced schedule (1, 3, 7, 14, 30 days, with a "Did you hear the change?" check)? | Not in v1: saved shorts return in sets after 3 days; the schedule is in the backlog. |
 | Q-7 | May QA restart your phone once, to confirm that waiting requests survive a restart on the real device? | No: restarts are verified on the emulator; you may restart the phone yourself during QA if you want that check. |
 
@@ -2976,6 +3111,35 @@ finding is listed with what changed; medium and low findings were all applied un
 | E-M10: pairing and multi-computer flows beyond the brief | Partly accepted: multi-computer flows removed ("Forget this computer" only); the per-device credential stays because it costs the same exchange as a shared secret and allows revoking one phone. |
 | E-L6: SC-02 and SC-03 measured QA speed | SC-02 withdrawn; SC-03 keeps only the tap count. |
 
+### 15.6 2026-10-10 pre-implementation decisions
+
+Design and architecture were reviewed before implementation and addressed requests to the product track: the seven
+requests of architecture 25.3, the release-plan change of work-plan 1.4 and server-contract 7, and the open items of
+the cross-track consistency review that product owns or shares. Each is decided here, on the brief's authority
+("don't improvise too much"). The rule applied to the architecture's requests: the architecture already behaves as
+each one describes, so a request is accepted unless it changes behaviour the owner asked for. **None of the seven was
+declined**: six strengthen or clarify behaviour without changing anything the owner asked for, and one (D-41) is a
+platform-forced compromise on timing that keeps the brief's queue promise and is removed in v1-complete.
+
+| Id | Decision | Source → disposition | Spec text changed | Why |
+|---|---|---|---|---|
+| D-37 | **An address is trusted only when it proves it is the paired computer**: it answers the phone's fresh random challenge with a proof computed from this phone's credential. The server id, which is public, never counts on its own. Wording "answers with the paired server id" replaced by "proves it is the paired computer". | architecture 25.3 request 1 → **accepted** | 4 (Online), 7.3 item 5, 7.4, 7.5 (probe, conditions 3 and 4), 11.5, S-02, D-15; F-02-AC5, F-02-AC6 reworded; F-02-AC11 new | A strict strengthening of the same rule: anything that copies the public id could otherwise receive requests and files. The owner's condition, that the phone "recognizes that the server is up" [Brief], is unchanged. Architecture 5.3 and 6.2 already do it. |
+| D-38 | **The credential travels once, in the pairing answer; every later request is signed with it and cannot be replayed.** The transport risk of 11.6 is restated: the credential can be captured only by recording the pairing exchange itself. | architecture 25.3 request 2 → **accepted** | 4 (Device credential), 7.4, 11.5, 11.6, S-05 | It removes the main consequence of plain HTTP (a reusable credential captured on the Wi-Fi) at no cost to the learner. Plain HTTP itself stays (Q-1 default). Architecture 5.3 and server-contract 4.3 already do it. |
+| D-39 | **Discovery conflicts are shown, never resolved by guessing**: when two answers share a name, or one server id answers from two addresses, every answer is a row, none is preselected, and a note sends the learner to the address the computer prints ("Two computers answered with the same name. If you aren't sure which one is yours, enter the address shown on your computer instead." + "Enter the address instead"). **Connection details shows "This phone on this Wi-Fi: {address}"**, which the operator compares with the terminal's "Paired: … (from {address})" line; "Copy diagnostics" carries no address and no id. | architecture 25.3 request 3, both parts (the second was optional) → **accepted** | F-02 behaviour 3 and States (new row), F-22 (Your computer); F-02-AC10, F-22-AC4 new | Names and ids are public, so a preselected row could be an impostor relaying the code. "No address is shown in the list" is kept: the manual path that already exists resolves every case, including a computer with two connections or two computers that kept the default name. The phone's own address is on screen only, never in diagnostics, logs or the repository (11.7). |
+| D-40 | **Copy for the job codes `live_stream` and `too_long`** (8.6). A live stream offers "Try again" (the same link becomes a video when the stream ends); a video that is too long offers no "Try again" or "Try audio only", because the length limit does not depend on the format. | architecture 25.3 request 4 → **accepted** | 8.6 (two rows), F-20 actions table (pointer to 8.6), F-23 (the "Needs attention" line follows the failure's own title and actions); SH-AC17, SH-AC18, F-23-AC4 new | Every failure says what happened and offers a way out (principle 12, SC-14); the generic "The analysis failed" would hide a limit the operator can change. |
+| D-41 | **In v1-core, a file too large to send in one background run waits for the app to be opened**, as "Waiting on this phone" (never failed) with the line "Open PhonoTrainer on your home Wi-Fi to send this file: large files are sent while the app is open."; links are not held up by it; resumable uploads (v1-complete) remove the wait. | architecture 25.3 request 5 (the hint was optional) → **accepted** | 7.7 (Uploads), F-20 (waiting reasons); F-20-AC10 new | Android stops background work after minutes and a v1-core upload restarts from zero, so such a file sent only from the background would restart forever (architecture review A-H4). The brief's promise holds: the request is kept on the phone and carried out at the next connection with the app open, and the line names the one action that sends it. |
+| D-42 | **Phone access stays on across restarts on the networks the operator approved**; on any other network it is suspended (no phone request accepted, discovery silent) until approved with `phonotrainer phone on`. The phone shows a suspended computer as "isn't reachable", with the last probe result "Your computer answered, but phone access is off there or not approved for this network." and a checklist line naming the command. **The computer's default display name is "PhonoTrainer computer"**, never the host name. | architecture 25.3 request 6 → **accepted** | 2.4 (C3), 7.2, 7.5 ("Why?" and the last probe result), F-02 (Empty and Unreachable rows), 11.5, S-01, S-02, D-26, Q-5 default; F-02-AC12 new | The owner's case, the home Wi-Fi where phone access was turned on, is unchanged. A laptop that later joins a café or office Wi-Fi must not expose phone access there. The host name often carries the owner's name and would be broadcast in every discovery answer. |
+| D-43 | **Links from the phone are confined, and the default limit of 1 hour is confirmed**: site-specific downloads only, live and upcoming streams refused, videos longer than the computer's link limit (default 3600 s, editable on the computer) or larger than its upload limit refused before or during the download, free space checked first. Browser-client links are unchanged. | architecture 25.3 request 7 → **accepted; default confirmed** | 8.7 (new bullet), S-23, 8.6 | The reference data set's longest clip is about 10 minutes and the guidance asks for 30–60 s of dialogue, so 1 hour refuses nothing the app is designed for; an analysis takes about as long as the clip on a single worker, so a multi-hour video or an endless stream would block every other request. The operator can raise the limit, and the failure copy says so. |
+| D-44 | **Lean job-channel events ship in v1-core** with the phone channel. Cut-list item 8 is withdrawn (not renumbered, so references stay valid). | work-plan 1.4, server-contract 7 → **accepted** | S-14, 14.1 (Server row), 14.2 step 7, 14.4 item 8 | The phone channel is new, so it is lean from its first version at no extra cost; there is nothing left to cut. |
+| D-45 | **Today's set card: no "What's in today's set" control.** The card itself shows what the set holds (one mark per short by its spotlight change's family, saved and done shorts marked, one per question), and TalkBack reads it in the card's sentence: "Today's set: 8 shorts with flapping, linking, h-dropping and 2 more changes; 2 saved shorts back; then 5 questions." There is no list or detail view of a set. | consistency review, open item (design) 2: a designed control with no planned target → **removed, not specified** | F-03 item 3; F-03-AC10 new | No destination or sheet in 5.1 or architecture 16.1 lists a set's contents; a list of the set's shorts has no web precedent and is not among the new devices of 9.6, while the card already shows the set. The nearest existing feature, the summary card's "What you met" (F-08), belongs after the set. |
+| D-46 | **"Stop sending" holds the request until "Send now"**, with the reason "Stopped by you: it waits here until you tap Send now." | design 9.19 (held row without a reason); architecture 8.4 (`held`) → **clarified** | 7.7 (Cancellation), F-20 (waiting reasons, actions table); F-20-AC11 new | "Back to waiting" without a hold would let the sender pick the request up again within seconds, and "Stop sending" would do nothing. The architecture already holds it. |
+| D-47 | **Copy the design needed and the spec did not give**: the snackbar after "Undo" on a pending cancel, "Cancel undone: “{title}” won't be cancelled."; the track lines "Playing the original mix: the dialogue track isn't on this phone yet." / "Playing the dialogue only: the original mix isn't on this phone yet." / "Playing the original mix: this clip has no dialogue-only track."; the "Words we use" page (lede, search, count, groups "Terms" and "Measures", no-match line); "Starting again on your computer" for the automatic re-run (the design's wording, adopted); "Sent" added to the states that offer "Cancel". | consistency review, open item 7 (design + product) → **specified** | F-06 (Partial), F-14 (new paragraph), F-20 (actions table, States); F-06-AC13, F-14-AC4, F-20-AC12 new | Each state existed in the spec without words. The copy follows 9.8's voice: plain, second person, and it always names a place. |
+| D-48 | **Two named count units**: a change's **short count** (the shorts its change mode plays) on Home chips, in the mode picker and on Learn change cards; **occurrences** ("12 times in your clips") only on the phenomenon page. | consistency review, open item (architecture) 8; the spec's own F-03-AC7 and F-15-AC1 used different units for similar labels → **clarified** | F-03 item 8, F-06 item 3, F-15 items 1 and 3; F-15-AC1 reworded | A chip must promise the number of shorts its feed plays (F-03-AC7); the phenomenon page keeps the web's per-occurrence examples. |
+| D-49 | **"Try audio only" is offered only where it can work**: after a failed copy for space, only while the file can still be read (in the open share sheet, or for a file picked in the app); a shared file whose sheet has closed reads "…then share it again and choose Audio only." with "Remove". For the job code `no_space`, "Try audio only" is for links and "Try again" for files. | consistency review, open item (architecture) 9; S-22 re-runs uploads with their own options only → **clarified** | 7.7 (no space mid-copy), F-20 actions table, 8.6 (`no_space`) | An offered action that cannot succeed breaks principle 12. A shared file's read permission ends with the sheet, and the computer cannot re-run an uploaded file as audio only. |
+| D-50 | **Assets and licences**: no legacy (pre-adaptive) launcher icons, because minSdk 29 always uses adaptive icons; About lists, and X-AC3 checks, the vendored icon set as well as fonts and libraries, from their bundled licence texts. | consistency review, open items 10 and 3 (architecture; the spec shared the wording) → **accepted** | F-24, F-24-AC2, F-25 (launcher row), X-AC3 | Nothing is lost by dropping assets no supported device shows. The design vendors a third-party icon set (ISC, with MIT-licensed parts), which must be credited like the fonts, and a dependency report never lists fonts or icons. |
+| D-51 | **The share sheet does not close by itself while the notification question is open**; the 2 s count starts again once it is answered. | architecture review A-M8, design 9.22; 8.4 items 8 and 9 contradicted each other → **aligned** | 8.4 item 8 | No time limit the learner cannot control (A-11). |
+| D-52 | **Q-1 to Q-7 were never answered; every default applies.** | orchestrator's resumption note → **recorded** | 15.3 | Defaults were written to be safe when unanswered. |
+
 ---------------------------------------------------------------------------------------------------------------
 
 ## 16. Traceability matrix (owner's brief → this specification)
@@ -2990,24 +3154,24 @@ them (SC-16). "Fact" rows are environment facts the design relies on.
 | "Analyze the reference repository (Artemi …) and analyze the current web client (`web/`)." | process | 5.1 (web routes → phone destinations), 9.5 (every web device mapped), NFR-13 (Artemi quality bar), 11.1 (Artemi backup pattern), D-18, D-20 | — (process) |
 | "Clearly it won't be 1:1 with the web client, but it won't be something improvised either." | process (spec review) | principle 14, 9.5 to 9.7 (kept, adapted, new with justification, dropped with reasons), 1.4, 15.1, 15.5 | — (process) |
 | "A product agent must formalize these generic directions into a more adequate specification." | process | this document; every feature with stories, states, ACs and data (section 6) | — (process) |
-| "Don't improvise too much." | process (spec review) | 9.6 (the complete list of devices without web precedent), 9.7 (what revision 2 removed), 9.8 (no invented didactic content), 14.1 tiers, 15.1 (every decision cites evidence), 15.5 | — (process) |
-| "Create the necessary assets so the app is pleasant to use." | product | F-25 (asset inventory and design acceptance list), principle 13 | F-25-AC1, F-25-AC2 |
-| "The app works, in general, like TikTok or YouTube Shorts — vertical videos you swipe through —" | product | F-06, F-07, 5.3, D-01, D-03, D-25, 1.2 | F-06-AC1 to F-06-AC12, F-07-AC1 to F-07-AC11 |
-| "BUT it must also have a dashboard / main panel to navigate between the videos." | product | F-03, F-04, F-05, 5.2 (all paths between dashboard and feed), mode picker in F-06, D-02 | F-03-AC1, F-03-AC6, F-03-AC7, F-03-AC8, F-04-AC1, F-04-AC5, F-05-AC5, F-06-AC10, F-06-AC12 |
-| "When the phone is on the Wi-Fi network of this computer and recognizes that the server is up, it processes the videos the user wants to process from the phone (the phone sends the work to the PhonoTrainer server that runs on this computer)." | product | 7.3 to 7.5 (discovery, pairing, the definition of online), 7.7 (sending), F-02, F-19, F-20, section 8, S-01 to S-09, S-22, D-05, D-15 | F-02-AC1, F-02-AC2, F-02-AC4, F-02-AC5, F-03-AC2, F-03-AC3, F-20-AC1, F-19-AC3, SH-AC3, SH-AC5, QT-2 |
-| "Add everything you consider necessary for the app to stay didactic." | product | section 9, F-07 to F-18, principles 1 to 7, D-03, D-13, D-25, D-27 | F-07-AC2, F-07-AC10, F-08-AC1, F-08-AC5, F-09-AC2, F-10-AC1 to F-10-AC5, F-12-AC1, F-14-AC1, F-15-AC1 to F-15-AC3, F-16-AC2, F-17-AC1 to F-17-AC3 (v1-complete: F-11, F-13, F-18 ACs) |
+| "Don't improvise too much." | process (spec review) | 9.6 (the complete list of devices without web precedent), 9.7 (what revision 2 removed), 9.8 (no invented didactic content), 14.1 tiers, 15.1 (every decision cites evidence), 15.5, 15.6 (a designed control with no planned target removed rather than specified, D-45) | — (process) |
+| "Create the necessary assets so the app is pleasant to use." | product | F-25 (asset inventory and design acceptance list; no legacy launcher icons, D-50), principle 13 | F-25-AC1, F-25-AC2 |
+| "The app works, in general, like TikTok or YouTube Shorts — vertical videos you swipe through —" | product | F-06, F-07, 5.3, D-01, D-03, D-25, 1.2 | F-06-AC1 to F-06-AC13, F-07-AC1 to F-07-AC11 |
+| "BUT it must also have a dashboard / main panel to navigate between the videos." | product | F-03, F-04, F-05, 5.2 (all paths between dashboard and feed), mode picker in F-06, D-02, D-45 (the Today's set card shows the set), D-48 (a change chip promises its feed's length) | F-03-AC1, F-03-AC6, F-03-AC7, F-03-AC8, F-03-AC10, F-04-AC1, F-04-AC5, F-05-AC5, F-06-AC10, F-06-AC12 |
+| "When the phone is on the Wi-Fi network of this computer and recognizes that the server is up, it processes the videos the user wants to process from the phone (the phone sends the work to the PhonoTrainer server that runs on this computer)." | product | 7.2 to 7.5 (approved networks, discovery, pairing, identity proof, the definition of online), 7.7 (sending), F-02, F-19, F-20, section 8, S-01 to S-09, S-22, D-05, D-15, D-37, D-39, D-42 | F-02-AC1, F-02-AC2, F-02-AC4, F-02-AC5, F-02-AC6, F-02-AC10, F-02-AC11, F-02-AC12, F-03-AC2, F-03-AC3, F-20-AC1, F-19-AC3, SH-AC3, SH-AC5, QT-2 |
+| "Add everything you consider necessary for the app to stay didactic." | product | section 9, F-07 to F-18, principles 1 to 7, D-03, D-13, D-25, D-27 | F-07-AC2, F-07-AC10, F-08-AC1, F-08-AC5, F-09-AC2, F-10-AC1 to F-10-AC5, F-12-AC1, F-14-AC1, F-14-AC3, F-14-AC4, F-15-AC1 to F-15-AC3, F-16-AC2, F-17-AC1 to F-17-AC3 (v1-complete: F-11, F-13, F-18 ACs) |
 | "Sync between app and server: if the server has content the app does not have, the app downloads it." | product | 7.6, 7.8, 7.10, F-21, S-11, S-12, D-11, D-19. Disclosed limits: the study pack of every clip is downloaded unless the learner removed the clip or the budget is full; the video layer is skipped when "Download videos automatically" is off or the budget is full; an original the phone cannot play is replaced by a phone video (or audio only if the computer cannot make one); the Library shows each case | F-21-AC1 to F-21-AC8, QT-9, QT-10, QT-14 |
-| "If the app is not on the server's Wi-Fi or cannot connect, a request to process audio or video is queued ON THE DEVICE until the connection happens, then carried out." | product | 7.7 (device queue), 7.12 (torture test), 8.5, F-20, S-09, S-10, D-17 | QT-1 to QT-8, QT-12, QT-13, SH-AC4, SH-AC5, SH-AC6, F-20-AC1, F-20-AC5 |
-| "It is an entirely local, non-commercial project." | product | 1.4, 3.2, 11.2 (no third-party services), NFR-05 | X-AC1 |
-| "Do not leave sensitive data in this layer: the repository is PUBLIC (no IPs, tokens, serial numbers, home paths, keystores, personal data in committed files)." | product | 11.7, 11.1, 11.6, 7.2, 5.4 (ids only), SC-15, 2.1 and 2.5 (no personal data in this document) | X-AC4, X-AC5, X-AC6, F-02-AC9 |
+| "If the app is not on the server's Wi-Fi or cannot connect, a request to process audio or video is queued ON THE DEVICE until the connection happens, then carried out." | product | 7.7 (device queue, including large files that wait for the app in v1-core and "Stop sending"), 7.12 (torture test), 8.5, F-20, S-09, S-10, D-17, D-41, D-46 | QT-1 to QT-8, QT-12, QT-13, SH-AC4, SH-AC5, SH-AC6, F-20-AC1, F-20-AC5, F-20-AC10, F-20-AC11, F-20-AC12 |
+| "It is an entirely local, non-commercial project." | product | 1.4, 3.2, 11.2 (no third-party services), NFR-05, 7.2 (phone access only on approved networks, D-42) | X-AC1 |
+| "Do not leave sensitive data in this layer: the repository is PUBLIC (no IPs, tokens, serial numbers, home paths, keystores, personal data in committed files)." | product | 11.7, 11.1, 11.6 (signed requests, D-38), 7.2 (default name "PhonoTrainer computer", D-42), 5.4 (ids only), F-22 ("Copy diagnostics" without addresses or ids, D-39), SC-15, 2.1 and 2.5 (no personal data in this document) | X-AC4, X-AC5, X-AC6, F-02-AC9, F-22-AC4 |
 | "From YouTube or Twitter/X, when tapping 'Share' on a link, in the share sheet where apps like WhatsApp appear, THIS app must appear too." | product | 8.1, 8.2, F-19, F-25 (share-sheet icon) | SH-AC1, SH-AC2, SH-AC11, F-25-AC1 |
-| "If online (server reachable) it processes; if not, it queues." | product | 8.4 (connection line and buttons), 8.5, 8.6, 8.7. Satisfied in full for local files and for queueing and sending links; whether a link's analysis then succeeds is conditional on the computer's downloader, hardened by S-23 and reported from the owner's own shares (S-20) | SH-AC3, SH-AC4, SH-AC5, SH-AC9, SH-AC12, SH-AC16, F-20-AC3, F-20-AC4 |
+| "If online (server reachable) it processes; if not, it queues." | product | 8.4 (connection line and buttons), 8.5, 8.6, 8.7. Satisfied in full for local files and for queueing and sending links; whether a link's analysis then succeeds is conditional on the computer's downloader, hardened by S-23 and reported from the owner's own shares (S-20). Disclosed limit: links from the phone to live streams or to videos longer than the computer's link limit (1 hour by default, editable on the computer) are refused with their own copy (D-40, D-43) | SH-AC3, SH-AC4, SH-AC5, SH-AC9, SH-AC12, SH-AC16, SH-AC17, SH-AC18, F-20-AC3, F-20-AC4, F-23-AC4 |
 | "Design must be delegated to a dedicated design agent." | process | conventions (no visual design here), F-25 (asset inventory as content), 9.8 (mark semantics fixed, visuals open) | — (process; F-25-AC2 is the design agent's sign-off) |
-| "It is very important that it is NOT minimalist, and that it is robust." | product | principle 13, F-25 design acceptance list, every States table, 7.7 to 7.12, NFR-07, NFR-08 | F-25-AC2, F-20-AC7, QT-1 to QT-14, X-AC7 |
-| "Take your time; make a work plan; delegate everything possible." | process | 14.1 (tiers), 14.2 (build order), 14.3 (gates), 14.4 (cut order), section 12 (server work separable), 15.3 (non-blocking questions) | — (process) |
+| "It is very important that it is NOT minimalist, and that it is robust." | product | principle 13, F-25 design acceptance list, every States table (revision 3 gives words to the states that had none, D-47), 7.7 to 7.12, NFR-07, NFR-08 | F-25-AC2, F-20-AC7, F-06-AC13, QT-1 to QT-14, X-AC7 |
+| "Take your time; make a work plan; delegate everything possible." | process | 14.1 (tiers), 14.2 (build order), 14.3 (gates), 14.4 (cut order; lean channel events moved to v1-core, D-44), section 12 (server work separable), 15.3 (non-blocking questions; unanswered, defaults applied, D-52), 15.6 (pre-implementation closure of the other tracks' requests) | — (process) |
 | "When ready, the owner connects the phone to install and test (the test phone, Android 16 / API 36, attached over adb)." | product | NFR-01, NFR-14, 8.7 (gate on the device), 14.2 step 6, 14.3, 15.4 | X-AC8, X-AC10 |
 | Constraint: all repository content in English, including UI strings; no translations | product | conventions, NFR-12, 11.7 (language scan) | X-AC2 |
-| Constraint: GPL-3.0-or-later; dependencies and fonts recorded; OFL fonts vendored with licence text | product | NFR-11, F-24, F-25, 11.7 | X-AC3, F-24-AC1, F-24-AC2 |
+| Constraint: GPL-3.0-or-later; dependencies and fonts recorded; OFL fonts vendored with licence text | product | NFR-11, F-24 (libraries, fonts and the vendored icon set, D-50), F-25, 11.7 | X-AC3, F-24-AC1, F-24-AC2 |
 | Constraint: tests; server changes need pytest coverage | product | section 12 preamble, NFR-13, 14.3 | X-AC9 |
 | Constraint: the repository already ignores media, `workspace/`, `data/`, `downloads/`, `*.db`, `.env*` | product | 11.7 (ignore-rule trap and checks) | X-AC5 |
 | Orchestrator rule: never touch `web/`; work only in the `android-client` worktree | process | D-35, S-04, S-18, 9.8 | X-AC9 (web unchanged) |
