@@ -57,12 +57,11 @@ class SchemaV1Test {
 
   @Test
   fun theDatabasesOpenWithTheirFilesAndJournalModes() = runTest {
-    val module = DatabaseModule
-    val libraryDb = module.libraryDatabase(context)
-    val learningDb = module.learningDatabase(context)
+    val libraryDb = DatabaseModule.libraryDatabase(context)
+    val learningDb = DatabaseModule.learningDatabase(context)
     try {
-      assertThat(module.clipDao(libraryDb).count()).isEqualTo(0)
-      assertThat(module.savedDao(learningDb).count()).isEqualTo(0)
+      assertThat(DaoModule.clipDao(libraryDb).count()).isEqualTo(0)
+      assertThat(DaoModule.savedDao(learningDb).count()).isEqualTo(0)
       assertThat(libraryDb.openHelper.writableDatabase.journalMode()).isEqualTo("wal")
       // learning.db asks for TRUNCATE, a rollback journal (one file for Auto Backup). Robolectric's SQLite reports
       // every rollback journal as "memory", so the JVM test can only prove it is not WAL.

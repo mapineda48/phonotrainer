@@ -25,7 +25,8 @@ import javax.inject.Singleton
 
 /**
  * The two databases (architecture 4.1). Its name is frozen at B1: the end-to-end test set replaces it with
- * `TestDatabaseModule` (in-memory databases, architecture 21.5). No destructive fallback, ever (4.4).
+ * `TestDatabaseModule` (in-memory databases, architecture 21.5), and the DAOs of [DaoModule] then come from those.
+ * No destructive fallback, ever (4.4).
  */
 @Module
 @InstallIn(SingletonComponent::class)
@@ -43,7 +44,12 @@ object DatabaseModule {
     Room.databaseBuilder(context, LearningDatabase::class.java, LearningDatabase.FILE_NAME)
       .setJournalMode(RoomDatabase.JournalMode.TRUNCATE)
       .build()
+}
 
+/** Each DAO from its database, whichever module provided the database. */
+@Module
+@InstallIn(SingletonComponent::class)
+object DaoModule {
   @Provides fun clipDao(db: LibraryDatabase): ClipDao = db.clipDao()
 
   @Provides fun artifactDao(db: LibraryDatabase): ArtifactDao = db.artifactDao()
