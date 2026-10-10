@@ -305,6 +305,15 @@ From the interface, pasting the URL is enough. The download (yt-dlp, video ≤72
 remuxed with ffmpeg) is just one more stage of the progress bar, and the file is
 reused if it is already there: re-analyzing the same URL downloads nothing again.
 
+> **Keep yt-dlp up to date.** YouTube, X and other sites change often, and an
+> outdated yt-dlp is the usual cause of failed downloads (for example `HTTP Error
+> 403: Forbidden`). Update it whenever you can, and always before reporting a
+> download failure:
+>
+> ```bash
+> uv pip install --python .venv/bin/python -U yt-dlp
+> ```
+
 ## Corpus: everything you have analyzed, in one place
 
 Every finished (or imported) analysis is indexed in SQLite. That answers what a
