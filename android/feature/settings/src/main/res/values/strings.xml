@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Strings of :feature:settings. At the contract freeze: the title and lede of each stub destination
+     (WP-24 replaces them with its screens). -->
+<resources>
+    <string name="settings_title">Settings</string>
+    <string name="settings_lede">All settings apply at once and are remembered on this phone.</string>
+    <string name="settings_link_computer">Your computer</string>
+    <string name="settings_link_storage">Storage</string>
+    <string name="settings_link_notifications">Notifications</string>
+    <string name="settings_link_help">Help</string>
+    <string name="settings_link_about">About PhonoTrainer</string>
+    <string name="settings_storage_title">Storage</string>
+    <string name="settings_storage_lede">What PhonoTrainer keeps on this phone, and how much room it may use.</string>
+    <string name="settings_computer_title">Your computer</string>
+    <string name="settings_computer_lede">The computer this phone is connected to, and how to connect again or forget it.</string>
+    <string name="settings_notifications_title">Notifications</string>
+    <string name="settings_notifications_lede">Choose what PhonoTrainer tells you about.</string>
+    <string name="settings_about_title">About PhonoTrainer</string>
+    <string name="settings_about_lede">Version, licence and privacy: everything stays on this phone and your computer.</string>
+    <string name="settings_about_link_licences">Open-source licences</string>
+    <string name="settings_licences_title">Open-source licences</string>
+    <string name="settings_licences_lede">Every component, font and icon set this app is built with, and its licence.</string>
+    <string name="settings_help_title">Help</string>
+    <string name="settings_help_lede">Restart the tour, see what the marks mean, and learn how PhonoTrainer works.</string>
+    <string name="settings_help_link_tour">Restart the tour</string>
+</resources>

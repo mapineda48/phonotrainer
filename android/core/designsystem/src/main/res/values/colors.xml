@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Window, splash and launcher colours (design 2.1, 2.6). Placeholder values from the design's tokens; WP-03 owns
+     this file after the contract freeze. -->
+<resources>
+    <color name="phono_page">#FFF8F6EF</color>
+    <color name="phono_ink">#FF1B1A18</color>
+    <color name="phono_launcher_tile">#FFD2C3A3</color>
+</resources>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Strings of :feature:connect. At the contract freeze: the title and lede of each stub destination
+     (WP-13 replaces them with its screens). -->
+<resources>
+    <string name="connect_title">Connect to your computer</string>
+    <string name="connect_lede">Your computer analyzes the clips; this phone keeps them and teaches with them. Connect once, on your home Wi-Fi.</string>
+    <string name="connect_link_details">Connection details</string>
+    <string name="connect_details_title">Connection details</string>
+    <string name="connect_details_lede">What this phone knows about your computer, and what to check when it isn\'t reachable.</string>
+</resources>

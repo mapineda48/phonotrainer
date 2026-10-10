@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- The test APK's merged manifest inherits androidx.startup's provider from its dependencies, but its classes
+         ship only in the app APK; when the system starts the test package on its own (a configuration change such as
+         the per-app night mode), the provider would crash that process. The tests run in the app's process. -->
+    <application>
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            tools:node="remove" />
+    </application>
+
+</manifest>

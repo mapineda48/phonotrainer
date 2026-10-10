@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Strings of the :core:ui primitives (placeholder copy at the contract freeze; WP-03 owns this file). Shared
+     components keep theirs in strings_<component>.xml (work-plan 3.2). -->
+<resources>
+    <string name="ui_stub_note">This screen is a placeholder of the app\'s skeleton. Its feature replaces it.</string>
+    <string name="ui_loading">Loading…</string>
+    <string name="ui_explain_label">What\'s this: %1$s?</string>
+    <string name="ui_explain_symbol">\?</string>
+    <string name="ui_explain_learn_more">Learn more</string>
+    <string name="ui_explain_close">Close</string>
+    <string name="ui_advice_produce">Safe to produce</string>
+    <string name="ui_advice_understand">Recognize only</string>
+    <string name="ui_family_reduction">Reduction</string>
+    <string name="ui_family_td">t and d</string>
+    <string name="ui_family_assimilation">Assimilation</string>
+    <string name="ui_family_boundary">Boundary</string>
+    <string name="ui_family_lexical">Whole word</string>
+    <string name="ui_family_other">Other</string>
+    <string name="ui_availability_on_phone">On this phone</string>
+    <string name="ui_availability_bringing">Bringing to this phone · %1$d %%</string>
+    <string name="ui_availability_not_on_phone">Not on this phone</string>
+    <string name="ui_availability_getting_ready">Getting ready on your computer</string>
+    <string name="ui_availability_paused">Download paused</string>
+    <string name="ui_availability_again">Needs downloading again</string>
+    <string name="ui_coach_got_it">Got it</string>
+    <string name="ui_poster_audio">Audio clip</string>
+    <string name="ui_poster_video">Video clip</string>
+    <string name="ui_marks_legend">Each change is marked by its family: a line style, an icon and a name.</string>
+    <string name="ui_short_progress">Short progress</string>
+</resources>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Strings of :feature:requests. At the contract freeze: the title and lede of each stub destination
+     (WP-22 replaces them with its screens). -->
+<resources>
+    <string name="requests_title">Requests</string>
+    <string name="requests_lede">Clips you asked your computer to analyze, from waiting on this phone to ready to watch.</string>
+    <string name="requests_link_add">Add a clip</string>
+    <string name="requests_detail_title">Request</string>
+    <string name="requests_detail_lede">What happens to this clip, step by step.</string>
+    <string name="requests_add_title">Add a clip</string>
+    <string name="requests_add_lede">Pick a clip of native English speech. Short, clear dialogue (30–60 seconds) teaches the most.</string>
+</resources>

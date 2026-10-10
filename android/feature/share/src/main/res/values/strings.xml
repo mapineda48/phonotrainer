@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Strings of :feature:share. At the contract freeze: the placeholder sheet (WP-23 replaces it). -->
+<resources>
+    <string name="share_label" translatable="false">PhonoTrainer</string>
+    <string name="share_title">Add to PhonoTrainer</string>
+    <string name="share_lede">Adding shared links and files arrives with the share sheet. Nothing was added.</string>
+    <string name="share_close">Close</string>
+</resources>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Strings of lesson/phrase/ (reserved for WP-31, v1-complete). At the contract freeze: the stub's title and lede. -->
+<resources>
+    <string name="phrase_title">Phrase details</string>
+    <string name="phrase_lede">Pitch, stress and the sounds of one phrase.</string>
+</resources>

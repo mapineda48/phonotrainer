@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Strings of :feature:library. At the contract freeze: the title and lede of each stub destination
+     (WP-16 replaces them with its screens). -->
+<resources>
+    <string name="library_title">All clips</string>
+    <string name="library_lede">Every clip on this phone and on your computer.</string>
+    <string name="library_search">Search your clips…</string>
+    <string name="library_row">Placeholder clip %1$d</string>
+    <string name="library_instance">Placeholder list %1$s</string>
+    <string name="library_clip_title">Clip</string>
+    <string name="library_clip_lede">Its shorts, its transcript and what changes in it.</string>
+    <string name="library_clip_link_watch">Watch from the start</string>
+</resources>

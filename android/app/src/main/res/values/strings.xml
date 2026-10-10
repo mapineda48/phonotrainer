@@ -1,4 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name" translatable="false">PhonoTrainer</string>
+
+    <!-- The bottom bar (spec 5.1, design 9.24). -->
+    <string name="tab_home">Home</string>
+    <string name="tab_watch">Watch</string>
+    <string name="tab_learn">Learn</string>
+    <string name="tab_practice">Practice</string>
+
+    <!-- The global "Connect again" banner (spec 7.5, design 9.23). -->
+    <string name="banner_connect_again">Your computer no longer recognizes this phone</string>
+    <string name="banner_connect_again_action">Connect again</string>
+
+    <!-- One-shot messages (design 9.23, UserMessageKind). -->
+    <string name="message_clip_gone">That clip is no longer on this phone.</string>
+    <string name="message_request_removed">This request was removed.</string>
+    <string name="message_library_changed">Your computer is using a different library. Clips from the other one stay on this phone until you remove them.</string>
+    <plurals name="message_clips_removed">
+        <item quantity="one">%1$d clip deleted on your computer was removed from this phone.</item>
+        <item quantity="other">%1$d clips deleted on your computer were removed from this phone.</item>
+    </plurals>
+    <string name="message_too_late_to_cancel">Too late to cancel: “%1$s” is ready. Remove it from this phone if you don\'t want it.</string>
+    <string name="message_cancel_undone">Cancel undone: “%1$s” won\'t be cancelled.</string>
+    <string name="message_dismiss">Dismiss</string>
 </resources>

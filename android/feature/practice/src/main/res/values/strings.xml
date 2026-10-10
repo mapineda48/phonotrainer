@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Strings of :feature:practice. At the contract freeze: the title and lede of each stub destination
+     (WP-21 replaces them with its screens). -->
+<resources>
+    <string name="practice_title">Practice</string>
+    <string name="practice_lede">Train your ear: hear a phrase, then say which change you heard.</string>
+    <string name="practice_link_saved">Saved</string>
+    <string name="practice_saved_title">Saved</string>
+    <string name="practice_saved_lede">The shorts and words you saved, ready to watch again.</string>
+</resources>
