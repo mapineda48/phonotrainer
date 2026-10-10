@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  The one lint policy of the Android build (architecture 2.3). Both Android convention plugins point
+  lintConfig here, with warningsAsErrors, abortOnError and checkReleaseBuilds on.
+  Only the checks below are disabled, each for the reason in its comment. No other check may be disabled or
+  downgraded, and no lint baseline is ever used: a check believed wrong for this project is a change request
+  to the integrator, with the evidence.
+-->
+<lint>
+    <!-- Compares the version catalog with releases published after it, so a build would start failing with no
+         code change; version upgrades are deliberate catalog changes verified by the whole definition of done. -->
+    <issue id="GradleDependency" severity="ignore" />
+    <!-- Same reason: a newer Android Gradle Plugin release would fail an unchanged build. -->
+    <issue id="AndroidGradlePluginVersion" severity="ignore" />
+    <!-- Same reason, for every library whose newer version lint can look up. -->
+    <issue id="NewerVersionAvailable" severity="ignore" />
+    <!-- targetSdk 36 is a product decision (spec D-18) while compileSdk is 37, so this warning is permanent. -->
+    <issue id="OldTargetApi" severity="ignore" />
+</lint>
