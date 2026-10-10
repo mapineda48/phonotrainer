@@ -80,6 +80,7 @@ PLAY_SERVICES_NAMES = (
     "mobile-gtalk.l.google.com", "dl.google.com", "edgedl.me.gvt1.com", "storage.googleapis.com",
     "www.googleapis.com", "digitalassetlinks.googleapis.com", "remoteprovisioning.googleapis.com",
     "gmscompliance-pa.googleapis.com", "geller-pa.googleapis.com", "pagead2.googlesyndication.com",
+    "clientservices.googleapis.com", "update.googleapis.com",
 )
 
 
