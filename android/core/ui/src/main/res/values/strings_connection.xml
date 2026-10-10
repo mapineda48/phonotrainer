@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Strings of ConnectionStatusCard and ProbeOutcomeCopy (WP-15). The status words are spec 7.5's; the rest is
+     placeholder copy at the contract freeze. -->
+<resources>
+    <string name="connection_not_connected">Not connected to a computer</string>
+    <string name="connection_offline">Offline · requests wait on this phone</string>
+    <string name="connection_not_on_wifi">Not on Wi-Fi · your computer is reachable only at home</string>
+    <string name="connection_looking">Looking for your computer…</string>
+    <string name="connection_checking">Checking your computer…</string>
+    <string name="connection_connected">Connected to %1$s</string>
+    <string name="connection_not_reachable">Your computer isn\'t reachable</string>
+    <string name="connection_different">A different computer answered</string>
+    <string name="connection_connect_again">Your computer no longer recognizes this phone</string>
+    <string name="connection_computer_too_old">Update PhonoTrainer on your computer</string>
+    <string name="connection_app_too_old">Update this app</string>
+    <string name="connection_syncing">Syncing · bringing %1$d clips</string>
+    <string name="connection_counts">%1$d waiting · %2$d on your computer · %3$d need attention</string>
+    <string name="connection_action_connect">Connect</string>
+    <string name="connection_action_connect_again">Connect again</string>
+    <string name="connection_action_why">Why?</string>
+    <string name="connection_action_requests">See requests</string>
+    <string name="probe_ok">Your computer answered.</string>
+    <string name="probe_no_answer">No answer after %1$d s</string>
+    <string name="probe_refused">Your computer refused the connection.</string>
+    <string name="probe_no_route">This phone has no route to your computer.</string>
+    <string name="probe_reset">The connection was cut.</string>
+    <string name="probe_vpn">A VPN on this phone blocks your computer.</string>
+    <string name="probe_phone_access_off">Your computer answered, but phone access is off there or not approved for this network.</string>
+    <string name="probe_not_phonotrainer">Something answered, but it isn\'t PhonoTrainer.</string>
+    <string name="probe_proof_failed">A different computer answered.</string>
+</resources>

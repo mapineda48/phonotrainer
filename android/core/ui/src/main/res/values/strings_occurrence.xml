@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Strings of OccurrenceRow (WP-20; placeholder copy at the contract freeze). -->
+<resources>
+    <string name="occurrence_play">Play “%1$s”</string>
+    <string name="occurrence_lesson">Open the lesson on “%1$s”</string>
+</resources>

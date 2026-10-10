@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The three frozen themes of work-plan 4.1 (design 12.4). Compose draws everything; these only colour the window,
+     the splash and the translucent share sheet. -->
+<resources>
+    <style name="Theme.Phono" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/phono_window_background</item>
+    </style>
+
+    <style name="Theme.Phono.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/phono_window_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_mark</item>
+        <item name="postSplashScreenTheme">@style/Theme.Phono</item>
+    </style>
+
+    <!-- The share confirmation (architecture 12): the sharing app stays visible behind the sheet, which Compose
+         draws with its own scrim and insets. -->
+    <style name="Theme.Phono.ShareSheet" parent="Theme.Phono">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowIsFloating">false</item>
+        <item name="android:backgroundDimEnabled">false</item>
+    </style>
+</resources>

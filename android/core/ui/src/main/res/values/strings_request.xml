@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Strings of RequestRow and RequestFailureCopy (WP-22; placeholder copy at the contract freeze). -->
+<resources>
+    <string name="request_open">Open “%1$s”</string>
+    <string name="request_action_cancel_preparing">Stop adding</string>
+    <string name="request_action_send_now">Send now</string>
+    <string name="request_action_stop_sending">Stop sending</string>
+    <string name="request_action_remove">Remove</string>
+    <string name="request_action_cancel">Cancel</string>
+    <string name="request_action_undo_cancel">Undo</string>
+    <string name="request_action_try_again">Try again</string>
+    <string name="request_action_try_audio_only">Try audio only</string>
+    <string name="request_action_open_link">Open link</string>
+    <string name="request_action_show_details">Show details</string>
+    <string name="request_action_connect_again">Connect again</string>
+    <string name="request_action_why">Why?</string>
+    <string name="request_failure_title">Couldn\'t analyze this clip</string>
+    <string name="request_failure_body">Your computer stopped working on it.</string>
+    <string name="request_failure_notification">%1$s — Tap to see what you can do.</string>
+</resources>

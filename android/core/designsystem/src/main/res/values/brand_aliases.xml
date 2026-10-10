@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Frozen names that :app's manifest and themes reference (work-plan 4.1, delivery review D-13). The targets may
+     change; these names may not. -->
+<resources>
+    <color name="phono_window_background">@color/phono_page</color>
+    <drawable name="ic_stat_phono">@drawable/ic_notification</drawable>
+</resources>

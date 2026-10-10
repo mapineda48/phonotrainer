@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Placeholder splash mark (WP-02); WP-03 provides the stylus P and its animated version. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="144dp"
+    android:height="144dp"
+    android:viewportWidth="144"
+    android:viewportHeight="144">
+    <path
+        android:fillColor="@color/phono_ink"
+        android:pathData="M58,44h16a14,14 0,0 1,0 28h-8v28h-8zM66,52v12h8a6,6 0,0 0,0 -12z" />
+</vector>
