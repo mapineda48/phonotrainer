@@ -344,7 +344,8 @@ here, never from a phone.
   never an address or a secret. Phones show the name, which is "PhonoTrainer
   computer" until you rename it with `phonotrainer phone name` (the first start
   with phone access reminds you); it is never the host name. If the search finds
-  nothing, the phone can still connect by address.
+  nothing, the phone can still connect by address. A server started with
+  `--host 127.0.0.1` announces nothing, since no phone could connect to it.
 - **Firewall.** Phones need TCP port 8000 (or your `--port`) and UDP port 45317
   allowed on the home network. Nothing is changed on your system automatically.
 - **Limits.** `server.json` in the configuration directory holds two values you

@@ -196,7 +196,7 @@ def isolated_config(tmp_path_factory, monkeypatch):
 
 # What serve() writes into the environment (for `uvicorn --reload`'s factory).
 SERVE_ENV = ("PHONOTRAINER_WORKSPACE", "PHONOTRAINER_ROOTS", "PHONOTRAINER_PHONE_ACCESS",
-             "PHONOTRAINER_PORT", "PHONOTRAINER_CONFIG_DIR")
+             "PHONOTRAINER_PORT", "PHONOTRAINER_HOST", "PHONOTRAINER_CONFIG_DIR")
 
 
 @pytest.fixture

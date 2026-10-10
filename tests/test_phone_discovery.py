@@ -206,7 +206,7 @@ def make_app(phone_settings, phone_store, tmp_path):
 
 def test_the_responder_runs_while_phone_access_is_on(make_app, phone_settings, fake_clock):
     enable_phone_access(phone_settings)
-    app = make_app()
+    app = make_app(host="0.0.0.0")
     runtime = app.state.phone
     assert runtime.state == "on"
     assert runtime.responder is not None and runtime.capabilities.discovery is True
@@ -235,6 +235,15 @@ def test_not_started_while_suspended_or_off(make_app, phone_settings, fake_netin
     fake_netinfo.offline()                                       # suspended: no approved network up
     app = make_app()
     assert app.state.phone.state == "suspended"
+    assert app.state.phone.responder is None
+    assert app.state.phone.capabilities.discovery is False
+
+
+@pytest.mark.parametrize("host", ["127.0.0.1", "::1"])
+def test_nothing_is_announced_by_a_server_bound_to_loopback(make_app, phone_settings, host):
+    enable_phone_access(phone_settings)
+    app = make_app(host=host)                      # `ui --host 127.0.0.1 --phone-access`
+    assert app.state.phone.state == "on"
     assert app.state.phone.responder is None
     assert app.state.phone.capabilities.discovery is False
 

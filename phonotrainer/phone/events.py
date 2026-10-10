@@ -98,8 +98,10 @@ async def _serve(websocket: WebSocket, phone, store, device_id: str) -> None:
 
     unsubscribe = store.subscribe(on_store_event)
 
-    def lean(job) -> dict:
-        return phone_job(job, device_id, phone.artifacts, store.queue_positions(), lean=True)
+    def lean(job, positions: dict[str, int] | None = None) -> dict:
+        if positions is None:
+            positions = store.queue_positions()
+        return phone_job(job, device_id, phone.artifacts, positions, lean=True)
 
     async def publish(scope: anyio.CancelScope) -> None:
         try:
@@ -107,7 +109,9 @@ async def _serve(websocket: WebSocket, phone, store, device_id: str) -> None:
                                        "library_id": phone.library_id,
                                        "api_version": phone.api_version})
             jobs = sorted(store.list(), key=lambda j: j.id)
-            await websocket.send_json({"type": "snapshot", "jobs": [lean(j) for j in jobs]})
+            positions = store.queue_positions()          # once for the whole snapshot
+            await websocket.send_json({"type": "snapshot",
+                                       "jobs": [lean(j, positions) for j in jobs]})
             last_sent: dict[str, float] = {}
             due: dict[str, float] = {}
             checked = time.monotonic()

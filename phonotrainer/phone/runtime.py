@@ -28,6 +28,7 @@ from typing import Callable
 from ..download import DownloadLimits
 from ..jobs import JobStore
 from . import MIN_FREE_BYTES
+from .access import is_loopback
 from .artifacts import ArtifactIndex
 from .auth import Authenticator
 from .config import RUNTIME_FILE, ConfigDir, ConfigError
@@ -157,9 +158,12 @@ class PhoneRuntime:
     def sync_discovery(self) -> None:
         """Run the responder exactly while phone access is on (not while
         suspended or off). Its replies carry the listening port, so it needs
-        one (`serve` sets it). A busy port is reported once and retried only
-        after phone access was off or suspended in between."""
-        want = self.state == ON and self.settings.port is not None
+        one (`serve` sets it); a server bound to a loopback address announces
+        nothing, since no phone could connect to it. A busy port is reported
+        once and retried only after phone access was off or suspended in
+        between."""
+        want = (self.state == ON and self.settings.port is not None
+                and not is_loopback(self.settings.host))
         stopping = None
         with self._lock:
             if want and self._responder is None and not self._discovery_failed:

@@ -814,9 +814,10 @@ def serve(workspace: str | Path = DEFAULT_WORKSPACE, host: str | None = None,
 
     from dataclasses import replace
 
-    phone = replace(phone, port=port)
+    phone = replace(phone, port=port, host=host)
     os.environ["PHONOTRAINER_PHONE_ACCESS"] = "1"
     os.environ["PHONOTRAINER_PORT"] = str(port)
+    os.environ["PHONOTRAINER_HOST"] = host
     if phone.config_dir is not None:
         os.environ["PHONOTRAINER_CONFIG_DIR"] = str(phone.config_dir)
     uvicorn.run("phonotrainer.server:app_from_env" if reload
@@ -831,7 +832,8 @@ def app_from_env() -> FastAPI:
     phone = None
     if os.environ.get("PHONOTRAINER_PHONE_ACCESS") == "1":
         port = os.environ.get("PHONOTRAINER_PORT")
-        phone = PhoneSettings(port=int(port) if port else None)
+        phone = PhoneSettings(port=int(port) if port else None,
+                              host=os.environ.get("PHONOTRAINER_HOST") or None)
     return create_app(os.environ.get("PHONOTRAINER_WORKSPACE", DEFAULT_WORKSPACE),
                       allowed_roots=roots.split(os.pathsep) if roots else None,
                       phone=phone)

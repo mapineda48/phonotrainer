@@ -152,7 +152,7 @@ def test_serve_with_phone_access(uvicorn_calls, monkeypatch, tmp_path, isolated_
     (app, kw), = uvicorn_calls
     assert kw == {"host": "0.0.0.0", "port": 8000, "reload": False, "factory": False,
                   "proxy_headers": False, "access_log": False}
-    assert app[2]["phone"].port == 8000
+    assert app[2]["phone"].port == 8000 and app[2]["phone"].host == "0.0.0.0"
     uvicorn_calls.clear()
     server.serve(workspace=tmp_path / "ws", open_browser=False)
     (app, kw), = uvicorn_calls
@@ -173,6 +173,9 @@ def test_serve_with_reload_never_trusts_proxy_headers(uvicorn_calls, tmp_path, i
     assert app == "phonotrainer.server:app_from_env"
     assert kw["reload"] is True and kw["factory"] is True
     assert kw["proxy_headers"] is False
+    if phone_on:                       # the reloading factory gets the port and the host
+        assert os.environ["PHONOTRAINER_PORT"] == "8000"
+        assert os.environ["PHONOTRAINER_HOST"] == "0.0.0.0"
 
 
 # --- phone on / off / status ------------------------------------------------------------------
