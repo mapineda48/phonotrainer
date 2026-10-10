@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="72" viewBox="0 0 96 72" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <title>Insights spot: three bars (kraft, hatched, paper) under a dotted reference line, and a magnifier</title>
+  <defs><clipPath id="clip1"><path d="M30 22H44V66H30Z"/></clipPath></defs>
+  <path d="M6.9 2.3h0.01M34.5 2.3h0.01M39.1 2.3h0.01M52.9 10.3h0.01M55.2 14.31h0.01M52.9 18.31h0.01M46 22.31h0.01M50.6 22.31h0.01M2.3 26.31h0.01M43.7 26.31h0.01" fill="none" stroke="#1b1a18" stroke-width="1.2" stroke-opacity="0.2" stroke-linecap="round"/>
+  <path d="M11.5 2.3h0.01M16.1 2.3h0.01M20.7 2.3h0.01M25.3 2.3h0.01M29.9 2.3h0.01M4.6 6.3h0.01M9.2 6.3h0.01M41.4 6.3h0.01M46 6.3h0.01M2.3 10.3h0.01M48.3 10.3h0.01M46 14.31h0.01M50.6 14.31h0.01M48.3 18.31h0.01M41.4 22.31h0.01M6.9 26.31h0.01M11.5 26.31h0.01M29.9 26.31h0.01M39.1 26.31h0.01" fill="none" stroke="#1b1a18" stroke-width="1.6" stroke-opacity="0.2" stroke-linecap="round"/>
+  <path d="M13.8 6.3h0.01M23 6.3h0.01M32.2 6.3h0.01M36.8 6.3h0.01M6.9 10.3h0.01M34.5 10.3h0.01M39.1 10.3h0.01M43.7 10.3h0.01M4.6 14.31h0.01M2.3 18.31h0.01M39.1 18.31h0.01M43.7 18.31h0.01M4.6 22.31h0.01M9.2 22.31h0.01M13.8 22.31h0.01M27.6 22.31h0.01M36.8 22.31h0.01M16.1 26.31h0.01M20.7 26.31h0.01M25.3 26.31h0.01M34.5 26.31h0.01" fill="none" stroke="#1b1a18" stroke-width="2" stroke-opacity="0.2" stroke-linecap="round"/>
+  <path d="M18.4 6.3h0.01M27.6 6.3h0.01M11.5 10.3h0.01M16.1 10.3h0.01M20.7 10.3h0.01M9.2 14.31h0.01M13.8 14.31h0.01M36.8 14.31h0.01M41.4 14.31h0.01M6.9 18.31h0.01M11.5 18.31h0.01M16.1 18.31h0.01M29.9 18.31h0.01M18.4 22.31h0.01M23 22.31h0.01M32.2 22.31h0.01" fill="none" stroke="#1b1a18" stroke-width="2.4" stroke-opacity="0.2" stroke-linecap="round"/>
+  <path d="M25.3 10.3h0.01M29.9 10.3h0.01M23 14.31h0.01M32.2 14.31h0.01M20.7 18.31h0.01M34.5 18.31h0.01" fill="none" stroke="#1b1a18" stroke-width="2.8" stroke-opacity="0.2" stroke-linecap="round"/>
+  <path d="M18.4 14.31h0.01M27.6 14.31h0.01M25.3 18.31h0.01" fill="none" stroke="#1b1a18" stroke-width="3.2" stroke-opacity="0.2" stroke-linecap="round"/>
+  <path d="M10 38H24V66H10Z" fill="#d8ccb2" stroke="#1b1a18" stroke-width="2.2"/>
+  <path d="M30 22H44V66H30Z" fill="#fffdf8" stroke="none"/>
+  <g clip-path="url(#clip1)"><path d="M29.1 20L28 21.9M32.79 20L28 28.3M36.49 20L28 34.7M40.18 20L28 41.1M43.88 20L28 47.5M46 22.73L28 53.9M46 29.13L28 60.3M46 35.53L28 66.7M46 41.93L30.95 68M46 48.33L34.64 68M46 54.73L38.34 68M46 61.13L42.03 68M46 67.53L45.73 68" fill="none" stroke="#1b1a18" stroke-width="1" stroke-opacity="0.6" stroke-linecap="butt"/></g>
+  <path d="M30 22H44V66H30Z" fill="none" stroke="#1b1a18" stroke-width="2.2"/>
+  <path d="M50 32H64V66H50Z" fill="#fffdf8" stroke="#1b1a18" stroke-width="2.2"/>
+  <path d="M5 66H91" fill="none" stroke="#1b1a18" stroke-width="2.4"/>
+  <path d="M6 16h0.01M10.83 16h0.01M15.67 16h0.01M20.5 16h0.01M25.33 16h0.01M30.17 16h0.01M35 16h0.01M39.83 16h0.01M44.67 16h0.01M49.5 16h0.01M54.33 16h0.01M59.17 16h0.01M64 16h0.01" fill="none" stroke="#1b1a18" stroke-width="1.9" stroke-linecap="round"/>
+  <path d="M65.5 30A10.5 10.5 0 1 0 86.5 30A10.5 10.5 0 1 0 65.5 30Z" fill="#fffdf8" stroke="#1b1a18" stroke-width="2.4"/>
+  <path d="M70 26A7 7 0 0 1 75 22.5" fill="none" stroke="#1b1a18" stroke-width="1.6" stroke-opacity="0.6"/>
+  <path d="M83.5 37.5L90 44" fill="none" stroke="#1b1a18" stroke-width="4"/>
+</svg>

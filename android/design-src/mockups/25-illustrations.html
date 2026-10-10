@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=412">
+<title>Illustration set</title>
+<link rel="stylesheet" href="kit/theme.css">
+<script src="kit/icons.js"></script><script src="kit/art.js"></script><script src="kit/kit.js"></script>
+<style>
+  .board { padding: 14px 16px 30px; }
+  .grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 10px; margin-top: 12px; }
+  .tile { background: var(--sheet); border-radius: 12px; box-shadow: var(--shadow-sheet); padding: 8px 8px 8px; }
+  .tile .art svg { width: 100%; height: auto; display: block; }
+  .tile b { display: block; font-size: 14px; margin-top: 4px; }
+  .tile span { display: block; font-size: 14px; color: var(--ink-2); line-height: 1.3; }
+  .wide { grid-column: 1 / -1; }
+  .spots { display: flex; gap: 12px; align-items: center; }
+</style></head>
+<body>
+<div class="phone tall grain" style="min-height:1700px">
+  <div class="board">
+    <div class="kicker">Illustrations · engraved ink</div>
+    <h1 class="display" style="font-size:30px;line-height:1.1;margin-top:4px">The set, light and dark from one vector</h1>
+    <p class="lede" style="margin-top:6px">Ink monoline, kraft fills, halftone for light, 30° and −35° hatching for shade, and the stylus trace as narrator. Never a family hue.</p>
+    <div class="grid">
+      <div class="tile wide"><div class="art" data-art="noComputer"></div><b>ill_no_computer</b><span>No computer answered · Connection details</span></div>
+      <div class="tile"><div class="art" data-art="horn"></div><b>ill_welcome_listen</b><span>Welcome 1</span></div>
+      <div class="tile"><div class="art" data-art="handover"></div><b>ill_welcome_clips</b><span>Welcome 2 · Home first run</span></div>
+      <div class="tile"><div class="art" data-art="setStack"></div><b>ill_welcome_daily</b><span>Welcome 3</span></div>
+      <div class="tile"><div class="art" data-art="feedEmpty"></div><b>ill_feed_empty</b><span>Watch, no clips yet</span></div>
+      <div class="tile"><div class="art" data-art="emptyDrum"></div><b>ill_home_no_clips</b><span>Your computer has no clips</span></div>
+      <div class="tile"><div class="art" data-art="inTray"></div><b>ill_requests_empty</b><span>Nothing in progress</span></div>
+      <div class="tile"><div class="art" data-art="magnifier"></div><b>ill_no_examples</b><span>No examples in your clips yet</span></div>
+      <div class="tile"><div class="art" data-art="ear"></div><b>ill_practice_empty</b><span>Nothing to practice yet</span></div>
+      <div class="tile"><div class="art" data-art="bookmark"></div><b>ill_saved_empty</b><span>Nothing saved yet</span></div>
+      <div class="tile"><div class="art" data-art="setDone" data-opts='{"w":200,"h":120}'></div><b>ill_set_done</b><span>Summary card spot</span></div>
+      <div class="tile"><div class="spots"><span data-art="spotPractice"></span><span data-art="spotInsights"></span></div><b>ill_spot_practice · ill_spot_insights</b><span>Everyday cards</span></div>
+      <div class="tile"><div style="height:110px" data-art="poster" data-opts='{"seed":9,"title":"Coffee shop small talk"}'></div><b>Poster fallback</b><span>Composable, seeded per clip</span></div>
+      <div class="tile"><div data-art="mouth"></div><b>Mouth, side view</b><span>Tract palette, sound card</span></div>
+    </div>
+  </div>
+</div>
+</body></html>

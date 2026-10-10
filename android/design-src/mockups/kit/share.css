@@ -1,0 +1,21 @@
+/* Share confirmation sheet (spec 8.4) over the sharing app, with the phone-to-computer bridge drawn as the trace. */
+.host { position: absolute; left: 0; right: 0; top: 0; height: 520px; background: #f2f2f2; }
+:root[data-theme="dark"] .host { background: #0f0f0f; }
+.host .vid { position: absolute; left: 0; right: 0; top: 32px; height: 232px; }
+.host .meta { position: absolute; left: 16px; right: 16px; top: 278px; font: 600 18px/1.3 system-ui, sans-serif; color: #111; }
+:root[data-theme="dark"] .host .meta { color: #eee; }
+.host .meta span { display: block; font: 400 14px/1.4 system-ui, sans-serif; color: #666; margin-top: 4px; }
+.sheet.share { top: 384px; padding: 0 16px 30px; }
+.share .hd { display: flex; align-items: center; gap: 12px; margin-top: 4px; }
+.share .hd h2 { font-family: var(--font-display); font-weight: 600; font-size: 24px; line-height: 1.15; }
+.share .what { display: flex; gap: 12px; align-items: center; background: var(--galley); border-radius: 14px; padding: 10px 12px; margin-top: 12px; }
+.share .what .ic { width: 44px; height: 44px; border-radius: 12px; background: var(--sheet); display: grid; place-items: center; flex: none; }
+.bridge { display: grid; grid-template-columns: 52px 1fr 52px; align-items: center; margin-top: 14px; }
+.bridge .end { width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; box-shadow: inset 0 0 0 1.5px var(--outline); background: var(--sheet); position: relative; }
+.bridge .end.on { background: var(--ink); color: var(--on-ink); box-shadow: none; }
+.bridge .end .park { position: absolute; right: -10px; top: -10px; width: 26px; height: 26px; border-radius: 13px; background: var(--sheet); box-shadow: inset 0 0 0 1.5px var(--ink); display: grid; place-items: center; color: var(--ink); }
+.conn { display: flex; gap: 10px; align-items: flex-start; margin-top: 10px; font-size: 16px; line-height: 1.4; }
+.conn b { display: block; }
+.optrow { display: flex; gap: 12px; align-items: center; padding: 12px 0; border-top: 1px solid var(--hairline); margin-top: 12px; }
+.fine { font-size: 14px; color: var(--ink-2); line-height: 1.4; }
+.share .btns { display: grid; grid-template-columns: 1fr 1.4fr; gap: 10px; margin-top: 14px; }

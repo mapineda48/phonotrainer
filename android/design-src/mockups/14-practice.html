@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=412">
+<title>Practice</title>
+<link rel="stylesheet" href="kit/theme.css">
+<script src="kit/icons.js"></script><script src="kit/art.js"></script><script src="kit/kit.js"></script>
+<style>
+  .content { padding: 0 16px 120px; }
+  .title { font-family: var(--font-display); font-weight: 650; font-size: 36px; line-height: 1.05; letter-spacing: -.02em; padding-top: 12px; }
+  .start { padding: 14px 16px 16px; margin-top: 14px; }
+  .kinds { list-style: none; margin-top: 4px; }
+  .kinds li { display: flex; gap: 10px; padding: 8px 0; border-top: 1px solid var(--hairline); font-size: 15px; line-height: 1.35; }
+  .kinds li:first-child { border-top: 0; }
+  .kinds b { display: block; font-size: 16px; }
+  .acc { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 10px; padding: 9px 0; border-top: 1px solid var(--hairline); }
+  .acc .nm { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15px; }
+  .acc .v { font-size: 14px; font-weight: 700; text-align: right; }
+  .acc .meter { grid-column: 1 / -1; height: 10px; border-radius: 3px; background: var(--galley); position: relative; overflow: hidden; }
+  .acc .meter i { position: absolute; left: 0; top: 2px; bottom: 2px; background: var(--ink-2); border-radius: 2px; }
+</style></head>
+<body>
+<div class="phone grain fibres">
+  <div data-statusbar></div>
+  <div class="content">
+    <div class="row" style="align-items:flex-end;margin-top:12px"><h1 class="title grow">Practice</h1><span data-art="spotPractice"></span></div>
+    <div class="rule2" style="margin-top:4px"></div>
+    <p class="lede" style="margin-top:8px">Train your ear with words and phrases from your own clips. A few minutes a day is enough.</p>
+    <section class="card stack start">
+      <ul class="kinds">
+        <li><span data-icon="audio-lines" data-size="20"></span><span><b>Which pronunciation?</b>Hear a word and pick how it was really said.</span></li>
+        <li><span data-icon="shapes" data-size="20"></span><span><b>Which change?</b>Hear a word and name the change.</span></li>
+        <li><span data-icon="list-ordered" data-size="20"></span><span><b>How many words?</b>Count the words: small reduced words are the ones the ear misses.</span></li>
+      </ul>
+      <div class="row gap8 wrap" style="margin-top:8px"><span class="chip tall t-td"><span data-fam="td" data-size="16" data-plain></span>Only: flapping<span data-icon="x" data-size="16"></span></span><span class="btn sm quiet">Practice everything instead</span></div>
+      <div class="row gap12" style="margin-top:10px"><div class="grow"><b>Focus on my weak spots</b><div class="small ink2">More questions on the changes you miss most.</div></div><span class="switch on" role="switch" aria-checked="true"></span></div>
+      <span class="btn primary block lg" style="margin-top:14px"><span data-icon="target" data-size="22"></span>Start practicing</span>
+    </section>
+    <section class="section">
+      <div class="sechead"><h2 class="h2">Your accuracy so far</h2><span class="small ink2">Kept only on this phone</span></div>
+      <div class="card pad" style="padding-top:4px;padding-bottom:4px">
+        <div class="acc" style="border-top:0"><span class="nm"><span data-fam="td" data-size="17"></span>t/d deletion</span><span class="v">4 of 9 · 44 %</span><div class="meter"><i style="width:44%"></i></div></div>
+        <div class="acc"><span class="nm"><span data-fam="assimilation" data-size="17"></span>Place assimilation</span><span class="v">3 of 5 · 60 %</span><div class="meter"><i style="width:60%"></i></div></div>
+        <div class="acc"><span class="nm"><span data-fam="td" data-size="17"></span>Flapping</span><span class="v">7 of 10 · 70 %</span><div class="meter"><i style="width:70%"></i></div></div>
+        <div class="acc"><span class="nm"><span data-fam="boundary" data-size="17"></span>Linking</span><span class="v">9 of 11 · 82 %</span><div class="meter"><i style="width:82%"></i></div></div>
+      </div>
+      <div class="row gap10" style="margin-top:12px"><div class="card pad grow"><div class="small ink2">Saved</div><div class="display" style="font-size:28px">12</div></div><div class="card pad grow"><div class="small ink2">Changes you have met</div><div class="display" style="font-size:28px">11 <span class="it" style="font-size:18px">of</span> 16</div></div></div>
+    </section>
+  </div>
+  <div data-navbar="Practice"></div>
+</div>
+</body></html>

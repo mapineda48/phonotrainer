@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=412">
+<title>Watch: portrait video with the opaque caption slip and a coach mark</title>
+<link rel="stylesheet" href="kit/theme.css"><link rel="stylesheet" href="kit/feed.css">
+<script src="kit/icons.js"></script><script src="kit/art.js"></script><script src="kit/kit.js"></script>
+<style>
+  .pv { position: absolute; left: 0; right: 0; top: 84px; height: 652px; }
+  .pv .sil { left: 26%; width: 48%; height: 62%; }
+  .pv .head { left: 37%; bottom: 55%; width: 26%; height: 22%; }
+  .railcap { position: absolute; right: 8px; top: 300px; width: 72px; background: var(--sheet); border-radius: 36px; padding: 6px 0; box-shadow: var(--shadow-float); z-index: 3; display: flex; flex-direction: column; align-items: center; }
+  .cslip { position: absolute; left: 0; right: 88px; bottom: 179px; z-index: 3; background: var(--sheet); border-radius: 0 var(--r-card) 0 0; padding: 12px 14px 10px; }
+  .cslip::before { content: ""; position: absolute; left: 0; right: 0; top: -8px; height: 8px; background: radial-gradient(circle at 6px 8px, transparent 3.5px, var(--sheet) 4px) repeat-x; background-size: 12px 8px; }
+  .cslip .lf { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+  .cslip .wd { font-family: var(--font-display); font-weight: 600; font-size: 30px; line-height: 1.1; }
+  .cslip .cur { font-size: 20px; font-weight: 500; line-height: 46px; }
+  .progband { position: absolute; left: 0; right: 0; bottom: 98px; height: 81px; background: var(--page); z-index: 3; }
+  .prog { bottom: 100px; z-index: 4; }
+</style></head>
+<body>
+<div class="phone">
+  <div data-statusbar></div>
+  <div class="fhead" style="background:var(--page)">
+    <span class="mode"><span data-icon="list-ordered" data-size="20"></span>In order <span class="k">· Kitchen talk</span><span data-icon="chevron-down" data-size="18"></span></span>
+    <span class="pos">4 / 9</span>
+    <span class="iconbtn" aria-label="Previous short"><span data-icon="chevron-up" data-size="22"></span></span>
+    <span class="iconbtn" aria-label="Next short" style="margin-left:-6px"><span data-icon="chevron-down" data-size="22"></span></span>
+  </div>
+  <div class="pv frame scene-portrait scene" role="img" aria-label="Video"><span class="sil"></span><span class="head"></span></div>
+
+  <div class="coach up" style="left:40px;right:40px;top:150px;--tip:150px" role="dialog" aria-label="Tip">
+    <div class="row gap10" style="align-items:flex-start"><span data-icon="hand" data-size="22"></span><span><b>Press and hold the picture to slow down.</b><br>Let go to return to your speed.</span></div>
+    <div class="acts"><span>Got it</span></div>
+  </div>
+
+  <div class="railcap" aria-label="Actions">
+    <span class="ra"><span class="c"><span data-icon="rotate-ccw" data-size="22"></span></span>Replay</span>
+    <span class="ra"><span class="c"><span data-icon="gauge" data-size="22"></span></span>1×</span>
+    <span class="ra"><span class="c"><span data-icon="repeat" data-size="22"></span></span>Loop off</span>
+    <span class="ra"><span class="c"><span data-icon="mic-vocal" data-size="22"></span></span>Shadow</span>
+    <span class="ra"><span class="c"><span data-icon="bookmark" data-size="22"></span></span>Save</span>
+    <span class="ra"><span class="c"><span data-icon="ellipsis" data-size="22"></span></span>More</span>
+  </div>
+
+  <article class="cslip" aria-label="Listen for a lexical contraction: wanna for want to. Safe to produce.">
+    <div class="row gap6 wrap"><span class="chip" style="background:var(--galley);box-shadow:inset 0 0 0 1.5px var(--ink)"><span data-icon="shrink" data-size="15" data-sw="2.25"></span>Lexical contraction</span><span class="badge"><span data-icon="mic" data-size="15" data-sw="2.25"></span>Safe to produce</span></div>
+    <div class="lf"><span class="kicker">Listen for</span><span class="wd w m-lexical">“want to”</span></div>
+    <p class="ipa" style="font-size:20px;line-height:1.35">/ˈwɑnt tu/ → [ˈwɑnə]</p>
+    <p class="cur" style="margin-top:2px">I <span class="w m-lexical">want to</span> <span class="into"><span data-icon="shrink" data-size="14" data-sw="2.25"></span>wanna ← want to</span> <span class="w m-boundary">try</span><span class="tie">‿</span><span class="w m-boundary">it</span> <span class="playing">first.</span></p>
+  </article>
+  <div class="progband"></div>
+  <div class="prog">
+    <div class="r1">
+      <span class="play" aria-label="Pause"><span data-icon="pause" data-size="22"></span></span>
+      <div class="grow" data-trace='{"w":272,"h":36,"seed":17,"progress":0.62,"ticks":[0.4,0.7],"pin":0.48,"accents":4,"wMin":1.6,"wMax":5.4,"gaps":[[0.38,0.42],[0.68,0.72]]}'></div>
+      <span class="tm">1:12</span>
+    </div>
+    <div class="clipline"><b>Kitchen talk<span data-icon="chevron-right" data-size="16"></span></b><span style="margin-left:auto">Short 4 of 9 · 1:02–1:19</span></div>
+  </div>
+  <div data-navbar="Watch"></div>
+</div>
+</body></html>

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=412">
+<title>Watch: a set question, answered</title>
+<link rel="stylesheet" href="kit/theme.css"><link rel="stylesheet" href="kit/feed.css">
+<script src="kit/icons.js"></script><script src="kit/art.js"></script><script src="kit/kit.js"></script>
+<style>
+  .q { margin: 6px 14px 0; padding: 16px; }
+  .q .ht { position: absolute; right: 0; top: 0; width: 140px; height: 100px; overflow: hidden; border-radius: 0 var(--r-card) 0 0; -webkit-mask-image: radial-gradient(160px 110px at 100% 0, #000 35%, transparent 100%); }
+  .q h1 { font-family: var(--font-display); font-weight: 600; font-size: 28px; line-height: 1.15; margin-top: 4px; position: relative; }
+  .opts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+  .opt { min-height: 72px; border-radius: 12px; background: var(--sheet); box-shadow: inset 0 0 0 1.5px var(--line-strong); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; position: relative; }
+  .opt .ipa { font-size: 26px; line-height: 1.1; }
+  .opt .lab { font-size: 14px; font-weight: 700; display: inline-flex; gap: 4px; align-items: center; }
+  .opt.right { box-shadow: inset 0 0 0 3px var(--ink); }
+  .opt.right .ipa { font-weight: 700; }
+  .opt.wrong { box-shadow: inset 0 0 0 2px var(--critical); }
+  .opt.dim { opacity: .7; }
+  .feedback { display: flex; gap: 8px; align-items: center; font-size: 17px; font-weight: 700; margin-top: 14px; }
+  .expl { margin-top: 10px; padding: 12px 14px; }
+  .links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+</style></head>
+<body>
+<div class="phone grain">
+  <div data-statusbar></div>
+  <div class="fhead">
+    <span class="mode"><span data-icon="shuffle" data-size="20"></span>Mix <span class="k">· Today's set</span><span data-icon="chevron-down" data-size="18"></span></span>
+    <span class="pos" aria-label="Question 2 of 5">Question 2 of 5<span class="beads" aria-hidden="true"><i class="d"></i><i class="c"></i><i></i><i></i><i></i></span></span>
+  </div>
+  <section class="card q stack" aria-label="Question 2 of 5: Which pronunciation?">
+    <div class="kicker row gap6" style="position:relative"><span data-icon="audio-lines" data-size="18"></span>Which pronunciation?</div>
+    <h1>How was “water” really said?</h1>
+    <p class="lede" style="margin-top:4px">From a short you met a minute ago.</p>
+    <div class="row gap8 wrap" style="margin-top:12px">
+      <span class="btn sm primary"><span data-icon="play" data-size="18"></span>Play</span>
+      <span class="btn sm"><span data-icon="snail" data-size="18"></span>Slowly</span>
+      <span class="btn sm"><span data-icon="audio-lines" data-size="18"></span>With context</span>
+    </div>
+    <div class="opts" role="radiogroup" aria-label="Answers">
+      <div class="opt wrong" aria-label="[ˈwɔtɚ], your answer, wrong"><span class="ipa">[ˈwɔtɚ]</span><span class="lab"><span data-icon="x" data-size="16" data-sw="2.6" data-cls="crit"></span>Your answer</span></div>
+      <div class="opt right" aria-label="[ˈwɔɾɚ], correct answer"><span class="ipa">[ˈwɔɾɚ]</span><span class="lab"><span data-icon="check" data-size="16" data-sw="2.8" data-cls="good"></span>Correct answer</span></div>
+      <div class="opt dim"><span class="ipa">[ˈwɔʔɚ]</span></div>
+      <div class="opt dim"><span class="ipa">[ˈwɑɾə]</span></div>
+    </div>
+    <p class="feedback" role="status"><span data-icon="circle-alert" data-size="22" data-cls="crit"></span>Not quite — the answer was <span class="ipa" style="font-weight:400">[ɾ]</span>.</p>
+    <div class="well expl">
+      <div class="row gap8 wrap"><span class="chip t-td"><span data-fam="td" data-size="15" data-plain></span>Flapping</span><span class="badge" style="background:var(--sheet)"><span data-icon="mic" data-size="15" data-sw="2.25"></span>Safe to produce</span></div>
+      <p style="margin-top:8px;font-size:16px">“water” <span class="ipa">/ˈwɔtɚ/ → [ˈwɔɾɚ]</span></p>
+      <p class="small ink2" style="margin-top:2px">Between vowels, t becomes one quick tap of the tongue.</p>
+    </div>
+    <div class="links">
+      <span class="btn sm"><span data-icon="snail" data-size="18"></span>Again at 0.5×</span>
+      <span class="btn sm"><span data-icon="book-open" data-size="18"></span>Open the lesson</span>
+      <span class="btn sm"><span data-icon="bookmark" data-size="18"></span>Save</span>
+    </div>
+    <span class="btn primary block" style="margin-top:12px">Next question<span data-icon="arrow-right" data-size="20"></span></span>
+  </section>
+  <div data-navbar="Watch"></div>
+</div>
+<style>.crit { color: var(--critical); } .good { color: var(--good); }</style>
+</body></html>

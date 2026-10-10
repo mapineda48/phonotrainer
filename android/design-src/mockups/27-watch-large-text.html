@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=412">
+<title>Watch at font scale 2.0: the large-text layout</title>
+<link rel="stylesheet" href="kit/theme.css"><link rel="stylesheet" href="kit/feed.css">
+<script src="kit/icons.js"></script><script src="kit/art.js"></script><script src="kit/kit.js"></script>
+<style>
+  /* Sizes are the default sizes after Android 14 non-linear font scaling at 200 %:
+     14 sp -> 28, 16 -> 32, 20 -> 34, 34 -> 46. Layout rules: see design.md "Font scaling". */
+  .fhead { height: 64px; }
+  .mode { font-size: 30px; }
+  .pos { font-size: 28px; }
+  .vbox { display: grid; place-items: center; background: var(--letterbox); height: 168px; }
+  .vbox .frame { width: 299px; height: 168px; }
+  .slipL { margin: 16px 14px 0; background: var(--sheet); border-radius: 4px 4px 14px 14px; box-shadow: var(--shadow-sheet); padding: 10px 14px; position: relative; }
+  .slipL::before { content: ""; position: absolute; left: 0; right: 0; top: -8px; height: 8px; background: radial-gradient(circle at 6px 8px, transparent 3.5px, var(--sheet) 4px) repeat-x; background-size: 12px 8px; }
+  .slipL .k { font-size: 26px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .slipL .wd { font-family: var(--font-display); font-weight: 600; font-size: 46px; line-height: 1.1; text-decoration-thickness: 4px; text-underline-offset: .16em; }
+  .slipL .ipa { font-size: 34px; line-height: 1.25; }
+  .capsL { margin: 4px 14px 0; font-size: 34px; font-weight: 500; line-height: 60px; }
+  .progL { display: flex; align-items: center; gap: 10px; padding: 0 14px; margin-top: 2px; }
+  .clipL { padding: 0 14px; font-size: 28px; line-height: 1.25; color: var(--ink-2); }
+  .clipL b { color: var(--ink); }
+  .bar2 { position: absolute; left: 0; right: 0; bottom: 98px; display: grid; grid-template-columns: repeat(3, 1fr); background: var(--sheet); border-top: 1px solid var(--hairline); }
+  .bar2 span { min-height: 64px; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 26px; font-weight: 700; border-right: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline); }
+  .bar2 span.on { background: var(--ink); color: var(--on-ink); }
+  .navbar .item { font-size: 24px; }
+</style></head>
+<body>
+<div class="phone grain">
+  <div data-statusbar></div>
+  <div class="fhead">
+    <span class="mode"><span data-icon="shuffle" data-size="26"></span>Mix<span data-icon="chevron-down" data-size="24"></span></span>
+    <span class="pos" style="flex-direction:row;align-items:center">3 of 8</span>
+    <span class="iconbtn" aria-label="Previous short"><span data-icon="chevron-up" data-size="26"></span></span>
+    <span class="iconbtn" aria-label="Next short" style="margin-left:-6px"><span data-icon="chevron-down" data-size="26"></span></span>
+  </div>
+  <div class="vbox"><div class="frame scene-lake"><span class="sil" style="left:21%;width:21%;height:62%"></span><span class="head" style="left:24.5%;bottom:54%;width:13.5%;height:27%"></span><span class="sil" style="left:57%;width:19%;height:55%"></span><span class="head" style="left:60.5%;bottom:48%;width:12%;height:24%"></span></div></div>
+  <article class="slipL" aria-label="Listen for flapping in water. Safe to produce. Opens the lesson.">
+    <div class="k"><span data-fam="td" data-size="26"></span>Flapping<span class="grow"></span><span data-icon="chevron-right" data-size="28"></span></div>
+    <div class="k" style="font-weight:600"><span data-icon="mic" data-size="24" data-sw="2.25"></span>Safe to produce</div>
+    <div class="wd w m-td">“water”</div>
+    <div class="ipa">/ˈwɔtɚ/ → [ˈwɔɾɚ]</div>
+  </article>
+  <p class="capsL">Is the <span class="w m-td playing">water</span> still warm?</p>
+  <div class="progL"><span class="play" aria-label="Pause"><span data-icon="pause" data-size="22"></span></span><div class="grow" data-trace='{"w":330,"h":36,"seed":7,"progress":0.31,"ticks":[0.47,0.78],"pin":0.29,"pinFill":"var(--ink)","accents":5,"wMin":1.6,"wMax":5.4,"gaps":[[0.45,0.49],[0.76,0.8]]}'></div></div>
+  <div class="clipL"><b>Two friends at the lake ›</b> · Short 4 of 15</div>
+  <div class="bar2" aria-label="Actions">
+    <span><span data-icon="rotate-ccw" data-size="26"></span>Replay</span><span class="on"><span data-icon="gauge" data-size="26"></span>0.75×</span><span><span data-icon="repeat" data-size="26"></span>Loop off</span>
+    <span><span data-icon="mic-vocal" data-size="26"></span>Shadow</span><span><span data-icon="bookmark" data-size="26"></span>Save</span><span><span data-icon="ellipsis" data-size="26"></span>More</span>
+  </div>
+  <div data-navbar="Watch"></div>
+</div>
+</body></html>

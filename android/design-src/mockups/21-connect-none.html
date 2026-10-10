@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=412">
+<title>Connect: no computer answered</title>
+<link rel="stylesheet" href="kit/theme.css">
+<script src="kit/icons.js"></script><script src="kit/art.js"></script><script src="kit/kit.js"></script>
+<style>
+  .content { padding: 0 16px 40px; }
+  .ill svg { width: 100%; height: auto; display: block; }
+  .check { list-style: none; padding: 4px 14px; margin-top: 12px; }
+  .check li { display: flex; gap: 12px; align-items: flex-start; padding: 10px 0; border-top: 1px solid var(--hairline); font-size: 16px; line-height: 1.4; }
+  .check li:first-child { border-top: 0; }
+  .num { width: 28px; height: 28px; border-radius: 14px; display: grid; place-items: center; font: italic 600 17px var(--font-display); box-shadow: inset 0 0 0 1.5px var(--ink); flex: none; }
+</style></head>
+<body>
+<div class="phone grain fibres">
+  <div data-statusbar></div>
+  <div class="topbar"><span class="iconbtn" aria-label="Back"><span data-icon="arrow-left" data-size="24"></span></span><h1>Connect to your computer</h1></div>
+  <div class="content">
+    <p class="lede">Your computer analyzes the clips; this phone keeps them and teaches with them. Connect once, on your home Wi-Fi.</p>
+    <div class="ill" data-art="noComputer" style="margin-top:8px"></div>
+    <h2 class="display" style="font-size:30px;line-height:1.1;margin-top:8px">No computer answered.</h2>
+    <p style="margin-top:4px;font-size:16px">This phone looked on your Wi-Fi for 10 seconds and heard nothing back.</p>
+    <ol class="card check">
+      <li><span class="num">1</span>Is PhonoTrainer running with phone access on?</li>
+      <li><span class="num">2</span>Are this phone and your computer on the same Wi-Fi?</li>
+      <li><span class="num">3</span>Some routers keep devices apart (guest networks).</li>
+      <li><span class="num">4</span>Is a VPN on? Turn it off at home: it can hide your computer.</li>
+    </ol>
+    <span class="btn primary block lg" style="margin-top:14px"><span data-icon="radar" data-size="22"></span>Search again</span>
+    <span class="btn block lg" style="margin-top:10px"><span data-icon="router" data-size="22"></span>Enter the address instead</span>
+  </div>
+  <div class="gesture page"></div>
+</div>
+</body></html>

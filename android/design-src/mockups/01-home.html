@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=412">
+<title>Home: the dashboard</title>
+<link rel="stylesheet" href="kit/theme.css">
+<script src="kit/icons.js"></script><script src="kit/art.js"></script><script src="kit/kit.js"></script>
+<style>
+  .content { padding: 0 16px 120px; }
+  .mast { display: flex; align-items: center; gap: 8px; padding: 4px 0 8px; }
+  .wordmark { font-family: var(--font-display); font-weight: 700; font-size: 30px; letter-spacing: -.02em; line-height: 1; }
+  .wordmark i { font-style: italic; font-weight: 500; }
+  .dateline { display: flex; justify-content: space-between; align-items: baseline; padding: 8px 0 0; font-size: 14px; color: var(--ink-2); }
+  .dateline b { font-family: var(--font-display); font-style: italic; font-weight: 500; font-size: 17px; color: var(--ink); }
+  .wire { padding: 14px 14px 4px; margin-top: 14px; }
+  .wire .top { display: flex; gap: 12px; align-items: center; }
+  .wire .wl { width: 44px; height: 44px; border-radius: 12px; background: var(--ink); color: var(--on-ink); display: grid; place-items: center; flex: none; }
+  .wire .ttl { font-weight: 700; font-size: 17px; line-height: 1.3; }
+  .wire .sub { font-size: 14px; color: var(--ink-2); }
+  .wrow { display: flex; align-items: center; gap: 12px; min-height: 52px; border-top: 1px solid var(--hairline); padding: 6px 0 6px 2px; margin-top: 4px; }
+  .wrow .t { flex: 1; font-size: 15px; line-height: 1.3; }
+  .wrow .bar { margin-top: 6px; }
+  .today { padding: 16px; margin-top: 22px; }
+  .today .ht { position: absolute; right: 0; top: 0; width: 150px; height: 118px; overflow: hidden; border-radius: 0 var(--r-card) 0 0; -webkit-mask-image: radial-gradient(170px 130px at 100% 0, #000 35%, transparent 100%); }
+  .today h1 { font-family: var(--font-display); font-weight: 650; font-size: 36px; line-height: 1.02; letter-spacing: -.02em; margin-top: 6px; }
+  .today h1 i { font-weight: 400; }
+  .today .lede { margin-top: 6px; color: var(--ink); }
+  .stations { position: relative; height: 54px; margin: 14px 0 4px; }
+  .stations .tr { position: absolute; left: 0; right: 0; top: 2px; }
+  .st { position: absolute; top: 4px; width: 34px; margin-left: -17px; display: flex; justify-content: center; }
+  .st .f { width: 30px; height: 30px; border-radius: 15px; background: var(--sheet); box-shadow: inset 0 0 0 1.5px var(--line-strong); display: grid; place-items: center; }
+  .st.saved .f { box-shadow: inset 0 0 0 2px var(--ink); }
+  .st .sv { position: absolute; top: -7px; right: -2px; color: var(--ink); background: var(--sheet); border-radius: 8px; }
+  .qs { position: absolute; right: 0; top: 11px; display: flex; gap: 3px; }
+  .qs i { width: 9px; height: 14px; border: 1.5px solid var(--ink); border-radius: 2px; background: var(--sheet); }
+  .legend { display: flex; justify-content: space-between; font-size: 14px; color: var(--ink-2); margin-top: -6px; position: relative; }
+  .today .actions { display: flex; align-items: center; gap: 12px; margin-top: 14px; position: relative; }
+  .kw { display: grid; grid-template-columns: 124px 1fr; gap: 12px; padding: 12px; }
+  .poster { border-radius: 8px; aspect-ratio: 16/9; position: relative; overflow: hidden; }
+  .poster .tm { position: absolute; right: 4px; bottom: 4px; }
+  .kw .ttl { font-weight: 700; font-size: 16px; line-height: 1.25; }
+  .kw .meta { font-size: 14px; color: var(--ink-2); }
+  .listen { font-size: 15px; margin-top: 6px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .kw .btn { grid-column: 1 / -1; }
+  .slots { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .slot { padding: 14px; min-height: 112px; display: flex; flex-direction: column; gap: 6px; }
+  .slot .ic { width: 44px; height: 44px; border-radius: 12px; border: 1.5px dashed var(--ink); display: grid; place-items: center; }
+  .slot b { font-size: 16px; } .slot span { font-size: 14px; color: var(--ink-2); line-height: 1.3; }
+  .new { display: flex; gap: 12px; align-items: center; padding: 12px 12px 12px 14px; overflow: hidden; }
+  .stamp { position: absolute; right: 96px; top: 8px; transform: rotate(-8deg); border: 2px solid var(--ink); border-radius: 6px; padding: 1px 6px; font-size: 14px; font-weight: 800; letter-spacing: .08em; opacity: .14; }
+  .shelf { display: flex; gap: 12px; overflow: hidden; margin-right: -16px; }
+  .clip { width: 176px; flex: none; padding: 8px 8px 10px; }
+  .clip .poster { aspect-ratio: 16/10; }
+  .audioart { background: var(--galley); display: grid; place-items: center; }
+  .clip .ttl { font-weight: 700; font-size: 15px; line-height: 1.25; margin-top: 8px; }
+  .clip .meta { font-size: 14px; color: var(--ink-2); }
+  .fams { display: flex; gap: 8px; margin: 6px 0 4px; font-size: 14px; font-weight: 600; }
+  .fams span { display: inline-flex; gap: 2px; align-items: center; }
+  .avail { font-size: 14px; display: flex; align-items: center; gap: 5px; font-weight: 600; }
+  .fam { padding: 12px 14px 4px; }
+  .famh { display: flex; align-items: baseline; gap: 8px; font-weight: 700; font-size: 16px; }
+  .famh .ico { align-self: center; }
+  .famh small { font-weight: 400; font-size: 14px; color: var(--ink-2); margin-left: auto; text-align: right; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 0 12px; }
+  .practice { padding: 16px; display: grid; grid-template-columns: 1fr 96px; gap: 8px 12px; align-items: start; }
+  .practice .btn { grid-column: 1 / -1; }
+  .meter { display: flex; gap: 3px; margin-top: 6px; }
+  .meter i { width: 18px; height: 10px; border-radius: 2px; background: var(--ink); }
+  .meter i.o { background: transparent; box-shadow: inset 0 0 0 1.5px var(--ink-muted); }
+  .insight { padding: 14px 16px; display: grid; grid-template-columns: 1fr 96px; gap: 12px; align-items: center; }
+  .insight .big { font-family: var(--font-display); font-weight: 600; font-size: 40px; line-height: 1; }
+</style></head>
+<body>
+<div class="phone grain fibres" id="ph">
+  <div data-statusbar></div>
+  <div class="content">
+    <header class="mast">
+      <span data-mark="36"></span>
+      <span class="wordmark">Phono<i>Trainer</i></span>
+      <span class="grow"></span>
+      <span class="iconbtn" aria-label="Settings"><span data-icon="settings-2" data-size="22"></span></span>
+    </header>
+    <div class="rule2"></div>
+    <div class="dateline"><b>Sunday, 4 October</b><span>Home</span></div>
+    <p class="lede" style="margin-top:2px">What to study today, and how your clips are doing.</p>
+
+    <section class="card wire" aria-label="Your computer: Connected to Desk PC, checked 10 seconds ago. 1 analyzing, 61 percent. 1 needs your attention. Bringing 2 clips to this phone.">
+      <div class="top">
+        <span class="wl"><span data-icon="monitor-check" data-size="22"></span></span>
+        <div class="grow"><div class="ttl">Connected to Desk PC</div><div class="sub">Checked 10 s ago · 1 in line</div></div>
+        <span class="btn sm quiet" style="padding:0 6px"><span data-icon="refresh-cw" data-size="18"></span>Sync now</span>
+      </div>
+      <div class="wrow"><span data-icon="loader-circle" data-size="20"></span><div class="t"><b>1 analyzing</b> · 61 % · Hear the phones<div class="bar"><i style="width:61%"></i></div></div><span data-icon="chevron-right" data-size="20"></span></div>
+      <div class="wrow"><span data-icon="circle-alert" data-size="20" data-cls="crit" style=""></span><div class="t"><b>1 needs your attention</b><br><span class="ink2" style="font-size:14px">Couldn't download a link</span></div><span class="btn sm"><span data-icon="rotate-ccw" data-size="18"></span>Try again</span></div>
+      <div class="wrow"><span data-icon="download" data-size="20"></span><div class="t">Bringing 2 clips to this phone · <b style="white-space:nowrap">34 MB of 61 MB</b><div class="bar"><i style="width:56%"></i></div></div></div>
+    </section>
+
+    <section class="card stack today" aria-label="Today's set">
+      <span class="crop tl"></span><span class="crop tr"></span>
+      <div class="ht" data-halftone='{"w":150,"h":118,"seed":11,"cell":7}'></div>
+      <div class="kicker" style="position:relative">Today's set</div>
+      <h1 style="position:relative">Today <i>·</i> about 5&nbsp;minutes</h1>
+      <p class="lede" style="position:relative">8 shorts, 5 questions · 2 saved shorts back</p>
+      <div class="stations" aria-label="What you will meet: linking, flapping, vowel reduction, a contraction, flapping, palatalization, linking, vowel reduction">
+        <div class="tr" data-trace='{"w":348,"h":28,"seed":5,"progress":0.0,"nib":false,"accents":6,"dash":"1 4","restW":2}'></div>
+        <div class="st saved" style="left:4%"><span class="f"><span data-fam="boundary" data-size="16"></span></span><span class="sv"><span data-icon="bookmark" data-size="13" data-sw="2.5"></span></span></div>
+        <div class="st" style="left:14.5%"><span class="f"><span data-fam="td" data-size="16"></span></span></div>
+        <div class="st" style="left:25%"><span class="f"><span data-fam="reduction" data-size="16"></span></span></div>
+        <div class="st" style="left:35.5%"><span class="f"><span data-fam="lexical" data-size="16"></span></span></div>
+        <div class="st saved" style="left:46%"><span class="f"><span data-fam="td" data-size="16"></span></span><span class="sv"><span data-icon="bookmark" data-size="13" data-sw="2.5"></span></span></div>
+        <div class="st" style="left:56.5%"><span class="f"><span data-fam="assimilation" data-size="16"></span></span></div>
+        <div class="st" style="left:67%"><span class="f"><span data-fam="boundary" data-size="16"></span></span></div>
+        <div class="st" style="left:77.5%"><span class="f"><span data-fam="reduction" data-size="16"></span></span></div>
+        <div class="qs" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+      </div>
+      <div class="legend"><span>8 shorts · one change each</span><span>5 questions</span></div>
+      <div class="actions">
+        <span class="btn primary lg" style="flex:1"><span data-icon="play" data-size="22"></span>Start</span>
+        <span class="btn lg" style="padding:0 18px" aria-label="What's in today's set"><span data-icon="list-ordered" data-size="22"></span></span>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="sechead"><h2 class="h2">Keep watching</h2></div>
+      <div class="card kw">
+        <div class="poster frame scene-lake"><span class="sil" style="left:22%;width:20%;height:46%"></span><span class="head" style="left:26%;bottom:40%;width:12%;height:22%"></span><span class="sil" style="left:58%;width:18%;height:40%"></span><span class="head" style="left:61.5%;bottom:35%;width:11%;height:20%"></span><span class="tm mediachip" style="min-height:24px;padding:0 6px">0:42</span></div>
+        <div><div class="ttl">Two friends at the lake</div><div class="meta">Short 4 of 15</div>
+          <div class="listen"><span>Listen for:</span><span class="chip t-boundary" style="min-height:28px;padding:0 9px"><span data-fam="boundary" data-size="15" data-plain></span>Linking</span><span>in <span class="w m-boundary">“pick it up”</span></span></div></div>
+        <span class="btn primary"><span data-icon="play" data-size="20"></span>Keep watching</span>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="sechead"><h2 class="h2">Add a clip</h2><span class="ink2" style="font-size:14px">Short dialogue teaches the most</span></div>
+      <div class="slots">
+        <div class="card slot"><span class="ic"><span data-icon="clipboard-paste" data-size="22"></span></span><b>Paste a link</b><span>From YouTube, X or another site</span></div>
+        <div class="card slot"><span class="ic"><span data-icon="folder-open" data-size="22"></span></span><b>Choose a file</b><span>Video or audio on this phone</span></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="card new">
+        <span class="stamp" aria-hidden="true">NEW</span>
+        <span data-icon="circle-check" data-size="22"></span>
+        <div class="grow"><div style="font-weight:700">Ready to watch: Coffee shop small talk</div><div class="ink2" style="font-size:14px">New on this phone · 12 shorts</div></div>
+        <span class="btn sm">Watch</span>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="sechead"><h2 class="h2">Your clips</h2><span class="btn quiet sm" style="padding:0 4px">All clips <span data-icon="arrow-right" data-size="18"></span></span></div>
+      <div class="shelf">
+        <div class="card clip"><div class="poster frame scene-cafe"><span class="tm mediachip" style="min-height:24px;padding:0 6px">4:21</span></div><div class="ttl">Coffee shop small talk</div><div class="meta">4 min 21 s · 12 shorts</div>
+          <div class="fams"><span><span data-fam="reduction" data-size="15"></span>21</span><span><span data-fam="td" data-size="15"></span>14</span><span><span data-fam="assimilation" data-size="15"></span>3</span><span><span data-fam="boundary" data-size="15"></span>9</span></div>
+          <div class="avail"><span data-icon="smartphone" data-size="16"></span>On this phone</div></div>
+        <div class="card clip"><div class="poster audioart"><div data-trace='{"w":160,"h":70,"seed":21,"progress":1,"wMin":1.4,"wMax":4.5,"accents":5,"blot":true,"rules":3}'></div><span class="tm mediachip" style="min-height:24px;padding:0 6px;position:absolute"><span data-icon="headphones" data-size="14"></span>10:14</span></div><div class="ttl">Morning radio interview</div><div class="meta">Audio only · 31 shorts</div>
+          <div class="fams"><span><span data-fam="reduction" data-size="15"></span>48</span><span><span data-fam="td" data-size="15"></span>30</span><span><span data-fam="boundary" data-size="15"></span>22</span></div>
+          <div class="avail"><span data-icon="smartphone" data-size="16"></span>On this phone</div></div>
+        <div class="card clip"><div class="poster" data-art="poster" data-opts='{"seed":14,"title":"Asking for directions"}'></div><div class="ttl">Asking for directions</div><div class="meta">3 min 49 s · 11 shorts</div>
+          <div class="fams"><span><span data-fam="td" data-size="15"></span>12</span></div>
+          <div class="avail"><span data-icon="download" data-size="16"></span>Bringing to this phone 45 %</div></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="sechead"><h2 class="h2">Watch by change</h2><span class="ink2" style="font-size:14px">16 changes</span></div>
+      <div class="card fam">
+        <div class="famh"><span data-fam="reduction"></span><span class="w m-reduction">Reduction</span><small>solid line · the sound weakens</small></div>
+        <div class="chips"><span class="chip tall">Vowel reduction · 41</span><span class="chip tall">Function-word elision · 18</span><span class="chip tall">Elided syllable · 6</span><span class="chip tall zero">Monophthongization · Not in your clips yet</span></div>
+        <div class="hair"></div>
+        <div class="famh" style="margin-top:12px"><span data-fam="td"></span><span class="w m-td">t/d processes</span><small>dashed line · the stop is clipped</small></div>
+        <div class="chips"><span class="chip tall">Flapping · 34</span><span class="chip tall">Unreleased t/d · 22</span><span class="chip tall">Glottalization · 9</span><span class="chip tall">t/d deletion · 8</span><span class="chip tall">nt → n · 2</span></div>
+        <div class="hair"></div>
+        <div class="famh" style="margin-top:12px"><span data-fam="assimilation"></span><span class="w m-assimilation">Assimilation</span><small>double line · two sounds blend</small></div>
+        <div class="chips"><span class="chip tall">Palatalization · 7</span><span class="chip tall">Place assimilation · 5</span><span class="chip tall">th-stopping · 3</span></div>
+        <div class="hair"></div>
+        <div class="famh" style="margin-top:12px"><span data-fam="boundary"></span><span class="w m-boundary">Word boundary</span><small>wavy line · words run together</small></div>
+        <div class="chips"><span class="chip tall">Linking · 52</span><span class="chip tall">h-dropping · 11</span></div>
+        <div class="hair"></div>
+        <div class="famh" style="margin-top:12px"><span data-fam="lexical"></span><span class="w m-lexical">Whole-word changes</span><small>dotted · dash-dot</small></div>
+        <div class="chips"><span class="chip tall">Lexical contraction · 16</span><span class="chip tall">Elided word · 4</span></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="sechead"><h2 class="h2">Practice</h2></div>
+      <div class="card practice">
+        <div><div style="font-weight:700;font-size:17px">10 questions · about 3 minutes</div>
+          <div class="ink2" style="font-size:15px;margin-top:4px">Worth reviewing: t/d deletion · 4 of 9</div>
+          <div class="meter" aria-hidden="true"><i></i><i></i><i></i><i></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i></div>
+          <div class="ink2" style="font-size:15px;margin-top:8px;display:flex;gap:6px;align-items:center"><span data-icon="bookmark" data-size="16"></span>12 saved shorts</div></div>
+        <div data-art="spotPractice"></div>
+        <span class="btn primary"><span data-icon="target" data-size="20"></span>Start</span>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="card insight"><div><span class="big">7<span style="font-size:22px;font-style:italic;font-weight:400"> in </span>10</span><div style="font-size:15px;margin-top:4px">words you hear don't sound the way the dictionary writes them.</div><div style="font-weight:700;display:flex;gap:4px;align-items:center;min-height:48px">See Insights <span data-icon="arrow-right" data-size="18"></span></div></div><div data-art="spotInsights"></div></div>
+    </section>
+  </div>
+  <div data-navbar="Home"></div>
+</div>
+<style>.crit { color: var(--critical); }</style>
+</body></html>

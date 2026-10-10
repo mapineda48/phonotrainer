@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=412">
+<title>Learn</title>
+<link rel="stylesheet" href="kit/theme.css">
+<script src="kit/icons.js"></script><script src="kit/art.js"></script><script src="kit/kit.js"></script>
+<style>
+  .content { padding: 0 16px 120px; }
+  .title { font-family: var(--font-display); font-weight: 650; font-size: 36px; line-height: 1.05; letter-spacing: -.02em; padding-top: 12px; }
+  .how { padding: 14px; margin-top: 14px; }
+  .how ol { list-style: none; counter-reset: s; margin-top: 6px; }
+  .how li { counter-increment: s; display: flex; gap: 10px; padding: 5px 0; font-size: 15px; line-height: 1.4; }
+  .how li::before { content: counter(s); width: 26px; height: 26px; border-radius: 13px; flex: none; display: grid; place-items: center; font: italic 600 16px var(--font-display); box-shadow: inset 0 0 0 1.5px var(--ink); }
+  .entries { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+  .entry { padding: 12px 10px; display: flex; flex-direction: column; gap: 6px; min-height: 88px; font-weight: 700; font-size: 15px; line-height: 1.2; }
+  .entry .ic { width: 36px; height: 36px; border-radius: 10px; background: var(--galley); display: grid; place-items: center; }
+  .famsec { margin-top: 22px; }
+  .famsec h2 { display: flex; align-items: center; gap: 8px; }
+  .famsec .sub { font-size: 14px; color: var(--ink-2); margin-top: 2px; }
+  .cc { padding: 12px 14px; margin-top: 10px; }
+  .cc .nm { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 17px; }
+  .cc p { font-size: 15px; color: var(--ink-2); line-height: 1.4; margin-top: 4px; }
+  .cc .ft { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; gap: 8px; flex-wrap: wrap; }
+  .count { font-size: 14px; font-weight: 700; display: inline-flex; gap: 5px; align-items: center; }
+</style></head>
+<body>
+<div class="phone grain fibres">
+  <div data-statusbar></div>
+  <div class="content">
+    <h1 class="title">Learn</h1>
+    <div class="rule2" style="margin-top:8px"></div>
+    <p class="lede" style="margin-top:8px">How native speakers change words when they talk — and which of those changes you can copy.</p>
+    <section class="card how">
+      <div class="kicker">How to study a change</div>
+      <ol><li>Read what happens and whether you can copy it.</li><li>Watch it in your clips, slowly if you need to.</li><li>Train your ear in Practice.</li></ol>
+    </section>
+    <div class="entries">
+      <div class="card entry"><span class="ic"><span data-icon="grid-3x3" data-size="20"></span></span>IPA chart</div>
+      <div class="card entry"><span class="ic"><span data-icon="book-a" data-size="20"></span></span>Words we use</div>
+      <div class="card entry"><span class="ic"><span data-icon="chart-column" data-size="20"></span></span>Insights</div>
+    </div>
+    <section class="famsec">
+      <h2 class="h2"><span data-fam="td" data-size="22"></span><span class="w m-td">t/d processes</span></h2>
+      <p class="sub">Dashed line · scissors: the stop is clipped</p>
+      <div class="card cc">
+        <div class="nm"><span data-fam="td" data-size="18"></span><span class="w m-td">Flapping</span></div>
+        <p>A t or d between vowels becomes one quick tap: <span class="ipa">/ˈwɔtɚ/ → [ˈwɔɾɚ]</span>.</p>
+        <div class="ft"><span class="badge"><span data-icon="mic" data-size="15" data-sw="2.25"></span>Safe to produce · universal</span><span class="count"><span data-icon="square-play" data-size="16"></span>34 shorts in your clips</span></div>
+      </div>
+      <div class="card cc">
+        <div class="nm"><span data-fam="td" data-size="18"></span><span class="w m-td">t/d deletion</span></div>
+        <p>The t or d of a consonant group is skipped: <span class="ipa">/nɛkst deɪ/ → [nɛks deɪ]</span>.</p>
+        <div class="ft"><span class="badge"><span data-icon="ear" data-size="15" data-sw="2.25"></span>Recognize only · casual</span><span class="count"><span data-icon="square-play" data-size="16"></span>8 shorts in your clips</span></div>
+      </div>
+      <div class="card cc">
+        <div class="nm"><span data-fam="td" data-size="18"></span><span class="w m-td">nt → n</span></div>
+        <p>The t after n disappears or becomes a nasal tap: <span class="ipa">/ˈwɪntɚ/ → [ˈwɪɾ̃ɚ]</span>.</p>
+        <div class="ft"><span class="badge"><span data-icon="ear" data-size="15" data-sw="2.25"></span>Recognize only · marked</span><span class="count muted" style="font-weight:600">Not in your clips yet</span></div>
+      </div>
+    </section>
+  </div>
+  <div data-navbar="Learn"></div>
+</div>
+</body></html>

@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=412">
+<title>Library: all clips</title>
+<link rel="stylesheet" href="kit/theme.css">
+<script src="kit/icons.js"></script><script src="kit/art.js"></script><script src="kit/kit.js"></script>
+<style>
+  .content { padding: 0 16px 120px; }
+  .req { display: flex; gap: 12px; align-items: center; padding: 10px 12px; min-height: 64px; }
+  .req + .req { border-top: 1px solid var(--hairline); }
+  .req .t { flex: 1; min-width: 0; } .req .t b { display: block; font-size: 15px; } .req .t span { display: block; font-size: 14px; color: var(--ink-2); }
+  .cliprow { display: grid; grid-template-columns: 104px 1fr 40px; gap: 12px; padding: 12px 0; border-top: 1px solid var(--hairline); align-items: start; }
+  .cliprow .poster { width: 104px; height: 66px; border-radius: 8px; overflow: hidden; position: relative; }
+  .cliprow .ttl { font-weight: 700; font-size: 16px; line-height: 1.25; }
+  .cliprow .meta { font-size: 14px; color: var(--ink-2); line-height: 1.35; }
+  .cliprow .tags { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 4px; font-size: 14px; font-weight: 600; }
+  .cliprow .tags span { display: inline-flex; gap: 4px; align-items: center; }
+  .filters { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
+</style></head>
+<body>
+<div class="phone grain">
+  <div data-statusbar></div>
+  <div class="topbar"><span class="iconbtn" aria-label="Back"><span data-icon="arrow-left" data-size="24"></span></span><h1>All clips</h1><span class="iconbtn" aria-label="Add a clip"><span data-icon="plus" data-size="24"></span></span></div>
+  <div class="content">
+    <p class="lede">Every clip on your computer, and what is on this phone. Open one to study how each word was really said.</p>
+    <div class="grouphead"><span class="kicker">In progress <span class="n">3</span></span></div>
+    <div class="card" style="padding:2px 0">
+      <div class="req"><span data-icon="circle-alert" data-size="22" data-cls="crit"></span><div class="t"><b>Couldn't download</b><span>YouTube link · added today</span></div><span class="btn sm">Try again</span></div>
+      <div class="req"><span data-icon="clock" data-size="22"></span><div class="t"><b>Waiting on this phone</b><span>bus-stop-chat.mp4 · 48 MB</span></div><span data-icon="chevron-right" data-size="20"></span></div>
+      <div class="req"><span data-icon="loader-circle" data-size="22"></span><div class="t"><b>Analyzing 61 % · Hear the phones</b><span>How to order coffee like a local</span></div><span data-icon="chevron-right" data-size="20"></span></div>
+    </div>
+    <p class="small ink2" style="margin-top:8px;display:flex;gap:6px;align-items:center"><span data-icon="monitor" data-size="16"></span>2 more started on your computer</p>
+    <div class="field" style="margin-top:14px"><span data-icon="search" data-size="20"></span><span class="ph">Search your clips…</span></div>
+    <div class="filters"><span class="chip tall solid"><span data-icon="check" data-size="16" data-sw="2.6"></span>On this phone</span><span class="chip tall">Not on this phone</span></div>
+    <div class="row" style="justify-content:space-between;margin-top:4px"><span class="small ink2" role="status">8 of 10 clips</span><span class="btn sm quiet" style="padding:0 4px">Newest first<span data-icon="chevron-down" data-size="18"></span></span></div>
+    <div style="margin-top:6px">
+      <div class="cliprow" style="border-top:0"><div class="poster frame scene-cafe"></div><div><div class="ttl">Coffee shop small talk</div><div class="meta">4 min 21 s · 691 words · 14 changes</div>
+        <div class="tags"><span><span data-icon="tv-minimal-play" data-size="16"></span>YouTube</span><span><span data-icon="smartphone" data-size="16"></span>On this phone</span><span><span data-icon="pin" data-size="16"></span>Kept</span></div><div class="meta" style="margin-top:2px">You've seen 12 of 15 shorts</div></div><span class="iconbtn" aria-label="More actions"><span data-icon="ellipsis-vertical" data-size="22"></span></span></div>
+      <div class="cliprow"><div class="poster" style="background:var(--galley);display:grid;place-items:center" data-trace='{"w":96,"h":46,"seed":21,"progress":1,"wMin":1.2,"wMax":3.6,"accents":5,"blot":true,"rules":2}'></div><div><div class="ttl">Morning radio interview</div><div class="meta">10 min 14 s · Audio only · 1,489 words</div>
+        <div class="tags"><span><span data-icon="file-audio" data-size="16"></span>Phone file</span><span><span data-icon="smartphone" data-size="16"></span>On this phone</span></div></div><span class="iconbtn" aria-label="More actions"><span data-icon="ellipsis-vertical" data-size="22"></span></span></div>
+      <div class="cliprow"><div class="poster" data-art="poster" data-opts='{"seed":14,"w":104,"h":66}'></div><div><div class="ttl">Asking for directions</div><div class="meta">3 min 49 s · 512 words · 9 changes</div>
+        <div class="tags"><span><span data-icon="at-sign" data-size="16"></span>X</span><span><span data-icon="film" data-size="16"></span>Video not on this phone</span></div><div class="meta" style="margin-top:2px"><span class="chip muted" style="min-height:28px">Older rules: re-analyze on your computer to update</span></div></div><span class="iconbtn" aria-label="More actions"><span data-icon="ellipsis-vertical" data-size="22"></span></span></div>
+    </div>
+  </div>
+  <div data-navbar="Home"></div>
+</div>
+<style>.crit { color: var(--critical); }</style>
+</body></html>

@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en" data-palette="cvd" data-patterns="on"><head><meta charset="utf-8"><meta name="viewport" content="width=412">
+<title>Watch: audio-only short, offline, color-vision palette</title>
+<link rel="stylesheet" href="kit/theme.css"><link rel="stylesheet" href="kit/feed.css">
+<script src="kit/icons.js"></script><script src="kit/art.js"></script><script src="kit/kit.js"></script>
+<style>
+  .drum { position: relative; height: 236px; background: var(--galley); overflow: hidden; }
+  .drum .ht { position: absolute; left: 0; top: 0; }
+  .drum .line { position: absolute; left: 0; top: 40px; }
+  .drum .strip { position: absolute; left: 0; right: 0; bottom: 0; height: 44px; background: var(--sheet); border-top: 1px solid var(--hairline); }
+  .drum .strip span { position: absolute; top: 9px; font-size: 15px; color: var(--ink-2); transform: translateX(-50%); }
+  .drum .strip span.cur { color: var(--ink); font-weight: 700; text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 2px; }
+  .drum .needle { position: absolute; top: 0; bottom: 44px; width: 2px; background: var(--ink); opacity: .7; }
+  .drum .chips { position: absolute; left: 10px; right: 10px; top: 10px; display: flex; justify-content: space-between; }
+  .drum .cap { font-family: var(--font-display); font-style: italic; font-weight: 500; font-size: 16px; }
+</style>
+<script>
+window.afterHydrate = () => {
+  const d = document.querySelector(".drum .line");
+  d.innerHTML = trace({ w: 412, h: 132, seed: 31, progress: 0.3, accents: 5, wMin: 3, wMax: 11, nibR: 8, restW: 2.6, dash: "1 6", gaps: [[0.18, 0.21], [0.55, 0.58]], rules: 4 });
+};
+</script>
+</head>
+<body>
+<div class="phone grain">
+  <div data-statusbar></div>
+  <div class="fhead">
+    <span class="mode" style="padding:0 6px">Today's set<span data-icon="chevron-down" data-size="18"></span></span>
+    <span class="offchip" aria-label="Your computer isn't reachable: playing what is on this phone"><span data-icon="smartphone" data-size="15"></span>On this phone</span>
+    <span class="pos">5 of 8</span>
+    <span class="iconbtn" aria-label="Previous short"><span data-icon="chevron-up" data-size="22"></span></span>
+    <span class="iconbtn" aria-label="Next short" style="margin-left:-8px"><span data-icon="chevron-down" data-size="22"></span></span>
+  </div>
+
+  <div class="drum" role="img" aria-label="Audio only. Pitch of this phrase.">
+    <div class="ht" data-halftone='{"w":412,"h":192,"seed":31,"cell":8,"color":"var(--halftone)"}'></div>
+    <div class="line"></div>
+    <div class="needle" style="left:123px"></div>
+    <div class="chips"><span class="mediachip"><span data-icon="headphones" data-size="16"></span>Audio only</span><span class="mediachip cap">Pitch of this phrase</span></div>
+    <div class="strip" aria-hidden="true">
+      <span style="left:22px">I</span><span style="left:58px">told</span><span class="cur" style="left:112px">him</span><span style="left:162px">I'd</span><span style="left:210px">call</span><span style="left:258px">her</span><span style="left:306px">back</span><span style="left:368px">tomorrow</span>
+    </div>
+  </div>
+
+  <div class="body">
+    <div>
+      <article class="slip" aria-label="Listen for h-dropping in him. Safe to produce.">
+        <div class="tags">
+          <span class="chip t-boundary"><span data-fam="boundary" data-size="16" data-plain></span>h-dropping</span>
+          <span class="badge"><span data-icon="mic" data-size="15" data-sw="2.25"></span>Safe to produce</span>
+        </div>
+        <div class="lf"><span class="kick">Listen for</span><span class="wd w m-boundary">“him”</span></div>
+        <p class="ipaline">/hɪm/ → [ɪm]</p>
+        <p class="cue">The h of a quick “him” disappears: “told-im”.</p>
+        <div class="acts"><span class="btn sm"><span data-icon="play" data-size="18"></span>Play the word</span><span class="btn sm"><span data-icon="snail" data-size="18"></span>Slowly</span></div>
+      </article>
+      <div class="caps" aria-label="Captions" style="margin-top:10px">
+        <p class="prev">So what did you tell him?</p>
+        <p class="cur">I <span class="w m-td playing">told</span><span data-pat="td"></span> <span class="w m-boundary">him</span><span data-pat="boundary"></span> <span class="lowconf">I'd</span> call<span class="tie">‿</span><span class="w m-boundary">her</span><span data-pat="boundary"></span> back <span class="w m-reduction stress">tomorrow.</span><span data-pat="reduction"></span> <span class="into"><span data-icon="trending-down" data-size="15"></span>Statement · falls</span></p>
+      </div>
+    </div>
+    <div class="rail" aria-label="Actions">
+      <span class="ra"><span class="c"><span data-icon="rotate-ccw" data-size="22"></span></span>Replay</span>
+      <span class="ra"><span class="c"><span data-icon="gauge" data-size="22"></span></span>1×</span>
+      <span class="ra on"><span class="c"><span data-icon="repeat-1" data-size="22"></span></span>Loop: Phrase</span>
+      <span class="ra"><span class="c"><span data-icon="mic-vocal" data-size="22"></span></span>Shadow</span>
+      <span class="ra on"><span class="c"><span data-icon="bookmark-check" data-size="22"></span></span>Saved</span>
+      <span class="ra"><span class="c"><span data-icon="ellipsis" data-size="22"></span></span>More</span>
+    </div>
+  </div>
+
+  <div class="prog">
+    <div class="r1">
+      <span class="play" aria-label="Pause"><span data-icon="pause" data-size="22"></span></span>
+      <div class="grow" data-trace='{"w":272,"h":36,"seed":9,"progress":0.36,"ticks":[0.3,0.74],"pin":0.4,"accents":5,"wMin":1.6,"wMax":5.4,"gaps":[[0.28,0.32],[0.72,0.76]]}'></div>
+      <span class="tm">2:20</span>
+    </div>
+    <div class="clipline"><b>Morning radio interview<span data-icon="chevron-right" data-size="16"></span></b><span style="margin-left:auto">Short 9 of 31 · 2:14–2:31</span></div>
+  </div>
+  <div data-navbar="Watch"></div>
+</div>
+</body></html>

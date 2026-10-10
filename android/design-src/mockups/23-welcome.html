@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=412">
+<title>Welcome, page 1</title>
+<link rel="stylesheet" href="kit/theme.css">
+<script src="kit/icons.js"></script><script src="kit/art.js"></script><script src="kit/kit.js"></script>
+<style>
+  .top { display: flex; justify-content: space-between; align-items: center; padding: 4px 8px 0 16px; }
+  .wordmark { font-family: var(--font-display); font-weight: 700; font-size: 22px; letter-spacing: -.02em; display: flex; gap: 6px; align-items: center; }
+  .wordmark i { font-weight: 500; }
+  .stage { margin: 24px 16px 0; padding: 46px 10px 58px; position: relative; }
+  .stage svg { width: 100%; height: auto; display: block; }
+  .copy { position: absolute; left: 0; right: 0; bottom: 120px; padding: 0 20px; }
+  .mini { position: relative; margin: -34px 34px 0 64px; transform: rotate(-2deg); background: var(--sheet); border-radius: 4px 4px 14px 14px; box-shadow: var(--shadow-float); padding: 12px 14px; z-index: 2; }
+  .mini::before { content: ""; position: absolute; left: 0; right: 0; top: -8px; height: 8px; background: radial-gradient(circle at 6px 8px, transparent 3.5px, var(--sheet) 4px) repeat-x; background-size: 12px 8px; }
+  .mini .wd { font-family: var(--font-display); font-weight: 600; font-size: 30px; line-height: 1.1; text-decoration-thickness: 3px; text-underline-offset: .18em; }
+  .copy h1 { font-family: var(--font-display); font-weight: 650; font-size: 38px; line-height: 1.05; letter-spacing: -.02em; }
+  .copy p { font-size: 18px; line-height: 1.5; margin-top: 12px; color: var(--ink-2); }
+  .foot { position: absolute; left: 20px; right: 20px; bottom: 44px; display: flex; align-items: center; gap: 12px; }
+  .pages { display: flex; gap: 6px; flex: 1; }
+  .pages i { width: 10px; height: 10px; border-radius: 5px; border: 1.5px solid var(--ink); }
+  .pages i.on { width: 28px; background: var(--ink); }
+</style></head>
+<body>
+<div class="phone grain fibres">
+  <div data-statusbar></div>
+  <div class="top"><span class="wordmark"><span data-mark="28"></span>Phono<i>Trainer</i></span><span class="btn quiet">Skip</span></div>
+  <div class="card stack stage"><span class="crop tl"></span><span class="crop tr"></span><span class="crop bl"></span><span class="crop br"></span><div data-art="horn"></div></div>
+  <div class="mini" aria-hidden="true"><div class="row gap8"><span class="chip t-td"><span data-fam="td" data-size="15" data-plain></span>Flapping</span><span class="badge"><span data-icon="mic" data-size="14" data-sw="2.25"></span>Safe to produce</span></div>
+    <div class="row gap10" style="margin-top:6px;align-items:baseline"><span class="wd w m-td">“water”</span><span class="ipa" style="font-size:19px">/ˈwɔtɚ/ → [ˈwɔɾɚ]</span></div></div>
+  <div class="copy">
+    <div class="kicker">1 of 3</div>
+    <h1 style="margin-top:6px">Hear English as it's really spoken</h1>
+    <p>PhonoTrainer shows how native speakers change words when they talk, and which of those changes you can copy.</p>
+  </div>
+  <div class="foot"><span class="pages" aria-label="Page 1 of 3"><i class="on"></i><i></i><i></i></span><span class="btn primary lg">Next<span data-icon="arrow-right" data-size="22"></span></span></div>
+  <div class="gesture page"></div>
+</div>
+</body></html>

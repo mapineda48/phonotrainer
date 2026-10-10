@@ -1,0 +1,1341 @@
+# PhonoTrainer for Android: design system ("Phonautograph")
+
+Status: v1 design system, 2026-10-10. Owner: design lead.
+
+Inputs: `android/docs/product-spec.md` (the authority on content, hierarchy, states and interactions; this document
+never changes behaviour, it decides how things look and move), `android/docs/architecture.md` section 17 (the
+`:core:designsystem` / `:core:ui` API this document fills), the web client's identity (`web/src/theme/tokens.css`,
+`palette.test.ts`, `web/src/ui/*`, read-only), and the three design concepts judged by a panel (section 0).
+
+What lives where:
+
+| Path | What |
+|---|---|
+| `android/docs/design.md` | this document |
+| `android/docs/design/*.png` | hi-fi mockups, light and dark (section 14) |
+| `android/design-src/palette.json` | every colour of the system; the source for `Color.kt`, gated by `check_palette.py` |
+| `android/design-src/icons.json` | the icon inventory (section 6) |
+| `android/design-src/svg/brand/*.svg` | master geometry of the mark, launcher layers, splash and notification icon |
+| `android/design-src/mockups/` | HTML sources of the mockups, the mockup kit (`kit/`) and `render.sh` |
+| `android/design-src/tools/` | `check_palette.py`, `svg2vd.py`, `vd2svg.py`, `roundtrip.py`, `lucide_icons.py`, `brand_export.py` (section 13) |
+| `android/design-src/export/` | staging for generated Android resources (`res/…`, `assets/licenses/`); nothing in the build references it (architecture 17) |
+
+Conventions: sizes are dp (layout) and sp (text). Colour names in `code` are tokens of `palette.json`. "Ink" is
+the text colour of the theme (near-black on paper, bone on soot), never a hue. Copy in double quotes is the spec's
+copy; the mockups shorten a few strings where the spec allows it (section 14).
+
+---------------------------------------------------------------------------------------------------------------
+
+## 0. How this system was chosen
+
+Three concepts were built and scored by three independent judges (brand, robustness, aesthetics):
+
+| Concept | Judge 1 | Judge 2 | Judge 3 | Total | Winner votes |
+|---|---|---|---|---|---|
+| **Ink and Sound ("Phonautograph")** | 51 | 51 | 49 | **151** | 2 of 3 |
+| Field Notebook | 47 | 49 | 50 | 146 | 1 of 3 |
+| Night Stage | 46 | 49 | 47 | 142 | 0 |
+
+**Decision: Phonautograph**, by majority and by total. It is the only concept that keeps the web client's identity
+intact (paper, ink-first chrome, the exact family hues, Atkinson + Charis, a calm editorial voice) while making the
+app rich from the subject itself: its signature element, the stylus trace, is the real pitch contour of the speech.
+Its known risk, "too restrained for an owner who asked for NOT minimalist", is answered by the grafts below, which
+put illustration, texture and drawn motifs on everyday screens without adding hue to chrome.
+
+Grafts adopted (each is specified where it lives):
+
+| From | Graft | Where |
+|---|---|---|
+| Night Stage | Six named stages under the request stepper, current one bold, teaching line in a notice well | 9.19 Request card, 10 P-03/P-04 |
+| Night Stage | Share confirmation as a phone → computer bridge in two drawn states (solid trace with the nib travelling / dotted pencil line with the request parked on the phone) | 9.22 |
+| Night Stage | First-use hint line under the captions; "Now" is a speaker icon + the word, not only a diamond | 9.4, 9.3 |
+| Night Stage | "≠ changed" pill for the selected pair in Compare; legend directly above the sorts | 9.10 |
+| Night Stage | The ‿ link drawn as a small arc in the Word boundary hue, gated 3:1 | 9.4 |
+| Night Stage | Stricter gate: the "no marks on galley / deep sheet" rule is now tested, plus a gate for overlays over worst-case video frames | 3 |
+| Night Stage | Critical colour as the third cue on failures, with an outlined destructive "Remove" | 9.19 |
+| Night Stage | "Paused at 0:45 · {clip}" context pill above the lesson sheet | 9.9 |
+| Field Notebook | The spotlight tied to its word: a hairline tether from the slip to the caption word, drawn only when nothing lies between them | 9.3 |
+| Field Notebook | Side-view mouth drawing inside the Compare sound card (tract palette, never a family hue) | 9.10 |
+| Field Notebook | Plain English sound-alike cues ("it sounds like “wadder”", "“tem bucks”"); no cross-language anchor in UI cues | 9.3, 9.10 |
+| Field Notebook | Pattern-emphasis icons after marked words and the dashed low-confidence outline, shown in a mockup | 9.4, mockup 05 |
+| Field Notebook | "On this phone" chip in the feed header when the computer is not reachable | 9.2 |
+| Field Notebook | Keep watching card says what the short teaches: "Listen for: [chip] in “pick it up”" | 9.16 |
+| Field Notebook | Line-style names next to each family in Watch by change ("dashed line · the stop is clipped") | 9.16 |
+| Field Notebook | A horizontal labelled action bar replaces the side rail when the phrase does not fit, not only at large font scales | 9.6 |
+| Field Notebook / judge 2 | Launcher tile readable on dark share sheets: kraft drum-paper tile with an ink P | 7.1 |
+| Judges 1 and 3 | Engraved-ink spot illustrations on everyday cards (Practice, Insights teaser, summary card) | 7.2 |
+| Judge 2 (fixes) | Audio-drum word labels on an opaque strip; halftone never under any text | 7.3, 5.4 |
+
+Rejected, with the reason: rotated rubber-stamp text and a handwriting display face (legibility, 13.5 sp);
+checkbox-looking items in non-interactive checklists (TalkBack and affordance confusion: checklists are numbered);
+13 sp rail labels (the floor is 14 sp); a spotlight diamond fused to the playhead thumb (the pin stands on its own
+stem); glow and ambient colour bleed sampled from video (per-frame cost, API 31-only blur, contrast that depends on
+the frame); a persistent "Hold to slow down" chip over the picture (it is a one-time coach mark); a dark-first
+identity and re-tuned family hues (the web's hues are kept exactly).
+
+---------------------------------------------------------------------------------------------------------------
+
+## 1. Concept and signature element
+
+### 1.1 Concept: the phonautograph
+
+In 1857 Édouard-Léon Scott de Martinville built the **phonautograph**: a horn and a stylus that scratched the shape
+of a voice onto paper blackened with soot. The first recordings of sound were made to be **looked at**, so people
+could study speech with their eyes. PhonoTrainer does the same: the computer turns the learner's clips into data,
+and the phone turns that data into something to study.
+
+- **Light theme, "Ink on paper"**: newsprint page, fresh sheets for cards, near-black ink.
+- **Dark theme, "Scratch on soot"**: smoked black paper with lines scratched in bone. The same identity, not the
+  light theme inverted.
+- **Mood**: editorial, studious and warm; a phonetics lab notebook crossed with a well-printed magazine. Every
+  surface has paper, a rule, a halftone or a line of type to look at. Confident about sound (lines, dots,
+  notation), quiet about chrome (ink buttons, no accent colour).
+- **Voice** (unchanged from the web): plain, second person, calm; jargon explained in one sentence; describe,
+  never grade; sentence case; curly quotes around studied words; "×" for speeds, "→" for changes, "‿" for links.
+
+### 1.2 Signature element: the stylus trace
+
+One continuous ink line whose width changes like a pen stroke and which **is** the pitch of speech. It is drawn
+from real data (`f0_track`, phrase timings, intensity when present) wherever it carries meaning, and it is the
+brand's one drawn motif everywhere else.
+
+| Where | What the trace does |
+|---|---|
+| Short progress bar (9.7) | The pitch contour of the whole short. Played part: a solid ink ribbon whose width follows loudness. Part to come: a dotted pencil hairline. Playhead: a pen nib (dot + 25 % halo). Phrase boundaries: ticks. The spotlight word: a **diamond pin on a stem** (shape, never colour), filled while the word plays. |
+| Audio-only short (7.3) | The current phrase's pitch line, drawn large on a ruled drum over a spectrogram halftone, each word labelled under its stretch. |
+| Today's set (9.16) | A thread of 8 stations (each the spotlight change's family icon, a bookmark on saved shorts) ending in 5 question slugs. |
+| Requests (9.19) and the share sheet (9.22) | A route line Phone → Computer → Ready, and under the stepper the six stages; solid = done, dotted = not yet, nib = now. |
+| Illustrations (7.2) | The trace narrates each empty state: flowing, decaying, flat or waiting as a dotted line. |
+| Launcher icon and splash (7.1) | "The stylus P": one stroke rises as the stem of a P, closes the bowl and leaves as a decaying wave ending in an ink blot. The splash draws it once. |
+
+The trace is **content, not decoration**: like the web's articulator rule, it follows the audio clock even with
+Reduce motion, because playback moves it, not an animation.
+
+### 1.3 Supporting motifs
+
+The **slip** (the spotlight card has a perforated top edge, a ticket torn from the set), the **type sort** (each
+sound in Compare is a metal sort with a nick), **crop marks** and **stacked sheets** on hero cards, the **double
+rule** (2 dp + 1 dp ink) under the masthead and above the bottom bar, the **halftone** (a spectrogram screen used as
+print texture), **paper grain**, and a faint rotated **"NEW" stamp** (decorative; the information is in the text).
+
+---------------------------------------------------------------------------------------------------------------
+
+## 2. Colour
+
+Rules (A-01, A-02, web rule): hue is reserved for the four phenomenon families. Chrome is ink and paper. A state is
+shown by ink fill, ring, shape, icon and word, never by hue. `good` and `critical` appear only as icons or outlines
+next to words. Every value below is in `design-src/palette.json`; change a value there and run
+`check_palette.py` (section 3).
+
+### 2.1 Neutral tokens (`PhonoTheme.colors`)
+
+| Token | Light "Ink on paper" | Dark "Scratch on soot" | Use |
+|---|---|---|---|
+| `page` | `#F8F6EF` | `#121110` | Screen ground; carries the paper grain |
+| `sheet` | `#FFFDF8` | `#1C1B19` | Cards, slips, sheets, dialogs, bottom bar, top bar when scrolled |
+| `galley` | `#EFEBE2` | `#272522` | Chips, wells, tracks, notices, badges. **Never under a family mark** |
+| `deepSheet` | `#E5E0D4` | `#312F2B` | Pressed states, the selected-row wash, rails behind content |
+| `ink` | `#1B1A18` | `#F3F0E8` (bone) | Text, icons, primary button fill, selected fill, the trace |
+| `ink2` | `#45433E` | `#D0CCC2` | Secondary text, ledes, data series |
+| `inkMuted` | `#5D5A53` | `#A6A297` | Tertiary text, dimmed caption phrases, the unplayed trace |
+| `onInk` | `#FFFDF8` | `#121110` | Text and icons on ink fills |
+| `outline` | `#7C786F` | `#858177` | Essential control boundaries (fields, switches, radios, segmented controls, unselected stepper nodes): ≥ 3:1 everywhere |
+| `lineStrong` | `#B6B4AF` | `#565451` | Rings of secondary buttons and chips (their label identifies them) |
+| `hairline` | `#DBD9D3` | `#2F2E2C` | Dividers, card rings (= ink at 13 % on page) |
+| `focus` | `#1F5FD1` | `#8AB4FF` | The 3 dp focus ring (keyboard, D-pad, switch access) |
+| `good` | `#0B7D0B` | `#3FBF55` | Check icons beside a word ("Correct answer") |
+| `critical` | `#C0362F` | `#FF6B5E` | Alert icons, danger outlines, invalid-field ring. Never text, never a fill |
+| `inverseSurface` / `inverseOnSurface` | `#1B1A18` / `#FFFDF8` | `#F3F0E8` / `#1C1B19` | Snackbars, coach marks, tooltips |
+| `scrim` | `#111110` at 46 % | `#000000` at 62 % | Behind sheets and dialogs |
+| `letterbox` | `#0E0D0C` | `#0E0D0C` | Behind video that does not fill its box |
+| `kraft` / `kraft2` | `#D8CCB2` / `#B9AA8B` | `#4A4436` / `#6B624E` | Illustration fills only, never next to marks |
+| `halftone` / `halftoneStrong` | ink at 11 % / 20 % | bone at 10 % / 17 % | Spectrogram textures; never under text |
+| `grainAlpha` | 0.06 (multiply) | 0.07 (screen) | Paper grain on `page` only |
+| `drumPapers[4]` | `#F1EDE3` `#EEEBE4` `#EFE9DC` `#EBE8E1` | `#1B1A18` `#1D1C1A` `#201E1A` `#1A1A19` | Generated audio-only visual, chosen per clip (7.3) |
+| `posterPapers[4]` | `#ECE7DC` `#E6E1D6` `#EFE6D6` `#E4E2DD` | `#24221F` `#27241F` `#22211F` `#29261F` | Poster fallback, chosen per clip (7.4) |
+
+Why the page is `#F8F6EF` and not the web's `#F6F5F2`: the colour-vision-friendly light boundary hue `#3396CB` keeps
+3:1 only on a page this light (3.05). Every neutral stays within OKLCH chroma 0.05 (gate G8), so no hue enters
+chrome.
+
+### 2.2 Material 3 `ColorScheme` mapping
+
+`PhonoTheme` builds an explicit scheme (dynamic colour off: the palette is the identity, as in Artemi). Every
+Material component used with its defaults then lands on a token above; the components in section 9 still set their
+colours explicitly.
+
+| M3 role | Light | Dark | Token |
+|---|---|---|---|
+| primary / onPrimary | `#1B1A18` / `#FFFDF8` | `#F3F0E8` / `#121110` | ink / onInk |
+| primaryContainer / onPrimaryContainer | `#E5E0D4` / `#1B1A18` | `#312F2B` / `#F3F0E8` | deepSheet / ink |
+| secondary / onSecondary | `#45433E` / `#FFFDF8` | `#D0CCC2` / `#121110` | ink2 / onInk |
+| secondaryContainer / onSecondaryContainer | `#EFEBE2` / `#1B1A18` | `#272522` / `#F3F0E8` | galley / ink |
+| tertiary / onTertiary | `#45433E` / `#FFFDF8` | `#D0CCC2` / `#121110` | ink2 / onInk (no third hue) |
+| tertiaryContainer / onTertiaryContainer | `#EFEBE2` / `#1B1A18` | `#272522` / `#F3F0E8` | galley / ink |
+| error / onError | `#C0362F` / `#FFFDF8` | `#FF6B5E` / `#121110` | critical / onInk (icons, outlines only) |
+| errorContainer / onErrorContainer | `#EFEBE2` / `#1B1A18` | `#272522` / `#F3F0E8` | galley / ink: no red surfaces |
+| background / onBackground | `#F8F6EF` / `#1B1A18` | `#121110` / `#F3F0E8` | page / ink |
+| surface / onSurface | `#F8F6EF` / `#1B1A18` | `#121110` / `#F3F0E8` | page / ink |
+| surfaceVariant / onSurfaceVariant | `#EFEBE2` / `#45433E` | `#272522` / `#D0CCC2` | galley / ink2 |
+| surfaceTint | transparent | transparent | no tonal overlays (tonalElevation is always 0) |
+| surfaceDim / surfaceBright | `#E5E0D4` / `#FFFDF8` | `#121110` / `#312F2B` | deepSheet / sheet (dark: page / deepSheet) |
+| surfaceContainerLowest, Low, (default), High | `#FFFDF8` | `#1C1B19` | sheet: cards, sheets, nav bar, menus, dialogs are all sheets of the same paper |
+| surfaceContainerHighest | `#E5E0D4` | `#312F2B` | deepSheet |
+| outline / outlineVariant | `#7C786F` / `#DBD9D3` | `#858177` / `#2F2E2C` | outline / hairline |
+| inverseSurface / inverseOnSurface / inversePrimary | `#1B1A18` / `#FFFDF8` / `#FFFDF8` | `#F3F0E8` / `#1C1B19` / `#121110` | snackbar, coach marks |
+| scrim | `#111110` | `#000000` | alpha applied by the component (46 % / 62 %) |
+| primaryFixed, primaryFixedDim, secondaryFixed…, onPrimaryFixed… (when the Material 3 version has them) | galley, deepSheet, ink, ink2 | same mapping | fixed roles mapped to neutrals |
+
+### 2.3 Family palettes (the only hues)
+
+The web's values, unchanged (`web/src/theme/tokens.css`). Each family is always **line style + icon + name**, colour
+is the third cue (A-01). The user picks "Standard" or "Color-vision friendly" in Settings; "Show patterns as well as
+colours" defaults to on with the colour-vision-friendly palette.
+
+| Family (icon, line) | Standard light | Standard dark | CVD light | CVD dark |
+|---|---|---|---|---|
+| Reduction (chevrons down, solid) | `#3152A5` | `#4A6EC4` | `#005487` | `#1574B5` |
+| t/d processes (scissors, dashed) | `#A26000` | `#C27405` | `#C07B00` | `#FFAD3C` |
+| Assimilation (merge, double) | `#832C5C` | `#A44B79` | `#8A3103` | `#B94300` |
+| Word boundary (link, wavy + ‿ arc) | `#009C96` | `#18A7A1` | `#3396CB` | `#6AC7FF` |
+| Lexical contraction (shrink, dotted) | ink | ink | ink | ink |
+| Other change (dashed circle, dash-dot) | inkMuted | inkMuted | inkMuted | inkMuted |
+
+**Tints** (chip fills, the gap box): an OKLab mix of `sheet` and the family colour, 14 % light / 26 % dark (web
+rule). Values (stored in `palette.json` and checked against the mix):
+
+| Tint | Std light | Std dark | CVD light | CVD dark |
+|---|---|---|---|---|
+| reduction | `#E0E5EE` | `#283041` | `#DDE4E9` | `#22313E` |
+| td | `#F3E6D9` | `#43311F` | `#F7EBDB` | `#503D27` |
+| assimilation | `#EFDFE1` | `#3D2830` | `#F0E0D6` | `#42271C` |
+| boundary | `#E3EFEA` | `#263C38` | `#E4EFF2` | `#31434D` |
+
+Hard rules that keep the gates true on a textured, image-heavy UI:
+1. Family marks (underlines, the ‿ arc, family-coloured icons) sit only on `page`, `sheet` or opaque overlays built
+   from `sheet`, never on `galley`, `deepSheet`, video or a halftone (they fall to 2.46-2.91:1 there).
+2. Inside a tinted chip the icon and the name are **ink**; the family colour is the 1.5 dp ring (decorative,
+   redundant with icon + name). A family-coloured icon is used only on `page` or `sheet`.
+3. Captions never sit on video. Landscape video is shown whole above the captions; portrait video gets an
+   **opaque** `sheet` caption slip, never a translucent scrim.
+4. The grain is masked under captions and slips (they paint solid `page`/`sheet`), so no mark sits on a darker grain
+   pixel.
+
+### 2.4 Articulator palette (mouth drawings)
+
+The web's tract palette, unchanged (anatomy is told apart by lightness and outline, never by a family hue):
+
+| Token | Light | Dark |
+|---|---|---|
+| tractAir | `#E7ECEF` | `#0E1417` |
+| tractTissue | `#DDD4C1` | `#46402F` |
+| tractBone (teeth) | `#FDFDFB` | `#C2BCAE` |
+| tractTongue / tractTongueDeep | `#C9755F` / `#8F4633` | `#C06B53` / `#7C3A2A` |
+| tractLip | `#D8A695` | `#99624F` |
+| tractLine | `#5C5A54` | `#A8A59C` |
+| tractFlow | `#6E8FA8` | `#8FB3CC` |
+| tractAccent (closure point, label dots) | `#1A1A1A` | `#F5F5F3` |
+
+### 2.5 Illustration palette
+
+Illustrations, the poster fallback and brand art use only these tokens (`palette.json` → `illustration`): `ink`,
+`ink2`, `inkMuted`, `paper` (= sheet), `page`, `galley`, `deepSheet`, `kraft`, `kraft2`, and the tract tokens for
+anatomy; ink at an opacity for halftone and hatching. Makers draw in the light column; `svg2vd.py --palette
+palette.json --theme dark` produces the dark twin by swapping each light hex for its dark token (section 13).
+
+### 2.6 Launcher and splash colours
+
+| Item | Value |
+|---|---|
+| Launcher tile (background layer) | `#D2C3A3` launcher kraft, drum rules and halftone in ink at 13 % / 24 %, a 22 % white sheen at the top left |
+| Launcher mark (foreground) | `#1B1A18` ink |
+| Monochrome layer, notification icon | single colour (alpha only) |
+| Splash window background | `#F8F6EF` (light) / `#121110` (dark) = page |
+| Splash mark | `#1B1A18` (light) / `#F3F0E8` (dark) |
+
+---------------------------------------------------------------------------------------------------------------
+
+## 3. Contrast and palette gates (verified)
+
+`python3 android/design-src/tools/check_palette.py` re-runs the web's `palette.test.ts` gates on `palette.json`
+with the same maths (culori 4.0.2: WCAG luminance, OKLab, Machado 2009 simulations at severity 1.0 and 0.6) and adds
+the mobile gates. It exits 1 on any failure. Current result: **ALL GATES PASS (499 checks)**. WP-03 ports it to a
+JVM unit test over `Color.kt` (or runs it in CI against the JSON that generates `Color.kt`).
+
+| Gate | Rule | Source |
+|---|---|---|
+| G1 | On `page`, `sheet`, `galley`, `deepSheet`: ink ≥ 7, ink2 ≥ 4.5, inkMuted ≥ 4.5, focus ≥ 3, outline ≥ 3, good ≥ 3, critical ≥ 3 | web gate 1 + mobile |
+| G2 | onInk on ink ≥ 7; inverseOnSurface on inverseSurface ≥ 7 | mobile |
+| G3 | Each family ≥ 3:1 on every surface marks may sit on (`page`, `sheet`); ink on each tint ≥ 7; stored tint = OKLab mix (±1/255) | web gate 2 + mobile |
+| G4 | Every family pair ≥ 15 ΔEok, normal vision | web gate 3 |
+| G5 | Every pair under protan, deutan, tritan at severity 1.0 and 0.6: ≥ 8 ΔEok (Standard), ≥ 12 (colour-vision friendly) | web gate 4 |
+| G6 | Chroma ≥ 0.10; lightness in [0.43, 0.77] light, [0.48, 0.67] dark Standard, [0.48, 0.82] dark CVD | web gate 5 |
+| G7 | Teeth lightness differs from lip, tongue, deep tongue by > 0.15 | web gate 6 |
+| G8 | Hue reservation: every non-family token has OKLCH chroma ≤ 0.05 (except focus, good, critical) | mobile (A-02) |
+| G9 | Overlays composited over white, mid-grey and black frames: caption slip (opaque sheet) keeps text and marks; media chips (sheet at 94 %) and coach marks (inverse at 96 %) keep ink ≥ 7 | mobile (night-stage graft) |
+| G10 | Illustration ink on page, sheet and kraft ≥ 3; launcher mark on tile ≥ 7; tile ≥ 3 against dark and black share sheets and ≥ 1.5 against white; splash mark ≥ 7 | mobile (F-25-AC1) |
+| G11 | Pitch line on every drum paper ≥ 7; drum papers neutral | mobile (F-25) |
+
+Measured text and control contrast (WCAG ratio):
+
+| Theme · surface | ink | ink2 | inkMuted | focus | outline | good | critical |
+|---|---|---|---|---|---|---|---|
+| Light · page | 16.08 | 9.14 | 6.36 | 5.37 | 4.07 | 4.91 | 5.10 |
+| Light · sheet | 17.11 | 9.72 | 6.77 | 5.71 | 4.33 | 5.23 | 5.42 |
+| Light · galley | 14.62 | 8.30 | 5.78 | 4.88 | 3.70 | 4.47 | 4.63 |
+| Light · deepSheet | 13.20 | 7.50 | 5.22 | 4.41 | 3.34 | 4.03 | 4.18 |
+| Dark · page | 16.56 | 11.76 | 7.40 | 9.03 | 4.85 | 7.90 | 6.75 |
+| Dark · sheet | 15.11 | 10.73 | 6.75 | 8.24 | 4.43 | 7.21 | 6.16 |
+| Dark · galley | 13.42 | 9.53 | 5.99 | 7.32 | 3.93 | 6.40 | 5.47 |
+| Dark · deepSheet | 11.73 | 8.33 | 5.24 | 6.39 | 3.44 | 5.59 | 4.78 |
+
+onInk on ink: 17.11 (light), 16.56 (dark). Snackbar text: 17.11 / 15.11.
+
+Family marks on page / sheet (and, for the record, on the forbidden galley):
+
+| Palette · theme | reduction | td | assimilation | boundary | min ink on tint | min pair ΔEok · worst simulated |
+|---|---|---|---|---|---|---|
+| Standard light | 6.74 / 7.17 (6.13) | 4.61 / 4.91 (4.19) | 7.83 / 8.33 (7.12) | 3.13 / 3.33 (2.85) | 13.47 | 18.3 · deutan 12.1 |
+| Standard dark | 3.88 / 3.54 (3.14) | 5.20 / 4.75 (4.22) | 3.47 / 3.16 (2.81) | 6.36 / 5.80 (5.15) | 10.34 | 18.2 · deutan 9.3 |
+| CVD light | 7.42 / 7.89 (6.74) | 3.20 / 3.40 (2.91) | 7.70 / 8.19 (7.00) | 3.05 / 3.25 (2.77) | 13.50 | 21.0 · tritan 18.3 |
+| CVD dark | 3.77 / 3.44 (3.05) | 10.14 / 9.26 (8.22) | 3.47 / 3.17 (2.81) | 10.08 / 9.20 (8.17) | 9.04 | 25.4 · tritan 23.8 |
+
+Overlays (G9): media chip ink over white / grey / black frames 17.12 / 16.03 / 14.97 (light), 12.82 / 14.12 / 15.37
+(dark); coach mark ≥ 13.85. Launcher (G10): mark on tile 10.00; tile vs white 1.74, vs `#1C1B1F` 9.85, vs black
+12.08. Splash 16.08 / 16.56. Drum papers: pitch line ≥ 14.21.
+
+What the gates do not cover, and the rule that does: disabled content (45 % opacity, exempt by WCAG, always paired
+with a reason when it matters), decorative textures (never under text), video frames (nothing sits on them except
+opaque overlays).
+
+---------------------------------------------------------------------------------------------------------------
+
+## 4. Typography
+
+### 4.1 Faces and files (all SIL OFL 1.1, GPL-compatible, bundled with licence text)
+
+| Face | Role | File (`res/font/`) | Source |
+|---|---|---|---|
+| **Atkinson Hyperlegible Next** (variable, wght 200-800) | All UI: body, captions, buttons, labels, numbers | `atkinson_hyperlegible_next.ttf` (from `AtkinsonHyperlegibleNext[wght].ttf`) | google/fonts `ofl/atkinsonhyperlegiblenext` (upstream googlefonts/atkinson-hyperlegible-next); the web's UI face, chosen for low vision |
+| **Charis 7.000** (Regular, Bold), unmodified | Every IPA string | `charis_regular.ttf`, `charis_bold.ttf` (renamed files of `Charis-Regular.ttf`, `Charis-Bold.ttf`, bytes unchanged) | SIL Global release 7.000; the only face that places t̚ ɾ̃ n̩ ŋ̍ ᵻ ‿ correctly. Not subset, not converted (Reserved Font Name) |
+| **Newsreader** (variable, opsz 6-72, wght 200-800, roman + italic) | Display voice only: masthead, screen titles, the studied word, big numbers, step numerals, italic accents | `newsreader.ttf`, `newsreader_italic.ttf` (from `Newsreader[opsz,wght].ttf`, `Newsreader-Italic[opsz,wght].ttf`) | google/fonts `ofl/newsreader` (Production Type) |
+
+Licences go to `assets/licenses/` (`atkinson-hyperlegible-next-OFL.txt`, `charis-OFL.txt`, `newsreader-OFL.txt`, with
+the provenance manifest `FONTS.txt`) and to `THIRD-PARTY-NOTICES.md` (the "7.3 Fonts and icons" subsection WP-03
+owns, work-plan 3.2). Variable fonts load from `res/font` on API 26+ with
+`Font(R.font.x, weight, variationSettings = FontVariation.Settings(FontVariation.weight(w), FontVariation.Setting("opsz", size)))`.
+
+Glyph gaps (asset review): Atkinson Hyperlegible Next and Newsreader have no "→" (U+2192); Atkinson also lacks U+00AD
+and U+00B5, Newsreader U+2009. A trailing arrow in a label ("All clips →", "See Insights →", "Next question →") is
+drawn as the `ic_arrow_right` icon after the word (or set in Charis, which has a matching arrow), never left to the
+system fallback font; the "→" inside IPA lines is already Charis. The font files stay unmodified.
+
+Why a third face: Newsreader is the "print" voice of the phonautograph page; it pairs with Charis without imitating
+it. It is fenced in: never for body, labels, buttons or anything under 15 sp; the UI stays Atkinson exactly as on the
+web, and IPA stays Charis.
+
+### 4.2 Material 3 type scale (all sizes in sp, scale with the system font size)
+
+| Role | Face, weight | Size / line | Use |
+|---|---|---|---|
+| displayLarge | Newsreader 650, opsz 44 | 44 / 48 | Big numbers ("7 in 10"), "Done for today" |
+| displayMedium | Newsreader 650, opsz 36 | 36 / 40 | Tab-root titles ("Learn", "Practice"), Today hero, Welcome titles |
+| displaySmall | Newsreader 600, opsz 30 | 30 / 36 | Empty-state titles ("No computer answered."), Home wordmark |
+| headlineLarge | Newsreader 600, opsz 28 | 28 / 34 | Top app bar titles of secondary destinations, question titles, sheet titles |
+| headlineMedium | Newsreader 600, opsz 22 | 22 / 28 | Section heads ("Keep watching", "What you met") |
+| headlineSmall | Newsreader 600, opsz 20 | 20 / 26 | Sub-sections ("How to hear it") |
+| titleLarge | Atkinson 700 | 17 / 24 | Card titles, status lines, request states |
+| titleMedium | Atkinson 700 | 16 / 22 | List titles, clip titles, option titles |
+| titleSmall | Atkinson 700 | 15 / 20 | Small titles inside cards |
+| bodyLarge | Atkinson 400 | 16 / 24 | Body text |
+| bodyMedium | Atkinson 400 | 15 / 22 | Ledes, cues, secondary text |
+| bodySmall | Atkinson 400 | 14 / 20 | Meta lines, captions of charts, time stamps |
+| labelLarge | Atkinson 600 | 16 / 20 | Buttons |
+| labelMedium | Atkinson 600 | 14 / 18 | Chips, badges, rail labels, tabs |
+| labelSmall | Atkinson 700, uppercase, +0.07 em | 14 / 18 | Kickers ("LISTEN FOR", group heads). Raised from Material's 11 sp |
+
+Extra styles (`PhonoTheme.type`):
+
+| Style | Face | Size / line | Use |
+|---|---|---|---|
+| spotlightWord | Newsreader 600 | 34 / 40 | The studied word on the slip |
+| lessonWord | Newsreader 600 | 40 / 44 | The word heading the lesson |
+| captionCurrent | Atkinson 500 | 20 / 28, in 46 dp line boxes | The current phrase; every word is a ≥ 48 dp target |
+| captionDim | Atkinson 400 | 15 / 21, inkMuted | Previous and next phrase |
+| accentItalic | Newsreader 500 italic | 16-18 / 24 | Datelines, step numerals, counts beside kickers, "Pitch of this phrase" |
+| numeric | Atkinson + `tnum` | as the role | Times, percentages, counts (tabular everywhere) |
+| ipaInline | Charis 400 | 1.12 × the surrounding size, letter spacing 0 | IPA inside text |
+| ipaSlip / ipaForm / ipaSort / ipaSymbol | Charis 400 | 21 / 25 / 27 / 40 | Slip line, Compare forms, type sorts, sound card |
+
+Rules: the minimum size is **14 sp** everywhere; nothing has a fixed height that clips text; display sizes use
+Android 14 non-linear scaling (they grow less than body text); sentence case; numbers tabular.
+
+### 4.3 IPA
+
+- Always through one `IpaText` composable (`:core:ui`): Charis for the whole string, never per-glyph fallback
+  (combining marks would misplace), `/dictionary/` vs `[what was said]`, `→` between them, ‿ for links.
+- Accessibility text built from symbol names: "[ɾ]: voiced alveolar tap" (A-05), with a play action where a sound
+  can be played.
+- IPA scales with the font scale like any text.
+
+---------------------------------------------------------------------------------------------------------------
+
+## 5. Shape, spacing, elevation, texture
+
+### 5.1 Shape (`Shapes`)
+
+| Role | Radius | Use |
+|---|---|---|
+| extraSmall | 4 dp | Slip top corners, inner fills, playing-word fill (6 dp) |
+| small | 8 dp | Posters, thumbnails, word highlight |
+| medium | 12 dp | Buttons, fields, segmented controls, wells, notices, icon wells |
+| large | 14 dp | Cards, slips (bottom corners), sound card |
+| extraLarge | 28 dp | Bottom sheets (top corners), dialogs |
+| full | 50 % | Chips, badges, pills, the rail circles, the nav pill |
+
+Brand shapes: `PerforatedTopShape` (the slip: 8 dp perforation, holes 7 dp every 12 dp, `GenericShape`), `SortShape`
+(10 dp radius + a 2 dp nick line under the base), the stack (two copies of a card offset 5/6 and 9/11 dp, rotated
+0.6° and 1.1°), crop marks (14 dp corners, 1 dp ink at 55 %, 7 dp outside the card).
+
+### 5.2 Spacing (4 dp grid)
+
+`2, 4, 6, 8, 10, 12, 14, 16, 20, 24, 32`. Screen gutter 16 dp (feed card 14 dp). Card padding 14-16 dp. Section gap
+20 dp; card grid gap 10-12 dp; chip gap 8 dp. Touch targets ≥ 48 × 48 dp; quiz answers ≥ 56 dp tall (72 in the
+mockups); rail items 64 × 60 dp.
+
+### 5.3 Elevation and depth
+
+Flat and paper-like; Material tonal elevation is always 0.
+- **Light**: a sheet sits on paper: 1 dp hairline ring + soft drop (y 10 dp, blur 22 dp, spread −14 dp, ink at
+  38 %). Floating things (dialogs, coach marks, the paused-context pill): ring + y 12 dp, blur 30 dp, ink 45 %.
+  Compose: `Modifier.shadow(6.dp, shape, ambientColor = Color.Transparent, spotColor = ink.copy(alpha = .38f))`
+  plus `border(1.dp, hairline, shape)`.
+- **Dark**: no shadows; a 1 dp ring (`hairline`, or `lineStrong` for floating) and the lighter surface step.
+- The primary button has a 3 dp darker bottom "bite" (letterpress), drawn inside its shape.
+- Depth also comes from the **stack** behind hero cards (Today's set, summary card, question card).
+
+### 5.4 Texture
+
+| Texture | How | Where | Never |
+|---|---|---|---|
+| Paper grain | Fractal noise generated once from a fixed seed into a tileable 256 px `ImageBitmap`; drawn on `page` with alpha `grainAlpha`, multiply (light) / screen (dark) | Screen ground | Under captions, slips, marks: those paint solid `page`/`sheet` |
+| Long fibres | Second, sparser noise (stretched x), 1.2 × grain alpha | Home, Welcome, tab roots | Feed |
+| Spectrogram halftone | Dot screen whose radius follows an energy field (three formant bands drifting, gated by syllables), seeded per clip (FNV-1a 32 of the job id) or per screen; cell 7-8 dp; `halftone`/`halftoneStrong` | Today hero corner, lesson sheet corner, question card, audio drum, poster fallback, illustrations | Under any text or icon; under family marks |
+| Drum rules | Hairline ink at 13 % every ~26 dp | Audio drum, launcher tile, Home no-clips art | |
+| Double rule | 2 dp ink + 3 dp gap + 1 dp ink | Under the masthead / tab-root titles, above the bottom bar | |
+| Stamp "NEW" | Ink 2 dp outline, uppercase 14 sp bold, rotated −8°, 14 % opacity | New on this phone card | As information carrier (the text says it) |
+
+All textures are cached bitmaps or a single `drawBehind`; they are invisible to accessibility; under battery saver
+the fibres and halftones of non-content surfaces are skipped (the audio drum keeps its halftone).
+
+---------------------------------------------------------------------------------------------------------------
+
+## 6. Iconography
+
+- **Set**: Lucide v1.51.0 (the web's version; ISC, Feather-derived glyphs MIT), exported to VectorDrawables. 24 ×
+  24 grid, round caps and joins, stroke 2 for UI glyphs, **2.25 for family and practice glyphs** (the web's
+  FamilyIcon weight). No `material-icons-extended` (architecture 2.4).
+- **Rule**: an icon is never the only cue. It sits beside a word, or carries a content description; status,
+  connection and family icons always travel with words.
+- **Colour**: ink by default (tinted at runtime: VDs are `#FF000000`, Compose `Icon(tint = …)`); a family-coloured
+  icon only on `page`/`sheet`; `critical` and `good` only for the status uses in section 2.1.
+- **Sizes**: 14-16 dp inline (pattern icons after words, chips), 18-20 dp in buttons and rows, 22-24 dp in the
+  rail, bars and top bars, 28 dp in empty-state wells.
+- **Motion**: only `loader-circle` rotates (when motion is allowed); nothing else animates.
+- **Sources**: `tools/lucide_icons.py --lucide <lucide-static or lucide-react icons dir> --svg-dir …` writes one SVG
+  per inventory entry; `svg2vd.py` converts it (121 of 122 round-trip within 0.02 RMSE; `ic_site_x` measures 0.0204,
+  anti-aliasing along its long arc, visually identical; section 13).
+
+The full inventory (resource name, Lucide name, stroke, meaning, where used) is `design-src/icons.json`. Summary:
+
+| Group | Resources (Lucide glyph) |
+|---|---|
+| Families (2.25) | `ic_family_reduction` (chevrons-down), `ic_family_td` (scissors), `ic_family_assimilation` (merge), `ic_family_boundary` (link-2), `ic_family_lexical` (shrink), `ic_family_other` (circle-dashed) |
+| Practice (2.25) | `ic_practice_produce` (mic) "Safe to produce", `ic_practice_recognize` (ear) "Recognize only" |
+| Navigation | `ic_tab_home` (house), `ic_tab_watch` (square-play), `ic_tab_learn` (graduation-cap), `ic_tab_practice` (target), `ic_settings` (settings-2), `ic_back` (arrow-left), `ic_close` (x), `ic_more_horizontal` (ellipsis), `ic_more_vertical` (ellipsis-vertical), `ic_chevron_*` (right/left/down/up), `ic_arrow_right`, `ic_search`, `ic_help` (circle-help), `ic_external` (external-link), `ic_insights` (chart-column), `ic_ipa_chart` (grid-3x3), `ic_glossary` (book-a), `ic_legend` (book-open), `ic_tour` (route) |
+| Notices | `ic_info` (info), `ic_caution` (triangle-alert), `ic_tip` (lightbulb) |
+| Request status | `ic_status_preparing` (hourglass), `ic_status_waiting` (clock), `ic_status_sending` (send), `ic_status_analyzing` (loader-circle), `ic_status_downloading` (download), `ic_status_ready` (circle-check), `ic_status_attention` (circle-alert), `ic_status_cancelled` (circle-slash), `ic_step_done` (check), `ic_step_skipped` (skip-forward) |
+| Connectivity | `ic_conn_connected` (monitor-check), `ic_conn_checking` (radar), `ic_conn_unreachable` (monitor-off), `ic_conn_offline` (wifi-off), `ic_conn_not_on_wifi` (signal), `ic_conn_not_connected` (unplug), `ic_conn_different` (monitor-x), `ic_conn_connect_again` (key-round), `ic_conn_update` (circle-arrow-up), `ic_conn_low_space` (hard-drive), `ic_sync` (refresh-cw), `ic_pairing` (monitor-smartphone), `ic_wifi` (wifi), `ic_address` (router), `ic_background_limited` (battery-warning) |
+| Availability | `ic_avail_on_phone` (smartphone), `ic_avail_video` (film), `ic_avail_on_computer` (monitor), `ic_avail_getting_ready` (monitor-cog), `ic_keep` (pin) |
+| Sources (generic, never logos) | `ic_site_youtube` (tv-minimal-play) "YouTube", `ic_site_x` (at-sign) "X", `ic_site_other` (globe) "Other website", `ic_site_phone_file` (file-video), `ic_site_phone_audio` (file-audio) "Phone file", `ic_site_computer` (hard-drive-download) "Computer" |
+| Player and rail | `ic_play`, `ic_pause`, `ic_replay` (rotate-ccw), `ic_speed` (gauge), `ic_slow` (snail), `ic_loop` (repeat), `ic_loop_phrase` (repeat-1), `ic_shadow` (mic-vocal), `ic_save` (bookmark), `ic_saved` (bookmark-check), `ic_now` (volume-2), `ic_hold` (hand), `ic_track` (audio-lines), `ic_audio_only` (headphones), `ic_captions` (captions), `ic_listen_first` (eye-off), `ic_phrase_details` (chart-spline), `ic_record` (circle-dot), `ic_stop` (square), `ic_alternate` (arrow-right-left), `ic_clip_page` (clapperboard), `ic_leave_out` (list-x), `ic_mode_mix` (shuffle), `ic_mode_in_order` (list-ordered) |
+| Didactic | `ic_intonation_rises` (trending-up), `ic_intonation_falls` (trending-down), `ic_intonation_flat` (move-right), `ic_quiz_which_change` (shapes), `ic_see_mouth` (eye), `ic_obs_ending` (flag), `ic_obs_peak` (mountain), `ic_obs_range` (move-vertical), `ic_obs_length` (timer), `ic_obs_pauses` (circle-pause), `ic_table` (table-2), `ic_chart` (chart-line) |
+| Requests | `ic_add` (plus), `ic_paste` (clipboard-paste), `ic_choose_file` (folder-open), `ic_link` (link), `ic_remove` (trash-2), `ic_cancel_analysis` (circle-stop), `ic_log` (scroll-text), `ic_details` (file-text), `ic_share` (share-2) |
+| Settings | `ic_appearance_system` (monitor), `ic_appearance_light` (sun), `ic_appearance_dark` (moon), `ic_colors` (palette), `ic_motion` (waves), `ic_notifications` (bell), `ic_notifications_off` (bell-off), `ic_licences` (scale) |
+
+Brand glyphs (not Lucide): the stylus P (`ic_launcher_*`, `ic_notification`, `splash_mark*`), section 7.1.
+
+---------------------------------------------------------------------------------------------------------------
+
+## 7. Brand art, illustrations and generated visuals
+
+### 7.1 The stylus P: launcher icon, splash, notification
+
+Master geometry: `design-src/svg/brand/mark-stylus-p.svg` (100 × 100 box): one stroke
+`M38 52H62C76 52 82 44 82 35C82 25 75 18 62 18H38V78C38 84 41 87 45 85C50 82 51 72 56 72C61 72 61 84 66 84C70 84 71 77 74 76`,
+width 10, round caps and joins, plus the blot `circle(80, 75.4, r 7.2)`.
+
+| Asset | Geometry | Colours | Source |
+|---|---|---|---|
+| Adaptive icon background | 108 × 108 dp, full bleed | launcher kraft `#D2C3A3`, white sheen (radial, 22 % → 0 at the top left), 5 drum rules (y 34-74, ink 13 %, 0.9 dp), halftone corner (bottom right, ink 24 %) | `svg/brand/launcher-background.svg` |
+| Adaptive icon foreground | the mark scaled 0.66 (mark centre (60, 52) placed at (54.2, 54.6); stroke 6.6 dp): inside the 66 dp safe circle, farthest point 29.4 dp from the centre | ink `#1B1A18` | `svg/brand/launcher-foreground.svg` |
+| Monochrome (themed icons, API 33+) | the foreground geometry only | single colour | `svg/brand/launcher-monochrome.svg` |
+| Notification icon | 24 dp, the mark scaled 0.27, stroke 10.5 | white on transparent (alpha only) | `svg/brand/notification.svg` |
+| Splash icon (API 31+ and the compat library) | 288 dp canvas, mark inside the 192 dp circle (scale 1.78) | ink on page (light), bone on soot (dark) | `svg/brand/splash-mark.svg` |
+| Animated splash | the stroke drawn by `trimPathEnd` 0 → 1 over 600 ms (standard easing), then the blot fades in (fillAlpha 0 → 1, 600 → 700 ms); runs once | as the splash icon | AVD made from the splash VD |
+
+Why kraft and not soot: the soot tile of the concept disappeared on dark share sheets (judge 2). The kraft tile is
+the one light, warm, unsaturated tile in a row of saturated circles; on white sheets the ink P carries the figure
+(mark on tile 10:1), on dark sheets the tile does (9.85:1). Renders: `docs/design/26-brand-*.png`.
+
+### 7.2 Illustration set ("engraved ink")
+
+Style: 2.5-3 dp ink monoline with round caps; kraft flat fills; halftone dots for light; hatching at **30° and
+−35°** for shade (never the 45°/135° lines or dots that mean t/d, boundary and assimilation in charts); Newsreader
+italic only if a sound effect letter is needed (as paths); the trace as narrator. No family hue, ever. Light and dark
+from one vector (2.5). Decorative: hidden from TalkBack; the empty state's title and sentence carry the meaning.
+
+| Resource | Purpose (spec) | Composition | Size (viewport) |
+|---|---|---|---|
+| `ill_welcome_listen` | Welcome 1 "Hear English as it's really spoken" | A phonautograph horn collects a voice; the stylus writes it as a trace on ruled paper; the line ends as a dotted wait | 380 × 214 |
+| `ill_welcome_clips` | Welcome 2 "Your clips become shorts"; Home first run | The phone hands the computer a kraft envelope with a wave on it; the monitor shows a halftone and a trace | 380 × 214 |
+| `ill_welcome_daily` | Welcome 3 "A few minutes a day" | A short stack of slips tied with the trace, a small hourglass, a check token | 380 × 214 |
+| `ill_feed_empty` | Watch, first run (F-06) | An empty screen on a stand; the trace waits as a dotted line from a nib | 380 × 214 |
+| `ill_home_no_clips` | Home, paired, computer has no clips (F-03) | An empty phonautograph drum, rules only | 380 × 214 |
+| `ill_requests_empty` | Requests empty (F-20) | An empty in-tray; a quiet, flat trace | 380 × 214 |
+| `ill_no_examples` | Learn, no examples (F-15, F-16) | A magnifier over a flat line | 380 × 214 |
+| `ill_practice_empty` | Practice, nothing yet (F-17) | An ear with a dotted trace waiting to be filled | 380 × 214 |
+| `ill_no_computer` | Connect: no computer answered (F-02); Connection details | The wave leaves the phone, decays and goes flat before a sleeping monitor; a mug; a question mark | 380 × 214 |
+| `ill_saved_empty` | Saved empty (F-09) | A kraft bookmark ribbon over a blank slip | 380 × 214 |
+| `ill_set_done` | Summary card at the end of a set (F-08) | Stacked slips with a round check stamp | 200 × 120 |
+| `ill_spot_practice` | Home Practice card; Practice title | An ear and a small target | 96 × 72 |
+| `ill_spot_insights` | Home Insights teaser | Hatched bars under a dashed reference line and a magnifier | 96 × 72 |
+
+Reference compositions: `design-src/mockups/kit/art.js` (rendered in `docs/design/25-illustrations-*.png`). They
+fix the composition and the vocabulary; the makers redraw them as clean vectors (asset brief).
+
+### 7.3 Generated audio-only visual: the drum (F-06 item 7, F-25)
+
+A composable (`AudioOnlyVisual`, architecture 11.6) with the footprint of a 16:9 video (full width × 232-236 dp),
+deterministic per clip, never using family hues. Grammar (render: `docs/design/05-*.png`):
+
+1. **Paper**: `drumPapers[hash % 4]` (FNV-1a 32 of the job id, the same hash as the architecture).
+2. **Drum rules**: 4 horizontal hairlines (ink 13 %), evenly spaced in the drawing area.
+3. **Spectrogram halftone**: cell 8 dp, `halftone` colour, an energy field of three formant bands whose centre and
+   sway come from the hash; the envelope comes from the current phrase's word timings (syllable gating), so the
+   texture changes per phrase but is the same every time for the same phrase.
+4. **Pitch line**: the current phrase's `f0_track` in semitones around the clip median, mapped to the drawing area
+   (top 18 % to bottom 26 % of the space above the strip). Played part: ink ribbon 3-11 dp (width follows intensity
+   when present, else a gentle fixed swell); part to come: dotted hairline (1 dp dots every 6 dp, inkMuted);
+   unvoiced gaps longer than 60 ms break the line (no interpolation). Nib at the playhead (8 dp dot + 12 dp halo at
+   25 %). Needle: a 2 dp ink line at 70 % from the top to the strip.
+5. **Word strip**: an opaque `sheet` band, 44 dp, at the bottom with each word centred under its time span (14 sp,
+   ink2); the current word bold ink with a 2 dp underline. Colliding labels: keep the current word, then drop
+   labels from the far ends; no label sits on the halftone.
+6. **Chips** on overlay plates (`sheet` at 94 %): "Audio only" (headphones) top left; italic "Pitch of this phrase"
+   top right.
+7. **No measurable pitch** in the phrase: the line is replaced by a flat dotted hairline and the right chip reads
+   "No measurable pitch here".
+8. Motion: only playback moves the nib, the ribbon and the needle; Reduce motion changes nothing else (there is no
+   decorative animation).
+
+### 7.4 Poster fallback (F-25)
+
+A composable for video clips whose poster has not arrived or does not exist: `posterPapers[hash % 4]` ground, the
+clip's seeded halftone (`halftoneStrong`), two crop marks, the title in Newsreader 600 15 sp on an opaque paper
+plate at the bottom left (two lines, then ellipsis: the title is also in the row's text), and the duration or kind
+chip on an overlay plate. It is generated once and cached (`cacheDir/posters/`, architecture 11.6). It is drawn by
+`PosterArt` (`:core:ui`, WP-03, 12.2), the one composable that shows a clip's picture everywhere (Home shelf and Keep
+watching, Library rows, the Clip page hero, the short's media area): the poster when there is one, else this
+fallback for a video clip, else the audio art (a finished trace with a blot on drum rules) for an audio-only clip.
+Home and the Library cannot use a `:feature:watch` composable (architecture 2.2 rule 1), so it does not live there.
+
+### 7.5 The mouth (articulator) drawings
+
+The web's 2D midsagittal model, ported (v1-complete, architecture `:core:articulator`): tract palette only (2.4),
+told apart by lightness and outline, a single ink accent at the closure point. The sound card shows a still
+(112 × 104 dp) of the selected sound; lesson step 4 and the phenomenon page animate it with playback (content: it
+keeps following the audio with Reduce motion, never moves without playback).
+
+---------------------------------------------------------------------------------------------------------------
+
+## 8. Motion: "the pen moves, the paper doesn't"
+
+Tokens (`PhonoMotion`): fast 120 ms · standard 220 ms · slow 360 ms · draw 600-700 ms. Easing: standard
+`cubic-bezier(0.2, 0, 0, 1)` (the web's `--ease`); enter (sheets) emphasized-decelerate `(0.05, 0.7, 0.1, 1)`;
+exit emphasized-accelerate `(0.3, 0, 0.8, 0.15)`; selection: spring, damping 0.85, stiffness 400 (low bounce). No
+infinite decorative loops anywhere (A-07; also battery and test determinism).
+
+| Moment | Motion | With Reduce motion or animator scale 0 |
+|---|---|---|
+| Playback | The nib advances and the ribbon thickens behind it, driven by the audio clock | Same (content) |
+| Word highlight | Ink fill appears in the frame the word starts (≤ 60 ms, SC-09); no tween | Same |
+| Spotlight reached | The pin fills and the "Now" pill stamps in (scale 1.15 → 1, 160 ms) once; the tether appears with it | They appear, no scale |
+| Swipe between shorts | Vertical pager slide 280 ms (standard); the next slip "prints" (2 dp rise + fade, 160 ms) | Instant (F-06-AC9) |
+| Hold to slow down | The trace ahead stretches horizontally 200 ms; a haptic tick (follows system haptics); Speed reads 0.5× | Label change only |
+| Lesson opens | Sheet rises 300 ms (enter easing); Compare's sorts are set left to right, 30 ms apart | Appear at once |
+| Step opens or closes | Height 220 ms, chevron rotates 90° | Instant |
+| Request advances | The route nib slides to the next node 360 ms; stage change announced politely | Jump |
+| Share bridge, connected | The nib travels from the phone to the computer once (700 ms) when the request is stored | Static solid line |
+| Sync, pull to refresh | The status card's trace wiggles while working (finite: stops when the work stops) | Static "Syncing…" |
+| Analyzing icon | `loader-circle` rotates (1 turn / 1 s) while the state lasts | Static icon |
+| Splash | The P is drawn once (700 ms) | Static mark |
+| Coach mark, snackbar | Fade + 8 dp rise, 220 ms | Appear at once |
+| Selection (toggle, chip, segmented, Speed on the rail) | Ink fill grows from the touch point 120 ms | Instant |
+
+Haptics: a short tick on "your turn" in shadowing (optional, never the only cue), on hold-to-slow start, and on a
+quiz answer; all follow system haptic settings.
+
+---------------------------------------------------------------------------------------------------------------
+
+## 9. Components (anatomy and states)
+
+Every component has a light and a dark rendering, a TalkBack description, ≥ 48 dp targets and no state carried by
+colour alone. "Selected" is always ink fill, an ink ring or a check; "disabled" is 45 % opacity plus, when it
+matters, a reason in words.
+
+### 9.1 Foundation controls (`:core:designsystem`)
+
+| Component | Anatomy | States |
+|---|---|---|
+| **Button, primary** | Ink fill, onInk label (labelLarge) + optional 18-22 dp icon, 12 dp radius, 3 dp bottom bite; height 48 (sm/md) or 56 (lg) | Pressed: ink2 fill, bite removed, 1 dp down. Focused: 3 dp focus ring, 2 dp offset. Disabled: 45 %. Busy: label kept, a static progress hairline under the label (no spinner without words) |
+| **Button, secondary** (default) | Sheet fill, 1.5 dp `lineStrong` ring, ink label | Pressed: deepSheet fill |
+| **Button, tonal** | Galley fill, ink label ("Next change") | Pressed: deepSheet |
+| **Button, quiet** | Text only, ink, 48 dp target | Pressed: galley wash |
+| **Button, danger** | Sheet fill, 1.5 dp `critical` ring, **ink** label with a trash icon ("Remove") | Pressed: galley; never red text, never red fill |
+| **Icon button** | 48 dp circle target, 20-24 dp icon, label required (content description) | Pressed: galley circle; toggled: ink fill circle |
+| **Segmented control** | 1.5 dp `outline` ring, 3 dp inset; options 42 dp tall (48 dp target), optional 18 dp icon; real radio group | Selected: ink fill + onInk label; focus ring per option |
+| **Switch** | 52 × 32 dp track. Off: galley + 2 dp `outline` ring, 16 dp outline thumb. On: ink track, 24 dp onInk thumb **with a check mark** | Disabled 45 %; label + optional description to its left |
+| **Radio card** | Sheet card, 22 dp radio dot, title + body, optional preview | Selected: 2.5 dp ink ring + filled dot |
+| **Text field** | 56 dp, sheet fill, 1.5 dp `outline` ring, leading icon, placeholder in inkMuted | Focused: 2.5 dp ink ring. Invalid: 2 dp `critical` ring + a critical icon and an ink message below ("That doesn't look like a link.") |
+| **Chip** | Pill ≥ 32 dp visual (48 dp target in lists), labelMedium, optional icon | Outline (sheet + `lineStrong`), muted (galley), solid/selected (ink fill + check), zero ("Not in your clips yet": inkMuted text, hairline ring) |
+| **Change chip** (`:core:ui`) | Tint fill + 1.5 dp family ring + **ink** family icon + ink name (+ optional practice badge) | Pressed: deepSheet ring wash; on sheet/page only |
+| **Practice badge** (`:core:ui`) | Galley pill: mic + "Safe to produce" / ear + "Recognize only" (+ " · universal / casual / marked") | Static; never coloured |
+| **Notice** | Galley well, 18 dp icon (info, caution, tip), optional bold lead, ink2 body | Caution adds a 3 dp ink bar at the start; `live` = polite announcement |
+| **Progress bar** | 6 dp track (galley + hairline ring), ink fill, label left, value right (tabular) | Indeterminate: a third-width ink segment sliding (motion allowed) or static with "…" text |
+| **Kicker / group head** | labelSmall caps + italic Newsreader count + a 1 dp `lineStrong` rule to the end | — |
+| **Card** | Sheet, 14 dp radius, ring + soft drop (light) / ring (dark); padding 14-16 dp | Variants: stack (two sheets behind), crop marks, alert (4 dp ink bar at the start) |
+
+### 9.2 Feed header (F-07 item 1)
+
+Anatomy, left to right (52 dp tall, on page): **mode picker** button (mode icon + "Mix" + " · Today's set" in ink2 +
+chevron; opens 9.12); **position** "3 of 8" (titleSmall, tabular) with a **bead row** under it in sets (done =
+filled dot, current = 16 dp ink capsule, to come = rings; hidden in "In order" where it reads "4 / 15"); **Previous
+short** / **Next short** icon buttons (chevron up / down, 48 dp; the visible equivalents of the swipe, F-06 item 4).
+
+States: online (as above); **not reachable / offline**: an "On this phone" chip (smartphone icon + words, galley)
+appears after the picker and the picker shortens to the mode name; counts in the picker are of playable shorts;
+questions part of a set: "Question 2 of 5"; set done: "Done" with all beads filled; large text (9.6): beads hidden.
+
+### 9.3 Spotlight slip and tether (F-07 item 3)
+
+Anatomy (sheet, perforated top edge, 14 dp bottom corners, padding 12-14 dp):
+1. Tags: the change chip (9.1) and the practice badge.
+2. Kicker "LISTEN FOR" + the studied word in quotes (spotlightWord, Newsreader 34 sp) underlined in its family
+   style at 3 dp + the **Now pill** (ink fill, speaker icon + "Now") while the word plays.
+3. IPA line `/dictionary/ → [said]` (ipaSlip, Charis 21 sp).
+4. One-line cue from Learn's "How to hear it", shortened: an English sound-alike ("One quick tap: it sounds like
+   “wadder”."); for "Recognize only" the cue adds "Just learn to hear it: no need to copy it."
+5. "Play the word" (play icon) and "Slowly" (snail, 0.5×) secondary buttons. When the change crosses into the next
+   word, "Play the word" plays both (F-07-AC2).
+
+Tap anywhere else on the slip → pause and open the lesson on the word.
+
+**Tether**: a 1.5 dp ink hairline from a hollow diamond on the slip's lower edge, straight down to a filled diamond
+caret just above the studied word in the captions. Drawn only when (a) the word is on the first visible caption line
+(nothing lies between them), (b) both are on screen, (c) font scale ≤ 1.3. Otherwise only the caret above the word
+shows. The progress pin (9.7) uses the same diamond, so slip, word and timeline share one glyph.
+
+States: default; **now** (Now pill + filled pin); **recognize only** (ear badge, cue suffix); **contraction**
+spotlight (the chip is "Lexical contraction" with an ink ring, the word "want to" dotted, the IPA shows the reduced
+form); **crossing boundary** ("“did” + “you”"); **no spotlight** ("In order" only: the slip is replaced by a single
+quiet line "No labelled change here: listen to the rhythm."); **listen first** (the slip shows; captions hidden, 9.4);
+**large text** (9.6: compact slip: chip line, badge line, word, IPA; cue and buttons move to the lesson, the slip
+itself opens it); **portrait video** (the slip merges into the caption slip, 9.5).
+
+TalkBack: the slip is one node "Listen for flapping in “water”. Safe to produce. /ˈwɔtɚ/ to [ˈwɔɾɚ]: t becomes
+voiced alveolar tap. Double-tap to open the lesson." with child buttons.
+
+### 9.4 Captions and marks (F-07 items 4-5)
+
+Layout: on a clean `page` area (grain masked). Previous phrase dimmed (captionDim, inkMuted), current phrase
+(captionCurrent 20 sp in 46 dp line boxes, every word a ≥ 48 dp button whose hit area extends into the line gap
+without overlapping its neighbours), next phrase dimmed. The intonation badge closes the current phrase.
+
+Marks per family (the web's vocabulary exactly; underline 2 dp, offset 0.26 em, skip-ink off, drawn with
+`drawBehind` from each word's box because `TextDecoration` cannot draw these styles):
+
+| Kind | Underline | Colour | With "Show patterns" on |
+|---|---|---|---|
+| Reduction | solid 2 dp | family | 3 dp + the chevrons-down icon (14 dp) after the word |
+| t/d processes | dashed 2 dp (dash 6, gap 4) | family | 3 dp + scissors |
+| Assimilation | double (2 × 1.25 dp, 1 dp gap) | family | 4 dp total + merge |
+| Word boundary | wavy 1.5 dp (wavelength 8, amplitude 1.5) + the **‿ arc** under the gap to the next word (13 × 7 dp, 2 dp, family colour) | family | 2 dp + link |
+| Lexical contraction | dotted 2.5 dp | ink | + shrink; the chip "wanna ← want to" (galley pill, shrink icon) follows the dotted words |
+| Other change | dash-dot 2 dp | inkMuted | 3 dp + dashed circle |
+
+Word states (shape, not hue): **playing** = ink fill (6 dp radius) with onInk text, underline kept below the fill;
+**selected** (lesson open on it) = 2 dp ink ring; **low confidence / nothing heard** = 1.5 dp dashed inkMuted outline
+around the word (never spotlighted, never asked about); **stressed** (most prominent) = bold; **outside an active
+filter** (transcript) = 45 % and underline removed, text kept; **spotlight** = the tether caret above it.
+
+Intonation badge: galley pill, arrow icon + "Question · rises" / "Statement · falls" / "· stays flat"; "usually
+falls" variant (expected contour differs) gets a 1.5 dp ink2 ring; "uptalk" chip with "What's this?".
+
+Caption modes ("More" sheet): Marks (default), Plain (text only), IPA (Charis under each word; marked words also the
+dictionary form), Off (the caption area collapses to a single "Captions are off" line with "Show"). **Listen first**
+(opt-in): the current phrase is one line "Listen first: the words appear after it plays" + "Show the words" (never one
+placeholder per word).
+
+**First-use hint line** (the Watch coach marks that point at the captions): hand icon + "Tap any word for its
+lesson." + "Got it", inline under the captions, never pausing playback; the next tips ("Press and hold the picture
+to slow down.", "The line style and the small icon tell you the kind of change…") follow one at a time.
+
+Overflow (A-06, F-07-AC9): when the current phrase does not fit, drop the dimmed phrases first; then the area shows
+the lines around the word being said and follows the playhead line by line (jumps with Reduce motion); paused, it
+scrolls. Nothing is cut mid-word.
+
+TalkBack per word: "water, flapping, safe to produce, listen for".
+
+### 9.5 Media area (F-06 item 7)
+
+| Case | Rendering |
+|---|---|
+| Landscape video | Full width, 16:9, letterbox `#0E0D0C` when needed, never cropped; nothing over the picture except the one-time coach mark |
+| Portrait video | Fills the card from the header to the progress band; the **caption slip** (opaque sheet, perforated top edge, top-right 14 dp corner) holds tags, spotlight word, IPA and the current phrase at the bottom left; the **rail capsule** (opaque sheet pill, 72 dp wide) floats on the right |
+| Audio only | The drum (7.3) in the same footprint as a landscape video |
+| Video not on this phone | Poster (or poster fallback) + overlay chip "Video not on this phone · playing the audio" (film icon) |
+| Video not available from the computer | Poster fallback + chip "Video not available from your computer" |
+| Loading a short | Poster or drum with a small static "Getting the sound ready…" chip after 300 ms; captions and slip show at once |
+| Decode failure | Plays as audio with the poster and the chip "This video can't play on this phone. Listening still works." |
+| Hold to slow down | While held: a 0.5× overlay chip (snail + "0.5×") top centre; released: gone |
+
+Overlay chips use `sheet` at 94 % (gate G9), 32 dp, labelMedium, icon + words.
+
+### 9.6 Action rail and large-text action bar (F-07 item 6)
+
+Rail (thumb side, right, 64 dp wide): six items, each a 44 dp circle (sheet + `lineStrong` ring, 22 dp icon) in a
+64 × 60 dp target with a word under it (labelMedium, two lines allowed): "Replay"; "Speed" showing its value ("1×",
+"0.75×", "0.5×"; ink-filled when not 1×); "Loop off" / "Loop: Phrase" (repeat-1, ink-filled) / "Loop: Short"
+(repeat, ink-filled); "Shadow"; "Save" / "Saved" (bookmark-check, ink-filled); "More".
+
+**Action bar** (field-notebook graft): when font scale ≥ 1.3 **or** the current phrase needs more than four caption
+lines at the available width, the rail becomes a two-row labelled bar under the progress (three cells per row, ≥
+64 dp tall, icon + word side by side, the same states), the captions get the full width, and the slip compacts
+(9.3). Render: `docs/design/27-watch-large-text-*.png`.
+
+### 9.7 Progress: the stylus trace, play disc and clip line (F-07 items 7-8)
+
+Row: 48 dp ink **play/pause disc** (onInk glyph) · the **trace** (36 dp tall, fills the width) · elapsed time
+(bodySmall tabular). Trace grammar: played ribbon 1.6-5.4 dp following loudness; dotted rest (1 dp dots every 5 dp,
+inkMuted); phrase boundaries as 1.5 dp inkMuted ticks; the spotlight **pin** (14 dp diamond on a 1.2 dp stem, hollow
+→ filled when now); nib = playhead. The slider semantics: "Position 0:45 of 0:58", actions "Back 2 s" / "Forward
+2 s"; releasing near a phrase start snaps to it; dragging never marks the short as seen.
+
+Clip line under it: clip title (bold, chevron; opens the Clip page) and "Short 4 of 15 · 0:42–0:58" (ink2). At large
+text it wraps to two lines, never truncated.
+
+### 9.8 The short card: composition and states (F-06, F-07)
+
+Reading order: header → media → slip → captions (+ hint line) → rail → progress → clip line → bottom bar. Render
+`04` (landscape), `05` (audio, offline, colour-vision palette with patterns), `06` (portrait + coach mark), `27`
+(large text).
+
+| State | Rendering |
+|---|---|
+| Playing | Word fill; disc shows Pause; Now pill when the spotlight plays |
+| Paused | Disc shows Play; the trace keeps the nib |
+| Listen first, before the first play | Slip + the single "Listen first" line + "Show the words" |
+| First run / empty / empty mode | Empty state (9.21) inside the Watch tab: `ill_feed_empty` "Your feed fills up with your clips" / "Your clips are still coming to this phone." + progress / "No shorts with {change} on this phone yet." + "Watch the Mix" |
+| Offline / unreachable | "On this phone" chip in the header; everything else unchanged |
+| Empty, clips on the way | Empty state "Your clips are still coming to this phone." + progress; once shorts exist, a last card "3 more clips on the way" in the end-card frame of 9.15 |
+| Decode failure | Media area 9.5 ("This video can't play on this phone. Listening still works."); `VideoAvailability.CannotPlayOnThisPhone` |
+| Corrupt or missing local file | Caution notice in the short's media footprint: "This short couldn't be played." (one time); the clip reads "Needs downloading again" (9.18) and swiping moves on |
+| Track missing | Plays the other track; a quiet line under the clip line names the track that plays (the spec gives no exact copy) |
+| Volume at 0 | Notice under the captions: speaker icon + "Turn the volume up: this is all about sound." |
+| Clip deleted while watching | Snackbar at the next swipe: "A clip was deleted on your computer and removed from this phone." |
+| TalkBack | Nothing autoplays; the card is one node with the summary "Short 4 of 15, {clip}. Listen for flapping in “water”. 14 seconds." and the actions Play/Pause, Next short, Previous short, Replay phrase, Slower, Open lesson, Save |
+
+### 9.9 Lesson sheet frame and header (F-10)
+
+A modal bottom sheet over the paused short (scrim 46/62 %), 28 dp top corners, handle; half height (top at ~120 dp)
+expandable to full height (`docs/design/11-*.png`). Above it, on the scrim, the **paused-context pill** (sheet, float
+shadow): pause icon + "Paused at 0:45 · Two friends at the lake". A halftone corner sits at the top right, right of
+the word, never under text.
+
+Header: kicker "WORD LESSON", Save this word (bookmark / bookmark-check), Close; the word (lessonWord, Newsreader 40;
+"“did” + “you”" when the change crosses the boundary, the second word in italic ink2); meta "Word 12 of 431 ·
+phrase 4 · 0:44.8–0:45.2"; change chips + practice badge; reliability badge "Low confidence" / "Nothing heard here"
+(dashed outline badge) when it applies; a row "‹ Word", "Word ›" (secondary, full accessible names "Previous word",
+"Next word") and "Next change →" (tonal).
+
+Steps: numbered disclosures, 56 dp rows with a hairline between them; the numeral is italic Newsreader in a 30 dp
+ring (open = ink disc); title titleLarge; a status at the end ("✓ played 2×"); chevron. Guidance "Full" opens 1-4,
+"Compact" shows titles only. State resets per word.
+
+### 9.10 Lesson step 2: Compare (F-10, render `10`, `11`)
+
+1. **Forms**: two cards side by side: "Dictionary /ˈwɔtɚ/" (sheet, `lineStrong` ring) and "What was said [ˈwɔɾɚ]"
+   (ink fill, onInk), each with a "What's this?" button.
+2. **Legend** directly above the sorts: "= same · ≠ changed · – dropped · + added".
+3. **Type sorts**, one per sound, wrapping onto new rows (never truncated): 80 dp wide (64 when the word has many
+   sounds), dictionary sound on top (Charis 27, ink2), the mark in a 30 dp circle, what was said below, and the word
+   under the sort. States: **same** (quiet sort), **changed** (2 dp ink border, ink-filled mark), **dropped** (galley
+   sort, dictionary sound struck through, a dashed empty slot below), **added** (dashed ink outline, empty dictionary
+   slot), **selected** (ink fill + double ring). TalkBack: "t changed to ɾ", "j, not heard".
+4. **Across a word boundary**: an italic header per word ("“did”", "“you”") with a dashed divider between the groups,
+   and the **gap box** under them (family tint + 1.5 dp family ring, family icon, ink text): "Gap between “did” and
+   “you”: 12 ms — they run together: that is the linking (an unlinked boundary sits nearer 60 ms)."
+5. **Sound card** (galley well) for the selected sort: the **"≠ changed · /t/ → [ɾ]" pill** (ink), the symbol in
+   brackets (Charis 40), its name ("voiced alveolar tap"), "As in “water”: it sounds like “wadder”." and what the
+   mouth does, the **mouth still** (112 × 104 dp, tract palette) at the right, and "Play it" (primary), "See the
+   mouth", "IPA chart". No cross-language anchor in this card (the Spanish-speaker tips live on the phenomenon page,
+   where the spec puts them).
+6. Notices: no dictionary form (web copy), espeak data ("Expected by the aligner" row).
+
+### 9.11 Other lesson steps
+
+- **1 Listen**: "Play the word", "Play with “you”" (crossing changes, with the web's sentence), "Play the phrase";
+  segmented speed 0.5× / 0.75× / 1×; "Loop: repeat what you play" switch; track segmented "Original mix | Dialogue
+  only" when available.
+- **3 Why it changes**: one sheet card per change: family icon + name + "What's this?", the description with an IPA
+  example, the practice badge + register + the report's why, "Watch more like this" (secondary) and "Learn about
+  {change} →" (quiet); low-confidence notices first (caution notice); "Nothing changed: this word was said the way the
+  dictionary says it." when empty; footer facts (prominence, divergence…) as bodySmall rows.
+- **4 See the mouth** (v1-complete): the articulator panel (tract air ground, 10 dp radius, 1 dp hairline) following
+  the playhead; segmented "What was said | Dictionary form"; one 48 dp button per sound; live caption "[ɾ] voiced
+  alveolar tap · as in “water”"; footer line (web). Fallback when cut: each sound button shows its name and the
+  mouth sentence.
+- **5 Practice**: the shadowing intro (web), segmented "The word and the next | The whole phrase", segmented "0.5× |
+  0.75×", "Start shadowing" (primary). Running: a card with the mic-vocal icon and the live line ("Round 2 of 4:
+  your turn — say it now", announced politely), an **8-phase bar** (listen = square cell, your turn = rounded cell;
+  done = ink, current = ink hatch at −35°, to come = outline), "Stop". "Record yourself" opens the record section
+  (F-13): privacy line, "Record" (circle-dot) / "Stop" / "Record again", "Play the original first" switch, the
+  Original / Yours / Alternate buttons, then the pitch overlay (original solid 2.5 dp ink2 with a circle end, yours
+  dashed 6/4 2 dp ink with a square end, direct labels) with "Show as a table", and the observations grouped "How
+  they differ / How they're alike / Couldn't measure" with their topic icons; footer "This is a description, not a
+  grade." Offline: "Pitch comparison needs your computer. You can still compare by ear."
+
+### 9.12 Feed sheets
+
+- **Mode picker** (render `09`): sheet with title "What the feed shows" + lede; options as 56 dp rows (selected =
+  ink fill + check): Mix · Today's set (with progress), Saved (count); "ONE CHANGE" group: per family a header (icon
+  + name in its line style + the line-style name) and change chips "Flapping · 34 shorts" (zero = muted "nt → n · 0 ·
+  Learn", routes to Learn); "ONE CLIP, IN ORDER" group: clip rows with "left at short 4".
+- **More sheet**: list rows with icons: "Listen to: Original mix | Dialogue only" (segmented), captions mode
+  (segmented Marks / Plain / IPA / Off), "Listen first" (switch), "Pitch, stress and IPA of this phrase", "Record
+  yourself", "Open the clip page", "Download the video" (when absent), "Leave this clip out of the Mix", "What do the
+  marks mean?" (opens the legend: the four families + whole-word changes with the web's sample words “does”,
+  “water”, “did you”, “pick it up”, each drawn with its mark, icon and name, plus low confidence and stressed).
+- **Phrase details** (v1-complete): both IPA lines with ‿, the voice line, intonation units, the prominence strip
+  (content words solid ink2 bars, function words outlined; legend), the pitch chart (one ink2 line 2 dp, gridlines
+  hairline, playhead ink, axis labels inkMuted 14 sp) with its text summary and "Show as a table" (every chart has a
+  table twin, A-14).
+
+### 9.13 "What's this?" (F-14)
+
+Control: a 20 dp circle-help icon in a 48 dp target after the term; TalkBack "What's this: {term}". Sheet: title
+(headlineLarge), 1-3 sentences, example in Charis, "Learn more →"; for a change, the practice badge + register + why
++ "Watch more like this". Closing returns focus to the control.
+
+### 9.14 Quiz card (F-08 questions in the feed, F-17 sessions; render `07`)
+
+A stacked sheet card: kicker with the kind icon ("Which pronunciation?" audio-lines, "Which change?" shapes, "How
+many words?" list-ordered), the question as a headlineLarge sentence ("How was “water” really said?"), a one-line
+context lede, "Play" (primary), "Slowly", "With context". Answers in a 2-column grid, each ≥ 56 dp (72 dp in the
+mockup), IPA in Charis 26 or a change chip or a number; a real radio group.
+
+After answering: the right answer gets a **3 dp ink ring + bold + check icon (`good`) + "Correct answer"**; a wrong
+pick gets a **2 dp `critical` ring + X icon + "Your answer"**; others dim to 70 %. A live line: circle-check +
+"Correct!" or circle-alert + "Not quite — the answer was [ɾ]." The explanation well (galley): change chip + badge,
+“water” /ˈwɔtɚ/ → [ˈwɔɾɚ], the description; then "Again at 0.5×", "Open the lesson", "Save" (nothing saved unless
+tapped), "Learn about {change}", "Watch more like this" (Practice), and "Next question →" (primary). Untimed.
+
+### 9.15 End cards (F-06 item 9, F-08; render `08`)
+
+Stacked sheet card with crop marks. **Set summary**: kicker "TODAY'S SET", "Done for today" (displayLarge) or "Set
+done", the `ill_set_done` spot, a tally row between double rules (8 shorts · 5 questions · 4 of 5 right, numerals in
+Newsreader), "What you met" change chips with counts ("Flapping ×3"), the line "Nothing plays after this card. A new
+set is ready after midnight.", "Back to Home" (primary), "Another set", "Practice". No swipe past it.
+Other end cards use the same frame: "End of {clip}" + "You saw 15 shorts with 14 kinds of change." + "Watch it again",
+"Next clip: {title}" (a button), "Practice", "Back to Home"; change mode "That's every “flapping” in your clips." +
+"Learn about flapping", "Practice flapping"; Saved "That's all your saved shorts." + "Practice"; Mix with nothing
+left "You've seen every short. New ones appear when your computer finishes a clip." + "Replay the mix", "Practice",
+"Add a clip". No streak, no time-spent badge, ever.
+
+### 9.16 Home blocks (F-03; renders `01`, `02`, `03`)
+
+| # | Block | Anatomy and states |
+|---|---|---|
+| 1 | **Masthead** | Stylus P (36 dp) + wordmark "Phono*Trainer*" (Newsreader 30, "Trainer" italic) + Settings; double rule; italic dateline ("Sunday, 4 October") + "Home"; lede "What to study today, and how your clips are doing." |
+| 2 | **Computer status card** | 9.17 |
+| 3 | **Today's set** | Stacked hero card with crop marks; halftone in the top-right corner (never under text); kicker "TODAY'S SET"; "Today · about 5 minutes" (displayMedium); "8 shorts, 5 questions · 2 saved shorts back"; the **stations thread**: a dotted trace with 8 station circles (each the spotlight's family icon in its colour on sheet; saved ones with a 2 dp ink ring and a bookmark) and 5 question slugs; legend "8 shorts · one change each" / "5 questions"; "Start" (primary lg) + "What's in today's set" icon button. States: mid-set "Today · 3 of 8 done" + "Continue" (done stations filled ink); finished "Done for today" + "What you met: flapping ×3, linking ×2…" + quiet "Another set"; first run "Today's set starts with your first clip." with dashed empty stations; short set "Only 4 shorts today: add a clip for more."; "Preparing today's set…" after 300 ms |
+| 4 | **Keep watching** | Poster (16:9, duration chip) + title + "Short 4 of 15" + "Listen for: [change chip] in “pick it up”" (word in its mark) + "Keep watching" (primary, full width) |
+| 5 | **Add a clip** | Two cards: dashed-outline icon well + "Paste a link" / "From YouTube, X or another site" and "Choose a file" / "Video or audio on this phone"; section note "Short dialogue teaches the most" |
+| 6 | **New on this phone** | Card with the faint "NEW" stamp, circle-check, "Ready to watch: {title}", "New on this phone · 12 shorts", "Watch" |
+| 7 | **Your clips** shelf | Horizontal row of 176 dp clip cards (9.18) + "All clips →" |
+| 8 | **Watch by change** | One card: per family a header (icon + name in its line style + "solid line · the sound weakens" etc.) and 48 dp change chips "Flapping · 34"; zero = "Not in your clips yet" (muted, opens Learn) |
+| 9 | **Practice** | Card: "10 questions · about 3 minutes", "Worth reviewing: t/d deletion · 4 of 9", a 9-cell accuracy meter (filled = right), "12 saved shorts", the `ill_spot_practice` spot, "Start" |
+| 10 | **Insights teaser** (v1-complete) | Card: "7 in 10" (displayLarge, italic "in"), "words you hear don't sound the way the dictionary writes them.", "See Insights →", the `ill_spot_insights` spot. Absent if Insights is cut |
+
+Home states: first run (status "Not connected to a computer" + "Connect"; the teaching card with `ill_welcome_clips`,
+the numbered steps, "Connect to your computer" (primary) and "Explore Learn"); paired, no clips (empty state with
+`ill_home_no_clips`, "Your computer has no clips yet." + "Start with a short clip (30–60 seconds) of natural
+dialogue." + "Add a clip"); loading (shelf cards with "Bringing to this phone 40 %"); catalogue error ("Your clips
+could not be loaded." + "Try again" in a caution notice; the status card still works); storage nearly full and
+background-limited lines (9.17). Pull to refresh draws the trace wiggle under the masthead.
+
+### 9.17 Computer status card and every connectivity state (spec 7.5)
+
+Anatomy: a 44 dp icon well (ink fill when connected, 1.5 dp ink ring otherwise) + title (titleLarge) + subtitle
+(time, ink2) + one action at the end; then rows (52 dp, hairline above) for request counts and transfers, each icon +
+words (+ bar) (+ inline primary action). The whole card reads as one TalkBack sentence; only transitions are
+announced.
+
+| State | Domain state (architecture 3.4) | Icon | Title · subtitle | Action |
+|---|---|---|---|---|
+| Not connected | `NotConnected` | unplug | "Not connected to a computer" · "Clips you add wait on this phone." | Connect |
+| Offline | `Offline` | wifi-off | "Offline · requests wait on this phone" | — |
+| Not on Wi-Fi | `NotOnWifi` | signal | "Not on Wi-Fi · your computer is reachable only at home" | — |
+| Looking | `Looking` | radar | "Looking for your computer…" | — |
+| Checking | `Checking` | radar | "Checking your computer…" (claims nothing) | — |
+| Connected | `Connected` + `SyncState.Idle` | monitor-check | "Connected to {name}" · "Checked 10 s ago · analyzing 1 · 2 in line" | Sync now |
+| Syncing | `Connected` + `SyncState.Active` | monitor-check + the trace wiggle | "Syncing · bringing 3 clips · 42 %" + bar | — |
+| Not reachable | `NotReachable` (`addressMayHaveChanged` adds the second action; `lastProbe` feeds "Why?") | monitor-off | "Your computer isn't reachable" · "last seen 3 h ago · your clips work offline" | Why? (+ "Enter the new address" after a network change) |
+| Different computer | `DifferentComputer` | monitor-x | "A different computer answered" | Details |
+| Connect again | `ConnectAgain` | key-round | "Your computer no longer recognizes this phone" | Connect again |
+| Computer too old / App too old | `ComputerTooOld` / `AppTooOld` | circle-arrow-up | "Update PhonoTrainer on your computer" / "Update this app" | Why? |
+| Computer low on space | `Connected` with `lowOnSpace = true` (a row under the Connected title) | hard-drive | "Your computer is low on space" | — |
+
+Rows: "2 waiting on this phone" (clock), "1 analyzing · 40 % · Hear the phones" (loader + bar), "1 in line" (clock),
+"1 needs your attention" (circle-alert in `critical` + its primary action, e.g. "Try again"), "Bringing 2 clips to
+this phone · 34 MB of 61 MB" (download + bar), "Storage almost full: videos of older clips will be removed first."
+(hard-drive → Storage), "Android is limiting PhonoTrainer in the background: clips arrive when you open the app." +
+"Battery settings" (battery-warning). Browser-started jobs are never counted.
+
+Sources of the rows (one owner: `ConnectionStatusCard`, work-plan 4.5): the waiting, analyzing, in-line and attention
+counts and the inline action come from this phone's own requests (`RequestRepository.counts()`: `waiting`,
+`analyzing`, `inLine`, `needsAttention`; the progress and the action from the request in question); "Bringing … · 34 MB of 61 MB" from `SyncState.Active(bringing, percent, sending, doneBytes, totalBytes)`;
+the storage line from `StorageRepository.usage` (`budgetReached`, `belowFloor`); the background line from
+`ComputerStatusRepository.backgroundRestricted`. The status icons are the `ic_conn_*` set of section 6.
+
+Global banner (credential revoked): a full-width caution card under the top bar: key-round + "Your computer no longer
+recognizes this phone. Connect again to keep syncing." + "Connect again".
+
+### 9.18 Clip rows, shelf cards and availability (F-04, F-05; render `15`, `16`)
+
+- **Shelf card** (Home): 176 dp, poster 16:10 (or the audio art: a finished trace with a blot on drum rules; or the
+  poster fallback), title (titleSmall, 2 lines), "4 min 21 s · 12 shorts", family icons with counts, availability
+  icon + words.
+- **Library row**: poster 104 × 66 dp, title, meta "4 min 21 s · 691 words · 14 changes", tags line (source icon +
+  word, availability icon + word, "Kept" pin), "You've seen 12 of 15 shorts", "Older rules: re-analyze on your
+  computer to update" muted chip when relevant, "From a computer you forgot" / "From another library"; "More actions"
+  (ellipsis-vertical) opens a menu with "Watch", "Open clip page", "Keep on this phone" / "Stop keeping", "Download to
+  this phone" / "Remove from this phone…", "Remove the video only".
+- **Availability** (icon + words, never colour), one row per domain state (`AvailabilityChip`, architecture 3.4):
+
+  | Words | Icon | Domain state |
+  |---|---|---|
+  | On this phone | smartphone (`ic_avail_on_phone`) | `ClipAvailability.OnThisPhone` |
+  | Bringing to this phone 45 % | download + bar | `ClipAvailability.Bringing(percent)` |
+  | Not on this phone | monitor (`ic_avail_on_computer`) | `ClipAvailability.NotOnThisPhone` |
+  | Getting ready on your computer | monitor-cog | `ClipAvailability.GettingReadyOnComputer` |
+  | Download paused: {reason} ("storage budget reached", "your phone is almost full", or "Downloads continue the next time this phone reaches your computer.") | clock | `ClipAvailability.DownloadPaused(BUDGET_REACHED / FREE_SPACE_FLOOR / NOT_CONNECTED)` |
+  | Needs downloading again ("This clip needs downloading again." on the Clip page) | download | `ClipAvailability.NeedsDownloadingAgain` |
+  | Video on this phone | film (`ic_avail_video`) | `VideoAvailability.OnThisPhone` |
+  | Video downloading 40 % | film + bar | `VideoAvailability.Downloading(pct)` |
+  | Video not on this phone | film, ink2 | `VideoAvailability.NotOnThisPhone` (also `PauseReason.NOT_WANTED`: automatic video download off) |
+  | Video getting ready on your computer | monitor-cog | `VideoAvailability.GettingReadyOnComputer` |
+  | Video not available from your computer | film, ink2 | `VideoAvailability.NotAvailableFromComputer` |
+  | This video can't play on this phone | film, ink2 | `VideoAvailability.CannotPlayOnThisPhone` |
+  | Audio only | headphones (`ic_audio_only`) | `VideoAvailability.AudioOnlyClip` |
+
+### 9.19 Request card, stepper and every request state (F-20; renders `17`, `18`)
+
+Card anatomy: a state line (icon + words, titleLarge 800), the source line (site icon + site word + shortened link,
+or file icon + name + size + age), an optional sentence (the reason), the **route line** or the **stepper**, and the
+actions grid (2 columns, 48 dp). Failures get the **alert card** variant: 4 dp ink bar at the start, the circle-alert
+icon in `critical`, and "Remove" as the danger button (critical outline, ink label).
+
+Route line (waiting states): three 44 dp nodes "Phone" (ink fill when the request is here), "Computer", "Ready",
+joined by dotted traces; solid trace and the nib for the part done.
+
+Stepper (on your computer): six nodes on a trace (done = ink disc + check; current = 36 dp ring + rotating loader;
+next = outline node with its number; skipped = skip-forward; failed = `critical` ring + X; cancelled = circle-slash),
+the **six stage names under the nodes** ("Download, Audio, Dialogue, Words, Phones, Save", the current one bold), and
+the **teaching line in a notice well** ("Step 5 of 6 · phrase 3 of 10. The phone recognizer listens to each word and
+lines it up with its dictionary form."). The request detail shows the full stage names and teaching lines as rows
+(the current row on galley with a 3 dp ink bar), the estimate line, the first-run note, "Show the log", "Show details".
+
+Stage names under the nodes map one to one to `Stage` (work-plan 4.2): `DOWNLOAD` "Download", `EXTRACT` "Audio",
+`SEPARATE` "Dialogue", `TRANSCRIBE` "Words", `PHONES` "Phones", `SAVE` "Save" (full names in the detail: the spec's
+"Download", "Extract the audio", "Separate the dialogue", "Transcribe the words", "Hear the phones", "Compare and
+save"); "phrase 3 of 10" comes from `RequestProgress.segment`/`segments`.
+
+Every row below is one `RequestState` (architecture 8.4; names exact), or the derived queue pause; the actions are
+`RequestAction` values (architecture 3.4). "Watch" and "Open it" are navigation (`RequestRow`'s `onOpen`), not
+request actions.
+
+| State (icon + words) | Domain state · actions | Group | Actions |
+|---|---|---|---|
+| Preparing the file 40 % (hourglass + bar) | `PREPARING` · `CANCEL_PREPARING` | Preparing | Cancel |
+| Couldn't keep the file (circle-alert) | `COPY_FAILED` · `REMOVE`, `TRY_AUDIO_ONLY` | Needs your attention | Remove (+ Try audio only for a video refused for space) |
+| The copy kept on this phone is missing (circle-alert) | `COPY_MISSING` · `REMOVE` | Needs your attention | Remove ("Share the file again to analyze it.") |
+| Waiting on this phone (clock) · reason: "Your computer isn't reachable" / "Not on Wi-Fi" / "Will try again in 2 min" / "Couldn't send yet: will try again" | `WAITING` (reason from `ComputerStatus` and `Request.waiting`: `nextAttemptAt`, `attempts` ≥ 3) · `SEND_NOW`, `REMOVE` | Waiting on this phone | Send now (only when connected), Remove |
+| Waiting on this phone, stopped by the learner (clock) | `WAITING` with `waiting.held` · `SEND_NOW`, `REMOVE` | Waiting on this phone | Send now, Remove (reason line: the spec gives none yet) |
+| Sending 40 % · 125 of 312 MB (send + bar) | `SENDING` · `STOP_SENDING`, `REMOVE` | Sending | Stop sending, Remove |
+| Sent to your computer (send) | `SENT` · `CANCEL` | On your computer | Cancel (confirm dialog) |
+| Waiting in line · 2nd (clock) "Analyses run one at a time." | `IN_LINE` · `CANCEL` | On your computer | Cancel (confirm dialog) |
+| Analyzing 61 % · Hear the phones · phrase 3 of 10 (loader + stepper) | `ANALYZING` · `CANCEL` | On your computer | Cancel (confirm dialog) |
+| Cancel waiting for your computer (circle-slash) | `CANCEL_WAITING` · `UNDO_CANCEL` | On your computer | Undo |
+| Starting again on your computer (rotate-ccw) | the row's state + `rerunPending` (the automatic re-run, architecture 8.4) | On your computer | — |
+| Ready on your computer (circle-check) | `READY_ON_COMPUTER` | Getting it on this phone | — |
+| Getting it on this phone 70 % (download + bar) | `GETTING_ON_PHONE` | Getting it on this phone | — |
+| Done recently (circle-check) | `ON_PHONE` (last 7 days) | Done recently | Watch |
+| Couldn't download (link) | `NEEDS_ATTENTION` (download error codes) · `TRY_AGAIN`, `TRY_AUDIO_ONLY`, `OPEN_LINK`, `REMOVE` | Needs your attention | Try again (primary), Try audio only, Open the link, Remove |
+| Analysis failed | `NEEDS_ATTENTION` (analysis error codes) · `TRY_AGAIN`, `SHOW_DETAILS`, `REMOVE` | Needs your attention | Try again, Show details, Remove |
+| Refused by your computer at sending | `NEEDS_ATTENTION` (`lastError.atSending`) · `TRY_AUDIO_ONLY`, `REMOVE` | Needs your attention | Try audio only (videos too large), Remove |
+| Interrupted ("Your computer stopped during the analysis.") | `NEEDS_ATTENTION` (`interrupted`, after the one automatic re-run) · `TRY_AGAIN`, `REMOVE` | Needs your attention | Try again, Remove |
+| Your computer no longer has this file ("Share it again.") | `NEEDS_ATTENTION` (`source_gone`, architecture 8.6) · `REMOVE` | Needs your attention | Remove |
+| Cancelled (circle-slash) | `CANCELLED` · `TRY_AGAIN`, `REMOVE` | Needs your attention | Try again, Remove |
+| Queue paused: Connect again / Update needed / A different computer answered | derived from `ComputerStatus` `ConnectAgain` / `ComputerTooOld`, `AppTooOld` / `DifferentComputer` (never written into rows) · `CONNECT_AGAIN` / `WHY` | header notice | Connect again / Why? / Details |
+| Started on your computer (monitor, collapsed group) | `ComputerJob` (`ClipRepository.browserJobs()`), not a request | read-only | Hide on this phone (failed ones) |
+| Offline, computer-side state | any accepted state + `Request.updatedAt` | any | "Last known: Analyzing 40 % (10 min ago)"; actions read "…when connected" |
+
+The request detail's milestone timeline reads `Request.createdAt` ("Added on this phone") and `Request.timeline`
+(`sentAt`, `inLineAt`, `analyzingAt`, `readyAt`, `onPhoneAt`).
+
+Group heads: kicker + italic count + rule, with the group's icon ("Needs your attention" uses circle-alert in
+`critical`). Stage changes are announced politely ("Now: Transcribe the words."), never percent ticks.
+
+### 9.20 Sync and storage meters (F-21)
+
+Storage (Settings > Storage): a big "1.4 GB of 2 GB" (displaySmall) over a segmented bar (one ink2 bar per category
+told apart by **pattern** — Clips solid, Videos 30° hatch, Waiting to send dotted outline, Cache outline — with
+direct labels and sizes, plus a table twin); budget segmented (1 GB / 2 GB / 5 GB / No limit except free space);
+"Download videos automatically" switch; per-clip rows sorted by size with "Remove the video", "Remove from this
+phone", "Keep on this phone"; "Remove all videos" (danger, confirm). Per-clip download progress: "Clip data ✓ · Audio
+60 % · Video waiting" with a thin bar. Errors and limits as caution notices with their copy ("Your phone is almost
+full. Downloads are paused.", "Storage budget reached. Remove clips or raise the budget.").
+
+Where each meter and line comes from (names exact): the categories are `StorageUsage.clipsBytes`, `videosBytes`,
+`waitingCopiesBytes`, `cacheBytes`; the budget segmented is `StorageBudget.Limit(1/2/5 GB)` / `FreeSpaceOnly`; the
+two limit notices are `StorageUsage.belowFloor` and `budgetReached` (also `SyncState.Paused(FREE_SPACE_FLOOR /
+BUDGET_REACHED)`); `SyncState.Paused(NOT_CONNECTED)` shows "Downloads continue the next time this phone reaches your
+computer."; the per-clip line is `ClipDetail.artifacts` (`ArtifactProgress`: `CLIP_DATA` "Clip data", `AUDIO_MIX`
+"Audio", `VIDEO` "Video"; `READY` ✓, `DOWNLOADING` percent, `QUEUED`/`ABSENT` "waiting", `PAUSED` "paused"); an artifact
+with two failed verifications shows the caution notice "Download failed: the file was damaged on the way." + "Try
+again" (`ClipRepository.downloadToPhone`). Home's sync row is `SyncState.Active` (9.17).
+
+### 9.21 Empty, loading and error states
+
+**Empty-state scaffold** (`EmptyState(illustration, title, body, actions)`): sheet card (or the bare page inside a
+tab root), the illustration full width (380 × 214 aspect), title (displaySmall, Newsreader), one sentence (bodyLarge),
+at least one action (primary first). Every empty state named by the spec has its illustration (7.2): feed empty,
+Home first run, Home no clips, Requests empty, no examples, Practice nothing yet, no computer found, Saved empty.
+Search with no result uses no illustration: "No clip matches “{text}”." + "Clear the search".
+
+**Loading** (`LoadingGate`): nothing for 300 ms, then a placeholder (galley blocks at the content's size, static),
+then after 1 s a text label ("Loading your clips…"); never an unlabelled spinner.
+
+**Errors**: a caution notice in place of the content (what happened + what to do + a button), never a dialog, never
+red text; the rest of the screen keeps working.
+
+### 9.22 Share confirmation sheet (spec 8.4; renders `19`, `20`)
+
+Shown over the sharing app (scrim over it), 28 dp top corners. Content in order: the launcher tile (40 dp) + "Analyze
+with PhonoTrainer" (headlineLarge); **what was shared** (galley well: site icon in a sheet well + "YouTube link" +
+"youtube.com/watch?v=Ab3x… · Show it all", or file name, kind, size, duration, or "3 videos · 412 MB"); the **bridge**:
+a phone node (ink fill), the trace, a computer node; the **connection line** (icon + bold sentence + ink2 sentence);
+the "Audio only" switch row; the guidance tip line; the legal line (bodySmall ink2); the buttons "Cancel" and the
+primary.
+
+| State | Domain state (`ComputerStatus` after the ≤ 2 s probe; `AddResult`, `IntakeProgress`) | Bridge | Connection line | Primary |
+|---|---|---|---|---|
+| Checking (≤ 2 s) | `Checking`, `Looking`, or the probe still running | dotted, nib pulsing at the phone (static with Reduce motion) | radar · "Checking your computer…" | Analyze (enabled) |
+| Connected | `Connected` (`inLine`, `analyzing` for "in line after 2 other clips") | **solid ink trace, the nib travelling toward the computer**, computer node with a check | monitor-check · "Your computer is connected: the analysis starts now." + "It goes in line after 2 other clips." | Analyze |
+| Not reachable / offline / not on Wi-Fi | `NotReachable`, `Offline`, `NotOnWifi` | **dotted pencil line**, the request **parked on the phone** (hourglass badge on the phone node), computer node muted with monitor-off | clock · "Your computer isn't reachable right now." + "This waits on your phone and is sent when you're back on your home Wi-Fi." | Add to queue |
+| Not paired | `NotConnected` | dotted line, computer node outlined with a question mark | unplug · "This phone isn't connected to your computer yet. It waits on your phone until you connect." | Add to queue |
+| Needs attention | `ConnectAgain`, `ComputerTooOld`, `AppTooOld`, `DifferentComputer` (the queue-wide pause of architecture 8.4) | dotted line, computer node with key-round / circle-arrow-up / monitor-x | circle-alert · "Your computer needs attention ({reason}). This waits on your phone." | Add to queue |
+| Preparing the file (files) | `IntakeProgress` (copy, or audio extraction for "Audio only") | the bridge kept; a progress bar on the phone node: "Preparing the file… 40 %"; Back asks "Stop adding this video?" (dialog, 9.23) | | — |
+| After the tap | `AddResult.Added` / `AddFilesResult` | the sheet keeps the bridge and shows "Added to your queue." / "Sending to your computer…" → "Sent to your computer." with "Open PhonoTrainer" and "See requests"; closes after 2 s (not with TalkBack, not while the notification permission dialog is pending) | | |
+| Empty / errors / partial / duplicate | `AddResult.NoLink`, `OutOfSpace`, `DuplicateFound`; `FileRefusal` reasons | the bridge is hidden; a caution notice with the spec copy ("There's no link in what you shared.", "2 of 3 added…", "You already added this link." + "Open it" / "Analyze again anyway") | | |
+
+### 9.23 Dialogs, snackbars, banners, coach marks
+
+- **Dialog**: sheet, 28 dp radius, float shadow / ring, title headlineLarge (Newsreader 24), body bodyLarge, buttons
+  right-aligned (quiet / primary); destructive ones are not dismissible by an outside tap and focus "Cancel" first
+  ("Stop analyzing “{title}” on your computer?", "Forget this computer…" with the spec's sentence, "Forget your
+  practice history?", "Remove all videos", the mass-deletion question "Your computer no longer lists 9 of 10 clips.
+  Remove them from this phone?" (`ClipRepository.pendingMassDeletion`, spec 7.9) and, in the share sheet during a
+  copy, "Stop adding this video?").
+- **Snackbar**: inverse surface (ink / bone), 12 dp radius, 56 dp, text + one underlined action ("Undo"), above the
+  bottom bar; polite announcement; no timer shorter than 10 s; with TalkBack it waits.
+- **Banner**: a full-width caution card under the top bar for persistent conditions (credential revoked, the clip was
+  deleted on your computer while open). The credential-revoked banner and the snackbar host are drawn once by the app
+  shell (work-plan WP-02), not by each screen.
+- **One-shot messages** (`UserMessages`, architecture 3.1; one snackbar each, spec copy): `CLIP_GONE` "That clip is
+  no longer on this phone."; `REQUEST_REMOVED` "This request was removed."; `CLIPS_REMOVED` "1 clip deleted on your
+  computer was removed from this phone." (in the feed, 9.8's wording); `LIBRARY_CHANGED` "Your computer is using a
+  different library. Clips from the other one stay on this phone until you remove them."; `TOO_LATE_TO_CANCEL` "Too
+  late to cancel: “{title}” is ready. Remove it from this phone if you don't want it."; `CANCEL_UNDONE` (the spec
+  gives no copy yet).
+- **Coach mark**: an inverse slip (ink fill, onInk text, 12 dp radius, a 14 dp pointer toward its anchor), icon +
+  bold tip + one sentence + "Got it" (underlined, 48 dp); one at a time, never pausing, never on a timer; TalkBack
+  announces it as a dialog with "Got it".
+
+### 9.24 Top bar and bottom bar
+
+- **Top bar** (secondary destinations): 64 dp, back arrow (48 dp), the title in headlineLarge (Newsreader 28) that
+  may wrap to two lines at large text, up to two actions; the lede follows in the content (bodyMedium ink2), so every
+  destination opens with a title and a one-sentence lede (F-25 list item 1). Scrolled: sheet fill + hairline.
+- **Tab roots** (Learn, Practice): displayMedium title + double rule + lede; Home uses the masthead; Watch uses the
+  feed header.
+- **Bottom bar**: sheet, 80 dp + gesture area, the double rule above it; four items (Home, Watch, Learn, Practice),
+  each a 64 × 32 dp pill + word; selected = **ink pill + onInk icon + bold word** (two cues, no hue). Persistent on
+  every destination; hidden only under an overlay sheet expanded to full height (the lesson over the feed, phrase
+  details). A lesson opened with `presentation = FULL` (from the Clip page, Learn, Practice, Saved) is a normal
+  destination in architecture 16.2 and keeps the bar.
+
+### 9.25 Learn, IPA chart, Insights, Settings components
+
+- **Change card** (Learn, render `12`): family icon + name in its line style; description with IPA; practice badge +
+  register; "34 shorts in your clips" (square-play) or "Not in your clips yet" (muted).
+- **Phenomenon page** (render `13`): chips row, description, "How to hear it", the "For Spanish speakers" tip as a
+  tip notice, "Can you copy it?", the mouth demo card (still + segmented "What is said | Dictionary" + "Slow |
+  Normal" + "Play the movement"), "Watch examples" (primary lg) + "Practice this", "Examples from your clips" rows (44
+  dp play circle, the phrase with the word marked, clip · time).
+- **IPA symbol button**: ≥ 48 dp square, Charis 24, the sound's name under it at large text; weak vowels marked by a
+  dotted underline and the word "weak"; selected = ink fill. The chart reflows by group, never scrolls sideways.
+- **Insights meter**: label, big value (titleLarge tabular), a 14 dp bar (ink2 fill) over a hatched reference band
+  (30° hatch, hairline outline) with "Published: > 60 % · Johnson 2004", "Show as a table".
+- **Settings rows** (render `22`): groups with a kicker; rows 56 dp (title + description + control); Colors as radio
+  cards with a live preview of the four families (icon + "abc" underlined in each style) for each palette.
+
+---------------------------------------------------------------------------------------------------------------
+
+## 10. Screens: layout notes per destination
+
+Common frame: status bar (edge to edge, icons in ink), content on `page` with grain, 16 dp gutters, the bottom bar
+on every destination. Each destination opens with a title and a one-sentence lede (F-25 item 1). Scroll containers
+are vertical only; nothing scrolls sideways except the Home clip shelf (which also has "All clips").
+
+### 10.1 Tabs
+
+| Id | Destination | Layout (top to bottom) | Mockups |
+|---|---|---|---|
+| T1 | **Home** | Masthead + double rule + dateline + lede; the ten blocks of 9.16 in spec order, 20 dp apart; pull to refresh | `01-home`, `02-home-full`, `03-home-first-run` |
+| T2 | **Watch** | Vertical pager of short cards (9.8), one card per screen height minus the bottom bar; question cards and end cards are pages of the same pager. Landscape (rotation): the media takes the left 56 %, slip/captions/rail the right column; state is kept | `04`, `05`, `06`, `07`, `08`, `27` |
+| T3 | **Learn** | Title "Learn" + double rule + lede (web); "How to study a change" card (three numbered steps); three entry tiles (IPA chart, Words we use, Insights); one section per family (icon + name in its line style + "dashed line · scissors: the stop is clipped") with change cards; "Whole-word changes" last | `12-learn` |
+| T4 | **Practice** | Title "Practice" + the ear spot + double rule + lede (web); the start card (stacked): the three kinds with icons and one-line explanations, the focus chip "Only: flapping ✕" + "Practice everything instead", the "Focus on my weak spots" switch, "Start practicing"; "Your accuracy so far" with "Kept only on this phone" and per-change rows (icon + name, "4 of 9 · 44 %", a 10 dp ink2 meter), weakest first, "Reset"; tiles "Saved 12" and "Changes you have met 11 of 16" | `14-practice` |
+
+Practice session (inside T4): the quiz card of 9.14 full screen with "Question 3 of 10" and a 10-bead row; results:
+"7 of 10 right" (displayLarge), "Worth reviewing" change chips, "Practice again", "Practice my weak spots". Empty:
+`ill_practice_empty` + "Nothing to practice yet" + the spec sentence + "Add a clip".
+
+### 10.2 Secondary destinations
+
+| Id | Destination | Layout | Mockup |
+|---|---|---|---|
+| P-01 | **Library** | Top bar "All clips" + Add; lede; "IN PROGRESS 3" group (request mini-rows with inline primary action) + "2 more started on your computer"; search field ("Search your clips…"); filter chips "On this phone" / "Not on this phone"; a row "8 of 10 clips" (live count, announced) + sort menu "Newest first ▾"; clip rows (9.18). Offline banner: "Showing what this phone knows. Last synced {time}." | `15-library` |
+| P-02 | **Clip page** | Hero poster (200 dp, back button on an overlay plate) or the drum for audio clips; title (headlineLarge), meta, availability badges, "Watch · short 4" (primary) + "From the start"; tabs Shorts / Transcript / Summary (selected = bold + 3 dp ink bar); Shorts: numbered rows (italic numeral, spotlight chip + word in its mark, time range · marked words, "✓ Seen" / "Next"); Transcript: phrases with play buttons and marked words, filter chips, mini player; Summary: "Changes in this clip" rows, "How reduced is this speech?" meters, "About this clip"; "On this phone" block with sizes and actions | `16-clip-page` |
+| P-03 | **Requests** | Top bar; lede; the connection line; groups in the spec order, each with a kicker head (icon + name + italic count + rule) and request cards (9.19); empty: `ill_requests_empty` + "Nothing in progress. …" + "Add a clip" | `17-requests` |
+| P-04 | **Request detail** | Top bar "Request" + menu; lede; source card with the milestone timeline (dots on a 2 dp ink spine: done = ink disc + check, current = ring + loader, next = outline with the place icon, each with its time); "What your computer is doing" (headlineMedium) + estimate; the six stage rows with status words and teaching lines; "Show the log", "Cancel"; for failures the alert card on top with "Show details" | `18-request-detail` |
+| P-05 | **Add a clip** | Top bar; lede (web); "Paste a link" field with "Paste" (clipboard read only on tap) and the recognised site label ("YouTube", "YouTube Shorts", "X", "Other website: downloads may not work."); "Choose a file" (picker; then a list of chosen files with name, duration, size); options (Audio only, Separate the dialogue) as switch rows with their sentences; the legal line; the bridge and the connection line of 9.22; primary "Analyze" / "Add to queue" | (share sheet `19`, `20`) |
+| P-06 | **Connect to your computer** | Top bar; lede (spec); the three-step instruction card for the computer side (numbered; the command shown in a galley code well, Atkinson 15 sp, selectable, with "Copy"); "Looking for your computer…" (radar) then found computers as radio rows (name, "PhonoTrainer {version}", status word); "Enter the address instead"; code entry: six 48 dp digit cells (ink ring on focus, numeric keypad), optional phone-name field, "Connect"; success: "Connected to {name}" + the sentence. Empty: `ill_no_computer` + "No computer answered." + the numbered checklist + "Search again" + "Enter the address instead". Offline: wifi-off notice + "Open Wi-Fi settings". Errors under the code cells as critical-icon lines (wrong code, expired, too many tries; focus stays in the cells); a typed address without phone access or a too-old computer reads as a caution line under the field, the too-old row is not selectable. Modes (`ConnectKey.mode`): `FIRST_RUN` adds "Not now" (quiet) with "You can connect later from Home."; `FROM_HOME` as described; `CONNECT_AGAIN` offers only the paired computer, any other found computer is a muted row "This phone is connected to {name}. Forget it first in Settings to connect to another computer."; `NEW_ADDRESS` opens on the address field and accepts only the paired computer | `21-connect-none` |
+| P-07 | **Connection details** | Top bar; the status card (9.17); the "Why?" checklist (numbered, not checkboxes); last probe result in words ("No answer after 3 s"); address, short server id, API version, pending counts, background restriction, decoder capability ("AV1 up to …"); "Copy diagnostics"; `ill_no_computer` at the top when not reachable | — |
+| P-08 | **Phenomenon page** | Top bar with the change name in its line style + "What's this?"; chips; description; "How to hear it"; the Spanish-speaker tip (where the content has one); caveat; "Can you copy it?"; "The mouth" demo; "Watch examples" + "Practice this"; "Examples from your clips" (up to 8). Empty examples: `ill_no_examples` + web copy + "Add a clip" | `13-phenomenon` |
+| P-09 | **IPA chart + symbol sheet** | Top bar; lede; sections (Consonants by manner, "Sounds that replace t and d", Syllabic consonants, Vowels, Diphthongs, Vowels with r) as wrapping grids of 56 dp symbol buttons; nothing selected: "Choose a symbol — Each symbol is one sound. Start with [ɾ], [t̚] or [ə]"; the symbol sheet: symbol (Charis 40), name, the mouth with "Play the movement", glossary text, "As in …", the change it signals, "In your clips" (up to 6 playable rows) | — |
+| P-10 | **Insights** (v1-complete) | Top bar; overview line ("10 clips on this phone · 4,321 words · 42 min of speech"); metric meters (9.25) each with "What's this?" and "Show as a table"; "What this means for your listening" takeaways; "Changes across your clips" rows (icon + name + count + a family-hatched bar on sheet; tap → change mode). Empty: "Your clips are counted here — …" | — |
+| P-11 | **Saved** | Top bar; lede; "Watch saved" (primary); rows: word (in its mark), change chip, clip, "Play", "Last watched {time}", unsave (bookmark-check toggle). Empty: `ill_saved_empty` + "Nothing saved yet" + the spec sentence + "Go to Watch" | `24-saved-empty` |
+| P-12 | **Settings** and sub-pages | Groups (Display, Playback and captions, Learning, Your computer, Storage, Notifications, Help, About and licences) as rows with icons. Display, Playback and captions and Learning are groups on the Settings page itself; the sub-pages are exactly the navigation keys (architecture 16.1): Your computer (`YourComputerKey`: the status card 9.17, actions, "Forget this computer…" danger), Storage (`StorageKey`, 9.20), Notifications (`NotificationSettingsKey`: "Notifications are off for PhonoTrainer" + "Open settings" when denied), Help (`HelpKey`: "Restart the tour", "What do the marks mean?" opening the same legend sheet as the short's More sheet, "How PhonoTrainer works"), About (`AboutKey`: version, licence line, the source location, the privacy statement) and its "Open-source licences" list (`LicencesKey`: every component, font and the Lucide icons with their licence texts, readable offline). Display: Appearance segmented with icons, Colors radio cards with previews, "Show patterns as well as colors" switch, Motion segmented, the text-size note | `22-settings-display` (the Display group, cropped and titled for legibility; it is not a sub-page) |
+| F-14 | **Words we use** (`GlossaryIndexKey`, from Learn's entry tile) | Top bar "Words we use"; lede (the spec gives none yet); a search field (live count, as the Library's); two kicker groups, terms and metrics, as 56 dp rows (term in titleMedium + its first sentence in bodyMedium ink2 + chevron); a row opens the "What's this?" sheet (9.13); no match: one line + "Clear the search", no illustration (9.21) | — |
+| P-13 | **Welcome** | Wordmark + "Skip" (quiet); a stacked, crop-marked stage with the page's illustration and, on page 1, a sample slip ("Flapping · Safe to produce · “water” /ˈwɔtɚ/ → [ˈwɔɾɚ]"); kicker "1 of 3"; title (displayMedium); one sentence (18 sp ink2); page indicator (current = 28 dp ink capsule) + "Next" / "Get started" (primary lg) | `23-welcome` |
+
+### 10.3 Sheets and overlays
+
+| Sheet | Notes | Mockup |
+|---|---|---|
+| Word lesson | 9.9-9.11; half height over the paused short, expandable; full height from Clip page, Learn, Practice, Saved | `10`, `11` |
+| Phrase details | 9.12; full-height sheet; charts with table twins | — |
+| "What's this?" | 9.13; half height | — |
+| Feed mode picker | 9.12 | `09-mode-picker` |
+| Short "More" sheet | 9.12; includes the legend "What do the marks mean?" | — |
+| Marks legend "What do the marks mean?" | 9.12; one `MarksLegend` (`:core:ui`, 12.2) opened from the More sheet and from Settings > Help | — |
+| Share confirmation | 9.22, over the sharing app | `19`, `20` |
+| Coach marks | 9.23 | `06` |
+| Confirmation dialogs | 9.23 | — |
+
+---------------------------------------------------------------------------------------------------------------
+
+## 11. Accessibility rules (spec section 10, made visual)
+
+| Id | How this design meets it |
+|---|---|
+| A-01 Never colour alone | Family = line style + icon + name (+ colour); status = icon + word; answers = icon + words + ring weight; selection = ink fill, ring or check; chart series = pattern/dash + direct label. Grayscale proofs: `04-watch-video-light-grayscale.png`, `05-watch-audio-offline-dark-grayscale.png`, `10-lesson-compare-light-grayscale.png` |
+| A-02 Hue reserved | Gate G8: every non-family token ≤ 0.05 chroma; illustrations and brand use ink, paper and kraft; anatomy uses the tract palette |
+| A-03 Targets | 48 dp minimum everywhere: caption words (hit areas into the line gap), "?" controls (20 dp glyph in a 48 dp box), IPA symbols (56 dp), sorts (80 × 140 dp), rail (64 × 60), chips in lists (48 dp tall), digit cells; quiz answers ≥ 56 dp |
+| A-04 TalkBack | Every control labelled (icon buttons require a label in the API); the short is one node with summary + custom actions; words read "word, changes, advice[, listen for]"; sheets have pane titles; headings marked (titles, section heads, kickers); illustrations, textures, the trace, the halftone and the tether are invisible to accessibility; polite announcements only for stage changes, answers, shadowing phases, recording hints, connection transitions |
+| A-05 IPA speakable | `IpaText` exposes symbol names ("[ɾ]: voiced alveolar tap") and a play action |
+| A-06 Font scaling to 200 % | All text in sp, no fixed heights on text containers, display sizes scale non-linearly, the rail becomes the action bar (9.6), captions follow the playhead line by line, top-bar titles wrap, tables reflow to stacked rows, the IPA chart wraps. Render `27-watch-large-text` |
+| A-07 Reduced motion | Section 8 column 3; content motion (trace, mouth) follows playback only; no infinite loops at any setting |
+| A-08 No autoplay with TalkBack | The short waits for "Play"; the share sheet does not auto-close |
+| A-09 Captions for all speech | Every played sound has its text; "your turn" is text + optional haptic |
+| A-10 Contrast | Section 3: body ≥ 7:1 (13.20-17.11), secondary ≥ 4.5:1 (ink2 ≥ 7.50, inkMuted ≥ 5.22), marks ≥ 3:1 on every surface they may sit on (≥ 3.05), focus and control outlines ≥ 3:1, overlays gated over worst-case frames |
+| A-11 No time limits | Questions untimed; coach marks and snackbars wait; the only limit (30 s per take) is stated before recording |
+| A-12 Gesture alternatives | Next/Previous short buttons in the header; Replay, Speed, Loop on the rail; long-press always has a "More" equivalent |
+| A-13 Keyboard, D-pad, switch | Reading order = visual order (section 9 anatomies list it); one focus ring everywhere: 3 dp `focus`, 2 dp offset, following the shape |
+| A-14 Charts | Text summary + "Show as a table" on every chart (pitch, prominence, overlay, meters, storage) |
+| A-15 CVD palette + patterns | Settings > Display: palette radio cards with previews; patterns default on with the CVD palette (render `05`) |
+| A-16 Plain language | A title and a one-sentence lede on every destination; "What's this?" after every term; errors say what happened and what to do |
+
+Checks WP-03 adds: the palette gate as a JVM test; `A11yAudit.assertClean` (architecture 18) on every component
+preview; screenshot tests at font scale 1.0, 1.3 and 2.0, light and dark, Standard and CVD; a grayscale screenshot
+review of Home, Watch, Lesson and Requests.
+
+---------------------------------------------------------------------------------------------------------------
+
+## 12. Implementation map (aligned with architecture section 17)
+
+### 12.1 `:core:designsystem` (theme, tokens, brand drawing, base components)
+
+| File (package `com.mapineda48.phonotrainer.core.designsystem`) | Contents |
+|---|---|
+| `theme/Palette.kt` | Raw values from `palette.json`: `Neutrals.Light/Dark`, `FamilyPalette.Standard/Cvd × Light/Dark` (+ tints), `Tract.Light/Dark`, `Brand.Light/Dark` (kraft, halftones, drum and poster papers), `Launcher` constants. Generated or hand-copied; the JVM gate test reads these values |
+| `theme/ColorScheme.kt` | `phonoLightScheme`, `phonoDarkScheme`: the explicit Material 3 mapping of 2.2 |
+| `theme/PhonoColors.kt` | `@Immutable data class PhonoColors(page, sheet, galley, deepSheet, ink, ink2, inkMuted, onInk, outline, lineStrong, hairline, focus, good, critical, scrim, letterbox, kraft, kraft2, halftone, halftoneStrong, grainAlpha, drumPapers, posterPapers, family: FamilyColors, tract: TractColors)` with `FamilyColors(reduction, td, assimilation, boundary, tints…)`; `LocalPhonoColors` |
+| `theme/Type.kt` | `FontFamily` for Atkinson (variable), Newsreader (variable, roman + italic, opsz per role), Charis (Regular, Bold); `phonoTypography` (4.2); `PhonoType` extras (spotlightWord, lessonWord, captionCurrent, captionDim, accentItalic, ipa*) |
+| `theme/Shape.kt` | `phonoShapes` (5.1), `PerforatedTopShape`, `SortShape` |
+| `theme/Spacing.kt` | `PhonoSpacing` (5.2) and target sizes |
+| `theme/Motion.kt` | durations, easings, spring spec; `PhonoMotion` honouring `LocalReducedMotion` (architecture 18) |
+| `theme/Theme.kt` | `PhonoTheme(darkTheme, colors: ColorChoice, patterns, reducedMotion, content)`: provides the scheme, `PhonoTheme.colors/type/motion/patterns`, and a configuration context whose `uiMode` follows the in-app appearance so `drawable-night` resources (illustrations, splash) resolve with the in-app choice |
+| `texture/PaperGrain.kt`, `texture/Halftone.kt` | `Modifier.paperGrain()`, the seeded tile cache; `HalftoneCache` (seed → `ImageBitmap`) |
+| `trace/StylusTrace.kt` | The trace path builder (ribbon from samples + widths, runs split at gaps) and `StylusTrace(samples, progress, ticks, pin, pinNow, style)` Canvas composable; used by the progress bar, the drum, the route line and the bridge |
+| `brand/PhonoMark.kt` | The stylus P as an `ImageVector` (from the master path) for the masthead and the about screen |
+| `icons/PhonoIcons.kt` | `object PhonoIcons { val FamilyTd = R.drawable.ic_family_td … }` for every entry of `icons.json` |
+| `illustration/PhonoIllustrations.kt` | The `ill_*` drawable ids and their intrinsic aspect |
+| `component/*` | Buttons, IconButton, Segmented, Switch, RadioCard, TextField, Chip, Badge, Notice, ProgressBar, Card (stack, crop marks, alert), Kicker, DoubleRule, TopBar, BottomBar, Sheet frame, Dialog, Snackbar style, CoachMark slip, the route-line and stepper visuals, TypeSort, EmptyState scaffold visuals |
+
+### 12.2 `:core:ui` and the feature modules (architecture 17, work-plan 4.4 and 4.5)
+
+| Where | Composables (section of this document) |
+|---|---|
+| `:core:ui` primitives (WP-03) | `FamilyMark` and `MarkedWordSpan` (line style + icon + name; draws the six underlines and the ‿ arc with `drawBehind` from word boxes in a `FlowRow`, 9.4), `ChangeChip`, `PracticeBadge` (9.1), `StatusLine` (icon + words for every request, connection and availability state, 9.17-9.19), `AvailabilityChip` (9.18), `ExplainButton` + `ExplainSheet` (9.13), `IpaText` (4.3), `LoadingGate`, `EmptyState(illustration, title, body, actions)` (9.21), `CoachMarkHost` (9.23), `PhonoButton`, cards and sheets (9.1; the frozen `:core:ui` names of the 12.1 `component/` visuals); visual-only pieces WP-03 adds additively (plain inputs, no domain logic): `ShortProgress` (9.7: feed and Clip page player, over `StylusTrace`), `PosterArt` (7.4: poster, poster fallback or audio art for Home, Library, Clip page and the feed), `MarksLegend` (9.12: the More sheet and Settings > Help) |
+| `:core:ui` `component/` (shared, one owner each, work-plan 4.5) | `ClipCard` / `ClipRow` (9.18, WP-16), `RequestRow` (9.19: the request card and its mini-row, WP-22), `QuestionCard` + `AnswerFeedback` (9.14, WP-21), `ShadowingPanel` (9.11 step 5, WP-18), `OccurrenceRow` (9.25 example rows, WP-20), `ConnectionStatusCard` (9.17: Home, Connection details, Settings > Your computer; WP-15), `ShareBridge` + `ConnectionLine` (9.22: share sheet and Add a clip; WP-23). They are domain-aware (`ComputerStatus`, `SyncState`, request counts), so by architecture 17 each has one feature owner |
+| `:core:ui` `extension/` (v1-complete, work-plan 4.4) | `MouthRenderer` draws the sound-card still and step 4 (7.5, 9.10-9.11; absent: the name and the mouth sentence); `RecordSection` (9.11); `PhraseDetailsEntry` (9.12); `ClipTranscriptTab` (10.2 P-02); `InsightsAvailability` (Home block 10, Learn tile); `ClipReductionMeters` (P-02 Summary) |
+| `:feature:watch` | Feed header (9.2), `SpotlightSlip` + tether (9.3), `CaptionFlow` (9.4), media framing (9.5), `ActionRail` / `ActionBar` (9.6), short card (9.8), mode picker and More sheet (9.12), end cards (9.15), `AudioOnlyVisual` (7.3, architecture 11.6) |
+| `:feature:lesson` | Lesson frame and header (9.9), `ComparePanel` (forms, legend, type sorts, word headers, gap box) and `SoundCard` (9.10), steps 1, 3, 4, 5 (9.11) |
+| `:feature:home` | Masthead, Today's set with the stations thread, Keep watching, Add a clip slots, New on this phone, Watch by change, Practice card, Insights teaser (9.16) |
+| Other features | Learn (9.25, 10.1), Practice (10.1), Library and Clip page (10.2), Requests and Add a clip (9.19, 10.2), Connect (10.2), Settings and Storage (9.20, 9.25), Welcome (10.2), share (9.22) |
+
+Feature modules hold no colour, font or text size of their own: they compose these pieces with `PhonoTheme` tokens.
+
+### 12.3 Resources and assets
+
+WP-03 converts the staging export into `:core:designsystem` (work-plan WP-03: every resource lives there; the merged
+manifest of `:app` references the launcher icon, the splash and the notification icon from it). Conversion scripts
+belong to WP-03 in `android/design-src/convert/`; the design tools of section 13 are what they call.
+
+| Resource | Staging path (`android/design-src/export/`) | Final home |
+|---|---|---|
+| Fonts | `res/font/*.ttf` | `:core:designsystem` `res/font/` |
+| Font and icon licences | `assets/licenses/*.txt` | `:core:designsystem` `assets/licenses/` (merged into the APK; About reads them) |
+| Icons `ic_*.xml` | `res/drawable/` | `:core:designsystem` `res/drawable/` |
+| Illustrations `ill_*.xml` | `res/drawable/` + `res/drawable-night/` | `:core:designsystem` |
+| Launcher layers and monochrome | `res/drawable/ic_launcher_background.xml`, `ic_launcher_foreground.xml`, `ic_launcher_monochrome.xml`; `res/mipmap-anydpi-v26/ic_launcher.xml`, `ic_launcher_round.xml` | `:core:designsystem`; the two adaptive-icon XMLs go to `res/mipmap-anydpi/` (with minSdk 29 the `-v26` qualifier is obsolete and lint, run with `warningsAsErrors`, reports `ObsoleteSdkInt`). No legacy raster mipmaps: every supported device (API 29+) draws the adaptive icon, which is what spec F-25's "legacy icons" would otherwise cover |
+| Splash `splash_mark.xml`, `splash_mark_animated.xml` (+ night) | `res/drawable/`, `res/drawable-night/` | `:core:designsystem` |
+| Notification icon `ic_notification.xml` | `res/drawable/` | `:core:designsystem`; any `NotificationCompat.setColor` accent is ink, never the launcher kraft (white on kraft is about 1.7:1) |
+| Frozen-name aliases `ic_stat_phono` (→ `ic_notification`), `phono_window_background` (→ `phono_page`) | `res/values/brand_aliases.xml` | `:core:designsystem` (work-plan 4.1 names these for `:app`'s manifest and themes) |
+| Window and splash colours | `res/values/colors.xml`, `res/values-night/colors.xml` (`phono_page`, `phono_ink`, `phono_launcher_tile`) | `:core:designsystem` |
+| Themes `Theme.Phono`, `Theme.Phono.Starting`, `Theme.Phono.ShareSheet` | written by WP-03 from 12.4 | `:core:designsystem` `res/values/themes.xml` (+ `values-v31/`), referenced by `:app`'s manifest and by `ShareActivity` (work-plan 4.1 freezes the three names) |
+
+Two checks the converted resources must pass in `:core:designsystem`:
+- **Lint `VectorPath`** (minSdk ≥ 21, so it applies): a single `pathData` of 3,000 characters or more is reported, and
+  lint runs with `warningsAsErrors`. One staged file crosses it: `ic_launcher_background.xml` (its merged halftone
+  path is 8,031 characters). WP-03 splits that path into several `<path>` elements under the limit in
+  `design-src/convert/` (same paint, same pixels) or the design track re-exports it with the merge capped; a
+  `tools:ignore` is the last resort. Every other path in the export counts under 3,000 (lint does not count blanks;
+  the longest, in `ill_no_computer`, is 3,134 characters with blanks).
+- **Licence entries**: `THIRD-PARTY-NOTICES.md` 7.3 "Fonts and icons" (WP-03) lists the five font files from
+  `assets/licenses/FONTS.txt` (name, version, source, SHA-256, OFL-1.1; Charis with its Reserved Font Names) and the
+  Lucide icons (v1.51.0, ISC, Feather-derived glyphs MIT, the 122 names in `icons.json`, also present as SVG sources
+  under `design-src/svg/icons/` and in `design-src/mockups/kit/icons.js`). The illustrations, the launcher icon, the
+  splash and the notification icon are original to this project (no third-party art, no logos, no generated images)
+  and need no entry.
+
+### 12.4 Splash and window
+
+`Theme.Phono.Starting` (core-splashscreen 1.2.0): `windowSplashScreenBackground = @color/phono_page`,
+`windowSplashScreenAnimatedIcon = @drawable/splash_mark_animated` (API 31+; the compat library shows the static
+`splash_mark` below 31), `windowSplashScreenAnimationDuration = 700`, no icon background, `postSplashScreenTheme =
+@style/Theme.Phono`. `Theme.Phono` window background = `phono_window_background` (= `phono_page`), light/dark from
+`values-night`. `Theme.Phono.ShareSheet` (the share confirmation, 9.22): translucent window, no title, transparent
+window background, scrim and sheet drawn by Compose, `windowIsFloating` off, navigation bar handled by the sheet's
+insets (architecture 12). The splash follows the system night mode; on API 31+ the app calls
+`UiModeManager.setApplicationNightMode` when the in-app appearance is Light or Dark so the next cold start matches (no
+white flash in either theme). That call lives in the app shell (work-plan WP-02, `:app`), through a helper WP-03
+provides in `:core:designsystem`; WP-03 itself never edits `:app`.
+
+### 12.5 Rules carried from Artemi (architecture 17)
+
+Tokens only in screens (no hard-coded colours, fonts or text sizes; a hygiene grep fails on `Color(0x` and `.sp`
+literals outside `:core:designsystem`), WCAG contrast on every surface a colour can sit on (section 3), 48 dp
+targets, decorative art excluded from semantics, `@PreviewLightDark` previews of every component state in Standard
+and CVD palettes.
+
+---------------------------------------------------------------------------------------------------------------
+
+## 13. Design tools (`android/design-src/tools/`, Python 3 standard library only)
+
+| Tool | What it does | Verified |
+|---|---|---|
+| `check_palette.py [palette.json] [--report] [--verbose]` | Runs gates G1-G11 (section 3); exit 1 on any failure, 2 on a malformed file | 499 checks pass; a deliberately broken palette fails with 10 named failures |
+| `svg2vd.py in.svg [-o out.xml] [--size 24] [--palette palette.json --theme dark] [--strict-palette] [--tint ?attr/x] [--color name=#hex] [--lenient]` | SVG subset → VectorDrawable: path, circle, ellipse, rect (rx/ry), line, polyline, polygon, g, transforms (flattened exactly; elliptical radial gradients via nested groups), fill/stroke/opacity, linear and radial gradients (objectBoundingBox and userSpaceOnUse, gradientTransform, spreadMethod, href), clipPath, `var(--token)` and theme swaps; merges paths that share a paint; refuses `stroke-dasharray`, `<pattern>`, text, images and filters with a clear message | Fixtures + brand masters + all 122 icons |
+| `vd2svg.py drawable.xml [-o out.svg] [--scale 4] [--background #hex] [--attr name=#hex] [--trim-end 1]` | VectorDrawable (or the drawable inside an AnimatedVectorDrawable) → SVG for review: group transforms in Android's order, clip-paths, trim paths, aapt gradients, tint | Round trip |
+| `roundtrip.py [svgs…] --out DIR [--palette palette.json]` | SVG → VD → SVG, renders both with headless Chrome, compares with ImageMagick (normalized RMSE), writes side-by-side PNGs; exit 1 above the threshold (0.02) | All fixtures, brand masters, illustrations (light and dark) and 121 of 122 icons pass; `ic_site_x` measures 0.0204 (anti-aliasing along its long arc; the geometry is exact), so a run over every icon exits 1 until the threshold or that case is settled |
+| `lucide_icons.py --lucide DIR [--svg-dir DIR] [--js FILE]` | Extracts the `icons.json` inventory from a Lucide install (lucide-static SVGs or lucide-react ESM), read-only; writes SVG sources and the mockups' icon table | 122 icons |
+| `brand_export.py [--out DIR]` | Writes the brand resources into the staging tree: launcher layers, the two adaptive-icon XMLs, notification icon, static and animated splash (light and night), `colors.xml` (light and night) from `palette.json` | Its outputs match `svg2vd.py` run on each brand master |
+| `../mockups/render.sh [page…]` | Renders the mockups to `docs/design/` at 2× with Chrome and quantizes them | 27 pages × 2 themes |
+
+Workflow for an illustration: draw in the light illustration tokens (no dashes, no patterns: expand hatching into
+clipped line paths and dots into circles) → `svg2vd.py ill_x.svg --strict-palette --precision 2 -o
+drawable/ill_x.xml` → `svg2vd.py ill_x.svg --palette palette.json --theme dark --strict-palette --precision 2 -o
+drawable-night/ill_x.xml` → `roundtrip.py` on the source → look at the comparison PNGs. With `--precision 2` the
+staged illustrations regenerate byte for byte from their SVG masters (icons and brand layers use the default
+precision, 3, and regenerate byte for byte too).
+
+---------------------------------------------------------------------------------------------------------------
+
+## 14. Mockup index (`docs/design/`, 412 × 915 dp at 2×; tall renders are full scrolls)
+
+| File (`-light.png`, `-dark.png`) | Shows |
+|---|---|
+| `01-home` | Home, populated: masthead, status card with analyzing / needs attention / bringing, Today's set hero with stations |
+| `02-home-full` | Home full scroll: all ten blocks in spec order, spot illustrations, Watch by change with line-style names |
+| `03-home-first-run` | Home first run: not connected, the teaching card with `ill_welcome_clips`, Today's set placeholder |
+| `04-watch-video` | A short with landscape video: header with beads and prev/next, slip with the Now pill and the tether, marked captions, intonation badge, hint line, rail with Speed 0.75×, stylus-trace progress with the filled pin |
+| `05-watch-audio-offline` | Audio-only short, computer not reachable ("On this phone"), colour-vision palette with patterns: the drum, labels on the strip, pattern icons after marks, low-confidence outline, ‿ arc, Loop: Phrase and Saved |
+| `06-watch-portrait` | Portrait video: opaque caption slip, rail capsule, contraction spotlight, the "hold to slow down" coach mark |
+| `07-watch-question` | A set question answered wrong: rings, icons and words, explanation well |
+| `08-watch-set-end` | "Done for today" summary card |
+| `09-mode-picker` | The feed mode picker sheet |
+| `10-lesson-compare` | Lesson sheet, step 2: paused-context pill, forms, legend above sorts, selected ≠ sort, sound card with the "≠ changed" pill and the mouth still |
+| `11-lesson-boundary` | Full-height lesson for “did” + “you”: per-word headers, dropped sort, gap box, Why it changes, shadowing running (8-phase bar) |
+| `12-learn`, `13-phenomenon` | Learn tab; the Flapping page with the mouth demo and examples |
+| `14-practice` | Practice tab: kinds, focus chip, weak-spots switch, accuracy |
+| `15-library`, `16-clip-page` | All clips with In progress; the Clip page Shorts tab |
+| `17-requests`, `18-request-detail` | Requests with the alert card, the route line, the named six-stage stepper and its teaching line; the request detail timeline and stages |
+| `19-share-connected`, `20-share-queued` | The share confirmation bridge in both states |
+| `21-connect-none` | "No computer answered." with `ill_no_computer` and the numbered checklist |
+| `22-settings-display` | The Display group of the Settings page with palette previews (cropped and titled "Display" for legibility; Display is a group, not a sub-page, 10.2 P-12) |
+| `23-welcome` | Welcome page 1 |
+| `24-saved-empty` | Saved, empty state |
+| `25-illustrations` | The illustration set, light and dark from one vector |
+| `26-brand` | Launcher icon (masks, sizes, themed), layers with the safe zone, share sheets light and dark, notifications, splash frames |
+| `27-watch-large-text` | Watch at font scale 2.0: compact slip, full-width captions, the two-row action bar |
+| `*-grayscale.png` | Grayscale proofs (A-01) |
+
+Copy shortened in the mockups (meaning kept, as the spec allows): the slip cue is one line; the sound card buttons
+read "Play it", "See the mouth", "IPA chart" (for "Play this sound", "See it in the mouth", "Open in the IPA chart");
+the word buttons read "‹ Word" / "Word ›" with full accessible names; the hint line reads "Tap any word for its
+lesson." Names of clips and computers in the mockups are invented examples.

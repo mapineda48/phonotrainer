@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=412">
+<title>Watch: the mode picker sheet</title>
+<link rel="stylesheet" href="kit/theme.css"><link rel="stylesheet" href="kit/feed.css">
+<script src="kit/icons.js"></script><script src="kit/art.js"></script><script src="kit/kit.js"></script>
+<style>
+  .sheet { top: 120px; }
+  .sh { padding: 0 16px 120px; }
+  .opt { display: flex; align-items: center; gap: 12px; min-height: 56px; border-radius: 12px; padding: 4px 12px; }
+  .opt.sel { background: var(--ink); color: var(--on-ink); }
+  .opt.sel .ink2 { color: var(--on-ink); opacity: .85; }
+  .opt .t { flex: 1; } .opt .t b { display: block; font-size: 16px; } .opt .t span { display: block; font-size: 14px; }
+  .fam { margin-top: 14px; }
+  .fam h3 { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; }
+  .fam h3 small { margin-left: auto; font-weight: 400; color: var(--ink-2); font-size: 14px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+</style></head>
+<body>
+<div class="phone">
+  <div data-statusbar></div>
+  <div class="fhead"><span class="mode"><span data-icon="shuffle" data-size="20"></span>Mix <span class="k">· Today's set</span><span data-icon="chevron-up" data-size="18"></span></span></div>
+  <div class="media video frame scene-lake"><span class="sil" style="left:21%;width:21%;height:62%"></span><span class="head" style="left:24.5%;bottom:54%;width:13.5%;height:27%"></span><span class="sil" style="left:57%;width:19%;height:55%"></span><span class="head" style="left:60.5%;bottom:48%;width:12%;height:24%"></span></div>
+  <div class="scrimx"></div>
+  <section class="sheet" role="dialog" aria-label="What the feed shows">
+    <div class="handle"></div>
+    <div class="sh">
+      <div class="row" style="align-items:flex-start"><div class="grow"><h2 class="display" style="font-size:26px;line-height:1.15">What the feed shows</h2><p class="lede">Pick a mix, one change, your saved shorts or one clip in order.</p></div><span class="iconbtn" aria-label="Close"><span data-icon="x" data-size="22"></span></span></div>
+      <div style="margin-top:10px">
+        <div class="opt sel" role="radio" aria-checked="true"><span data-icon="shuffle" data-size="22"></span><div class="t"><b>Mix · Today's set</b><span class="ink2">3 of 8 · questions at the end</span></div><span data-icon="check" data-size="22" data-sw="2.6"></span></div>
+        <div class="opt" role="radio"><span data-icon="bookmark" data-size="22"></span><div class="t"><b>Saved</b><span class="ink2">12 shorts</span></div></div>
+      </div>
+      <div class="grouphead"><span class="kicker">One change</span></div>
+      <div class="fam"><h3><span data-fam="td"></span><span class="w m-td">t/d processes</span><small>dashed line</small></h3>
+        <div class="chips"><span class="chip tall">Flapping · 34 shorts</span><span class="chip tall">Unreleased t/d · 22</span><span class="chip tall">Glottalization · 9</span><span class="chip tall">t/d deletion · 8</span><span class="chip tall zero">nt → n · 0 · Learn</span></div></div>
+      <div class="fam"><h3><span data-fam="boundary"></span><span class="w m-boundary">Word boundary</span><small>wavy line</small></h3>
+        <div class="chips"><span class="chip tall">Linking · 52 shorts</span><span class="chip tall">h-dropping · 11</span></div></div>
+      <div class="fam"><h3><span data-fam="reduction"></span><span class="w m-reduction">Reduction</span><small>solid line</small></h3>
+        <div class="chips"><span class="chip tall">Vowel reduction · 41 shorts</span><span class="chip tall">Function-word elision · 18</span></div></div>
+      <div class="grouphead"><span class="kicker">One clip, in order</span></div>
+      <div class="opt"><span data-icon="clapperboard" data-size="22"></span><div class="t"><b>Two friends at the lake</b><span class="ink2">15 shorts · left at short 4</span></div><span data-icon="chevron-right" data-size="20"></span></div>
+    </div>
+  </section>
+</div>
+</body></html>

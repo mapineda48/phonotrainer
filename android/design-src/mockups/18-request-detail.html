@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=412">
+<title>Request detail</title>
+<link rel="stylesheet" href="kit/theme.css">
+<script src="kit/icons.js"></script><script src="kit/art.js"></script><script src="kit/kit.js"></script>
+<style>
+  .content { padding: 0 16px 120px; }
+  .tl { position: relative; margin-top: 10px; }
+  .ms { display: grid; grid-template-columns: 34px 1fr auto; gap: 10px; align-items: center; min-height: 44px; position: relative; }
+  .ms .dot { width: 30px; height: 30px; border-radius: 15px; display: grid; place-items: center; background: var(--ink); color: var(--on-ink); z-index: 1; }
+  .ms .dot.next { background: var(--sheet); color: var(--ink-2); box-shadow: inset 0 0 0 1.5px var(--outline); }
+  .ms .dot.cur { background: var(--sheet); color: var(--ink); box-shadow: inset 0 0 0 2.5px var(--ink); }
+  .ms b { font-size: 15px; } .ms .tm { font-size: 14px; color: var(--ink-2); }
+  .tl::before { content: ""; position: absolute; left: 16px; top: 18px; bottom: 18px; border-left: 2px solid var(--ink); }
+  .stage { display: grid; grid-template-columns: 34px 1fr; gap: 10px; padding: 8px 0; border-top: 1px solid var(--hairline); }
+  .stage .t { font-size: 15px; line-height: 1.35; } .stage .t b { font-size: 16px; }
+  .stage .teach { font-size: 14px; color: var(--ink-2); margin-top: 2px; }
+  .stage.cur { background: var(--galley); margin: 0 -12px; padding: 8px 12px; border-radius: 10px; box-shadow: inset 3px 0 0 var(--ink); border-top: 0; }
+</style></head>
+<body>
+<div class="phone grain">
+  <div data-statusbar></div>
+  <div class="topbar"><span class="iconbtn" aria-label="Back"><span data-icon="arrow-left" data-size="24"></span></span><h1>Request</h1><span class="iconbtn" aria-label="More actions"><span data-icon="ellipsis-vertical" data-size="22"></span></span></div>
+  <div class="content">
+    <p class="lede">Where this clip is, and what your computer is doing with it.</p>
+    <div class="card pad" style="margin-top:12px">
+      <div class="row gap10"><span data-icon="at-sign" data-size="22"></span><div class="grow"><div class="b" style="font-size:17px">How to order coffee like a local</div><div class="small ink2">X · x.com/…/status/…41 · 4:10</div></div></div>
+      <div class="tl" aria-label="Timeline">
+        <div class="ms"><span class="dot"><span data-icon="check" data-size="16" data-sw="3"></span></span><b>Added on this phone</b><span class="tm">9:02</span></div>
+        <div class="ms"><span class="dot"><span data-icon="check" data-size="16" data-sw="3"></span></span><b>Sent to your computer</b><span class="tm">9:02</span></div>
+        <div class="ms"><span class="dot"><span data-icon="check" data-size="16" data-sw="3"></span></span><b>Waiting in line</b><span class="tm">9:02</span></div>
+        <div class="ms"><span class="dot cur"><span data-icon="loader-circle" data-size="16" data-sw="2.6"></span></span><b>Analyzing · 61 %</b><span class="tm">since 9:06</span></div>
+        <div class="ms"><span class="dot next"><span data-icon="monitor" data-size="15"></span></span><span class="ink2">Ready on your computer</span><span></span></div>
+        <div class="ms"><span class="dot next"><span data-icon="smartphone" data-size="15"></span></span><span class="ink2">On this phone</span><span></span></div>
+      </div>
+    </div>
+    <h2 class="h2" style="margin-top:18px">What your computer is doing</h2>
+    <p class="small ink2" style="margin-top:2px">Usually takes about as long as the clip (about 4 min).</p>
+    <div style="margin-top:8px" aria-live="polite">
+      <div class="stage" style="border-top:0"><span class="node done"><span data-icon="check" data-size="16" data-sw="3"></span></span><div class="t"><b>Download</b> <span class="ink2">— done</span></div></div>
+      <div class="stage"><span class="node done"><span data-icon="check" data-size="16" data-sw="3"></span></span><div class="t"><b>Extract the audio</b> <span class="ink2">— done</span></div></div>
+      <div class="stage"><span class="node done"><span data-icon="check" data-size="16" data-sw="3"></span></span><div class="t"><b>Separate the dialogue</b> <span class="ink2">— done</span></div></div>
+      <div class="stage"><span class="node done"><span data-icon="check" data-size="16" data-sw="3"></span></span><div class="t"><b>Transcribe the words</b> <span class="ink2">— done</span></div></div>
+      <div class="stage cur"><span class="node cur" style="width:30px;height:30px"><span data-icon="loader-circle" data-size="16" data-sw="2.6"></span></span><div class="t"><b>Hear the phones</b> <span class="ink2">— in progress · phrase 3 of 10</span><div class="teach">The phone recognizer listens to each word and lines it up with its dictionary form.</div></div></div>
+      <div class="stage"><span class="node">6</span><div class="t"><b>Compare and save</b> <span class="ink2">— next</span><div class="teach">Labelling what changed in each word and saving the results.</div></div></div>
+    </div>
+    <div class="row gap10" style="margin-top:12px"><span class="btn grow"><span data-icon="scroll-text" data-size="18"></span>Show the log</span><span class="btn grow"><span data-icon="circle-stop" data-size="18"></span>Cancel</span></div>
+  </div>
+  <div data-navbar="Home"></div>
+</div>
+</body></html>

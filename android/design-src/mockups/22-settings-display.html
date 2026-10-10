@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=412">
+<title>Settings: Display</title>
+<link rel="stylesheet" href="kit/theme.css">
+<script src="kit/icons.js"></script><script src="kit/art.js"></script><script src="kit/kit.js"></script>
+<style>
+  .content { padding: 0 16px 120px; }
+  .grp { margin-top: 18px; }
+  .grp .lab { display: flex; gap: 8px; align-items: center; font-weight: 700; font-size: 16px; margin-bottom: 8px; }
+  .radio { display: grid; grid-template-columns: 24px 1fr; gap: 10px; padding: 12px 14px; border-radius: 14px; background: var(--sheet); box-shadow: inset 0 0 0 1.5px var(--line-strong); margin-top: 8px; }
+  .radio.on { box-shadow: inset 0 0 0 2.5px var(--ink); }
+  .dot { width: 22px; height: 22px; border-radius: 11px; box-shadow: inset 0 0 0 2px var(--outline); margin-top: 2px; }
+  .radio.on .dot { box-shadow: inset 0 0 0 2px var(--ink), inset 0 0 0 6px var(--sheet); background: var(--ink); }
+  .swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 10px; }
+  .sw { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 14px; }
+  .sw .abc { font-weight: 600; font-size: 16px; }
+</style>
+<script>
+  // Each preview shows its own palette whatever the active one is.
+  window.afterHydrate = () => {
+    const dark = document.documentElement.dataset.theme === "dark";
+    const P = { standard: dark ? ["#4a6ec4","#c27405","#a44b79","#18a7a1"] : ["#3152a5","#a26000","#832c5c","#009c96"],
+                cvd: dark ? ["#1574b5","#ffad3c","#b94300","#6ac7ff"] : ["#005487","#c07b00","#8a3103","#3396cb"] };
+    const F = ["reduction","td","assimilation","boundary"], S = ["solid","dashed","double","wavy"];
+    document.querySelectorAll("[data-preview]").forEach(el => {
+      const p = P[el.dataset.preview];
+      el.innerHTML = F.map((f, i) => `<span class="sw"><span style="color:${p[i]}">${icon(FAM_ICON[f], 18, 2.25)}</span><span class="abc" style="text-decoration:underline ${S[i]} ${p[i]};text-decoration-thickness:${i===2?3:2}px;text-underline-offset:.26em">abc</span></span>`).join("");
+    });
+  };
+</script>
+</head>
+<body>
+<div class="phone grain">
+  <div data-statusbar></div>
+  <div class="topbar"><span class="iconbtn" aria-label="Back"><span data-icon="arrow-left" data-size="24"></span></span><h1>Display</h1></div>
+  <div class="content">
+    <p class="lede">Make the screen comfortable for your eyes. Changes apply at once and are remembered on this phone.</p>
+    <div class="grp"><div class="lab">Appearance</div>
+      <div class="seg" role="radiogroup" aria-label="Appearance"><span class="on"><span data-icon="monitor" data-size="18"></span>System</span><span><span data-icon="sun" data-size="18"></span>Light</span><span><span data-icon="moon" data-size="18"></span>Dark</span></div></div>
+    <div class="grp"><div class="lab">Colors</div>
+      <div class="radio on" role="radio" aria-checked="true"><span class="dot"></span><div><b>Standard</b><div class="small ink2">Calm blue, amber, plum and teal.</div><div class="swatches" data-preview="standard"></div></div></div>
+      <div class="radio" role="radio" aria-checked="false"><span class="dot"></span><div><b>Color-vision friendly</b><div class="small ink2">Blue, orange, vermilion and sky — kept apart even with red-green or blue-yellow color blindness. Turns on pattern emphasis.</div><div class="swatches" data-preview="cvd"></div></div></div></div>
+    <div class="grp"><div class="row gap12"><div class="grow"><b>Show patterns as well as colors</b><div class="small ink2">Adds the family icon after each marked word and thicker underlines. Follows the Colors setting.</div></div><span class="switch" role="switch" aria-checked="false"></span></div></div>
+    <div class="grp"><div class="lab">Motion</div><div class="seg" role="radiogroup" aria-label="Motion"><span class="on">Follow system</span><span>Reduce</span></div></div>
+    <p class="small ink2" style="margin-top:14px;display:flex;gap:8px"><span data-icon="info" data-size="18"></span>Text size follows your phone's font size, IPA included.</p>
+  </div>
+  <div data-navbar="Home"></div>
+</div>
+</body></html>

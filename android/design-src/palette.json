@@ -1,0 +1,171 @@
+{
+  "_about": "Phonautograph palette for the PhonoTrainer Android client. Source of truth for Color.kt and for tools/check_palette.py. Family hues are the web client's values, unchanged (web/src/theme/tokens.css). Neutrals are re-tuned for mobile and re-gated. Every value is #rrggbb; alpha tokens are {hex, alpha, over}.",
+  "version": 1,
+  "familyOrder": ["reduction", "td", "assimilation", "boundary"],
+  "tintShare": { "light": 0.14, "dark": 0.26 },
+
+  "neutrals": {
+    "light": {
+      "_name": "Ink on paper",
+      "page": "#f8f6ef",
+      "sheet": "#fffdf8",
+      "galley": "#efebe2",
+      "deepSheet": "#e5e0d4",
+      "ink": "#1b1a18",
+      "ink2": "#45433e",
+      "inkMuted": "#5d5a53",
+      "onInk": "#fffdf8",
+      "outline": "#7c786f",
+      "hairline": "#dbd9d3",
+      "lineStrong": "#b6b4af",
+      "focus": "#1f5fd1",
+      "good": "#0b7d0b",
+      "critical": "#c0362f",
+      "inverseSurface": "#1b1a18",
+      "inverseOnSurface": "#fffdf8",
+      "scrim": { "hex": "#111110", "alpha": 0.46, "over": "page" },
+      "letterbox": "#0e0d0c"
+    },
+    "dark": {
+      "_name": "Scratch on soot",
+      "page": "#121110",
+      "sheet": "#1c1b19",
+      "galley": "#272522",
+      "deepSheet": "#312f2b",
+      "ink": "#f3f0e8",
+      "ink2": "#d0ccc2",
+      "inkMuted": "#a6a297",
+      "onInk": "#121110",
+      "outline": "#858177",
+      "hairline": "#2f2e2c",
+      "lineStrong": "#565451",
+      "focus": "#8ab4ff",
+      "good": "#3fbf55",
+      "critical": "#ff6b5e",
+      "inverseSurface": "#f3f0e8",
+      "inverseOnSurface": "#1c1b19",
+      "scrim": { "hex": "#000000", "alpha": 0.62, "over": "page" },
+      "letterbox": "#0e0d0c"
+    }
+  },
+
+  "brand": {
+    "light": {
+      "kraft": "#d8ccb2",
+      "kraft2": "#b9aa8b",
+      "halftone": { "hex": "#1b1a18", "alpha": 0.11, "over": "page" },
+      "halftoneStrong": { "hex": "#1b1a18", "alpha": 0.20, "over": "page" },
+      "grainAlpha": 0.06,
+      "drumPapers": ["#f1ede3", "#eeebe4", "#efe9dc", "#ebe8e1"],
+      "posterPapers": ["#ece7dc", "#e6e1d6", "#efe6d6", "#e4e2dd"]
+    },
+    "dark": {
+      "kraft": "#4a4436",
+      "kraft2": "#6b624e",
+      "halftone": { "hex": "#f3f0e8", "alpha": 0.10, "over": "page" },
+      "halftoneStrong": { "hex": "#f3f0e8", "alpha": 0.17, "over": "page" },
+      "grainAlpha": 0.07,
+      "drumPapers": ["#1b1a18", "#1d1c1a", "#201e1a", "#1a1a19"],
+      "posterPapers": ["#24221f", "#27241f", "#22211f", "#29261f"]
+    }
+  },
+
+  "families": {
+    "standard": {
+      "light": { "reduction": "#3152a5", "td": "#a26000", "assimilation": "#832c5c", "boundary": "#009c96" },
+      "dark": { "reduction": "#4a6ec4", "td": "#c27405", "assimilation": "#a44b79", "boundary": "#18a7a1" }
+    },
+    "cvd": {
+      "light": { "reduction": "#005487", "td": "#c07b00", "assimilation": "#8a3103", "boundary": "#3396cb" },
+      "dark": { "reduction": "#1574b5", "td": "#ffad3c", "assimilation": "#b94300", "boundary": "#6ac7ff" }
+    }
+  },
+
+  "tints": {
+    "standard": {
+      "light": { "reduction": "#e0e5ee", "td": "#f3e6d9", "assimilation": "#efdfe1", "boundary": "#e3efea" },
+      "dark": { "reduction": "#283041", "td": "#43311f", "assimilation": "#3d2830", "boundary": "#263c38" }
+    },
+    "cvd": {
+      "light": { "reduction": "#dde4e9", "td": "#f7ebdb", "assimilation": "#f0e0d6", "boundary": "#e4eff2" },
+      "dark": { "reduction": "#22313e", "td": "#503d27", "assimilation": "#42271c", "boundary": "#31434d" }
+    }
+  },
+
+  "illustration": {
+    "_about": "The only colours illustrations, the poster fallback and brand art may use. Draw in the light column; svg2vd.py --palette palette.json --theme dark swaps each light hex for its dark twin. Ink at an opacity (halftone, hatching) swaps with ink.",
+    "light": {
+      "ink": "#1b1a18", "ink2": "#45433e", "inkMuted": "#5d5a53", "paper": "#fffdf8", "page": "#f8f6ef",
+      "galley": "#efebe2", "deepSheet": "#e5e0d4", "kraft": "#d8ccb2", "kraft2": "#b9aa8b",
+      "tractTissue": "#ddd4c1", "tractTongue": "#c9755f", "tractLip": "#d8a695", "tractBone": "#fdfdfb", "tractAir": "#e7ecef"
+    },
+    "dark": {
+      "ink": "#f3f0e8", "ink2": "#d0ccc2", "inkMuted": "#a6a297", "paper": "#1c1b19", "page": "#121110",
+      "galley": "#272522", "deepSheet": "#312f2b", "kraft": "#4a4436", "kraft2": "#6b624e",
+      "tractTissue": "#46402f", "tractTongue": "#c06b53", "tractLip": "#99624f", "tractBone": "#c2bcae", "tractAir": "#0e1417"
+    }
+  },
+
+  "tract": {
+    "_about": "The web articulator palette (web/src/theme/tokens.css), unchanged. Anatomy never uses family hues (A-02).",
+    "light": {
+      "air": "#e7ecef", "tissue": "#ddd4c1", "bone": "#fdfdfb", "tongue": "#c9755f", "tongueDeep": "#8f4633",
+      "lip": "#d8a695", "line": "#5c5a54", "flow": "#6e8fa8", "accent": "#1a1a1a"
+    },
+    "dark": {
+      "air": "#0e1417", "tissue": "#46402f", "bone": "#c2bcae", "tongue": "#c06b53", "tongueDeep": "#7c3a2a",
+      "lip": "#99624f", "line": "#a8a59c", "flow": "#8fb3cc", "accent": "#f5f5f3"
+    }
+  },
+
+  "launcher": {
+    "_about": "Adaptive icon: kraft drum paper tile, ink stylus P. The tile is the one light, warm, unsaturated tile in a share sheet of saturated circles; the ink mark carries the figure on white sheets, the tile carries it on dark ones.",
+    "tile": "#d2c3a3",
+    "mark": "#1b1a18",
+    "shareSheets": {
+      "light": { "color": "#ffffff", "min": 1.5 },
+      "light-grey": { "color": "#f2f0f4", "min": 1.4 },
+      "dark": { "color": "#1c1b1f", "min": 3.0 },
+      "black": { "color": "#000000", "min": 3.0 }
+    },
+    "splash": {
+      "light": { "mark": "#1b1a18", "background": "#f8f6ef" },
+      "dark": { "mark": "#f3f0e8", "background": "#121110" }
+    }
+  },
+
+  "gates": {
+    "textSurfaces": ["page", "sheet", "galley", "deepSheet"],
+    "textMinimums": {
+      "ink": 7.0,
+      "ink2": 4.5,
+      "inkMuted": 4.5,
+      "focus": 3.0,
+      "outline": 3.0,
+      "good": 3.0,
+      "critical": 3.0
+    },
+    "fillPairs": [
+      ["onInk", "ink", 7.0],
+      ["inverseOnSurface", "inverseSurface", 7.0],
+      ["ink", "page", 7.0]
+    ],
+    "markSurfaces": ["page", "sheet"],
+    "markForbiddenSurfaces": ["galley", "deepSheet"],
+    "normalSeparation": 15.0,
+    "cvdSeparation": { "standard": 8.0, "cvd": 12.0 },
+    "lightnessBand": {
+      "standard": { "light": [0.43, 0.77], "dark": [0.48, 0.67] },
+      "cvd": { "light": [0.43, 0.77], "dark": [0.48, 0.82] }
+    },
+    "minChroma": 0.10,
+    "neutralChromaCap": 0.05,
+    "chromaExempt": ["focus", "good", "critical", "_name", "grainAlpha"],
+    "videoFrames": { "white": "#ffffff", "mid-grey": "#808080", "black": "#000000" },
+    "overlays": [
+      { "name": "caption slip (portrait video)", "fill": "sheet", "alpha": 1.0, "text": { "ink": 7.0, "ink2": 4.5, "inkMuted": 4.5 }, "marks": true },
+      { "name": "media chip (Audio only, Video not on this phone, duration)", "fill": "sheet", "alpha": 0.94, "text": { "ink": 7.0, "ink2": 4.5 } },
+      { "name": "coach-mark slip over media", "fill": "inverseSurface", "alpha": 0.96, "text": { "inverseOnSurface": 7.0 } }
+    ]
+  }
+}
