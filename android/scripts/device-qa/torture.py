@@ -7,7 +7,8 @@ before and after (db.py's tables, so a debug build is needed). The app talks to 
 
   reboot             QT-1   force-stop the app and reboot; the waiting requests are all still there, in order
   wifi-drop          QT-4   Wi-Fi off for --seconds (default 120) and back; the upload restarts and completes once
-  process-kill       QT-13  kill the app process mid-copy; the request shows the interrupted copy at the next start
+  process-kill       QT-13  kill the app process mid-copy; at the next start the shared copy is COPY_FAILED with
+                            copy_interrupted ("the copy didn't finish"), the one change this step expects
   airplane           F-06-AC3  airplane mode on, then off; downloaded clips play meanwhile
   midnight           F-08-AC4  automatic time off, the clock set to 23:59:30 local, then restored
   fgs-timeout        Android review M12: FGS_INTRODUCE_TIME_LIMITS with a one-minute data-sync limit
@@ -21,20 +22,62 @@ Usage:
 
 This script refuses to run against anything but an emulator: the test phone is never rebooted, its radios are never
 toggled and its clock is never changed (spec NFR-14). Prepare the app state each step needs first (its `needs` line).
+
+Verdict: a request that disappears, changes order or enters an error state fails the step, unless the step declares
+that change as one it expects (`Transition`, architecture 8.4); an expected change marked `required` must also
+happen to every request it applies to. The screen is checked by hand against the step's acceptance criterion.
+Exit codes: 0 pass, 1 fail, 2 incomplete (the app's database could not be read, so nothing was compared).
 """
 
 from __future__ import annotations
 
 import argparse
 import datetime as dt
+import sqlite3
 import sys
 import time
+from contextlib import closing
 from dataclasses import dataclass, field
 
 import _device
 
 PKG = _device.PACKAGE
-ERROR_STATES = ("FAILED", "ATTENTION", "COPY_FAILED", "COPY_MISSING")
+# RequestState error states (architecture 3.4, 8.4) and the artifact table's FAILED local_state (4.2)
+ERROR_STATES = frozenset({"NEEDS_ATTENTION", "COPY_FAILED", "COPY_MISSING", "FAILED"})
+
+
+@dataclass(frozen=True)
+class Transition:
+    """A request state change a step causes on purpose (architecture 8.4), so it is not reported as a problem.
+
+    It applies to a request that was in `before` when the step started (only a shared one, not a picked one, when
+    `shared_only`: architecture 8.3 restarts a picked copy). It happened when the request is in `after` at the end,
+    with `reason` as its state_reason when one is given. When `required`, every request it applies to must make the
+    change, and at least one must exist, or the step did not exercise what it covers.
+    """
+
+    before: str
+    after: str
+    reason: str | None = None
+    shared_only: bool = False
+    required: bool = False
+
+    def applies(self, row_before: dict) -> bool:
+        if row_before.get("state") != self.before:
+            return False
+        return not (self.shared_only and row_before.get("persisted") == "1")
+
+    def happened(self, row_before: dict, row_after: dict) -> bool:
+        return (
+            self.applies(row_before)
+            and row_after.get("state") == self.after
+            and (self.reason is None or row_after.get("reason") == self.reason)
+        )
+
+    def describe(self) -> str:
+        reason = f" ({self.reason})" if self.reason else ""
+        scope = ", shared copies only" if self.shared_only else ""
+        return f"{self.before} -> {self.after}{reason}{scope}{', required' if self.required else ''}"
 
 
 @dataclass
@@ -48,6 +91,7 @@ class Step:
     restore: list[str] = field(default_factory=list)
     reboot: bool = False
     debug_only: bool = False
+    expects: tuple[Transition, ...] = ()  # the request state changes this step causes on purpose
 
 
 STEPS = {
@@ -66,6 +110,8 @@ STEPS = {
             "process-kill", "QT-13", "a large shared video being copied, at about 50 % (debug build: run-as)",
             action=[f"run-as {PKG} sh -c 'kill -9 $(pidof {PKG})'"], hold=False, debug_only=True,
             restore=[f"monkey -p {PKG} -c android.intent.category.LAUNCHER 1"],
+            # spec QT-13, architecture 8.3/8.4: "Couldn't keep the file: the copy didn't finish. Share it again."
+            expects=(Transition("PREPARING", "COPY_FAILED", "copy_interrupted", shared_only=True, required=True),),
         ),
         Step(
             "airplane", "F-06-AC3", "a downloaded clip open in Watch",
@@ -136,42 +182,72 @@ def plan(step: Step, recorded: list[str] | None = None, now: dt.datetime | None 
     return out
 
 
-def snapshot() -> dict[str, dict[str, str]]:
-    """request id -> {state, seq} and artifact (job, name) -> {local_state, part_bytes} from library.db."""
+def snapshot() -> dict[str, dict[str, str]] | None:
+    """The queue and transfers of library.db (read_queue), or None when the database cannot be read."""
     import tempfile
     from pathlib import Path
 
     import db
-    import sqlite3
 
     with tempfile.TemporaryDirectory(prefix="phonotrainer-torture-") as workdir:
         try:
-            database = db.pull(Path(workdir))
-        except RuntimeError:
-            return {}
-        with sqlite3.connect(database) as conn:
-            state: dict[str, dict[str, str]] = {}
-            try:
-                for rid, seq, st in conn.execute("SELECT id, seq, state FROM request ORDER BY seq"):
-                    state[f"request {rid}"] = {"seq": str(seq), "state": str(st)}
-                for job, name, local, part in conn.execute(
-                    "SELECT job_id, name, local_state, part_bytes FROM artifact"
-                ):
-                    state[f"artifact {job}/{name}"] = {"state": str(local), "part": str(part)}
-            except sqlite3.Error:
-                pass
+            return read_queue(db.pull(Path(workdir)))
+        except (RuntimeError, sqlite3.Error):
+            return None
+
+
+def read_queue(database) -> dict[str, dict[str, str]]:
+    """request id -> {seq, state, reason, persisted} in creation order, and artifact (job, name) -> {state, part}.
+
+    `reason` is the request's state_reason and `persisted` its source_persisted (architecture 4.2), empty when NULL
+    or when an older schema lacks the column. A missing request or artifact table raises sqlite3.Error.
+    """
+    def text(value) -> str:
+        return "" if value is None else str(value)
+
+    with closing(sqlite3.connect(database)) as conn:  # a throwaway copy (db.pull), so a WAL replay is harmless
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(request)")}
+        if not {"id", "seq", "state"} <= columns:
+            raise sqlite3.OperationalError("library.db has no request table with id, seq and state")
+        optional = [c if c in columns else "NULL" for c in ("state_reason", "source_persisted")]
+        state: dict[str, dict[str, str]] = {}
+        for rid, seq, st, reason, persisted in conn.execute(
+            f"SELECT id, seq, state, {optional[0]}, {optional[1]} FROM request ORDER BY seq"
+        ):
+            state[f"request {rid}"] = {"seq": text(seq), "state": text(st), "reason": text(reason),
+                                       "persisted": text(persisted)}
+        for job, name, local, part in conn.execute("SELECT job_id, name, local_state, part_bytes FROM artifact"):
+            state[f"artifact {job}/{name}"] = {"state": text(local), "part": text(part)}
     return state
 
 
-def compare(before: dict, after: dict) -> list[str]:
-    """Problems: a request that disappeared or entered an error state, an artifact that failed."""
+def compare(before: dict, after: dict, expects: tuple[Transition, ...] = ()) -> list[str]:
+    """Problems: a request that disappeared, changed order or entered an error state the step does not expect, an
+    artifact that failed, and an expected `required` change that did not happen (or had nothing to happen to)."""
     problems = []
-    for key, row in before.items():
+    for key in before:
         if key.startswith("request ") and key not in after:
             problems.append(f"{key} disappeared")
     for key, row in after.items():
-        if any(e in row.get("state", "") for e in ERROR_STATES) and before.get(key, {}).get("state") != row["state"]:
-            problems.append(f"{key} entered {row['state']}")
+        old = before.get(key, {})
+        state = row.get("state", "")
+        is_request = key.startswith("request ")
+        if is_request and old and any(t.happened(old, row) for t in expects):
+            continue
+        if state in ERROR_STATES and old.get("state") != state:
+            reason = f" ({row['reason']})" if row.get("reason") else ""
+            problems.append(f"{key} entered {state}{reason}")
+            continue
+        if is_request and old:
+            for t in expects:
+                if t.required and t.applies(old):
+                    reason = f" ({t.reason})" if t.reason else ""
+                    got = f"{state} ({row['reason']})" if row.get("reason") else state or "no state"
+                    problems.append(f"{key} was {t.before} and is {got}, expected {t.after}{reason}")
+                    break
+    for t in expects:
+        if t.required and not any(k.startswith("request ") and t.applies(row) for k, row in before.items()):
+            problems.append(f"nothing exercised: no request was {t.before} at the start (expected {t.describe()})")
     order_before = [k for k in before if k.startswith("request ")]
     order_after = [k for k in after if k.startswith("request ") and k in before]
     if order_before and order_after != [k for k in order_before if k in after]:
@@ -215,11 +291,16 @@ def run_step(step: Step, seconds: int, settle: int, log) -> int:
         restored = True
     time.sleep(settle)
     after = snapshot()
-    problems = compare(before, after)
-    verdict = "PASS (automated checks)" if not problems else "FAIL: " + "; ".join(problems)
+    if before is None or after is None:
+        verdict = "INCOMPLETE: library.db could not be read (a debug build that has started once), nothing compared"
+        code = 2
+    else:
+        problems = compare(before, after, step.expects)
+        verdict = "PASS (automated checks)" if not problems else "FAIL: " + "; ".join(problems)
+        code = 0 if not problems else 1
     log.write(f"{step.name}: restored={restored}; {verdict}; check the screen against {step.covers} too")
     print(verdict)
-    return 0 if not problems else 1
+    return code
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -239,6 +320,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "plan":
         for phase, command in plan(step, ["<read from the device>"] * len(step.record)):
             print(f"{phase:8} adb shell {command}")
+        for transition in step.expects:
+            print(f"{'expect':8} {transition.describe()}")
         return 0
     from qa_log import QaLog
 

@@ -36,7 +36,7 @@ go to `android/artifacts/qa-evidence/`, which git ignores.
 | `settings_guard.py` | Font scale, animator scales and TalkBack only: records, changes and restores exactly, and logs the restore table. |
 | `qa_log.py` | The QA log; every line is redacted (credentials, ids, addresses, MACs, serials, paths, the denylist, post links). |
 | `decoders.py` | The device's video decoders (size, rates, hardware or software) and whether the YouTube and X apps are installed. |
-| `torture.py` | The [emulator] steps of the queue torture test and the platform stop paths; it refuses any device but an emulator. |
+| `torture.py` | The [emulator] steps of the queue torture test and the platform stop paths; it refuses any device but an emulator. It compares the queue before and after each step: a step passes only with no unexpected error state and with the state changes it declares (process-kill: a shared copy `PREPARING` to `COPY_FAILED` `copy_interrupted`, QT-13). |
 | `capture.py` | Starts the emulator with `-tcpdump` and checks every connection went to the computer. |
 | `gmd_lock.py` | Runs a Gradle Managed Device task under the one lock of this computer: `gmd_lock.py -- ./gradlew …`. |
 | `computer.py` | The real computer for the real-computer QA pass only, on throwaway directories; local files only, never a link. |
