@@ -33,7 +33,8 @@ from typing import Callable
 
 from .errors import JobCancelled   # raised from the progress callback
 
-__all__ = ["JobCancelled", "JobError", "JobNotFound", "JobStore", "Job"]
+__all__ = ["JobCancelled", "JobError", "JobNotFound", "JobStore", "Job", "NotRerunnable",
+           "SourceGone"]
 
 QUEUED = "queued"
 RUNNING = "running"
@@ -74,6 +75,15 @@ class JobError(RuntimeError):
 
 class JobNotFound(JobError):
     """The job does not exist. The server turns it into a 404."""
+
+
+class NotRerunnable(JobError):
+    """A re-run of a job that is queued, running or done (only failed and
+    cancelled jobs run again)."""
+
+
+class SourceGone(JobError):
+    """A re-run whose stored file (an upload, or a path job's original) is gone."""
 
 
 def _now() -> str:
@@ -305,6 +315,13 @@ class JobStore:
         self._jobs: dict[str, Job] = {}
         self._enqueue_seq = itertools.count(1)
         self._enqueue_lock = threading.Lock()
+        # Idempotent creation by phones (find by key, then create) happens under
+        # this lock, so two concurrent requests with one key create one job. It
+        # is taken before the store's own locks, never while holding them.
+        self._request_lock = threading.RLock()
+        # Phone-origin downloads run confined (download.py); the phone runtime
+        # sets this to a function returning the current limits.
+        self.download_limits: Callable[[], object] | None = None
         self._listeners: set[Callable[[str, str], None]] = set()
         # The queue carries the Job, not its id: if it is deleted while queued,
         # the worker still holds it and can clean up its directory.
@@ -442,6 +459,21 @@ class JobStore:
     def queue_position(self, job_id: str) -> int | None:
         return self.queue_positions().get(job_id)
 
+    # --- phone requests (idempotency keys) ------------------------------------
+    def find_by_request(self, device_id: str, client_request_id: str) -> Job | None:
+        """The job this device's key created, if it still exists. Keys are
+        scoped to the device and compared in lower case."""
+        key = str(client_request_id).lower()
+        with self._lock:
+            for job in self._jobs.values():
+                if job.device_id == device_id and job.client_request_id == key:
+                    return job
+        return None
+
+    def requests_locked(self):
+        """Hold this around "find by key, then create" (phone routes)."""
+        return self._request_lock
+
     # --- creation ------------------------------------------------------------
     def _new_id(self) -> str:
         stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
@@ -470,6 +502,66 @@ class JobStore:
         return self._enqueue(dest.name, dest, options, job_id=job_id, device_id=device_id,
                              client_request_id=client_request_id, rerun_of=rerun_of,
                              origin=origin)
+
+    def adopt_file(self, path: str | Path, file_name: str, options: dict | None = None, *,
+                   device_id: str | None = None, client_request_id: str | None = None,
+                   rerun_of: str | None = None, origin: str | None = None) -> Job:
+        """Create a job from a file that is already on this disk (a finished
+        phone upload, or the stored file of a re-run): it is MOVED into
+        `<root>/<new id>/media/<file_name>`, never copied (one rename on the
+        same filesystem)."""
+        path = Path(path)
+        if not path.is_file() or path.stat().st_size == 0:
+            raise JobError("the uploaded file arrived empty")
+        job_id = self._new_id()
+        media_dir = self.root / job_id / "media"
+        media_dir.mkdir(parents=True, exist_ok=True)
+        dest = media_dir / Path(file_name).name
+        try:
+            path.replace(dest)
+        except OSError:
+            import shutil                             # another filesystem: one copy is unavoidable
+
+            try:
+                shutil.move(str(path), str(dest))
+            except OSError:
+                _rmtree(self.root / job_id)
+                raise
+        return self._enqueue(dest.name, dest, options, job_id=job_id, device_id=device_id,
+                             client_request_id=client_request_id, rerun_of=rerun_of,
+                             origin=origin)
+
+    def rerun(self, job_id: str, device_id: str, key: str, audio_only: bool | None = None) -> Job:
+        """Re-run a failed or cancelled job from what this computer stored
+        (server-contract 6.7): a link is created again from its URL (the
+        caller checks the link first), an uploaded file is moved into the new
+        job. The new job records the device, the new key and `rerun_of`, joins
+        the end of the line, and then the old job is deleted. Raises
+        JobNotFound, NotRerunnable or SourceGone (the old job is kept)."""
+        with self._request_lock:
+            old = self.get(job_id)
+            if old.status not in (ERROR, CANCELLED):
+                raise NotRerunnable(f"job {job_id} is {old.status}")
+            phone = {"device_id": device_id, "client_request_id": str(key).lower(),
+                     "rerun_of": old.id, "origin": PHONE_ORIGIN}
+            options = dict(old.options or {})
+            if old.source_url:
+                new = self.create_from_url(
+                    old.source_url, options,
+                    audio_only=old.audio_only if audio_only is None else bool(audio_only),
+                    **phone)
+            elif old.imported:
+                raise NotRerunnable(f"job {job_id} was imported")
+            else:
+                media = Path(old.media_path) if old.media_path else None
+                if media is None or not media.is_file():
+                    raise SourceGone("the stored file of this job is gone")
+                if media.parent == Path(old.dir).resolve() / "media":
+                    new = self.adopt_file(media, media.name, options, **phone)
+                else:                                 # a path job: the file stays where it is
+                    new = self._enqueue(media.name, media, options, **phone)
+            self.delete(old.id)
+            return new
 
     def _enqueue(self, source: str, media_path: Path, options: dict | None,
                  job_id: str | None = None, **phone_fields) -> Job:
@@ -559,11 +651,25 @@ class JobStore:
         self._index(job, analysis)
         return job
 
-    def cancel(self, job_id: str) -> Job:
-        """Request cancellation. If it had not started yet, `_run` sees it on entry."""
+    def cancel(self, job_id: str, *, now_if_queued: bool = False) -> Job:
+        """Request cancellation. If it had not started yet, `_run` sees it on entry.
+
+        `now_if_queued` (phone requests): a job still waiting in line becomes
+        `cancelled` at once instead of when the worker reaches it, which can be
+        many minutes behind a running analysis."""
         job = self.get(job_id)
-        if job.status in (QUEUED, RUNNING):
-            job.cancel_requested = True
+        finished_now = False
+        with self._lock:
+            if job.status in (QUEUED, RUNNING):
+                job.cancel_requested = True
+            if now_if_queued and job.status == QUEUED:
+                job.status = CANCELLED
+                job.error = "Cancelled before starting."
+                job.finished = _now()
+                finished_now = True
+        if finished_now:
+            self._save(job)
+            self._notify("upsert", job.id)
         return job
 
     def delete(self, job_id: str) -> None:
@@ -603,12 +709,17 @@ class JobStore:
 
     # --- execution -----------------------------------------------------------
     def _run(self, job: Job) -> None:
+        with self._lock:
+            already_cancelled = job.status == CANCELLED     # cancel(now_if_queued=True)
+            if not job.cancel_requested:
+                job.status = RUNNING
+                job.started = _now()
+        if already_cancelled:
+            return
         if job.cancel_requested:
             self._finish(job, CANCELLED, error="Cancelled before starting.")
             return
 
-        job.status = RUNNING
-        job.started = _now()
         self._save(job)
         self._notify("upsert", job.id)
         self._append_progress(job, "Queued → starting…")
@@ -636,8 +747,15 @@ class JobStore:
         download_fn = self._download_fn
         if download_fn is None:
             from .download import download as download_fn   # lazy import
+        confined = {}
+        if job.origin == PHONE_ORIGIN:
+            # A phone's link: site-specific extractors only, no live streams,
+            # bounded size and duration, the link checked again (download.py).
+            confined["phone_origin"] = True
+            if self.download_limits is not None:
+                confined["limits"] = self.download_limits()
         path = download_fn(job.source_url, self.download_dir,
-                           audio_only=job.audio_only, progress=progress)
+                           audio_only=job.audio_only, progress=progress, **confined)
         job.media_path = str(Path(path).resolve())
         job.source = Path(path).name        # no longer the URL: the video's title
         self._save(job)

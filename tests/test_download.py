@@ -219,3 +219,276 @@ def test_the_cli_does_not_eat_the_video_id(tmp_path):
 
     assert result.exit_code == 0
     assert "[abc123]" in result.output
+
+
+# --- S-23: the link path hardened, and phone-origin downloads confined ----------------------
+# (server-contract 9; the FakeYDL seam and a fake `which`: nothing reaches a real site)
+
+from phonotrainer.download import (  # noqa: E402
+    AUDIO_FORMAT, REMOTE_COMPONENTS_ENV, VIDEO_FORMAT, DownloadLimits, LiveStreamRefused,
+    NoSpaceRefused, TooLongRefused, chosen_js_runtime, js_runtimes)
+from phonotrainer.errors import JobCancelled as _JobCancelled  # noqa: E402
+
+GIB = 1024 ** 3
+
+
+def which_of(*present):
+    return lambda name: f"/usr/bin/{name}" if name in present else None
+
+
+def spy_factory(seen, cls=FakeYDL, **kwargs):
+    def make(options):
+        seen.update(options)
+        return cls(options, **kwargs)
+    return make
+
+
+def test_the_format_prefers_h264_then_vp9_then_anything_at_720p_or_less():
+    assert VIDEO_FORMAT == ("bv*[height<=720][vcodec^=avc]+ba/bv*[height<=720][vcodec~='^vp0?9']"
+                            "+ba/bv*[height<=720]+ba/b[height<=720]/b")
+    alternatives = VIDEO_FORMAT.split("/")
+    assert alternatives[0].startswith("bv*[height<=720][vcodec^=avc]")
+    assert "vp0?9" in alternatives[1]
+    assert alternatives[-1] == "b"
+    assert AUDIO_FORMAT == "ba/b"
+
+
+@pytest.mark.parametrize("present, expected, chosen", [
+    (("node",), {"node": {}}, "node"),
+    (("deno", "node"), {"deno": {}, "node": {}}, "deno"),
+    ((), {}, None),
+])
+def test_javascript_runtimes_found_on_path(tmp_path, present, expected, chosen):
+    assert js_runtimes(which_of(*present)) == expected
+    assert chosen_js_runtime(which_of(*present)) == chosen
+    seen = {}
+    download("https://youtu.be/abc123", tmp_path, ydl_factory=spy_factory(seen),
+             which=which_of(*present), environ={})
+    if expected:
+        assert seen["js_runtimes"] == expected
+    else:
+        assert "js_runtimes" not in seen                   # yt-dlp's own default
+
+
+def test_remote_components_only_from_the_environment(tmp_path):
+    seen = {}
+    download("https://youtu.be/abc123", tmp_path, ydl_factory=spy_factory(seen),
+             which=which_of(), environ={})
+    assert "remote_components" not in seen
+    seen.clear()
+    download("https://youtu.be/abc123", tmp_path, ydl_factory=spy_factory(seen),
+             which=which_of(), environ={REMOTE_COMPONENTS_ENV: " ejs:github , ejs:npm ,"})
+    assert seen["remote_components"] == ["ejs:github", "ejs:npm"]
+
+
+def test_browser_downloads_keep_todays_options(tmp_path):
+    seen = {}
+    download("https://youtu.be/abc123", tmp_path, ydl_factory=spy_factory(seen),
+             which=which_of(), environ={})
+    assert set(seen) == {"format", "outtmpl", "noplaylist", "playlist_items", "quiet",
+                         "no_warnings", "noprogress", "progress_hooks", "merge_output_format"}
+
+
+class TwoPhaseYDL(FakeYDL):
+    """Looks first (`download=False`), then downloads what it looked up; any
+    media byte fetched is recorded in `fetched`."""
+
+    def __init__(self, options, *, info=None, grows_to=None, **kwargs):
+        super().__init__(options, **kwargs)
+        self.extra = info or {}
+        self.grows_to = grows_to
+        self.fetched = False
+        self.looked = False
+
+    def extract_info(self, url, download=True):
+        assert download is False, "a phone-origin download must look first"
+        self.looked = True
+        return {"id": "abc123", "title": "A video", "ext": "mp4", "duration": 60,
+                **self.extra}
+
+    def process_ie_result(self, info, download=True):
+        assert download is True and self.looked
+        self.fetched = True
+        if self.grows_to is not None:
+            for hook in self.options["progress_hooks"]:
+                hook({"status": "downloading", "downloaded_bytes": self.grows_to,
+                      "total_bytes": None, "filename": "part"})
+        return FakeYDL.extract_info(self, "", download=True)
+
+
+def limits(**overrides):
+    values = {"max_duration_s": 3600, "max_bytes": 2 * GIB, "min_free_bytes": 2 * GIB,
+              "disk_usage": lambda path: type("U", (), {"free": 100 * GIB})(),
+              "check_link": lambda url: url}
+    values.update(overrides)
+    return DownloadLimits(**values)
+
+
+def confined(tmp_path, seen=None, lim=None, **ydl):
+    made = []
+
+    def make(options):
+        if seen is not None:
+            seen.update(options)
+        made.append(TwoPhaseYDL(options, **ydl))
+        return made[-1]
+
+    try:
+        return download("https://youtu.be/abc123", tmp_path, ydl_factory=make,
+                        phone_origin=True, limits=lim or limits(), which=which_of("node"),
+                        environ={})
+    finally:
+        confined.made = made
+
+
+def test_phone_origin_downloads_use_site_extractors_and_a_size_bound(tmp_path):
+    seen = {}
+    path = confined(tmp_path, seen)
+    assert path.is_file()
+    assert seen["allowed_extractors"] == ["default", "-generic"]
+    assert seen["max_filesize"] == 2 * GIB
+    assert seen["format"] == VIDEO_FORMAT and seen["js_runtimes"] == {"node": {}}
+    assert confined.made[0].fetched
+
+
+@pytest.mark.parametrize("info, refusal", [
+    ({"is_live": True}, LiveStreamRefused),
+    ({"live_status": "is_live"}, LiveStreamRefused),
+    ({"live_status": "is_upcoming"}, LiveStreamRefused),
+    ({"live_status": "post_live"}, LiveStreamRefused),
+    ({"duration": 3601}, TooLongRefused),
+    ({"filesize": 2 * GIB + 1}, TooLongRefused),
+    ({"filesize_approx": 3 * GIB}, TooLongRefused),
+    ({"requested_formats": [{"filesize": GIB}, {"filesize_approx": GIB + 1}]}, TooLongRefused),
+])
+def test_refusals_before_any_media_byte(tmp_path, info, refusal):
+    with pytest.raises(refusal):
+        confined(tmp_path, info=info)
+    assert not confined.made[0].fetched
+    assert not list(tmp_path.iterdir())
+
+
+def test_a_lack_of_free_space_is_refused_before_the_download(tmp_path):
+    tight = limits(disk_usage=lambda path: type("U", (), {"free": 2 * GIB + 10})())
+    with pytest.raises(NoSpaceRefused):
+        confined(tmp_path, lim=tight, info={"filesize": 100})
+    assert not confined.made[0].fetched
+    roomy = limits(disk_usage=lambda path: type("U", (), {"free": 2 * GIB + 1000})())
+    assert confined(tmp_path, lim=roomy, info={"filesize": 100}).is_file()
+
+
+def test_a_shorter_limit_from_server_json_is_honoured(tmp_path):
+    with pytest.raises(TooLongRefused, match="up to 10 minutes"):
+        confined(tmp_path, lim=limits(max_duration_s=600), info={"duration": 601})
+
+
+def test_an_unknown_size_that_grows_past_the_limit_fails_as_too_long(tmp_path):
+    with pytest.raises(TooLongRefused):
+        confined(tmp_path, lim=limits(max_bytes=1000), grows_to=1001)
+    # and a finished file that is still larger is deleted
+    with pytest.raises(TooLongRefused):
+        confined(tmp_path, lim=limits(max_bytes=5))               # "fake media" is 10 bytes
+    assert not [p for p in tmp_path.iterdir() if p.is_file()]
+
+
+def test_the_link_is_checked_again_right_before_the_download(tmp_path):
+    from phonotrainer.phone.ssrf import CannotCheckLink, LinkRefused
+
+    def refuse(url):
+        raise LinkRefused()
+
+    with pytest.raises(LinkRefused):
+        confined(tmp_path, lim=limits(check_link=refuse))
+    assert confined.made == []                                  # yt-dlp never even started
+
+    def unreachable(url):
+        raise CannotCheckLink("no answer")
+
+    with pytest.raises(DownloadError, match="Failed to resolve"):
+        confined(tmp_path, lim=limits(check_link=unreachable))
+
+
+def test_refusals_keep_their_class_for_the_error_codes(tmp_path):
+    from phonotrainer.phone.state import classify_error
+
+    for info, code in (({"is_live": True}, "live_stream"), ({"duration": 9999}, "too_long")):
+        try:
+            confined(tmp_path, info=info)
+        except DownloadError as exc:
+            text = f"{type(exc).__name__}: {exc}"
+        assert classify_error("error", text) == code
+
+
+def test_a_phone_origin_playlist_is_still_explained(tmp_path):
+    with pytest.raises(DownloadError, match="playlist"):
+        confined(tmp_path, info={"_type": "playlist"})
+
+
+def test_cancelling_a_confined_download_is_not_a_failure(tmp_path):
+    def cancel(message):
+        if message.startswith("Downloading"):
+            raise _JobCancelled(message)
+
+    with pytest.raises(_JobCancelled):
+        download("https://youtu.be/abc123", tmp_path, progress=cancel,
+                 ydl_factory=lambda o: TwoPhaseYDL(o, grows_to=10), phone_origin=True,
+                 limits=limits(), which=which_of(), environ={})
+
+
+class SkippingYDL(TwoPhaseYDL):
+    """yt-dlp skipping a file whose announced size is above `max_filesize`:
+    one screen line through the logger, no file, no exception."""
+
+    def process_ie_result(self, info, download=True):
+        self.fetched = True
+        self.options["logger"].debug(
+            "\r[download] File is larger than max-filesize (3000 bytes > 1000 bytes). Aborting.")
+        return {**info, "requested_downloads": [{"filepath": None}]}
+
+
+def test_a_file_yt_dlp_skips_for_its_size_fails_as_too_long(tmp_path):
+    with pytest.raises(TooLongRefused):
+        download("https://youtu.be/abc123", tmp_path, ydl_factory=lambda o: SkippingYDL(o),
+                 phone_origin=True, limits=limits(max_bytes=1000), which=which_of(), environ={})
+    # a browser download has no such logger and keeps today's message
+    assert "logger" not in spy_options(tmp_path)
+
+
+def spy_options(tmp_path):
+    seen = {}
+    download("https://youtu.be/abc123", tmp_path / "browser", ydl_factory=spy_factory(seen),
+             which=which_of(), environ={})
+    return seen
+
+
+def test_a_refusal_mid_download_deletes_its_partial_files(tmp_path):
+    dest = tmp_path / "downloads"
+    dest.mkdir()
+    partial = dest / "A video [abc123].f137.mp4.part"
+    outside = tmp_path / "elsewhere.part"
+    for path in (partial, outside):
+        path.write_bytes(b"x" * 10)
+
+    class Growing(TwoPhaseYDL):
+        def process_ie_result(self, info, download=True):
+            self.fetched = True
+            for hook in self.options["progress_hooks"]:
+                hook({"status": "downloading", "downloaded_bytes": 2000, "total_bytes": None,
+                      "filename": str(outside), "tmpfilename": str(partial)})
+            raise AssertionError("the hook must stop the download")
+
+    with pytest.raises(TooLongRefused):
+        download("https://youtu.be/abc123", dest, ydl_factory=lambda o: Growing(o),
+                 phone_origin=True, limits=limits(max_bytes=1000), which=which_of(), environ={})
+    assert not partial.exists()
+    assert outside.exists()                       # only files inside the download directory
+
+
+def test_yt_dlp_errors_still_reach_the_terminal_for_phone_links(tmp_path, capsys):
+    from phonotrainer.download import _OversizeLogger
+
+    logger = _OversizeLogger()
+    logger.warning("not shown: warnings are off")
+    logger.error("ERROR: [youtube] abc123: Video unavailable")
+    assert capsys.readouterr().err == "ERROR: [youtube] abc123: Video unavailable\n"
+    assert logger.seen is False
