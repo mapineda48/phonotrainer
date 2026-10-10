@@ -470,9 +470,10 @@ bytes, 3.2), so a token read once on the air is not a reusable credential and a 
 
 Two rules, applied by two middlewares:
 - **`LoopbackHostGuard` (every mode, also with phone access off; 1.3)**: a request or WebSocket upgrade from a
-  loopback peer MUST carry a `Host` that is an IP literal (any IPv4 or bracketed IPv6 address: DNS rebinding needs a
-  name, so a literal is safe; the emulator reaches the host's loopback with `Host: 10.0.2.2:<port>`, 12),
-  `localhost`, `*.localhost`, the machine's host name or `<hostname>.local`; any port. Otherwise
+  loopback peer, or one that arrived on a loopback local address (ASGI `server`) whatever its peer, MUST carry a
+  `Host` that is an IP literal (any IPv4 or bracketed IPv6 address: DNS rebinding needs a name, so a literal is safe;
+  the emulator reaches the host's loopback with `Host: 10.0.2.2:<port>`, 12), `localhost`, `*.localhost`, the
+  machine's host name or `<hostname>.local`; any port. Otherwise
   `400 {"detail": "Unexpected Host header.", "code": "bad_host"}` (security review M-9). The existing
   `same_origin_only` and `_ws_origin_allowed` checks stay as they are behind it.
 - **LAN rule (phone access on)**: the `Host` header MUST be an IPv4 literal equal to the local address the
