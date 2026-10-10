@@ -12,6 +12,7 @@ locally; redistributing the files is not this tool's business.
 from __future__ import annotations
 
 import re
+import shutil
 from pathlib import Path
 
 from .errors import JobCancelled
@@ -24,8 +25,23 @@ AUDIO_FORMAT = "ba/b"
 _URL_RE = re.compile(r"^https?://", re.IGNORECASE)
 
 
+# JavaScript runtimes yt-dlp can use to solve YouTube's challenges, in the order
+# they are preferred; only the ones installed on PATH are offered to it.
+JS_RUNTIMES = ("deno", "node")
+
+
 class DownloadError(RuntimeError):
     """The download failed (invalid URL, no network, private video…)."""
+
+
+def js_runtimes(which=shutil.which) -> dict[str, dict]:
+    """yt-dlp's `js_runtimes` option: the runtimes found on PATH."""
+    return {name: {} for name in JS_RUNTIMES if which(name)}
+
+
+def chosen_js_runtime(which=shutil.which) -> str | None:
+    """The runtime yt-dlp is given first (reported in the phone `health`)."""
+    return next(iter(js_runtimes(which)), None)
 
 
 def is_url(text: str) -> bool:

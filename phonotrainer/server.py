@@ -21,6 +21,7 @@ and a minimal REST API on top of `jobs.JobStore`. Everything is local
     POST   /api/jobs/{id}/compare        a learner's take against a span (nothing is kept)
     GET    /api/browse                   file browser (under $HOME)
     WS     /ws/jobs                      analysis state pushed live
+           /api/phone/*                  the Android client (phonotrainer/phone/)
 """
 
 from __future__ import annotations
@@ -36,6 +37,8 @@ from urllib.parse import urlparse
 import anyio
 from fastapi import (FastAPI, File, Form, HTTPException, Query, Request,
                      UploadFile, WebSocket, WebSocketDisconnect)
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from pydantic import BaseModel, Field, ValidationError
 from starlette.datastructures import UploadFile as FormFile
@@ -43,22 +46,16 @@ from starlette.datastructures import UploadFile as FormFile
 from . import __version__, ipa_maps, learner_audio, metrics as metrics_mod, phenomena, report
 from . import review as review_mod, separation
 from .db import DEFAULT_DB, Corpus
-from .jobs import DOWNLOAD_DIR, MEDIA_SUFFIXES, JobError, JobNotFound, JobStore
+from .jobs import DOWNLOAD_DIR, MEDIA_SUFFIXES, MEDIA_TYPES, JobError, JobNotFound, JobStore
+from .phone.access import LoopbackHostGuard, PhoneAccessMiddleware, is_phone_path
+from .phone.errors import PhoneError, error_response
+from .phone.settings import PhoneSettings
 from .phones_real import ENGINE_ALIASES
 
 DEFAULT_WORKSPACE = Path("workspace")
 WEB_DIST = Path(__file__).resolve().parents[1] / "web" / "dist"
-
-# Types served for the original file. The table is closed on purpose: guessing
-# the type would allow serving text/html from the same origin as the SPA.
-MEDIA_TYPES = {
-    ".webm": "video/webm", ".mp4": "video/mp4", ".mkv": "video/x-matroska",
-    ".mov": "video/quicktime", ".avi": "video/x-msvideo", ".m4v": "video/x-m4v",
-    ".mp3": "audio/mpeg", ".wav": "audio/wav", ".m4a": "audio/mp4",
-    ".flac": "audio/flac", ".ogg": "audio/ogg", ".opus": "audio/ogg",
-    ".aac": "audio/aac",
-}
-
+# MEDIA_TYPES, the closed table of types served for the original file, lives in
+# jobs.py next to the media suffixes (the phone artifacts use it too).
 
 MAX_SAMPLE = 500   # cap on words per review sample
 
@@ -72,7 +69,9 @@ MAX_SAMPLE = 500   # cap on words per review sample
 #      metrics in /api/reference, /api/corpus/metrics
 #   5: record yourself: /api/jobs/{id}/contour, /api/jobs/{id}/compare and the
 #      recording limits in /api/reference
-API_VERSION = 5
+#   6: the Android client's API under /api/phone/ (phone access, pairing, signed
+#      requests, the library listing, artifacts); nothing the browser uses changed
+API_VERSION = 6
 
 # Room for the multipart envelope and the two span fields around the recording.
 FORM_OVERHEAD_BYTES = 64 * 1024
@@ -131,24 +130,93 @@ class ReviewRequest(BaseModel):
     verdicts: list[Verdict] = []
 
 
+def build_reference() -> dict:
+    """The backend's vocabulary: phenomena, pipeline options and review
+    settings (`GET /api/reference`, and byte for byte `GET /api/phone/reference`).
+    The interfaces consume them as they are and keep no copies."""
+    return {
+        "api_version": API_VERSION,
+        "families": [
+            {"key": key, "label": label,
+             "members": report.FAMILY_MEMBERS[key],
+             "member_labels": [report.PHENOMENON_LABEL[m]
+                               for m in report.FAMILY_MEMBERS[key]]}
+            for key, label in report.FAMILY_LABEL.items()
+        ],
+        "family_of": report.FAMILY_OF,
+        "labels": report.PHENOMENON_LABEL,
+        "descriptions": report.PHENOMENON_DESCRIPTION,
+        # to hear only, or to say too: per label and per lexical reduced form
+        "practice": report.PHENOMENON_PRACTICE,
+        "lexical_practice": report.LEXICAL_PRACTICE,
+        "link_types": list(phenomena.LINK_TYPES),
+        # IPA symbols longer than one character (aɪ, tʃ, ɑːɹ…): without them
+        # the browser would split "aɪ" in two when tokenizing the dictionary
+        # form.
+        "ipa_tokens": sorted(
+            (t for t in ipa_maps.ENGLISH_INVENTORY if len(t) > 1),
+            key=len, reverse=True,
+        ),
+        "verdicts": list(review_mod.VERDICTS),
+        # what summary.metrics and /api/corpus/metrics are compared against
+        "metrics_reference": metrics_mod.REFERENCE,
+        "metric_labels": metrics_mod.METRIC_LABELS,
+        "options": {
+            "whisper_models": list(get_args(Options.model_fields["whisper_model"].annotation)),
+            "phone_engines": [
+                e for e in get_args(Options.model_fields["phone_engine"].annotation)
+                if e not in ENGINE_ALIASES
+            ],
+            "phone_engine_notes": ENGINE_NOTES,
+            "defaults": Options().model_dump(),
+        },
+        "review": {
+            "default_n": review_mod.DEFAULT_N,
+            "default_seed": review_mod.DEFAULT_SEED,
+            "max_n": MAX_SAMPLE,
+        },
+        # record yourself: the interface stops recording at max_seconds
+        "recording": {
+            "max_seconds": learner_audio.MAX_TAKE_S,
+            "min_seconds": learner_audio.MIN_TAKE_S,
+            "max_bytes": learner_audio.MAX_UPLOAD_BYTES,
+            "max_span_seconds": learner_audio.MAX_SPAN_S,
+            "accepted_types": sorted(learner_audio.CONTAINER_OF_TYPE),
+        },
+    }
+
+
 def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
                store: JobStore | None = None,
                web_dist: str | Path | None = None,
                allowed_roots: list[str | Path] | None = None,
                db_path: str | Path = DEFAULT_DB,
-               download_dir: str | Path = DOWNLOAD_DIR) -> FastAPI:
+               download_dir: str | Path = DOWNLOAD_DIR,
+               phone: PhoneSettings | None = None) -> FastAPI:
     """The app. `allowed_roots` bounds which part of the disk can be touched
     from the browser (browsing, analyzing, importing): by default $HOME and the
     working directory. The CLI does not go through here and has no such
-    limit."""
+    limit.
+
+    `phone` turns phone access on for this app (the Android client's API,
+    `phonotrainer/phone/`). Without it the app never touches the phone
+    configuration directory and every route behaves as before; only
+    `/api/phone/hello` exists, saying phone access is off.
+    """
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        yield
-        # Ctrl-C: flag the cancellation and let go of the (daemon) worker thread.
-        app.state.store.shutdown()
-        if app.state.store.corpus is not None:
-            app.state.store.corpus.close()
+        if app.state.phone is not None:
+            app.state.phone.start()
+        try:
+            yield
+        finally:
+            if app.state.phone is not None:
+                app.state.phone.stop()
+            # Ctrl-C: flag the cancellation and let go of the (daemon) worker thread.
+            app.state.store.shutdown()
+            if app.state.store.corpus is not None:
+                app.state.store.corpus.close()
 
     app = FastAPI(title="PhonoTrainer", version=__version__, docs_url="/api/docs",
                   openapi_url="/api/openapi.json", lifespan=lifespan)
@@ -160,6 +228,12 @@ def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
     if any(root == Path("/") for root in roots):
         raise ValueError('"/" as an allowed root would disable the confinement')
     app.state.roots = roots
+    app.state.phone = None
+    if phone is not None:
+        from .phone.runtime import PhoneRuntime
+
+        app.state.phone = PhoneRuntime(phone, app.state.store, api_version=API_VERSION,
+                                       reference=build_reference)
 
     @app.middleware("http")
     async def same_origin_only(request: Request, call_next):
@@ -188,6 +262,18 @@ def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
         # `detail` stays a sentence like every other error; `code` is for the UI.
         return JSONResponse({"detail": exc.message, "code": exc.code},
                             status_code=exc.status)
+
+    # Phone routes answer {"detail", "code"}; every other route keeps FastAPI's
+    # 422 list exactly as before.
+    @app.exception_handler(PhoneError)
+    def _phone_error(request: Request, exc: PhoneError):      # noqa: ARG001
+        return exc.response()
+
+    @app.exception_handler(RequestValidationError)
+    async def _validation_error(request: Request, exc: RequestValidationError):
+        if is_phone_path(request.url.path):
+            return error_response(400, "invalid_request")
+        return await request_validation_exception_handler(request, exc)
 
     def _store() -> JobStore:
         return app.state.store
@@ -252,56 +338,7 @@ def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
     def reference() -> dict:
         """The backend's vocabulary: phenomena, pipeline options and review
         settings. The UI consumes them as they are, it keeps no copies."""
-        return {
-            "api_version": API_VERSION,
-            "families": [
-                {"key": key, "label": label,
-                 "members": report.FAMILY_MEMBERS[key],
-                 "member_labels": [report.PHENOMENON_LABEL[m]
-                                   for m in report.FAMILY_MEMBERS[key]]}
-                for key, label in report.FAMILY_LABEL.items()
-            ],
-            "family_of": report.FAMILY_OF,
-            "labels": report.PHENOMENON_LABEL,
-            "descriptions": report.PHENOMENON_DESCRIPTION,
-            # to hear only, or to say too: per label and per lexical reduced form
-            "practice": report.PHENOMENON_PRACTICE,
-            "lexical_practice": report.LEXICAL_PRACTICE,
-            "link_types": list(phenomena.LINK_TYPES),
-            # IPA symbols longer than one character (aɪ, tʃ, ɑːɹ…): without them
-            # the browser would split "aɪ" in two when tokenizing the dictionary
-            # form.
-            "ipa_tokens": sorted(
-                (t for t in ipa_maps.ENGLISH_INVENTORY if len(t) > 1),
-                key=len, reverse=True,
-            ),
-            "verdicts": list(review_mod.VERDICTS),
-            # what summary.metrics and /api/corpus/metrics are compared against
-            "metrics_reference": metrics_mod.REFERENCE,
-            "metric_labels": metrics_mod.METRIC_LABELS,
-            "options": {
-                "whisper_models": list(get_args(Options.model_fields["whisper_model"].annotation)),
-                "phone_engines": [
-                    e for e in get_args(Options.model_fields["phone_engine"].annotation)
-                    if e not in ENGINE_ALIASES
-                ],
-                "phone_engine_notes": ENGINE_NOTES,
-                "defaults": Options().model_dump(),
-            },
-            "review": {
-                "default_n": review_mod.DEFAULT_N,
-                "default_seed": review_mod.DEFAULT_SEED,
-                "max_n": MAX_SAMPLE,
-            },
-            # record yourself: the interface stops recording at max_seconds
-            "recording": {
-                "max_seconds": learner_audio.MAX_TAKE_S,
-                "min_seconds": learner_audio.MIN_TAKE_S,
-                "max_bytes": learner_audio.MAX_UPLOAD_BYTES,
-                "max_span_seconds": learner_audio.MAX_SPAN_S,
-                "accepted_types": sorted(learner_audio.CONTAINER_OF_TYPE),
-            },
-        }
+        return build_reference()
 
     # --- jobs ---------------------------------------------------------------
     @app.get("/api/jobs")
@@ -693,6 +730,17 @@ def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
         return {"path": str(target), "parent": parent, "home": str(home),
                 "dirs": dirs, "files": files}
 
+    # --- phones (before the SPA's catch-all) -----------------------------------
+    from .phone import routes as phone_routes
+
+    app.include_router(phone_routes.router if phone is not None else phone_routes.off_router)
+
+    # Outermost last: the phone rules wrap the loopback Host rule, which wraps
+    # same_origin_only. LoopbackHostGuard is there in every mode (DNS rebinding).
+    app.add_middleware(LoopbackHostGuard)
+    if app.state.phone is not None:
+        app.add_middleware(PhoneAccessMiddleware, runtime=app.state.phone)
+
     # --- SPA ----------------------------------------------------------------
     @app.get("/{full_path:path}", include_in_schema=False)
     def spa(full_path: str):
@@ -722,30 +770,66 @@ server's port).</p>
 """
 
 
-def serve(workspace: str | Path = DEFAULT_WORKSPACE, host: str = "127.0.0.1",
+def serve(workspace: str | Path = DEFAULT_WORKSPACE, host: str | None = None,
           port: int = 8000, reload: bool = False, open_browser: bool = True,
-          allowed_roots: list[str | Path] | None = None) -> None:
-    """Start uvicorn with the app (used by `phonotrainer ui`)."""
+          allowed_roots: list[str | Path] | None = None,
+          phone: PhoneSettings | None = None) -> None:
+    """Start uvicorn with the app (used by `phonotrainer ui`).
+
+    Without `phone`: loopback by default, as before. With it (phone access on,
+    or suspended) the default bind address is every IPv4 interface, the browser
+    still opens the loopback address, uvicorn's access log is off (it would
+    print every client address and path), and `runtime.json` tells
+    `phonotrainer phone …` that this server is running.
+
+    uvicorn's proxy headers are off in every mode: PhonoTrainer never runs
+    behind a proxy, and with them on any local page could send
+    `X-Forwarded-For` and pass for a remote peer, which `LoopbackHostGuard`
+    (the DNS-rebinding defence) would then not check.
+    """
     import uvicorn
 
+    if host is None:
+        host = "0.0.0.0" if phone is not None else "127.0.0.1"
+    browse_host = "127.0.0.1" if host in ("0.0.0.0", "::") else host
     if open_browser:
         import threading
         import webbrowser
 
-        timer = threading.Timer(1.2, lambda: webbrowser.open(f"http://{host}:{port}"))
+        timer = threading.Timer(1.2, lambda: webbrowser.open(f"http://{browse_host}:{port}"))
         timer.daemon = True      # it must not delay shutdown on Ctrl-C
         timer.start()
 
     os.environ["PHONOTRAINER_WORKSPACE"] = str(workspace)
     if allowed_roots:
         os.environ["PHONOTRAINER_ROOTS"] = os.pathsep.join(str(r) for r in allowed_roots)
+    if phone is None:
+        uvicorn.run("phonotrainer.server:app_from_env" if reload
+                    else create_app(workspace, allowed_roots=allowed_roots),
+                    host=host, port=port, reload=reload, factory=reload,
+                    proxy_headers=False)
+        return
+
+    from dataclasses import replace
+
+    phone = replace(phone, port=port)
+    os.environ["PHONOTRAINER_PHONE_ACCESS"] = "1"
+    os.environ["PHONOTRAINER_PORT"] = str(port)
+    if phone.config_dir is not None:
+        os.environ["PHONOTRAINER_CONFIG_DIR"] = str(phone.config_dir)
     uvicorn.run("phonotrainer.server:app_from_env" if reload
-                else create_app(workspace, allowed_roots=allowed_roots),
-                host=host, port=port, reload=reload, factory=reload)
+                else create_app(workspace, allowed_roots=allowed_roots, phone=phone),
+                host=host, port=port, reload=reload, factory=reload,
+                proxy_headers=False, access_log=False)
 
 
 def app_from_env() -> FastAPI:
     """Factory for `uvicorn --reload` (which cannot take an already built app)."""
     roots = os.environ.get("PHONOTRAINER_ROOTS")
+    phone = None
+    if os.environ.get("PHONOTRAINER_PHONE_ACCESS") == "1":
+        port = os.environ.get("PHONOTRAINER_PORT")
+        phone = PhoneSettings(port=int(port) if port else None)
     return create_app(os.environ.get("PHONOTRAINER_WORKSPACE", DEFAULT_WORKSPACE),
-                      allowed_roots=roots.split(os.pathsep) if roots else None)
+                      allowed_roots=roots.split(os.pathsep) if roots else None,
+                      phone=phone)

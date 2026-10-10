@@ -293,6 +293,61 @@ directory; for an external drive, use `phonotrainer ui --allow-dir /mnt/videos`.
 > your `$HOME` that anyone can read without credentials: never expose it on a
 > public interface.
 
+## Phone access (Android client)
+
+The Android client (`android/`) studies your clips on the phone and sends new
+work to this computer when both are on the same Wi-Fi. It talks only to its own
+API under `/api/phone/`, and only after you turn phone access on and pair the
+phone from this computer's terminal. Phone access is **off** until you choose
+otherwise.
+
+```bash
+phonotrainer ui --phone-access     # turn it on (remembered) and start the interface
+phonotrainer phone pair            # show a 6-digit code to type on the phone
+phonotrainer phone status          # on, suspended or off; approved networks; paired phones
+phonotrainer phone off             # turn it off (or start with --no-phone-access)
+```
+
+- **What a phone can reach.** With phone access on, the server listens on every
+  IPv4 interface, but devices on the network reach only `/api/phone/*`: never
+  the interface, the file browser, imports, reviews, deletion of analyses, the
+  corpus or `/api/health`. On the computer itself (`127.0.0.1`) the interface
+  works exactly as before.
+- **Approved networks.** Turning phone access on (`--phone-access` or
+  `phonotrainer phone on`) approves the networks the computer is on at that
+  moment. On any other network (a laptop in a café) phone access is
+  **suspended**: the server answers nobody on the network and says so at start.
+  Run `phonotrainer phone on` there to approve it as well. Interfaces the kernel
+  reports as virtual (container and virtual-machine networks, VPNs and overlays
+  such as WireGuard, Tailscale or ZeroTier, ppp links) are never approved unless
+  you name them with `--phone-interface <name>`. With phone access already on,
+  `phonotrainer ui --phone-interface <name>` adds that interface only, never the
+  network you happen to be on. If this computer reaches your home network
+  through a bridge (`br0`), name the bridge the same way.
+- **Pairing.** A code is valid for 5 minutes, works once and locks after 5 wrong
+  attempts. When a phone pairs, the terminal prints its name and the address it
+  came from: compare it with the address the phone shows in its connection
+  details.
+- **Firewall.** Phones need TCP port 8000 (or your `--port`) allowed on the home
+  network. Nothing is changed on your system automatically.
+- **Where its state lives.** In the PhonoTrainer configuration directory:
+  `$PHONOTRAINER_CONFIG_DIR`, otherwise `$XDG_CONFIG_HOME/phonotrainer`,
+  otherwise `~/.config/phonotrainer`. It is outside the repository and every
+  workspace, so switching workspaces keeps your phones paired. It holds the
+  computer's id and name, the approved networks and one key per paired phone;
+  it is kept private to your user (`0700`, files `0600`, checked at every start).
+
+> ⚠️ **Plain HTTP on your home network.** Someone on the same Wi-Fi can read the
+> clips, transcripts and recordings that cross it. What protects you: phone
+> access is opt-in, tied to approved networks and announced at every start; the
+> phone signs every request with its own key, so listening captures no reusable
+> password (only the pairing answer carries the phone's secret, once); each
+> phone can be revoked on its own; and the network reaches nothing but the phone
+> API.
+> Paired phones share the library: any of them can list and download every
+> analysis. Someone able to tamper with your network can still read or alter
+> what crosses it.
+
 ## Material: from YouTube to analysis
 
 ```bash
