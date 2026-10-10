@@ -175,3 +175,158 @@ def wait_until(predicate, timeout: float = 10.0, interval: float = 0.02):
             return value
         time.sleep(interval)
     raise AssertionError(f"condition not met within {timeout}s")
+
+
+# --- phone access (phonotrainer/phone, server-contract 11.2) ------------------
+# Every test runs with PHONOTRAINER_CONFIG_DIR in a temporary directory, so no
+# test can ever read or write a real configuration directory.
+
+import pytest  # noqa: E402
+
+from phone_fixtures import (FakeClock, FakeDisk, FakeNetinfo, FakeProbe,  # noqa: E402
+                            PT1Auth, fake_resolver, fake_which, no_runner)
+
+
+@pytest.fixture(autouse=True)
+def isolated_config(tmp_path_factory, monkeypatch):
+    path = tmp_path_factory.mktemp("phone-config") / "config"
+    monkeypatch.setenv("PHONOTRAINER_CONFIG_DIR", str(path))
+    return path
+
+
+@pytest.fixture
+def fake_clock():
+    return FakeClock()
+
+
+@pytest.fixture
+def fake_netinfo():
+    return FakeNetinfo()
+
+
+@pytest.fixture
+def fake_probe():
+    return FakeProbe()
+
+
+@pytest.fixture
+def fake_disk():
+    return FakeDisk()
+
+
+@pytest.fixture
+def phone_settings(isolated_config, fake_clock, fake_netinfo, fake_probe, fake_disk):
+    from phonotrainer.phone.settings import PhoneSettings
+
+    return PhoneSettings(config_dir=isolated_config, clock=fake_clock, resolver=fake_resolver,
+                         media_probe=fake_probe, disk_usage=fake_disk, netinfo=fake_netinfo,
+                         which=fake_which, runner=no_runner, discovery_port=0)
+
+
+def phone_download(url, dest_dir, audio_only=False, progress=lambda m: None, **kwargs):
+    """Download double: the phone tests never reach a website."""
+    progress("Looking up the URL…")
+    progress("Downloading from YouTube… 100%")
+    dest = Path(dest_dir)
+    dest.mkdir(parents=True, exist_ok=True)
+    file = dest / "A video [abc123].mp4"
+    file.write_bytes(b"media")
+    progress(f"Downloaded: {file.name}")
+    return file
+
+
+@pytest.fixture
+def phone_store(tmp_path):
+    from phonotrainer.jobs import JobStore
+
+    store = JobStore(tmp_path / "workspace", analyze_fn=fake_analyze, corpus=None,
+                     download_dir=tmp_path / "downloads", download_fn=phone_download)
+    yield store
+    store.shutdown()
+
+
+def enable_phone_access(settings) -> None:
+    """What `phonotrainer phone on` does: phone access on, current networks approved."""
+    from phonotrainer.phone.config import ConfigDir
+    from phonotrainer.phone.identity import ServerIdentity
+
+    identity = ServerIdentity(ConfigDir(settings.config_dir), settings.clock)
+    identity.load()
+    identity.turn_on(settings.netinfo())
+
+
+@pytest.fixture
+def phone_app(phone_store, phone_settings, tmp_path):
+    """An app with phone access on, its lifespan running."""
+    from fastapi.testclient import TestClient
+
+    from phonotrainer.server import create_app
+
+    enable_phone_access(phone_settings)
+    app = create_app(store=phone_store, phone=phone_settings,
+                     web_dist=tmp_path / "not-built", allowed_roots=[tmp_path])
+    with TestClient(app):
+        yield app
+
+
+def lan(app, client=("192.0.2.20", 50000), base_url="http://192.0.2.10:8000"):
+    from fastapi.testclient import TestClient
+
+    return TestClient(app, client=client, base_url=base_url)
+
+
+def loopback(app, base_url="http://127.0.0.1:8000"):
+    from fastapi.testclient import TestClient
+
+    return TestClient(app, client=("127.0.0.1", 50000), base_url=base_url)
+
+
+@pytest.fixture
+def lan_client(phone_app):
+    return lan(phone_app)
+
+
+@pytest.fixture
+def loopback_client(phone_app):
+    return loopback(phone_app)
+
+
+def pair_phone(app, client, name="Pixel 9", **extra):
+    """Pair through the API with a fresh code; returns (response, code)."""
+    code = app.state.phone.registry.create_code().code
+    body = {"code": code, "device_name": name, "app_version": 1, "app_version_name": "1.0.0"}
+    body.update(extra)
+    return client.post("/api/phone/pair", json=body), code
+
+
+@pytest.fixture
+def paired(phone_app, lan_client, fake_clock):
+    """(signing_client, device_id, key): a paired phone on the LAN whose every
+    request carries a fresh signature."""
+    from phonotrainer.phone.registry import token_key
+
+    resp, _ = pair_phone(phone_app, lan_client)
+    assert resp.status_code == 201, resp.text
+    body = resp.json()
+    key = token_key(body["token"])
+    signing = lan(phone_app)
+    signing.auth = PT1Auth(body["device_id"], key, fake_clock)
+    return signing, body["device_id"], key
+
+
+@pytest.fixture
+def blocking_analyze():
+    """A fake analysis that holds the worker until `.release.set()`."""
+    import threading
+
+    release = threading.Event()
+    started = threading.Event()
+
+    def analyze(media_path, out_dir, progress=lambda m: None, **options):
+        started.set()
+        release.wait(timeout=30)
+        return fake_analyze(media_path, out_dir, progress=progress, **options)
+
+    analyze.release = release
+    analyze.started = started
+    return analyze
