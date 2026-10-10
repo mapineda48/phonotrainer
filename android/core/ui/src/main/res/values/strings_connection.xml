@@ -13,8 +13,11 @@
     <string name="connection_connect_again">Your computer no longer recognizes this phone</string>
     <string name="connection_computer_too_old">Update PhonoTrainer on your computer</string>
     <string name="connection_app_too_old">Update this app</string>
-    <string name="connection_syncing">Syncing · bringing %1$d clips</string>
-    <string name="connection_counts">%1$d waiting · %2$d on your computer · %3$d need attention</string>
+    <plurals name="connection_syncing">
+        <item quantity="one">Syncing · bringing %1$d clip</item>
+        <item quantity="other">Syncing · bringing %1$d clips</item>
+    </plurals>
+    <string name="connection_counts">Waiting: %1$d · On your computer: %2$d · Need attention: %3$d</string>
     <string name="connection_action_connect">Connect</string>
     <string name="connection_action_connect_again">Connect again</string>
     <string name="connection_action_why">Why?</string>

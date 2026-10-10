@@ -7,6 +7,9 @@ plugins {
 
 dependencies {
   api(project(":core:domain"))
+  // The BOM travels with the Compose artifacts this module exposes, so consumers without the Compose plugin resolve
+  // the same versions.
+  api(platform(libs.androidx.compose.bom))
   api(libs.androidx.compose.foundation)
   api(libs.androidx.compose.material3)
   api(libs.androidx.compose.ui)

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Cleartext confinement, architecture 5.2 (spec 11.6, X-AC6). The computer is reached over plain HTTP on the home
+     network at an address known only at runtime, so this platform setting must permit cleartext and can name no
+     address (none is ever committed). This file alone would allow cleartext to any host: the confinement is
+     :core:network's CleartextGuard, which refuses every request whose host:port is not the paired computer's
+     current address or the one private candidate being checked, before a byte is sent. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

@@ -4,6 +4,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import com.mapineda48.phonotrainer.core.designsystem.theme.PhonoTheme
@@ -64,7 +65,7 @@ fun ConnectionStatusCard(
       modifier = Modifier.testTag(ConnectionTags.STATUS),
       tone = if (status is ComputerStatus.Connected) StatusTone.GOOD else StatusTone.NEUTRAL,
     )
-    if (sync is SyncState.Active) Text(stringResource(R.string.connection_syncing, sync.bringing))
+    if (sync is SyncState.Active) Text(pluralStringResource(R.plurals.connection_syncing, sync.bringing, sync.bringing))
     transfers?.let { Text(it.title) }
     Text(stringResource(R.string.connection_counts, counts.waiting, counts.onComputer, counts.needsAttention))
     val actions = buildList {

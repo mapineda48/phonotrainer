@@ -4,5 +4,8 @@
     <string name="clip_watch">Watch</string>
     <string name="clip_open">Open “%1$s”</string>
     <string name="clip_more">More for “%1$s”</string>
-    <string name="clip_shorts_seen">%1$d of %2$d shorts seen</string>
+    <plurals name="clip_shorts_seen">
+        <item quantity="one">%1$d of %2$d short seen</item>
+        <item quantity="other">%1$d of %2$d shorts seen</item>
+    </plurals>
 </resources>

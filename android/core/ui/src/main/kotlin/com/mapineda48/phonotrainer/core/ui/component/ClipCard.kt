@@ -7,6 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import com.mapineda48.phonotrainer.core.designsystem.theme.PhonoTheme
@@ -40,7 +41,7 @@ fun ClipCard(
   PhonoCard(modifier = modifier) {
     Text(state.clip.title, style = MaterialTheme.typography.titleMedium)
     AvailabilityChip(state.clip.availability)
-    Text(stringResource(R.string.clip_shorts_seen, state.clip.shortsSeen, state.clip.shortsTotal))
+    Text(pluralStringResource(R.plurals.clip_shorts_seen, state.clip.shortsTotal, state.clip.shortsSeen, state.clip.shortsTotal))
     Row {
       PhonoButton(stringResource(R.string.clip_watch), onWatch, Modifier.testTag(ClipCardTags.WATCH))
       PhonoButton(

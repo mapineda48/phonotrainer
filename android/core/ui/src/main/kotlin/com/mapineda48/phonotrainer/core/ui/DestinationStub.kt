@@ -1,6 +1,8 @@
 package com.mapineda48.phonotrainer.core.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,7 +22,8 @@ import com.mapineda48.phonotrainer.core.ui.a11y.paneTitle
 
 /**
  * The stub of a destination at the contract freeze (work-plan 2.3): its title and its one-sentence lede (spec A-16),
- * so every destination is navigable before its feature lands. Each feature replaces its own stubs.
+ * so every destination is navigable before its feature lands. Each feature replaces its own stubs. The column
+ * scrolls, so [content] must not hold a lazy list.
  */
 @Composable
 fun DestinationStub(
@@ -30,7 +33,8 @@ fun DestinationStub(
   content: @Composable ColumnScope.() -> Unit = {},
 ) {
   Column(
-    modifier = modifier.fillMaxSize().paneTitle(title).padding(horizontal = 16.dp, vertical = 24.dp),
+    modifier = modifier.fillMaxSize().paneTitle(title).verticalScroll(rememberScrollState())
+      .padding(horizontal = 16.dp, vertical = 24.dp),
     verticalArrangement = Arrangement.spacedBy(12.dp),
   ) {
     Text(
