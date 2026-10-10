@@ -13,6 +13,7 @@ from __future__ import annotations
 import sqlite3
 import sys
 import tempfile
+from contextlib import closing
 from pathlib import Path
 
 import _device
@@ -41,7 +42,7 @@ def cell(value) -> str:
 
 def dump(database: Path, tables=TABLES) -> str:
     lines = []
-    with sqlite3.connect(database) as conn:
+    with closing(sqlite3.connect(database)) as conn:  # `with conn` alone only commits, it never closes
         existing = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
         for table in tables:
             if table not in TABLES:
