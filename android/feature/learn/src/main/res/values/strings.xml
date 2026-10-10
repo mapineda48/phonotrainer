@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Strings of :feature:learn. At the contract freeze: the title and lede of each stub destination
+     (WP-20 replaces them with its screens). -->
+<resources>
+    <string name="learn_title">Learn</string>
+    <string name="learn_lede">How native speakers change words when they talk — and which of those changes you can copy.</string>
+    <string name="learn_link_ipa">IPA chart</string>
+    <string name="learn_link_glossary">Words we use</string>
+    <string name="learn_link_insights">Insights</string>
+    <string name="learn_link_flapping">Flapping</string>
+    <string name="learn_phenomenon_title">Change</string>
+    <string name="learn_phenomenon_lede">What this change is, how to hear it, and examples from your clips.</string>
+    <string name="learn_phenomenon_link_examples">Watch examples</string>
+    <string name="learn_ipa_title">IPA chart</string>
+    <string name="learn_ipa_lede">Each symbol is one sound. Choose one to hear it in your clips.</string>
+    <string name="learn_glossary_title">Words we use</string>
+    <string name="learn_glossary_lede">Plain-English explanations of the terms and measures PhonoTrainer uses. Each one also opens from the “?” next to it.</string>
+</resources>

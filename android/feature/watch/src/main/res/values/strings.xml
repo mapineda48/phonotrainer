@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Strings of :feature:watch. At the contract freeze: the feed stub (WP-17 replaces it). -->
+<resources>
+    <string name="watch_title">Watch</string>
+    <string name="watch_lede">Swipe through short phrases from your clips; tap a word to see how it was said.</string>
+    <string name="watch_start_last">Starts where you left off.</string>
+    <string name="watch_start_today">Starts at today\'s set.</string>
+    <string name="watch_start_in_order">Starts at a clip, in order.</string>
+    <string name="watch_start_change">Starts with one change.</string>
+    <string name="watch_start_saved">Starts with your saved shorts.</string>
+    <string name="watch_start_word">Starts at a word.</string>
+    <string name="watch_open_lesson">Open a word lesson</string>
+</resources>

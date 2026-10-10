@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Strings of :feature:onboarding. At the contract freeze: the Welcome stub (WP-13 replaces it). -->
+<resources>
+    <string name="welcome_title">Hear English as it\'s really spoken</string>
+    <string name="welcome_lede">PhonoTrainer shows how native speakers change words when they talk, and which of those changes you can copy.</string>
+    <string name="welcome_get_started">Get started</string>
+</resources>

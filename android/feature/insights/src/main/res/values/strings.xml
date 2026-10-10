@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Strings of :feature:insights. At the contract freeze: the title and lede of each stub destination
+     (WP-32 replaces them with its screens). -->
+<resources>
+    <string name="insights_title">Insights</string>
+    <string name="insights_lede">How reduced the speech in your clips is, compared with published figures.</string>
+</resources>

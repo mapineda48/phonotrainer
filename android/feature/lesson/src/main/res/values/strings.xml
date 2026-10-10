@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Strings of :feature:lesson. At the contract freeze: the word lesson stub (WP-18 replaces it). -->
+<resources>
+    <string name="lesson_title">Word lesson</string>
+    <string name="lesson_lede">Hear the word, compare what was said with the dictionary, and practise it.</string>
+    <string name="lesson_close">Close</string>
+</resources>

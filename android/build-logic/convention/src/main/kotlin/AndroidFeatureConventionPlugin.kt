@@ -10,6 +10,10 @@ import org.gradle.kotlin.dsl.dependencies
  * architecture 21.1 on Robolectric.
  */
 class AndroidFeatureConventionPlugin : Plugin<Project> {
+  private companion object {
+    const val CONTENT = ":core:content"
+  }
+
   override fun apply(target: Project) {
     with(target) {
       pluginManager.apply("phonotrainer.android.library")
@@ -21,7 +25,9 @@ class AndroidFeatureConventionPlugin : Plugin<Project> {
         "implementation"(project(":core:navigation"))
         "implementation"(project(":core:designsystem"))
         "implementation"(project(":core:ui"))
-        "implementation"(project(":core:content"))
+        // :core:content is WP-04's module: its build file arrives after the contract freeze (work-plan WP-04), and
+        // settings include a declared module only once that file exists. Features get it as soon as it does.
+        if (rootProject.findProject(CONTENT) != null) "implementation"(project(CONTENT))
 
         "implementation"(libs.library("androidx-compose-foundation"))
         "implementation"(libs.library("androidx-compose-material3"))
