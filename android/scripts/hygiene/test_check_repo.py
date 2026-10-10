@@ -163,6 +163,40 @@ class ContentRules(RepoTestCase):
         self.assertEqual([], self.check_line(f"sha256 {digest} commit 3d3c42e5aac5ba805825da76410c181273ba90b1",
                                              "credential"))
 
+    def test_paths_with_commit_ids_and_job_ids_are_not_tokens(self):
+        # Line 60 of the generated Gradle wrapper script, which nobody may edit or mark.
+        gradlew = ("#       https://github.com/gradle/gradle/blob/3d91ce3b8caaf77ad09f381f43615b715b53f72c/platforms/jvm/"
+                   "plugins-application/src/main/resources/org/gradle/api/internal/plugins/unixStartScript.txt")
+        self.repo.write("android/gradlew", "#!/bin/sh\n" + gradlew + "\n")
+        self.assertEqual([], [str(f) for f in self.findings() if f.path == "android/gradlew"])
+        # A workspace media path: server job ids start with a date (`YYYYMMDD-HHMMSS-xxxx`).
+        self.assertEqual([], self.check_line('media = "/srv/workspace/20261010-091503-4be1/media/VID 1.mp4"',
+                                             "credential", "tests/test_phone_state.py"))
+        self.assertEqual([], self.check_line("see https://github.com/gradle/gradle/blob/"
+                                             "0123456789abcdef0123456789abcdef01234567/platforms/jvm/src/Foo.txt",
+                                             "credential"))
+        self.assertEqual([], self.check_line("tree /srv/workspace/20261010-091503-4be1/Analysis_2026-10-10/"
+                                             "mixDown-v2/x86_64/VID", "credential"))
+
+    def test_a_token_with_slashes_is_still_a_token(self):
+        token = planted("random-token")
+        for text in (f"{token[:10]}/{token[10:23]}/{token[23:]}",
+                     f"/srv/workspace/20261010-091503-4be1/{token}",
+                     f"com/gradle/gradle/blob/3d91ce3b8caaf77ad09f381f43615b715b53f72c/{token}",
+                     f"{token[:12]}+{token[12:25]}/{token[25:]}=="):
+            with self.subTest(text=text[:12]):
+                self.assertTrue(self.check_line(f'key = "{text}"', "credential"))
+
+    def test_digits_of_other_scripts_are_neither_codes_nor_addresses(self):
+        # The server tests check that a pairing code in Arabic-Indic digits is refused; `\d` would match those digits,
+        # and `ipaddress` raises on them.
+        code = "".join(chr(0x0660 + d) for d in (1, 2, 3, 4, 5, 6))
+        dotted = ".".join(chr(0x0660 + d) for d in (1, 2, 3, 4))
+        self.repo.write("tests/test_pairing.py", f'BODY = {{"code": "{code}"}}\nprint("Pairing code: {code}")\n'
+                                                 f'HOST = "{dotted}"\n')
+        self.assertEqual([], [str(f) for f in self.findings() if f.path == "tests/test_pairing.py"])
+        self.assertEqual(f"at {dotted}", sensitive.redact(f"at {dotted}"))
+
     def test_test_vector_marker_on_a_line_and_in_a_block(self):
         ip = planted("private-ipv4")
         self.assertEqual([], self.check_line(f'"{ip}",  # hygiene: test-vector', "address", "tests/test_ssrf.py"))

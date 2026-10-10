@@ -49,9 +49,11 @@ SPECIAL_BLOCKS = tuple(
 DOCUMENTATION_V6 = ipaddress.ip_network("2001:db8::/32")
 ALLOWED_V6 = frozenset(ipaddress.ip_address(a) for a in ("::", "::1"))
 
-_OCTET = r"(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)"
-IPV4_RE = re.compile(rf"(?<![\w.])({_OCTET}(?:\.{_OCTET}){{3}})(?:/(\d{{1,2}}))?(?!\w)(?!\.\d)")
-IPV6_RE = re.compile(r"(?<![\w:.])((?:[0-9A-Fa-f]{0,4}:){2,7}[0-9A-Fa-f]{0,4})(?:%\w+)?(?:/(\d{1,3}))?(?![\w:])")
+# Digits are ASCII on purpose: `\d` also matches other scripts' digits, which `ipaddress` rejects and no address or
+# pairing code is written with.
+_OCTET = r"(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])"
+IPV4_RE = re.compile(rf"(?<![\w.])({_OCTET}(?:\.{_OCTET}){{3}})(?:/([0-9]{{1,2}}))?(?!\w)(?!\.[0-9])")
+IPV6_RE = re.compile(r"(?<![\w:.])((?:[0-9A-Fa-f]{0,4}:){2,7}[0-9A-Fa-f]{0,4})(?:%\w+)?(?:/([0-9]{1,3}))?(?![\w:])")
 # SVG and vector-drawable geometry packs decimals without separators, which can look like an address; geometry never
 # holds one.
 GEOMETRY_RE = re.compile(r"""\b(?:d|pathData|android:pathData|points|viewBox)\s*=\s*\\?["'][^"']*["']""")
@@ -167,8 +169,8 @@ CREDENTIAL_RES = (
     ("pairing token", re.compile(r"(?<![A-Za-z0-9_-])pt1_[A-Za-z0-9_-]{43}(?![A-Za-z0-9_-])")),
     ("bearer credential", re.compile(r"\bBearer\s+(?![<{$])(?=[A-Za-z0-9._~+/-]*\d)[A-Za-z0-9._~+/-]{16,}=*")),
     ("signed request header", re.compile(r"\bPT1\s+device=[^,\s]+,.*?\bmac=[0-9A-Fa-f]{64}\b")),
-    ("pairing code", re.compile(r'"code"\s*:\s*"(?!' + PAIRING_PLACEHOLDER + r'")\d{6}"')),
-    ("pairing code", re.compile(r"\bPairing code:\s*(?!482 ?913\b)\d{3} ?\d{3}\b")),
+    ("pairing code", re.compile(r'"code"\s*:\s*"(?!' + PAIRING_PLACEHOLDER + r'")[0-9]{6}"')),
+    ("pairing code", re.compile(r"\bPairing code:\s*(?!482 ?913\b)[0-9]{3} ?[0-9]{3}\b")),
     ("server, device or library id", re.compile(r"\b(?:srv|dev|lib)_[A-Za-z2-7]{26}\b")),
 )
 
@@ -194,17 +196,57 @@ def shannon_entropy(text: str) -> float:
     return -sum(n / len(text) * math.log2(n / len(text)) for n in counts.values())
 
 
+PATH_MAX_ENTROPY = 4.6  # above this, slash-separated text reads as base64 rather than as a path
+
+# A path segment that names something by number: a digest or a commit id (`3d91ce3b…`), a number, or a job-id-shaped
+# name made of numbers, hex runs and plain words joined by dashes or underscores (`20261010-091503-4be1`, the server's
+# job ids). A random base64 segment almost never splits this way: it mixes cases and digits inside one run.
+_HEX_RE = re.compile(r"[0-9a-fA-F]+")
+_ID_PART_RE = re.compile(r"\d+|[0-9a-f]+|[0-9A-F]+|[a-z]+|[A-Z]+|[A-Z][a-z]+")
+# A path segment made of words: letters with at most a trailing number per dash- or underscore-separated part
+# (`unixStartScript`, `plugins-application`, `x86_64`, `android-36`, `VID`).
+_WORD_PART_RE = re.compile(r"\d+|[A-Za-z]+\d*")
+
+
+def _id_segment(segment: str) -> bool:
+    if _HEX_RE.fullmatch(segment):
+        return True
+    return segment[0].isdigit() and all(p and _ID_PART_RE.fullmatch(p) for p in re.split(r"[-_]", segment))
+
+
+def _word_segment(segment: str) -> bool:
+    return segment[0].isalpha() and all(p and _WORD_PART_RE.fullmatch(p) for p in re.split(r"[-_]", segment))
+
+
+def _looks_like_path(body: str) -> bool:
+    """A path, a qualified name or the path of a URL (`com/gradle/gradle/blob/<commit>/platforms/…/unixStartScript`,
+    `/srv/workspace/<job id>/media/VID`) rather than base64 that happens to contain slashes."""
+    segments = [s for s in body.split("/") if s]
+    if not segments:
+        return False
+    if all(re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]+", s) for s in segments):
+        if shannon_entropy(body) < PATH_MAX_ENTROPY:
+            return True  # identifiers only, as in a package path
+    # Digests, commit ids and job ids carry most of the character variety of a permalink or a workspace path, so they
+    # are set aside and the remaining segments must read as words; the numbers at the end of their parts (versions,
+    # dates, counters) are set aside too, so what is measured is the letters.
+    words = [s for s in segments if not _id_segment(s)]
+    if not all(_word_segment(s) for s in words):
+        return False
+    letters = re.sub(r"\d+", "", "/".join(words))
+    return not letters or shannon_entropy(letters) < PATH_MAX_ENTROPY
+
+
 def _looks_like_token(text: str, before: str) -> bool:
     body = text.rstrip("=")
-    if re.fullmatch(r"[0-9a-fA-F]+", body):
+    if _HEX_RE.fullmatch(body):
         return False  # digests and commit ids are checksums, not credentials
     if not (re.search(r"\d", body) and re.search(r"[a-z]", body) and re.search(r"[A-Z]", body)):
         return False
     if before.endswith("base64,"):
         return False  # inline image data
-    if "/" in body and all(re.fullmatch(r"[A-Za-z][A-Za-z0-9_.-]{1,}", s) for s in body.split("/") if s):
-        if shannon_entropy(body) < 4.6:
-            return False  # a path or a qualified name
+    if "/" in body and _looks_like_path(body):
+        return False
     return shannon_entropy(body) >= LONG_TOKEN_MIN_ENTROPY
 
 
@@ -443,7 +485,7 @@ _REDACTIONS = (
     (re.compile(r"(?<![A-Za-z0-9_-])pt1_[A-Za-z0-9_-]+"), "pt1_<redacted>"),
     (re.compile(r"\bBearer\s+\S+"), "Bearer <redacted>"),
     (re.compile(r'("(?:code|token|proof|previous_token_proof|challenge|mac|nonce)"\s*:\s*)"[^"]*"'), r'\1"<redacted>"'),
-    (re.compile(r"\b(Pairing code:\s*)\d{3} ?\d{3}\b"), r"\1<redacted>"),
+    (re.compile(r"\b(Pairing code:\s*)[0-9]{3} ?[0-9]{3}\b"), r"\1<redacted>"),
     (re.compile(r"\b(srv|dev|lib)_[A-Za-z0-9]{6,}\b"), r"\1_<redacted>"),
 )
 
