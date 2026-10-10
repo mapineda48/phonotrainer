@@ -9,7 +9,7 @@ import sqlite3
 import sys
 import tempfile
 import unittest
-from contextlib import redirect_stdout
+from contextlib import closing, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
@@ -126,7 +126,7 @@ class Shot(unittest.TestCase):
 
 class Db(unittest.TestCase):
     def make_db(self, path: Path) -> None:
-        with sqlite3.connect(path) as conn:
+        with closing(sqlite3.connect(path)) as conn, conn:
             conn.execute("CREATE TABLE request (id TEXT, seq INTEGER, state TEXT, link_shared TEXT)")
             conn.execute("INSERT INTO request VALUES ('r1', 1, 'WAITING', NULL)")
             conn.execute("CREATE TABLE clip (job_id TEXT, title TEXT)")

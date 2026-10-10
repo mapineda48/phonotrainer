@@ -125,7 +125,8 @@ class ContentRules(RepoTestCase):
 
     def test_allowed_addresses(self):
         line = "192.0.2.10 198.51.100.7 203.0.113.9 127.0.0.1 0.0.0.0 255.255.255.255 10.0.2.2 2001:db8::7 ::1 " \
-               "10.0.0.0/8 192.168.0.0/16 64:ff9b::/96 255.255.255.0"
+               "10.0.0.0/8 192.168.0.0/16 64:ff9b::/96 255.255.255.0 10.0.2.3 10.0.2.15 10.0.2.16 fec0::2 fec0::3 " \
+               "224.0.0.251 239.255.255.250 ff02::fb"
         self.assertEqual([], self.check_line(line, "address"))
 
     def test_ipv6_literal(self):
