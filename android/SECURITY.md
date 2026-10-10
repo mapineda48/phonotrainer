@@ -14,15 +14,33 @@ component updates this table in the same merge.
 
 | Kind | Name |
 |---|---|
+| permission | `android.permission.INTERNET` |
+| permission | `android.permission.ACCESS_NETWORK_STATE` |
+| permission | `android.permission.WAKE_LOCK` |
+| permission | `android.permission.RECEIVE_BOOT_COMPLETED` |
+| permission | `android.permission.FOREGROUND_SERVICE` |
 | permission | `com.mapineda48.phonotrainer.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` |
 | activity | `com.mapineda48.phonotrainer.MainActivity` |
+| activity | `com.mapineda48.phonotrainer.feature.share.ShareActivity` |
+| service | `androidx.work.impl.background.systemjob.SystemJobService` |
+| receiver | `androidx.work.impl.diagnostics.DiagnosticsReceiver` |
 | receiver | `androidx.profileinstaller.ProfileInstallReceiver` |
 
 Where each entry comes from:
 
+- `INTERNET` and `ACCESS_NETWORK_STATE` are declared by `:app` (architecture 20.1); WorkManager also requests
+  `ACCESS_NETWORK_STATE`.
+- `WAKE_LOCK`, `RECEIVE_BOOT_COMPLETED` and `FOREGROUND_SERVICE` are merged from WorkManager (`work-runtime`), as
+  architecture 20.1 expects for the first two; `FOREGROUND_SERVICE` belongs to WorkManager's own foreground service,
+  which is not exported. The other permissions of 20.1 join this table when the modules that use them declare them:
+  `POST_NOTIFICATIONS` (`:core:notifications`) and `FOREGROUND_SERVICE_DATA_SYNC` (`:core:sync`).
 - `DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` is the signature-level permission that AndroidX Core declares and
   requests for the app itself, so a receiver registered as not exported stays private on versions before API 33.
-- `MainActivity` is the launcher activity. `ShareActivity` (the share target, `taskAffinity=""`) and the permissions
-  of architecture 20.1 join this table when they enter the manifest.
-- `ProfileInstallReceiver` is exported by the profile installer library and guarded by `android.permission.DUMP`, so
-  only the shell and the system can send to it.
+- `MainActivity` is the launcher activity (`singleTask`, default affinity). `ShareActivity` (`:feature:share`) is the
+  share target: exported with exactly the three `SEND` / `SEND_MULTIPLE` filters of architecture 12,
+  `taskAffinity=""` and `excludeFromRecents`. The `.InternalEntry` alias is not exported, so no other app can hand
+  `MainActivity` an internal target (architecture 16.4).
+- `SystemJobService` is exported by WorkManager and guarded by `android.permission.BIND_JOB_SERVICE`, so only the
+  system's job scheduler can bind to it.
+- `DiagnosticsReceiver` (WorkManager) and `ProfileInstallReceiver` (profile installer) are exported by their
+  libraries and guarded by `android.permission.DUMP`, so only the shell and the system can send to them.
