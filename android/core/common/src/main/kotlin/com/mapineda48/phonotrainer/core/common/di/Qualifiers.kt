@@ -2,7 +2,8 @@ package com.mapineda48.phonotrainer.core.common.di
 
 import javax.inject.Qualifier
 
-// Concurrency qualifiers of architecture 3.3, bound once by :app's CoroutinesModule.
+// Qualifiers bound once by :app: the concurrency of architecture 3.3 (CoroutinesModule) and the process start
+// instant of architecture 4.6.
 
 /** The `CoroutineScope` (SupervisorJob + Dispatchers.Default) for work that outlives a screen. */
 @Qualifier
@@ -18,3 +19,12 @@ annotation class IoDispatcher
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
 annotation class DefaultDispatcher
+
+/**
+ * The `java.time.Instant` at which this process started, recorded once by the application before anything else runs
+ * (architecture 4.6). `StartupCheck` hands it to every `StartupTask`, which acts only on rows and files last updated
+ * before it, so a share that cold-starts the app is never mistaken for an interrupted one.
+ */
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class ProcessStart
