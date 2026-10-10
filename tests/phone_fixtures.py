@@ -185,6 +185,65 @@ def fake_resolver(host: str) -> list[str]:
     raise OSError(f"no DNS in the tests: {host}")
 
 
+# --- the SSRF guard's view of DNS (server-contract 11.2) ------------------------------------
+# Public names answer with global unicast addresses (the guard refuses the
+# documentation ranges, so those cannot stand in for "public"); hostile names
+# answer with every kind of address a link must never reach. None of these is
+# ever contacted: the tests have no network.
+# hygiene: test-vector begin
+PUBLIC_V4 = "1.2.3.4"
+PUBLIC_V6 = "2a00:1450::1"
+RESOLVER_TABLE: dict[str, list[str]] = {
+    "youtu.be": [PUBLIC_V4],
+    "www.youtube.com": [PUBLIC_V4, PUBLIC_V6],
+    "x.com": [PUBLIC_V4],
+    "public.example": [PUBLIC_V4],
+    "loopback.example": ["127.0.0.1"],
+    "private.example": ["10.1.2.3"],
+    "router.example": ["192.168.1.1"],
+    "linklocal.example": ["169.254.169.254"],
+    "cgnat.example": ["100.64.1.1"],
+    "multicast.example": ["224.0.0.251"],
+    "ula.example": ["fd12:3456:789a::1"],
+    "mapped.example": ["::ffff:127.0.0.1"],
+    "nat64.example": ["64:ff9b::a01:203"],            # embeds 10.1.2.3
+    "nat64local.example": ["64:ff9b:1::c0a8:101"],    # embeds 192.168.1.1
+    "sixtofour.example": ["2002:c0a8:101::1"],        # embeds 192.168.1.1
+    "teredo.example": ["2001:0:4136:e378:8000:63bf:3fff:fdd2"],
+    "documentation.example": ["203.0.113.7"],
+    "mixed.example": [PUBLIC_V4, "10.1.2.3"],         # one bad answer is enough
+    "unspecified.example": ["0.0.0.0"],
+}
+# A name whose answer changes between two lookups (DNS rebinding).
+REBINDING = ("rebinding.example", [PUBLIC_V4], ["192.168.1.1"])
+# hygiene: test-vector end
+
+
+class FakeResolver:
+    """A name → addresses table; unknown names fail like a DNS error.
+    `rebinding.example` answers public once, then private. `calls` records
+    every lookup."""
+
+    def __init__(self) -> None:
+        self.table = {name: list(addresses) for name, addresses in RESOLVER_TABLE.items()}
+        self.calls: list[str] = []
+        self.delay = 0.0
+
+    def __call__(self, host: str) -> list[str]:
+        import socket
+        import time
+
+        self.calls.append(host)
+        if self.delay:
+            time.sleep(self.delay)
+        if host == REBINDING[0]:
+            first = self.calls.count(host) == 1
+            return list(REBINDING[1] if first else REBINDING[2])
+        if host not in self.table:
+            raise socket.gaierror(-2, "Name or service not known")
+        return list(self.table[host])
+
+
 # --- raw ASGI calls (for paths an HTTP client would normalize) ------------------------------
 
 def asgi_call(app, method: str, raw_path: bytes, *, client=("192.0.2.20", 50000),
