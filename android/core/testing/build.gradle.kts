@@ -13,4 +13,6 @@ dependencies {
   api(libs.robolectric)
   api(libs.androidx.test.core)
   api(libs.truth)
+
+  debugImplementation(libs.androidx.compose.ui.test.manifest)
 }

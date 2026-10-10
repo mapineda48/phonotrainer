@@ -13,4 +13,7 @@ dependencies {
   api(project(":core:designsystem"))
   api(project(":core:domain"))
   api(project(":core:navigation"))
+
+  testImplementation(project(":core:testing"))
+  debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
