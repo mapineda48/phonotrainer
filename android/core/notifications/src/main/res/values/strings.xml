@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Notification copy of spec F-23 and architecture 13. The "Needs attention" line comes from RequestFailureCopy
+     (strings_request.xml of :core:ui). -->
+<resources>
+    <!-- Channel names; also the whole text of each notification's lock-screen version. -->
+    <string name="notification_channel_clips_ready">Clips ready</string>
+    <string name="notification_channel_needs_attention">Needs attention</string>
+    <string name="notification_channel_transfers">Transfers</string>
+
+    <!-- "Ready to watch: {title} — 15 shorts, tap to start." as title and text. -->
+    <string name="notification_clip_ready_title">Ready to watch: %1$s</string>
+    <plurals name="notification_clip_ready_text">
+        <item quantity="one">%d short, tap to start.</item>
+        <item quantity="other">%d shorts, tap to start.</item>
+    </plurals>
+    <plurals name="notification_clips_ready_summary">
+        <item quantity="one">%d clip ready to watch</item>
+        <item quantity="other">%d clips ready to watch</item>
+    </plurals>
+
+    <!-- The ongoing notification of a transfer started from the foreground. -->
+    <string name="notification_transfer_upload">Sending to your computer</string>
+    <plurals name="notification_transfer_download">
+        <item quantity="one">Bringing %d clip to this phone</item>
+        <item quantity="other">Bringing %d clips to this phone</item>
+    </plurals>
+    <string name="notification_transfer_share_copy">Preparing the file</string>
+    <string name="notification_transfer_bytes">%1$s · %2$d MB of %3$d MB</string>
+    <string name="notification_transfer_bytes_unknown_total">%1$s · %2$d MB</string>
+    <string name="notification_transfer_stop">Stop</string>
+</resources>
