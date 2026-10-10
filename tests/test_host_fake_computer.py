@@ -192,6 +192,7 @@ def test_the_entry_point_serves_a_whole_phone_session(tmp_path, monkeypatch):
 
         assert frame()["type"] == "hello"
         assert frame()["type"] == "snapshot"
+        assert channel.ping().wait(timeout=10)       # the phone's pings are answered (7)
 
         # list, and download the seeded clip's study pack with its checksums
         def seed():
