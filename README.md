@@ -317,8 +317,13 @@ phonotrainer phone off             # turn it off (or start with --no-phone-acces
   `phonotrainer phone on`) approves the networks the computer is on at that
   moment. On any other network (a laptop in a café) phone access is
   **suspended**: the server answers nobody on the network and says so at start.
-  Run `phonotrainer phone on` there to approve it as well. Container bridges and
-  VPN tunnels are never approved unless named with `--phone-interface`.
+  Run `phonotrainer phone on` there to approve it as well. Interfaces the kernel
+  reports as virtual (container and virtual-machine networks, VPNs and overlays
+  such as WireGuard, Tailscale or ZeroTier, ppp links) are never approved unless
+  you name them with `--phone-interface <name>`. With phone access already on,
+  `phonotrainer ui --phone-interface <name>` adds that interface only, never the
+  network you happen to be on. If this computer reaches your home network
+  through a bridge (`br0`), name the bridge the same way.
 - **Pairing.** A code is valid for 5 minutes, works once and locks after 5 wrong
   attempts. When a phone pairs, the terminal prints its name and the address it
   came from: compare it with the address the phone shows in its connection

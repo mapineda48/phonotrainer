@@ -51,15 +51,22 @@ def prepare_phone_access(choice: bool | None, extra_interfaces: Iterable[str],
                          config: ConfigDir | None = None) -> PhoneSettings | None:
     """`ui --phone-access/--no-phone-access/--phone-interface`: remember the
     choice (approving the networks the computer is on now when turning it on)
-    and return the settings to start the server with, or None for off."""
+    and return the settings to start the server with, or None for off.
+
+    `--phone-interface` alone (phone access already on) approves only the
+    interfaces it names: approving every network the computer is on now is
+    what `--phone-access` and `phone on` do, never a side effect of naming a
+    VPN or container interface on a café Wi-Fi."""
     netinfo = netinfo or real_interfaces
     config = config or ConfigDir()
     extra = tuple(extra_interfaces)
     if choice is None and not config.exists():
         return None                       # never chose: off, and nothing is created
     identity = _open_identity(config)
-    if choice is True or (choice is None and identity.phone_access and extra):
+    if choice is True:
         identity.turn_on(netinfo(), extra)
+    elif choice is None and identity.phone_access and extra:
+        identity.turn_on([iface for iface in netinfo() if iface.name in extra], extra)
     elif choice is False:
         identity.turn_off()
     if not identity.phone_access:

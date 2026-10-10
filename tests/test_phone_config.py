@@ -16,8 +16,9 @@ from phone_fixtures import (DOCKER, HOME_MAC, LOOPBACK_IF, TUNNEL, WLAN_CAFE, WL
 from phonotrainer.jobs import JobStore
 from phonotrainer.phone.config import ConfigDir, ConfigError, config_dir, runtime_info
 from phonotrainer.phone.identity import (ServerIdentity, active_addresses, approvable,
-                                         library_id, matches, network_entry)
-from phonotrainer.phone.netinfo import Interface, parse_arp, parse_default_gateways
+                                         is_virtual, library_id, matches, network_entry)
+from phonotrainer.phone.netinfo import (Interface, kernel_virtual, parse_arp,
+                                        parse_default_gateways)
 from phonotrainer.server import create_app
 
 
@@ -256,6 +257,59 @@ def test_active_addresses():
     down = Interface("wlan0", "192.0.2.10", 24, HOME_MAC, up=False)
     assert active_addresses(approved, [down]) == []
     assert approvable([LOOPBACK_IF, DOCKER, TUNNEL, down]) == []
+
+
+def fake_sysfs(root, name: str, device: str, kind: int):
+    """/sys/class/net/<name> → /sys/devices/<device>/net/<name>, with its type."""
+    target = root / "devices" / device / "net" / name
+    target.mkdir(parents=True)
+    (target / "type").write_text(f"{kind}\n")
+    link = root / "class" / "net" / name
+    link.parent.mkdir(parents=True, exist_ok=True)
+    link.symlink_to(target)
+
+
+def test_the_kernel_says_which_interfaces_are_virtual(tmp_path):
+    sysfs = tmp_path / "sys"
+    cards = [("wlp3s0", "pci0000:00/0000:00:1c.0/0000:02:00.0", 1, False),
+             ("enp1s0f0", "pci0000:00/0000:00:1d.0/0000:03:00.0", 1, False),
+             ("usb0", "pci0000:00/0000:00:14.0/usb1/1-2/1-2:1.0", 1, False),   # phone tethering
+             ("wwan0", "pci0000:00/0000:00:14.0/usb1/1-3/1-3:1.4", 65534, True),
+             ("tailscale0", "virtual", 65534, True),
+             ("ppp0", "virtual", 512, True),
+             ("vboxnet0", "virtual", 1, True),
+             ("br0", "virtual", 1, True),
+             ("corpvpn", "virtual", 65534, True)]
+    for name, device, kind, _ in cards:
+        fake_sysfs(sysfs, name, device, kind)
+    net = sysfs / "class" / "net"
+    for name, _, _, virtual in cards:
+        assert kernel_virtual(name, net) is virtual, name
+    assert kernel_virtual("eth9", net) is False          # unknown: the name rules decide
+    assert kernel_virtual("../x", net) is True
+    if os.path.exists("/sys/class/net/lo"):
+        assert kernel_virtual("lo") is True
+
+
+def test_vpn_overlay_and_vm_interfaces_are_never_approved_unless_named(isolated_config):
+    tailscale = Interface("tailscale0", "198.51.100.5", 32, None)
+    ppp = Interface("ppp0", "203.0.113.77", 32, None)
+    vbox = Interface("vboxnet0", "192.0.2.129", 25, None)
+    others = [Interface(name, "198.51.100.40", 24, None)
+              for name in ("zt7nnig26", "nordlynx", "proton0", "cscotun0", "gpd0", "ipsec0",
+                           "vmnet1", "podman0", "cni0", "lxcbr0", "wg0", "docker0")]
+    renamed = Interface("corpvpn", "198.51.100.66", 24, None, virtual=True)  # only the kernel knows
+    for iface in (tailscale, ppp, vbox, renamed, *others):
+        assert is_virtual(iface), iface.name
+    assert not is_virtual(WLAN_HOME)
+    assert approvable([LOOPBACK_IF, WLAN_HOME, tailscale, ppp, vbox, renamed, *others]) \
+        == [WLAN_HOME]
+    assert approvable([WLAN_HOME, tailscale, ppp, renamed], extra=["tailscale0", "corpvpn"]) \
+        == [WLAN_HOME, tailscale, renamed]
+    identity = ServerIdentity(ConfigDir(isolated_config), FakeClock())
+    identity.load()
+    identity.turn_on([LOOPBACK_IF, WLAN_CAFE, tailscale, ppp, vbox])
+    assert [n["interface"] for n in identity.approved_networks] == ["wlan0"]
 
 
 def test_suspended_on_an_unapproved_network_then_active_within_30_s(

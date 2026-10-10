@@ -37,8 +37,15 @@ SERVER_FILE = "server.json"
 LIBRARY_FILE = "library.json"
 
 # Interfaces never approved unless the operator names them (--phone-interface):
-# container bridges, virtual machines' bridges, VPN tunnels.
-VIRTUAL_PREFIXES = ("docker", "br-", "virbr", "veth", "tun", "tap", "wg")
+# container bridges, virtual machines' networks, VPN tunnels and overlays. The
+# kernel's own answer (`Interface.virtual`, from /sys/class/net) is the main
+# signal; these names are an extra one for a system whose sysfs says nothing.
+VIRTUAL_PREFIXES = (
+    "docker", "br-", "virbr", "veth", "tun", "tap", "wg",           # server-contract 2.1
+    "tailscale", "zt", "ppp", "nordlynx", "proton", "cscotun", "gpd", "ipsec",
+    "vboxnet", "vmnet", "podman", "cni", "lxcbr", "lxdbr", "flannel", "cali",
+    "vxlan", "ham", "nebula",
+)
 
 MAX_NAME_CHARS = 40
 FREE_BYTES_CACHE_S = 5.0
@@ -81,8 +88,14 @@ def clean_name(name: str) -> str:
 
 # --- approved networks ---------------------------------------------------------
 
-def is_virtual(name: str) -> bool:
-    return name.startswith(VIRTUAL_PREFIXES)
+def is_virtual(iface: Interface | str) -> bool:
+    """A container, virtual machine or VPN interface: the kernel says it is not
+    a physical card (`Interface.virtual`), or its name is a known virtual one.
+    VPN and overlay interfaces have no gateway MAC and the same name and
+    network everywhere, so an approved one would match on every network."""
+    if isinstance(iface, Interface):
+        return iface.virtual or iface.name.startswith(VIRTUAL_PREFIXES)
+    return iface.startswith(VIRTUAL_PREFIXES)
 
 
 def approvable(interfaces: Iterable[Interface], extra: Iterable[str] = ()) -> list[Interface]:
@@ -98,7 +111,7 @@ def approvable(interfaces: Iterable[Interface], extra: Iterable[str] = ()) -> li
                 continue
         except ValueError:
             continue
-        if is_virtual(iface.name) and iface.name not in named:
+        if is_virtual(iface) and iface.name not in named:
             continue
         chosen.append(iface)
     return chosen

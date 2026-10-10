@@ -102,6 +102,26 @@ def test_ui_phone_interface_approves_a_virtual_interface(served, netinfo, config
     assert [n["interface"] for n in identity(config).approved_networks] == ["wlan0", "tun0"]
 
 
+def test_ui_phone_interface_alone_approves_only_that_interface(served, netinfo, config):
+    """`ui --phone-interface tun0` on a café Wi-Fi (phone access remembered on)
+    adds the tunnel the operator named, never the café's network."""
+    run("ui", "--no-open", "--phone-access")                       # at home
+    netinfo.at_cafe()
+    result = run("ui", "--no-open", "--phone-interface", "tun0")
+    assert result.exit_code == 0, result.output
+    networks = [(n["interface"], n["network"]) for n in identity(config).approved_networks]
+    assert networks == [("wlan0", "192.0.2.0/24"), ("tun0", "198.51.100.128/25")]
+    assert "203.0.113.10" not in result.output
+    assert "  198.51.100.129:8000   (tun0)" in result.output
+    # with phone access off, naming an interface turns nothing on
+    run("phone", "off")
+    served.clear()
+    result = run("ui", "--no-open", "--phone-interface", "tun0")
+    assert served[0]["phone"] is None
+    assert identity(config).phone_access is False
+    assert identity(config).approved_networks == []
+
+
 def test_ui_on_an_unapproved_network_says_suspended(served, netinfo, config):
     run("ui", "--no-open", "--phone-access")
     netinfo.at_cafe()

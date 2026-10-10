@@ -4,13 +4,15 @@ Used for the approved networks (a laptop must not expose phone access on a
 café Wi-Fi it joins later), the `ui` banner and `phonotrainer phone pair`.
 Linux only, like the project: the addresses come from `SIOCGIFADDR` and
 `SIOCGIFNETMASK`, the gateway from `/proc/net/route` and its MAC from
-`/proc/net/arp`. Nothing here is ever written to a file or a log.
+`/proc/net/arp`, and whether the kernel calls the interface virtual from
+`/sys/class/net`. Nothing here is ever written to a file or a log.
 """
 
 from __future__ import annotations
 
 import fcntl
 import ipaddress
+import os
 import socket
 import struct
 from dataclasses import dataclass
@@ -23,6 +25,8 @@ IFF_UP = 0x1
 IFF_LOOPBACK = 0x8
 RTF_GATEWAY = 0x2
 ARP_COMPLETE = 0x2
+ARPHRD_ETHER = 1                  # Ethernet and Wi-Fi; ppp is 512, a TUN device 65534
+SYS_CLASS_NET = Path("/sys/class/net")
 
 
 @dataclass(frozen=True)
@@ -33,6 +37,7 @@ class Interface:
     gateway_mac: str | None = None
     up: bool = True
     loopback: bool = False
+    virtual: bool = False         # the kernel says so (kernel_virtual); name rules are identity's
 
     @property
     def network(self) -> str:
@@ -77,6 +82,31 @@ def parse_arp(arp_text: str) -> dict[tuple[str, str], str]:
     return table
 
 
+def kernel_virtual(name: str, root: Path = SYS_CLASS_NET) -> bool:
+    """True when the kernel shows `name` is not a physical network card: its
+    `/sys/class/net` entry resolves under `/sys/devices/virtual/` (bridges,
+    VPNs such as WireGuard, Tailscale or ZeroTier, ppp, virtual machines'
+    host-only networks, container pairs), or its hardware type is not Ethernet
+    (ppp, TUN). Unknown (no such entry, no sysfs) is not virtual: the name
+    rules still apply."""
+    if not name or "/" in name or name in (".", ".."):
+        return True
+    entry = root / name
+    if not os.path.lexists(entry):
+        return False
+    try:
+        target = os.path.realpath(entry)
+    except OSError:
+        return False
+    if "/devices/virtual/" in target:
+        return True
+    try:
+        kind = int((entry / "type").read_text(encoding="ascii").strip())
+    except (OSError, ValueError):
+        return False
+    return kind != ARPHRD_ETHER
+
+
 def _read(path: str) -> str:
     try:
         return Path(path).read_text(encoding="ascii", errors="replace")
@@ -106,5 +136,6 @@ def interfaces() -> list[Interface]:
             found.append(Interface(
                 name=name, address=address, prefix=prefix,
                 gateway_mac=arp.get((gateway, name)) if gateway else None,
-                up=bool(flags & IFF_UP), loopback=bool(flags & IFF_LOOPBACK)))
+                up=bool(flags & IFF_UP), loopback=bool(flags & IFF_LOOPBACK),
+                virtual=kernel_virtual(name)))
     return found

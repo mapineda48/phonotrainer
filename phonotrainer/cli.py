@@ -264,7 +264,9 @@ def _print_corpus_metrics(console: Console, result: dict) -> None:
                    "Default: the remembered choice, off if never chosen.")
 @click.option("--phone-interface", "phone_interfaces", multiple=True,
               help="Also approve this virtual interface for phones (repeatable; "
-                   "container bridges and VPN tunnels are excluded by default).")
+                   "container, virtual-machine and VPN interfaces are excluded by "
+                   "default). With phone access already on, only this interface is "
+                   "added.")
 def ui(workspace: str, port: int, host: str | None, no_open: bool, reload: bool,
        import_dirs: tuple[str, ...], allow_dirs: tuple[str, ...],
        phone_access: bool | None, phone_interfaces: tuple[str, ...]) -> None:
