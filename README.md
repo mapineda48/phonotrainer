@@ -305,8 +305,17 @@ otherwise.
 phonotrainer ui --phone-access     # turn it on (remembered) and start the interface
 phonotrainer phone pair            # show a 6-digit code to type on the phone
 phonotrainer phone status          # on, suspended or off; approved networks; paired phones
+phonotrainer phone list            # paired phones (--all adds revoked ones)
+phonotrainer phone revoke "Pixel 9"   # by name or the start of its id; --all [--yes] for every phone
+phonotrainer phone name "Study desk"  # how phones see this computer
 phonotrainer phone off             # turn it off (or start with --no-phone-access)
 ```
+
+A paired phone lists and downloads your analyses, and sends new work: a link
+(the phone's share sheet) or a video or audio file. Its requests join the end
+of the same line as the interface's, one analysis at a time. It can cancel,
+remove or run again only the requests it sent; finished analyses are deleted
+here, never from a phone.
 
 - **What a phone can reach.** With phone access on, the server listens on every
   IPv4 interface, but devices on the network reach only `/api/phone/*`: never
@@ -327,9 +336,33 @@ phonotrainer phone off             # turn it off (or start with --no-phone-acces
 - **Pairing.** A code is valid for 5 minutes, works once and locks after 5 wrong
   attempts. When a phone pairs, the terminal prints its name and the address it
   came from: compare it with the address the phone shows in its connection
-  details.
-- **Firewall.** Phones need TCP port 8000 (or your `--port`) allowed on the home
-  network. Nothing is changed on your system automatically.
+  details. A revoked phone stops working at its next request; it can pair again
+  with a new code.
+- **Finding this computer.** While phone access is on, the computer answers the
+  phone's search on UDP port 45317, only to devices on an approved network. The
+  answer carries the computer's id, its name, the HTTP port and the API version,
+  never an address or a secret. Phones show the name, which is "PhonoTrainer
+  computer" until you rename it with `phonotrainer phone name` (the first start
+  with phone access reminds you); it is never the host name. If the search finds
+  nothing, the phone can still connect by address.
+- **Firewall.** Phones need TCP port 8000 (or your `--port`) and UDP port 45317
+  allowed on the home network. Nothing is changed on your system automatically.
+- **Limits.** `server.json` in the configuration directory holds two values you
+  may edit by hand: `max_upload_bytes` (default 2147483648, 2 GiB), the largest
+  file a phone may send, which is also the largest video a phone's link may
+  download; and `max_link_duration_s` (default 3600), the longest video a
+  phone's link may download. A phone's file is refused before it is sent when
+  it would leave less than 2 GiB free (files being received count as used).
+- **Links from phones.** Before a phone's link becomes a job, and again before
+  its download and at every re-run, its host is looked up and refused if any
+  address is private or local (this computer, the router, anything on your
+  network, including addresses hidden inside NAT64, 6to4 or Teredo ones). The
+  download itself uses only yt-dlp's site-specific extractors, never its
+  generic one, and refuses live streams, videos longer than
+  `max_link_duration_s` and files larger than `max_upload_bytes`. What remains:
+  a supported site's own redirects, followed by the downloader after the check,
+  could still reach an address on your network. Only phones you paired can send
+  links.
 - **Where its state lives.** In the PhonoTrainer configuration directory:
   `$PHONOTRAINER_CONFIG_DIR`, otherwise `$XDG_CONFIG_HOME/phonotrainer`,
   otherwise `~/.config/phonotrainer`. It is outside the repository and every
@@ -360,14 +393,33 @@ From the interface, pasting the URL is enough. The download (yt-dlp, video ≤72
 remuxed with ffmpeg) is just one more stage of the progress bar, and the file is
 reused if it is already there: re-analyzing the same URL downloads nothing again.
 
+- **Format.** Video is H.264 at 720p or less when the site offers it (every
+  phone plays it), then VP9, then any codec, then a single file; audio only
+  takes the best audio.
+- **JavaScript runtime.** YouTube's challenges need one: yt-dlp is given `deno`
+  and `node` when they are on `PATH` (the web build already needs Node). The
+  phone API reports the yt-dlp version, the runtime in use and whether yt-dlp's
+  challenge components (`yt-dlp-ejs`) are installed.
+- **Remote components.** yt-dlp can fetch its challenge components from the
+  internet at run time. That downloads and runs code, so it is never on by
+  default; to allow it, set `PHONOTRAINER_YTDLP_REMOTE_COMPONENTS=ejs:github`
+  (comma-separated) before `phonotrainer ui`. Installing `yt-dlp[default]`
+  (below) brings the components locally instead.
+- **Links sent from a phone** are downloaded with extra bounds (see "Links from
+  phones" under Phone access).
+
 > **Keep yt-dlp up to date.** YouTube, X and other sites change often, and an
 > outdated yt-dlp is the usual cause of failed downloads (for example `HTTP Error
-> 403: Forbidden`). Update it whenever you can, and always before reporting a
-> download failure:
+> 403: Forbidden`). PhonoTrainer never pins it. Update it whenever you can, and
+> always before reporting a download failure; the `default` extras add the
+> challenge components and the network libraries yt-dlp recommends:
 >
 > ```bash
-> uv pip install --python .venv/bin/python -U yt-dlp
+> uv pip install --python .venv/bin/python -U "yt-dlp[default]"
 > ```
+>
+> A failed download sent from a phone carries the yt-dlp version that tried it,
+> so a stale extractor shows up there first.
 
 ## Corpus: everything you have analyzed, in one place
 

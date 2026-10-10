@@ -193,7 +193,24 @@ development-only: it is neither compiled in nor distributed.
 | fastapi | 0.140.0 | MIT | Sebastián Ramírez |
 | uvicorn | 0.51.0 | BSD-3-Clause | Encode |
 | python-multipart | 0.0.32 | Apache-2.0 | Andrew Dunham |
-| yt-dlp | 2026.7.4 | Unlicense | yt-dlp contributors |
+| yt-dlp | 2026.8.19 (never pinned: update it, see the README) | Unlicense | yt-dlp contributors |
+
+The README's update command for yt-dlp installs its `default` extras, which yt-dlp
+recommends: the JavaScript challenge components and the network libraries it uses
+when present. All are compatible with GPL-3.0-or-later (licences as their
+packages declare them; versions follow yt-dlp's own requirements, `yt-dlp-ejs`
+is pinned by yt-dlp itself, 0.8.0 for 2026.8.19):
+
+| Package | License | Rights holder |
+|---|---|---|
+| yt-dlp-ejs | Unlicense AND MIT AND ISC (the bundled JavaScript libraries) | yt-dlp contributors |
+| brotli | MIT | The Brotli Authors |
+| mutagen | **GPL-2.0-or-later** | Christoph Reiter and the mutagen contributors |
+| pycryptodomex | BSD-2-Clause and Public Domain | Helder Eijs and the PyCryptodome contributors |
+| requests | Apache-2.0 | Kenneth Reitz and the Requests contributors |
+| urllib3 | MIT | Andrey Petrov and the urllib3 contributors |
+| websockets | BSD-3-Clause | Aymeric Augustin and contributors (also used by uvicorn) |
+| charset-normalizer, idna (through requests) | MIT; BSD-3-Clause | Ahmed R. Tahri; Kim Davies |
 
 Transitive dependencies that also call for a notice: `huggingface_hub`,
 `safetensors` and `tokenizers` (Apache-2.0, Hugging Face), `certifi` (MPL-2.0) and
