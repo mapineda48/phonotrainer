@@ -110,3 +110,26 @@ def test_pyproject_lists_the_phone_package():
     text = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     packages = re.search(r"^packages\s*=\s*\[([^\]]*)\]", text, re.M).group(1)
     assert '"phonotrainer.phone"' in packages and '"phonotrainer"' in packages
+
+
+def test_the_stable_entry_point_of_the_host_side_fake_computer(tmp_path):
+    """`android/scripts/device-qa/host_computer.py` (WP-06) builds the server from
+    these names; their shape is part of the contract (server-contract 10.1, 12)."""
+    import dataclasses
+
+    from phonotrainer.jobs import JobStore
+    from phonotrainer.phone.identity import enable_phone_access
+    from phonotrainer.phone.settings import PhoneSettings
+
+    names = [f.name for f in dataclasses.fields(PhoneSettings)]
+    assert names[:9] == ["config_dir", "clock", "resolver", "media_probe", "disk_usage",
+                         "netinfo", "which", "runner", "discovery_port"]
+    settings = PhoneSettings(config_dir=tmp_path / "config")
+    store = JobStore(tmp_path / "workspace", analyze_fn=lambda *a, **k: {}, corpus=None,
+                     download_fn=lambda *a, **k: None)
+    try:
+        enable_phone_access(settings)
+        app = create_app(store=store, phone=settings, web_dist=None, allowed_roots=[tmp_path])
+        assert app.state.phone.identity.phone_access is True
+    finally:
+        store.shutdown()

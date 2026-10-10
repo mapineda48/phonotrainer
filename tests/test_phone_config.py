@@ -307,15 +307,45 @@ def test_runtime_json_follows_the_server(phone_store, phone_settings, fake_netin
     assert not (isolated_config / "runtime.json").exists()
 
 
+@pytest.mark.parametrize("leftover", [
+    {"paired": {"name": "Pixel 9", "from": "192.0.2.23"}},       # an outcome nobody read
+    "expired", "locked", {"garbage": True},
+])
 def test_a_server_start_deletes_a_leftover_pairing_file(phone_store, phone_settings, tmp_path,
-                                                        isolated_config):
+                                                        isolated_config, fake_clock, leftover):
+    from phonotrainer.phone.registry import DeviceRegistry
+
     enable_phone_access(phone_settings)
     config = ConfigDir(isolated_config)
-    config.write_json("pairing.json", {"paired": {"name": "Pixel 9", "from": "192.0.2.23"}})
+    if isinstance(leftover, dict):
+        config.write_json("pairing.json", leftover)
+    else:
+        DeviceRegistry(config, fake_clock).create_code()
+        state = config.read_json("pairing.json")
+        if leftover == "expired":
+            fake_clock.advance(300)
+        else:
+            state["locked"] = True
+            config.write_json("pairing.json", state)
     app = create_app(store=phone_store, phone=phone_settings, web_dist=tmp_path / "nb",
                      allowed_roots=[tmp_path])
     with TestClient(app):
         assert not (isolated_config / "pairing.json").exists()
+
+
+def test_a_valid_code_created_before_the_start_is_kept(phone_store, phone_settings, tmp_path,
+                                                       isolated_config, fake_clock):
+    """The host-side fake computer prints a code and then starts serving."""
+    from phonotrainer.phone.registry import DeviceRegistry
+
+    enable_phone_access(phone_settings)
+    code = DeviceRegistry(ConfigDir(isolated_config), fake_clock).create_code().code
+    app = create_app(store=phone_store, phone=phone_settings, web_dist=tmp_path / "nb",
+                     allowed_roots=[tmp_path])
+    with TestClient(app):
+        resp = lan(app).post("/api/phone/pair", json={"code": code, "device_name": "Emulator",
+                                                      "app_version": 1})
+        assert resp.status_code == 201
 
 
 def test_create_app_without_phone_settings_touches_no_configuration_directory(

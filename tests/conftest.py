@@ -247,12 +247,9 @@ def phone_store(tmp_path):
 
 def enable_phone_access(settings) -> None:
     """What `phonotrainer phone on` does: phone access on, current networks approved."""
-    from phonotrainer.phone.config import ConfigDir
-    from phonotrainer.phone.identity import ServerIdentity
+    from phonotrainer.phone.identity import enable_phone_access as enable
 
-    identity = ServerIdentity(ConfigDir(settings.config_dir), settings.clock)
-    identity.load()
-    identity.turn_on(settings.netinfo())
+    enable(settings)
 
 
 @pytest.fixture

@@ -111,6 +111,15 @@ def test_ui_on_an_unapproved_network_says_suspended(served, netinfo, config):
     assert isinstance(served[-1]["phone"], PhoneSettings)
 
 
+def test_ui_bound_to_one_address_says_who_can_reach_it(served, netinfo, config):
+    result = run("ui", "--no-open", "--phone-access", "--host", "127.0.0.1")
+    assert ("Phone access is ON, but this server listens on 127.0.0.1 only: phones cannot "
+            "reach it.") in result.output
+    assert served[-1]["host"] == "127.0.0.1"
+    result = run("ui", "--no-open", "--host", "192.0.2.10")
+    assert "  192.0.2.10:8000   (wlan0)" in result.output
+
+
 def test_serve_with_phone_access(monkeypatch, tmp_path, isolated_config):
     import uvicorn
 
@@ -159,7 +168,7 @@ def test_phone_status(netinfo, config):
     assert "Phone access: ON" in result.output
     assert "  wlan0 192.0.2.0/24" in result.output
     assert "Paired phones: 0" in result.output
-    assert "Server: running with phone access on on port 8123" in result.output
+    assert "Server: running (phone access on), port 8123" in result.output
     netinfo.offline()
     assert "Phone access: SUSPENDED" in run("phone", "status").output
 

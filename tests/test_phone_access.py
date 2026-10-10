@@ -12,14 +12,13 @@ import socket
 from pathlib import Path
 
 import pytest
-from conftest import (enable_phone_access, lan, loopback, pair_phone, wait_until)
+from conftest import enable_phone_access, lan, loopback, wait_until
 from fastapi.testclient import TestClient
 from phone_fixtures import (REFERENCE_DEVICE_ID, REFERENCE_HEADER, REFERENCE_KEY_HEX,
                             REFERENCE_NONCE, REFERENCE_SIGNATURES, REFERENCE_TOKEN,
                             REFERENCE_TS, PT1Auth, asgi_call, sign_header)
 from starlette.websockets import WebSocketDisconnect
 
-from phonotrainer.jobs import JobStore
 from phonotrainer.phone.auth import signature
 from phonotrainer.phone.config import ConfigDir
 from phonotrainer.phone.identity import ServerIdentity
