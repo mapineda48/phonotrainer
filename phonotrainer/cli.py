@@ -244,7 +244,9 @@ def _print_corpus_metrics(console: Console, result: dict) -> None:
               type=click.Path(file_okay=False),
               help="Directory where the interface stores its analyses.")
 @click.option("-p", "--port", default=8000, show_default=True)
-@click.option("--host", default="127.0.0.1", show_default=True)
+@click.option("--host", default=None,
+              help="Address to listen on. Default: 127.0.0.1, or every IPv4 interface "
+                   "with phone access on.")
 @click.option("--no-open", is_flag=True, default=False,
               help="Do not open the browser on startup.")
 @click.option("--reload", is_flag=True, default=False,
@@ -256,10 +258,19 @@ def _print_corpus_metrics(console: Console, result: dict) -> None:
               type=click.Path(exists=True, file_okay=False),
               help="Extra directory the interface may open, on top of $HOME "
                    "and the current directory (e.g. a disk under /mnt).")
-def ui(workspace: str, port: int, host: str, no_open: bool, reload: bool,
-       import_dirs: tuple[str, ...], allow_dirs: tuple[str, ...]) -> None:
+@click.option("--phone-access/--no-phone-access", "phone_access", default=None,
+              help="Let paired phones on this Wi-Fi use this computer (remembered; "
+                   "turning it on approves the networks this computer is on now). "
+                   "Default: the remembered choice, off if never chosen.")
+@click.option("--phone-interface", "phone_interfaces", multiple=True,
+              help="Also approve this virtual interface for phones (repeatable; "
+                   "container bridges and VPN tunnels are excluded by default).")
+def ui(workspace: str, port: int, host: str | None, no_open: bool, reload: bool,
+       import_dirs: tuple[str, ...], allow_dirs: tuple[str, ...],
+       phone_access: bool | None, phone_interfaces: tuple[str, ...]) -> None:
     """Web interface: analyze, explore the result with audio, and review."""
     from .jobs import JobStore
+    from .phone.cli import banner, prepare_phone_access
     from .server import serve
 
     console = Console()
@@ -273,10 +284,15 @@ def ui(workspace: str, port: int, host: str, no_open: bool, reload: bool,
     from pathlib import Path
 
     roots = [Path.home(), Path.cwd(), *(Path(d) for d in allow_dirs)]
-    console.print(f"[bold]PhonoTrainer UI[/] → [cyan]http://{host}:{port}[/]  "
+    phone = prepare_phone_access(phone_access, phone_interfaces)
+    shown = host if host not in (None, "0.0.0.0") else "127.0.0.1"
+    console.print(f"[bold]PhonoTrainer UI[/] → [cyan]http://{shown}:{port}[/]  "
                   f"(workspace: {workspace})")
+    if phone is not None:
+        for line in banner(phone, port, host):
+            console.print(line, markup=False, highlight=False, soft_wrap=True)
     serve(workspace=workspace, host=host, port=port, reload=reload,
-          open_browser=not no_open, allowed_roots=roots)
+          open_browser=not no_open, allowed_roots=roots, phone=phone)
 
 
 @main.command()
@@ -291,6 +307,11 @@ def review(analysis_path: str, num: int, seed: int) -> None:
     from .review import run_review
 
     run_review(analysis_path, n=num, seed=seed)
+
+
+from .phone.cli import phone as _phone_group  # noqa: E402 — `phonotrainer phone …`
+
+main.add_command(_phone_group)
 
 
 if __name__ == "__main__":

@@ -62,7 +62,7 @@ requires = ["setuptools>=77"]  # PEP 639: license as an SPDX expression + licens
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["phonotrainer"]
+packages = ["phonotrainer", "phonotrainer.phone"]
 
 [tool.pytest.ini_options]
 # Without this, a bare `pytest` tries to collect the repos cloned into references/.

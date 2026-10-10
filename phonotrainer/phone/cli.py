@@ -1,0 +1,214 @@
+"""`phonotrainer phone …` and the phone lines of the `ui` banner.
+
+Pairing and device management happen in the terminal only: these commands
+work on the configuration directory directly and never call the HTTP API, so
+they have no network surface of their own. Addresses are printed to the
+terminal at run time and never written anywhere.
+"""
+
+from __future__ import annotations
+
+import sys
+import time
+from typing import Callable, Iterable
+
+import click
+
+from . import PAIRING_MAX_WRONG
+from .config import ConfigDir, ConfigError, runtime_info
+from .identity import ServerIdentity, active_addresses
+from .netinfo import Interface, interfaces as real_interfaces
+from .registry import DeviceRegistry
+from .settings import PhoneSettings
+
+POLL_S = 0.5
+
+UI_COMMAND = "phonotrainer ui --phone-access"
+PAIR_COMMAND = "phonotrainer phone pair"
+
+
+def _open_identity(config: ConfigDir) -> ServerIdentity:
+    identity = ServerIdentity(config, time.time)
+    try:
+        identity.load()
+    except ConfigError as exc:
+        raise click.ClickException(str(exc)) from exc
+    return identity
+
+
+def _shown(active: list[Interface], host: str | None) -> list[Interface]:
+    """The addresses a phone can use: all active approved ones, or only the one
+    the server was told to bind."""
+    if host in (None, "0.0.0.0", ""):
+        return active
+    return [iface for iface in active if iface.address == host]
+
+
+# --- ui ---------------------------------------------------------------------------
+
+def prepare_phone_access(choice: bool | None, extra_interfaces: Iterable[str],
+                         netinfo: Callable[[], list[Interface]] | None = None,
+                         config: ConfigDir | None = None) -> PhoneSettings | None:
+    """`ui --phone-access/--no-phone-access/--phone-interface`: remember the
+    choice (approving the networks the computer is on now when turning it on)
+    and return the settings to start the server with, or None for off."""
+    netinfo = netinfo or real_interfaces
+    config = config or ConfigDir()
+    extra = tuple(extra_interfaces)
+    if choice is None and not config.exists():
+        return None                       # never chose: off, and nothing is created
+    identity = _open_identity(config)
+    if choice is True or (choice is None and identity.phone_access and extra):
+        identity.turn_on(netinfo(), extra)
+    elif choice is False:
+        identity.turn_off()
+    if not identity.phone_access:
+        return None
+    return PhoneSettings(config_dir=config.path, netinfo=netinfo)
+
+
+def banner(settings: PhoneSettings, port: int, host: str | None = None) -> list[str]:
+    """The phone lines of the `ui` start banner (no secret is ever printed)."""
+    identity = _open_identity(ConfigDir(settings.config_dir))
+    active = _shown(active_addresses(identity.approved_networks, settings.netinfo()), host)
+    if not active:
+        return ["Phone access is ON, but this computer is not on a network you approved "
+                "for phones.",
+                "Run `phonotrainer phone on` here to approve this network."]
+    lines = ["Phone access is ON: paired phones on this Wi-Fi can reach this computer at"]
+    lines += [f"  {iface.address}:{port}   ({iface.name})" for iface in active]
+    lines += [f"Pair a phone:            {PAIR_COMMAND}",
+              "Turn phone access off:   phonotrainer phone off   "
+              "(or start with --no-phone-access)"]
+    return lines
+
+
+# --- phonotrainer phone -------------------------------------------------------------
+
+def _fail(message: str, code: int = 1) -> None:
+    click.echo(message)
+    sys.exit(code)
+
+
+@click.group("phone")
+def phone() -> None:
+    """Phone access for the Android client: pairing and paired phones."""
+
+
+@phone.command("status")
+def status() -> None:
+    """Phone access, this computer's name and the paired phones."""
+    config = ConfigDir()
+    identity = _open_identity(config)
+    running = runtime_info(config)
+    if not identity.phone_access:
+        state = "OFF"
+    elif active_addresses(identity.approved_networks, real_interfaces()):
+        state = "ON"
+    else:
+        state = "SUSPENDED (this computer is not on a network you approved for phones)"
+    click.echo(f"Phone access: {state}")
+    click.echo(f'Computer name: "{identity.name}"')
+    click.echo(f"Server id: {identity.server_id[:8]}…")
+    networks = identity.approved_networks
+    if networks:
+        click.echo("Approved networks:")
+        for entry in networks:
+            click.echo(f"  {entry.get('interface')} {entry.get('network')}")
+    else:
+        click.echo("Approved networks: none")
+    click.echo(f"Paired phones: {len(DeviceRegistry(config, time.time).devices())}")
+    if running:
+        click.echo(f"Server: running with phone access {running.get('state', 'on')} "
+                   f"on port {running.get('port')}")
+    else:
+        click.echo("Server: not running with phone access")
+
+
+@phone.command("on")
+def turn_on() -> None:
+    """Turn phone access on and approve the networks this computer is on now."""
+    config = ConfigDir()
+    identity = _open_identity(config)
+    for entry in identity.turn_on(real_interfaces()):
+        click.echo(f"Approved for phones: {entry['interface']} {entry['network']}")
+    click.echo("Phone access is now ON.")
+    if runtime_info(config) is None:
+        click.echo("Restart `phonotrainer ui` to apply it.")
+
+
+@phone.command("off")
+def turn_off() -> None:
+    """Turn phone access off (the approved networks are cleared)."""
+    _open_identity(ConfigDir()).turn_off()
+    click.echo("Phone access is now OFF.")
+
+
+@phone.command("pair")
+@click.option("--no-wait", is_flag=True, default=False,
+              help="Show the code and return instead of waiting for a phone.")
+def pair(no_wait: bool) -> None:
+    """Create a pairing code for a phone (valid for 5 minutes, single use)."""
+    config = ConfigDir()
+    identity = _open_identity(config)
+    if not identity.phone_access:
+        _fail("Phone access is OFF. Turn it on with: phonotrainer phone on")
+    running = runtime_info(config)
+    if running is None:
+        _fail(f"PhonoTrainer is not running with phone access on. Start it with: {UI_COMMAND}")
+    registry = DeviceRegistry(config, time.time)
+    code = registry.create_code()
+    click.echo(f"Pairing code: {code.grouped}   (valid for 5 minutes, single use)")
+    click.echo(f'On the phone: Connect to your computer, pick "{identity.name}", '
+               "or enter one of these addresses:")
+    for iface in active_addresses(identity.approved_networks, real_interfaces()):
+        click.echo(f"  {iface.address}:{running.get('port')}   ({iface.name})")
+    if no_wait:
+        return
+    click.echo("Waiting for a phone… (Ctrl-C cancels the code)")
+    try:
+        sys.exit(wait_for_pairing(registry, code.expires_at))
+    except KeyboardInterrupt:
+        registry.delete_code()
+        _fail("Pairing code cancelled.")
+
+
+def wait_for_pairing(registry: DeviceRegistry, expires_at: float,
+                     clock: Callable[[], float] = time.time,
+                     sleep: Callable[[float], None] = time.sleep) -> int:
+    """Follow pairing.json until a phone pairs (0), the code expires (3) or
+    locks (4), printing each wrong attempt."""
+    reported = 0
+    while True:
+        try:
+            state = registry.pairing_state()
+        except ConfigError:
+            state = None
+        if state is None:
+            click.echo(f"The code is gone (was the server restarted?). Run `{PAIR_COMMAND}` "
+                       "for a new code.")
+            return 3
+        paired = state.get("paired")
+        if isinstance(paired, dict):
+            click.echo(f"Paired: {paired.get('name')} (from {paired.get('from')})")
+            registry.delete_code()        # the address lives there only until printed
+            return 0
+        wrong = int(state.get("wrong_attempts") or 0)
+        if wrong > reported:
+            reported = wrong
+            times = "time" if wrong == 1 else "times"
+            if not state.get("locked"):
+                click.echo(f"Wrong code tried {wrong} {times} "
+                           "(another device on this network may be guessing).")
+        if state.get("locked"):
+            click.echo(f"The code is now locked after {PAIRING_MAX_WRONG} wrong attempts "
+                       "(another device on this network may be guessing). "
+                       f"Run `{PAIR_COMMAND}` for a new code.")
+            registry.delete_code()
+            return 4
+        if clock() >= expires_at:
+            click.echo(f"The code expired without a phone pairing. Run `{PAIR_COMMAND}` "
+                       "for a new code.")
+            registry.delete_code()
+            return 3
+        sleep(POLL_S)
