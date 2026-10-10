@@ -1,6 +1,10 @@
 # PhonoTrainer for Android: server contract
 
-Status: v1 contract, revision 2, 2026-10-10 (revision 1: the same day). Owner: software architect.
+Status: v1 contract, revision 3, 2026-10-10 (revisions 1 and 2: the same day). Owner: software architect.
+
+**Revision 3 notes (pre-implementation closure).** No route, field or code changed. Spec revision 3 gave the job codes
+`live_stream` and `too_long` their own copy (spec 8.6, D-40), so the "Spec 8.6" cells of 8.2 rows 4 and 5 name it, and
+the 1-hour default of `max_link_duration_s` is confirmed (D-43). Architecture 25.4 lists the closure.
 
 **Revision 2 notes.** These changes answer the security, Android-platform and delivery reviews of revision 1. Each
 finding and its disposition is listed in architecture section 25 (Review log).
@@ -1167,8 +1171,8 @@ codes. Old jobs get codes too, because only the text is needed.
 | 1 | `cancelled` | status `cancelled` (the store writes "Cancelled before starting." or "Cancelled during the analysis."; the rule is on the status, never on the text) | Cancelled |
 | 2 | `interrupted` | starts with `Interrupted: the server stopped` (written by `jobs._load_job` for queued and running jobs at a restart) | S-15 |
 | 3 | `refused_address` | starts with `LinkRefused:` (the check before a phone-origin download, 4.5) | This link can't be analyzed |
-| 4 | `live_stream` | starts with `LiveStreamRefused:` (9) | none yet: the phone shows the `processing_failed` copy with the computer's message; product may add a line (architecture 25) |
-| 5 | `too_long` | starts with `TooLongRefused:` (longer than `max_link_duration_s` or larger than `max_upload_bytes`, 9) | as `live_stream` |
+| 4 | `live_stream` | starts with `LiveStreamRefused:` (9) | Live streams can't be analyzed |
+| 5 | `too_long` | starts with `TooLongRefused:` (longer than `max_link_duration_s` or larger than `max_upload_bytes`, 9) | This video is too long for your computer (the body names `max_link_duration_s` from `capabilities`, 3.4) |
 | 6 | `playlist` | `that is a playlist` | That's a playlist |
 | 7 | `download_forbidden` | `HTTP Error 403` | The download failed |
 | 8 | `download_unavailable` | `Private video`, `Video unavailable`, `This video is (private\|unavailable)`, `Sign in to confirm`, `age-restricted`, `members-only`, `requires authentication`, `login required`, `has been removed`, `HTTP Error 404`, `HTTP Error 410`, `No video could be found` | This video can't be downloaded |

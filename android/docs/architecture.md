@@ -1,7 +1,26 @@
 # PhonoTrainer for Android: architecture
 
-Status: v1 architecture, revision 3, 2026-10-10 (revision 2: the same day; revision 1: 2026-10-04). Owner: software
-architect.
+Status: v1 architecture, revision 4, 2026-10-10 (revisions 2 and 3: the same day; revision 1: 2026-10-04). Owner:
+software architect.
+
+**Revision 4 notes (2026-10-10, pre-implementation closure).** The cross-track consistency review and spec revision 3
+(decisions D-37 to D-52) closed every open item before implementation. Section 25.4 lists each item, its disposition
+and where it landed. The main changes:
+1. **Two count units (3.4, 9.4; D-48)**: `OccurrenceRepository.changeCounts()` returns, per change, the **short
+   count** (what the change mode plays, for Home chips, the mode picker and Learn cards) and the **occurrence count**
+   (the phenomenon page only).
+2. **"Try audio only" only where it can work (8.3, 8.4, 19; D-49)**: new transitions from `COPY_FAILED(no_space)`
+   (while the source is readable) and from a file refused at sending, both back to `PREPARING`; re-runs use
+   `audio_only` for links only; `Request.actions` is the one authority on what a row offers.
+3. **Spec copy that replaced change requests (6.1, 6.2, 8.5, 19; D-39 to D-42)**: the discovery-conflict note, this
+   phone's address in Connection details, the large-file waiting line (`WaitingInfo.needsAppOpen`), the
+   `live_stream`/`too_long` copy with the computer's link limit, one probe-outcome copy for `phone_access_off` and
+   `lan_forbidden`.
+4. **Assets and licences (17, 20.6; D-50)**: no legacy raster mipmaps; the licence check covers libraries (notices
+   7.2) and the bundled fonts and icon set (notices 7.3, from `assets/licenses/bundled.json`).
+5. **3.4 mirrors the work plan's consistency pass**: the additive request, sync and clip-detail fields, and the
+   shared components that moved (`ConnectionStatusCard`, `ShareBridge`, `PosterArt`, `MarksLegend`, the shell's
+   message host, banner slot and appearance helper).
 
 **Revision 3 notes (2026-10-10).** Three reviews (security, Android platform, delivery) of revision 2. Every blocker
 and high finding is fixed in place; most medium and low ones too. Section 25 (Review log) lists every finding, its
@@ -167,8 +186,8 @@ Modules (JVM = plain Kotlin/JVM module, no Android dependency; everything else i
 | `:core:analysis` | JVM | tolerant `analysis.json` parser, shorts v1, spotlight, occurrence extraction, compare rows, link parsing and normalization | `:core:domain`, `:core:common`, kotlinx-serialization |
 | `:core:network-api` | JVM | the frozen API of the computer client: `ApiResult`, `ComputerClient`, `ArtifactTransfer`, `JobChannel`, `AllowedPeers`, `VerifiedPeers`, `AddressPolicy`, `ClockOffset`, `ComputerNetworkBinder` (it takes a network handle, a `Long`, so it needs no Android type), request bodies (work-plan 4.3) | `:core:domain` |
 | `:core:navigation` | Android | every `NavKey`, `NavTarget`, `Navigator`, `EntryInstaller` | navigation3-runtime, `:core:domain` |
-| `:core:designsystem` | Android, Compose | theme, color roles, type, shapes, spacing, motion, fonts, icons, illustrations, base components | `:core:domain` |
-| `:core:ui` | Android, Compose | domain-aware shared composables: marks, change chips, practice badges, status lines, availability chips, "What's this?" control and sheet, IPA text, loading gate, empty-state scaffold, coach-mark host, extension points | `:core:designsystem`, `:core:domain`, `:core:navigation` |
+| `:core:designsystem` | Android, Compose | theme, color roles, type, shapes, spacing, motion, fonts, icons, illustrations, launcher, splash and notification resources, base components, the bundled licence texts and their index (`assets/licenses/`, 20.6) | `:core:domain` |
+| `:core:ui` | Android, Compose | domain-aware shared composables: marks, change chips, practice badges, status lines, availability chips, "What's this?" control and sheet, IPA text, loading gate, empty-state scaffold, coach-mark host, the visual pieces several features draw (`ShortProgress`, `PosterArt`, `MarksLegend`, all over `:core:designsystem`'s `StylusTrace` and tokens), extension points; and `component/`, the domain-aware components shared by several features, each owned by one feature WP (17; work-plan 4.5) | `:core:designsystem`, `:core:domain`, `:core:navigation` |
 | `:core:content` | Android | bundled didactic JSON and reference snapshot; `DidacticContent`, `ReferenceRepository` | `:core:domain` |
 | `:core:database` | Android, Room | `LibraryDatabase`, `LearningDatabase`, entities, DAOs, migrations, exported schemas | `:core:domain` |
 | `:core:datastore` | Android | settings store, coach-mark store, pairing store, Keystore credential cipher | `:core:domain` |
@@ -252,6 +271,20 @@ at the same 2.4.20 version, which is already on the build classpath through the 
 plugins. WP-02 proves this combination in its first milestone (M1) before any other module is written; the fallback,
 if the convention layer fights the toolchain, is per-module build files generated from one template (still one owner
 per file).
+
+**Lint policy** (orchestrator decision, 2026-10-10; closes the closure verifier's blocking item). Both Android
+convention plugins set `lint { warningsAsErrors = true; abortOnError = true; checkReleaseBuilds = true;
+lintConfig = rootProject.file("config/lint/lint.xml") }`, and `:app` adds `checkDependencies = true`. The one
+shared `android/config/lint/lint.xml` (INTEGRATOR-owned) sets these checks to `ignore`, each with a one-line reason
+in an XML comment:
+- `GradleDependency`, `AndroidGradlePluginVersion` and `NewerVersionAvailable`: they compare the catalog with what
+  was published after it, so a build would start failing with no code change; version upgrades are deliberate
+  catalog changes (2.4), made by the integrator and verified by the whole definition of done.
+- `OldTargetApi`: targetSdk 36 is a decision (spec D-18) while compileSdk is 37, so this warning is permanent by
+  design.
+No other check may be disabled or downgraded, and no lint baseline is ever used. A WP that hits a check it believes
+is wrong for this project files a change request to the integrator (work-plan 2.2) with the evidence; the integrator
+adds it to `lint.xml` with its reason, or rejects it.
 
 ### 2.4 Toolchain and version catalog (AD-04)
 
@@ -415,7 +448,9 @@ work package's diff against it before a merge.
   `combine(...).stateIn(viewModelScope, WhileSubscribed(5_000), Loading)`. The loading rule of the spec (placeholder
   after 300 ms, text after 1 s) is implemented once in `:core:ui` (`LoadingGate`).
 - One-shot messages (snackbars, notices such as "That clip is no longer on this phone.") are **state** that the UI
-  reports as consumed (`UserMessages`, 3.4), never an event channel.
+  reports as consumed (`UserMessages`, 3.4), never an event channel. The app shell (`:app`, WP-02) hosts them once,
+  above every destination, together with the slot of the global "Connect again" banner (design 9.23); screens never
+  draw their own snackbar host.
 - Anything the learner would be upset to lose lives in `SavedStateHandle` (feed mode and short, playback time, speed,
   caption mode, lesson word and step, quiz question, pasted link draft) and, where it must outlive the process or
   span sessions, also in Room or DataStore (5.2 of the spec).
@@ -496,7 +531,12 @@ data class ClipSummary(val id: JobId, val title: String, val durationS: Double?,
 
 data class Request(val id: RequestId, val kind: RequestKind, val state: RequestState, val title: String,
   val site: Site?, val link: String?, val fileName: String?, val fileBytes: Long?, val createdAt: Instant,
-  val progress: RequestProgress?, val lastError: RequestError?, val jobId: JobId?, val actions: Set<RequestAction>)
+  val progress: RequestProgress?, val lastError: RequestError?, val jobId: JobId?,
+  val actions: Set<RequestAction>,                       // the one authority on what the row offers (8.4)
+  val waiting: WaitingInfo? = null,                      // why it waits: held, attempts, next attempt, needsAppOpen (8.5)
+  val timeline: RequestTimeline = RequestTimeline(),     // milestone times of the request detail
+  val rerunPending: Boolean = false,                     // "Starting again on your computer" (8.4)
+  val updatedAt: Instant? = null)                        // "Last known: Analyzing 40 % (10 min ago)"
 enum class RequestState { PREPARING, COPY_FAILED, COPY_MISSING, WAITING, SENDING, SENT, IN_LINE, ANALYZING,
   READY_ON_COMPUTER, GETTING_ON_PHONE, ON_PHONE, NEEDS_ATTENTION, CANCEL_WAITING, CANCELLED }
 enum class RequestAction { CANCEL_PREPARING, SEND_NOW, STOP_SENDING, REMOVE, CANCEL, UNDO_CANCEL, TRY_AGAIN,
@@ -526,7 +566,7 @@ interface ComputerStatusRepository {
   val status: StateFlow<ComputerStatus>
   val paired: StateFlow<PairedComputer?>                       // name, server id, device name, last seen, last sync
   val backgroundRestricted: StateFlow<Boolean>
-  val diagnostics: StateFlow<ConnectionDiagnostics>            // address, short id, API version, last probe in words
+  val diagnostics: StateFlow<ConnectionDiagnostics>            // address, this phone's address, short id, API version, last probe
   suspend fun checkNow(): ComputerStatus
 }
 interface PairingRepository {
@@ -568,6 +608,7 @@ interface RequestRepository {
   suspend fun findDuplicate(input: LinkInput): Duplicate?
   suspend fun addLink(input: LinkInput): AddResult             // stored before returning
   suspend fun addFiles(files: List<FileSource>, options: FileOptions): AddFilesResult
+  fun holdSources(ids: Set<RequestId>): AutoCloseable          // the share sheet: its read grant lives until close() (8.3)
   fun intake(id: RequestId): Flow<IntakeProgress>              // copy progress for the share sheet
   suspend fun stopIntake(id: RequestId)
   suspend fun perform(id: RequestId, action: RequestAction)
@@ -587,7 +628,10 @@ interface ShortRepository {
   suspend fun shortContaining(word: WordRef): ShortInfo?
 }
 interface OccurrenceRepository {
-  fun changeCounts(): Flow<Map<ChangeLabel, Int>>              // eligible occurrences on the phone
+  fun changeCounts(): Flow<Map<ChangeLabel, ChangeCount>>      // two units per change (spec D-48, 9.4): shorts, occurrences
+  // ChangeCount(shorts, occurrences). shorts = the playable shorts with at least one spotlight candidate of that
+  // change, i.e. exactly what sequence(FeedMode.Change(label)) plays: Home chips, mode picker, Learn change cards.
+  // occurrences = eligible occurrences of that change in playable clips: the phenomenon page only. Absent key = 0.
   suspend fun examples(change: ChangeLabel, limit: Int = 8, onlyClip: JobId? = null): List<Occurrence>
   suspend fun examplesWithSymbol(symbol: String, limit: Int = 6): List<Occurrence>
   suspend fun quizPool(perChange: Int = 80): Map<ChangeLabel, List<Occurrence>>
@@ -675,6 +719,30 @@ the request, pairing and upload bodies, and the rest) has its fields in work-pla
 transcription, not a design exercise (delivery review D-02). `ClipData` and its parts are drafted by WP-12 and the
 `didactic.json` model by WP-04, both handed to WP-02 by day 4, before B1.
 
+Revision 4 (pre-implementation closure, 25.4): the listing above and work-plan 4.2 and Appendix A agree on these
+additive fields, types and one method, all computed from existing columns or state except `request.needed_bytes`, the
+one new column (4.2):
+- requests: `Request.waiting` (`WaitingInfo(held, attempts, nextAttemptAt, needsAppOpen)`, 8.5), `timeline`,
+  `rerunPending`, `updatedAt`; `RequestProgress.segment`/`segments` ("phrase 3 of 10"); `RequestCounts.analyzing`/
+  `inLine` (the status card's "1 analyzing", "1 in line"); `RequestError.neededBytes` ("Free {N} MB", 8.3); the
+  phone-side codes `copy_no_space`, `copy_unreadable`, `copy_interrupted`, `copy_missing` (8.3);
+  `RequestRepository.holdSources(ids)` (the open share sheet keeps its sources readable, 8.3);
+- sync and clips: `SyncState.Active.doneBytes`/`totalBytes` ("34 MB of 61 MB"); `ClipDetail.artifacts` with
+  `ArtifactProgress` and `ArtifactLocalState` (the `artifact` table's `local_state`, 4.2);
+- connectivity: `ConnectionDiagnostics.phoneAddress` (this phone's IPv4 on the bound Wi-Fi, from
+  `NetworkSnapshot.ipv4`; on screen only, never in "Copy diagnostics", 20.3); `SearchState.Found.conflict` (6.1);
+- corpus: `ChangeCount(shorts, occurrences)` (above, 9.4);
+- study: `StudySetItem.Short.done` (the learner has moved past it in this set; Home's stations, spec F-03 item 3);
+- playback: `FeedPlaybackState.trackFallback` (`TrackFallback`: `DIALOGUE_NOT_ON_PHONE`, `MIX_NOT_ON_PHONE`,
+  `NO_DIALOGUE_TRACK`, or null; 11.1);
+- messages: `UserMessageKind.CANCEL_UNDONE` carries the request title as its one argument.
+
+Ownership moves of the same pass (work-plan 3.2, 4.5): the domain-aware `ConnectionStatusCard` (with
+`ProbeOutcomeCopy`, WP-15) and `ShareBridge` + `ConnectionLine` (WP-23) live in `:core:ui` `component/` beside the
+other shared components; the visual-only `PosterArt` (poster, poster fallback or audio art, 11.6) and `MarksLegend`
+are WP-03's in `:core:ui`; `AudioOnlyVisual` stays in `:feature:watch`. The app shell (WP-02, `:app`) hosts
+`UserMessages` and the "Connect again" banner (3.1) and applies the in-app appearance through a WP-03 helper (17).
+
 ---------------------------------------------------------------------------------------------------------------
 
 ## 4. Persistence
@@ -759,7 +827,7 @@ has a heard form), `crosses_boundary`, `next_word_text`, `advice`, `family`. Ind
 | `id` TEXT PK | client UUID, the first idempotency key |
 | `seq` INTEGER NOT NULL UNIQUE | creation order (max + 1 inside the insert transaction) |
 | `kind` TEXT | `LINK`, `FILE` |
-| `state` TEXT, `state_reason` TEXT | 8.4 |
+| `state` TEXT, `state_reason` TEXT | 8.4; for `COPY_FAILED` and `COPY_MISSING` the phone-side code (`copy_no_space`, `copy_unreadable`, `copy_interrupted`, `copy_missing`, 8.3) |
 | `held` INTEGER | "Stop sending" keeps it waiting until "Send now" |
 | `created_at`, `updated_at` INTEGER | |
 | `link_shared` TEXT, `link_sent` TEXT, `link_key` TEXT, `site` TEXT, `title_hint` TEXT | 8.2 |
@@ -767,7 +835,7 @@ has a heard form), `crosses_boundary`, `next_word_text`, `advice`, `family`. Ind
 | `copy_file` TEXT, `copy_bytes` INTEGER, `copy_complete` INTEGER, `source_uri` TEXT, `source_persisted` INTEGER, `audio_extracted` INTEGER, `whole_file_fallback` INTEGER | 8.3; `copy_file` is always `requests/<id>/source.<ext>` (never a name from the sharing app) |
 | `audio_only`, `separate_dialogue` INTEGER | options |
 | `target_server_id` TEXT | NULL until a computer is paired |
-| `attempts` INTEGER, `next_attempt_at` INTEGER, `last_error_code`, `last_error_message` TEXT | retry state |
+| `attempts` INTEGER, `next_attempt_at` INTEGER, `last_error_code`, `last_error_message` TEXT, `needed_bytes` INTEGER | retry state; `needed_bytes`: the space a refused copy needs ("Free {N} MB", 8.3) |
 | `job_id` TEXT, `accepted_at` INTEGER, `rerun_count` INTEGER, `auto_rerun_used` INTEGER | |
 | `upload_offset` INTEGER | bytes the computer confirmed (v1-complete) |
 | `sent_at`, `in_line_at`, `analyzing_at`, `ready_at`, `on_phone_at` INTEGER | timeline of the request detail |
@@ -821,7 +889,7 @@ whose segment range contains it.
 | File | Backed up | Contents |
 |---|---|---|
 | `datastore/settings.preferences_pb` | yes | every F-22 setting (appearance, colors, patterns, motion, default speed, play each short, end of short, captions, Listen first, track, questions after set, lesson guidance, automatic video download, storage budget, notification categories), welcome done, coach marks seen, notification permission asked |
-| `datastore/pairing.preferences_pb` | no | server id, server name, last working address, device id, device name, paired at, last seen, last API version, capabilities, last library id, last probe outcome, the **encrypted** credential (ciphertext + IV) |
+| `datastore/pairing.preferences_pb` | no | server id, server name, last working address, device id, device name, paired at, last seen, last API version, capabilities, last library id, last probe outcome, the moving average of measured upload throughput to this computer (8.5), the **encrypted** credential (ciphertext + IV) |
 
 Typed wrappers (`SettingsRepository`, `CoachMarkRepository`, `PairingStore`) are the only access; keys are private.
 
@@ -979,13 +1047,18 @@ Reconnection uses exponential backoff 1 s → 10 s and stops when the app leaves
   source answering with the same server id, or with the same name, is a conflict:
   - while paired (re-discovery), only an address whose `hello` proof verifies is accepted (5.3); the others are
     ignored, and if none verifies the status is `DifferentComputer` for that network;
-  - before pairing, both rows are listed and **neither is preselected** (the spec preselects only when exactly one
-    computer is found, F-02 behaviour 3), so the learner must choose; the wording that explains the conflict is a spec
-    change request (section 25).
+  - before pairing, every answer is its own row and **none is preselected** (the spec preselects only when exactly
+    one computer is found and nothing conflicts, F-02 behaviour 3), so the learner must choose.
+    `SearchState.Found.conflict` is true when two answers share a name or one server id answers from two addresses;
+    the Connect screen (WP-13) then shows the spec's note above the list, "Two computers answered with the same name.
+    If you aren't sure which one is yours, enter the address shown on your computer instead." with "Enter the address
+    instead" (spec D-39, F-02-AC10).
 - Manual entry accepts `a.b.c.d:port` (IPv4, private or link-local) and checks it with `hello`.
-- The computer's terminal prints "Paired: … (from <address>)" (server-contract 2.2), which the operator can compare
-  with the phone's Wi-Fi address (Android's Wi-Fi settings show it). Showing that address in Connection details too
-  is a spec change request (section 25).
+- The computer's terminal prints "Paired: … (from <address>)" (server-contract 2.2). Connection details shows "This
+  phone on this Wi-Fi: {address}" (spec D-39, F-22-AC4) from `ConnectionDiagnostics.phoneAddress`, which
+  `:core:connectivity` takes from the bound network's `LinkProperties` (`NetworkSnapshot.ipv4`), so the operator can
+  compare the two. The phone's address is shown on screen only: "Copy diagnostics", logs and QA logs leave it out
+  (20.3, 20.4, 21.7).
 
 ### 6.2 Probe state machine (spec 7.5, SC-10)
 
@@ -997,8 +1070,8 @@ effect runner. Rules:
 1. No Wi-Fi/Ethernet → `Offline` (no network at all) or `NotOnWifi` (mobile data only); no probes.
 2. Network change to Wi-Fi/Ethernet → `Looking`; probe the stored address first, then run discovery (re-discovery,
    spec 7.3 item 5); a discovered address is accepted only if `hello`'s identity proof verifies for the paired server
-   id (5.3) and the signed `health` is accepted; the change is recorded for Connection details. (This is the spec's
-   "answers with the paired server id and the credential is accepted", made unforgeable; section 25.)
+   id (5.3) and the signed `health` is accepted; the change is recorded for Connection details. (Spec 7.3 item 5 and
+   7.4: the address "proves it is the paired computer", D-37.)
 3. Probe = `hello` with a challenge (identity proof) → `health` (signed). A valid proof, an accepted signature and a
    compatible version → `Connected` (with `analyzing`, `inLine`, `lowOnSpace` from `health`).
 4. While `Connected`, a failed probe or a lost channel → `Checking` at once, re-probe after 5 s; a second failure →
@@ -1006,10 +1079,14 @@ effect runner. Rules:
 5. 401 `credential_rejected`, or a valid proof with `revoked: true` → `ConnectAgain` (queue paused, background calls
    stop until paired again); server id mismatch, or a missing or wrong proof → `DifferentComputer`; `api_version < 6`
    or a 404 on `hello` followed by `legacyHealth` showing an older version → `ComputerTooOld`; `min_app_version` above
-   the app → `AppTooOld`; `hello` with `phone_access: false`, or `403 lan_forbidden` (the computer is on a network
-   its operator has not approved, server-contract 2.1) → `NotReachable` with the probe outcome "phone access is off
-   there"; `401 clock_skew` → offset updated and the probe repeated once; a bind failure under a VPN →
-   `NotReachable` with the outcome `VpnBlocks` (5.1).
+   the app → `AppTooOld`; `hello` with `phone_access: false`, or `403 lan_forbidden` (phone access suspended because
+   the computer is on a network its operator has not approved, server-contract 2.1) → `NotReachable` with the probe
+   outcome `ProbeOutcome.PhoneAccessOff`, whose words are, wherever a last probe is shown, "Your computer answered,
+   but phone access is off there or not approved for this network." (spec 7.5, D-42, F-02-AC12; one mapping,
+   `ProbeOutcomeCopy`, next to `ConnectionStatusCard` in `:core:ui` `component/`, WP-15); `401 clock_skew` → offset
+   updated and the probe repeated once; a bind failure under a VPN → `NotReachable` with the outcome `VpnBlocks`
+   (5.1). A typed address that answers this way gives `CheckResult.PhoneAccessOff` ("That address answered, but phone
+   access isn't on there for this network. …", F-02 States).
 6. Schedule: on app start and resume; on every network change to Wi-Fi/Ethernet; every 30 s in the foreground while
    anything is pending (waiting requests, requests on the computer, wanted downloads), every 2 min otherwise; before
    each queued send; in the background only inside sync work (section 7), never on mobile data.
@@ -1197,8 +1274,9 @@ same.
 Every request is written to `request` in one transaction, with a fresh UUID as `id`, **before** any network attempt
 or file copy. If that insert fails (SQLite full), the caller gets `AddResult.OutOfSpace` and the share sheet says so;
 nothing is pretended. Notifications permission is asked after the first successful insert (F-23); when that first
-request comes from the share sheet, the sheet suspends its 2 s auto-close while the permission dialog is pending and
-restarts the timer after the answer, so `finish()` never dismisses the system dialog (Android review M8).
+request comes from the share sheet, the sheet suspends its 2 s auto-close while the notification question is open
+(the in-app question "Get a notification when your clip is ready?" and then the system dialog) and starts the 2 s
+count again once it is answered, so `finish()` never dismisses either (Android review M8, spec 8.4 item 8, D-51).
 
 ### 8.2 Links
 
@@ -1244,12 +1322,29 @@ restarts the timer after the answer, so `finish()` never dismisses the system di
   gone and the request becomes `COPY_FAILED` ("the copy didn't finish") with its part deleted, at the worker's retry
   or at the next start-up check, whichever comes first (QT-13).
 - **Picked items** (`ACTION_OPEN_DOCUMENT`, `takePersistableUriPermission`): copied by `FileIntakeWorker`, which
-  restarts the copy after process death and releases the permission once the copy is complete (F-19-AC4).
+  restarts the copy after process death and releases the permission once the copy is complete (F-19-AC4). The
+  permission is also kept while the request is `COPY_FAILED` with `copy_no_space` (so "Try audio only" can read the
+  source again, 8.4) and released when the request is removed or a later copy completes; after `copy_unreadable` it
+  is released at once.
+- **Readable source** (spec D-49). A request's source can be read again only (a) while the `ShareActivity` that
+  received it is alive (a grant carried by the intent belongs to the app and lasts while the receiving activity's
+  task is active, so `:core:requests` can reopen the URI with the application's `ContentResolver` during that time),
+  or (b) when it was picked with a lasting permission (`source_persisted = 1`). For (a), the sheet calls
+  `RequestRepository.holdSources(ids)` (3.4) for the requests it created and closes the returned handle in
+  `onDestroy`; while it is held, `:core:requests` keeps a re-opener per request in `IntakeHandles`, and
+  `IntakeHandles.readable: StateFlow<Set<RequestId>>` is combined into `Request.actions` (8.4), so "Try audio only"
+  disappears from a row the moment the sheet closes. `:feature:share` never touches `IntakeHandles` itself (2.2 rule
+  1).
 - **Audio only for a local video**: `MediaExtractor` + `MediaMuxer` remux the audio track without re-encoding: AAC →
   MPEG-4 (`.m4a`), Opus → Ogg (`.ogg`, API 29+), Vorbis → WebM (`.webm`); any other codec, or a failure, keeps the
   whole file with "Sent the whole file: the audio couldn't be separated on the phone."
-- **Failure states**: no space mid-copy → `COPY_FAILED(no_space)` with "Try audio only"; unreadable source →
-  `COPY_FAILED(unreadable)`; a kept copy deleted outside the app → `COPY_MISSING` at the start-up check (F-20-AC9).
+- **Failure states** (the phone-side codes are stored in `state_reason`, exposed as `Request.lastError.code` with
+  `atSending = false`, never sent to the computer, and mapped to the spec 7.7 copy by `RequestFailureCopy`, 19): no
+  space mid-copy → `COPY_FAILED` `copy_no_space`, the partial copy deleted and `needed_bytes` stored ("Free {N} MB"),
+  with "Try audio only" for a video only while its source is readable (above; otherwise the row reads "…then share it
+  again and choose Audio only." with "Remove" only); unreadable source → `COPY_FAILED` `copy_unreadable`; a shared
+  copy cut short by process death → `COPY_FAILED` `copy_interrupted`; a kept copy deleted outside the app →
+  `COPY_MISSING` `copy_missing` at the start-up check (F-20-AC9).
 - The copy is deleted as soon as the computer accepted the upload (the computer keeps the file; re-runs use it).
 
 ### 8.4 State machine
@@ -1262,13 +1357,16 @@ and never written into rows.
 |---|---|---|
 | (new file) | insert | `PREPARING` |
 | `PREPARING` | copy complete | `WAITING` |
-| `PREPARING` | copy interrupted (shared), no space, unreadable | `COPY_FAILED` |
+| `PREPARING` | copy interrupted (shared), no space, unreadable | `COPY_FAILED` (`copy_interrupted`, `copy_no_space`, `copy_unreadable`) |
+| `COPY_FAILED` `copy_no_space`, a video, source readable (8.3: its sheet still open, or `source_persisted`) | "Try audio only" | `PREPARING` with `audio_only = 1`, same request id: a new intake extracts the audio track only from the source (8.3); a new no-space failure returns to `COPY_FAILED` |
 | (new link) | insert | `WAITING` |
 | `WAITING` | start-up check finds the copy missing | `COPY_MISSING` |
+| `WAITING` | "Send now" | `held = 0`, `next_attempt_at = now`: picked by the sender at once when connected (D-46) |
 | `WAITING` (not held, connected, not paused, `next_attempt_at` reached) | sender picks it | `SENDING` |
 | `SENDING` | computer answered with a job | `SENT` (job id stored, `sent_at`) |
 | `SENDING` | transient failure (no answer, timeout, reset, 5xx) | `WAITING` (`attempts + 1`, `next_attempt_at` from the schedule) |
-| `SENDING` | refused (`refused_address`, `too_large`, `unsupported_type`, `invalid_url`) | `NEEDS_ATTENTION` |
+| `SENDING` | refused (`refused_address`, `too_large`, `unsupported_type`, `invalid_url`) | `NEEDS_ATTENTION` (`lastError.atSending`) |
+| `NEEDS_ATTENTION` at sending, a video file refused as `too_large`, its copy still on the phone | "Try audio only" | `PREPARING` with `audio_only = 1`: the audio is extracted from the kept copy (`requests/<id>/source.<ext>`, no source read needed), which then replaces it; nothing is re-run on the computer, because no job exists. The request id stays the upload key: a declaration refused with `too_large` opened no session (server-contract 6.6), and a stale session answering `key_conflict` is deleted (`DELETE /api/phone/uploads/{key}`) before declaring again |
 | `SENDING` | "Stop sending" | `WAITING` with `held = 1` |
 | `SENT`/`IN_LINE`/`ANALYZING` | listing: `queued` / `running` | `IN_LINE` / `ANALYZING` |
 | any accepted | listing: `done` | `READY_ON_COMPUTER` → (download starts) `GETTING_ON_PHONE` → (study pack verified) `ON_PHONE` |
@@ -1276,15 +1374,26 @@ and never written into rows.
 | any accepted | listing: `error` (other, or second interruption) | `NEEDS_ATTENTION` (reason = job error code) |
 | any accepted | listing: `cancelled` | `CANCELLED` |
 | `SENT`/`IN_LINE`/`ANALYZING` | "Cancel" while connected | `CANCEL` op sent at once; listing confirms `CANCELLED` |
-| `SENT`/`IN_LINE`/`ANALYZING` | "Cancel" while not connected | `CANCEL_WAITING` (+ `CANCEL` op); "Undo" deletes the op and restores the previous state |
+| `SENT`/`IN_LINE`/`ANALYZING` | "Cancel" while not connected | `CANCEL_WAITING` (+ `CANCEL` op); "Undo" deletes the op, restores the previous state and posts `UserMessageKind.CANCEL_UNDONE` with the title once (D-47, F-20-AC12) |
 | `CANCEL_WAITING` | computer answers `already_finished` | `READY_ON_COMPUTER` + notice "Too late to cancel…" |
-| `NEEDS_ATTENTION`/`CANCELLED` | "Try again" / "Try audio only" | `RERUN` op (new UUID); on acceptance `SENT` with the new job id |
-| `PREPARING`/`WAITING`/`COPY_*` | "Remove" | row and copy deleted |
+| `NEEDS_ATTENTION` (a job failure)/`CANCELLED`, a link | "Try again" / "Try audio only" | `RERUN` op (new UUID) with `audio_only` null / true; on acceptance `SENT` with the new job id |
+| `NEEDS_ATTENTION` (a job failure)/`CANCELLED`, a file | "Try again" | `RERUN` op (new UUID) with `audio_only` null: an upload is re-run with its own options, never as audio only (server-contract 6.7); on acceptance `SENT` with the new job id |
+| `PREPARING`/`WAITING`/`COPY_*` | "Remove" | row and copy deleted; a kept persisted permission released |
 | `SENDING` | "Remove" | upload aborted (and, v1-complete, the upload session deleted), row and copy deleted |
-| `NEEDS_ATTENTION`/`CANCELLED` | "Remove" | `REMOVE_JOB` op kept, row deleted |
+| `NEEDS_ATTENTION`/`CANCELLED` | "Remove" | `REMOVE_JOB` op kept (when a job exists), row deleted |
 
 The sender re-reads the row inside the transaction that marks it `SENDING`, so a request removed or cancelled a
 moment earlier is never sent (QT-6).
+
+**`Request.actions` is the one authority** on what a request offers (WP-09 computes it from the state, the row, the
+kind, `IntakeHandles.readable` and the derived queue pause); `RequestFailureCopy` (19) only words and orders it.
+"Try audio only" is offered only where it can work (spec D-49): `COPY_FAILED` `copy_no_space` for a video whose source
+is readable; a video file refused at sending as `too_large`; a link's job failure whose 8.6 row lists it
+(`download_forbidden`, `no_space`; never `too_long`); never for a file's job failure. The other actions of a failure
+follow its spec 8.6 row (for example no "Try again" for `too_long`, `download_unavailable`, `refused_address` or
+`source_gone`; "Try again" instead of "Try audio only" for a file's `no_space`), and "Send now" is offered only while
+connected. A table test (WP-09) checks every row of spec 8.6 and of F-20's actions table, for both kinds, against
+this rule.
 
 ### 8.5 Sending and idempotency
 
@@ -1304,11 +1413,14 @@ moment earlier is never sent (QT-6).
   interrupted upload restarts from zero, so a large file sent only in the background could restart forever. The
   uploader therefore starts a file in the background only when it fits the window: `file_bytes ≤ throughput × 360 s`,
   where `throughput` is the moving average of this phone's last measured upload rates to the computer (200 MB when
-  nothing was measured yet). Larger files wait (state `WAITING`, nothing marked failed) and are sent the next time the
-  app is in the foreground, as a user-visible transfer (7.2), which Android lets run to completion. A hint on such a
-  row ("Open PhonoTrainer to send this file") is a spec change request (section 25); until product adds it, the row
-  shows the spec's waiting text. v1-complete resumable uploads (`capabilities.resumable_uploads`) lift the rule: each
-  background run continues where the last one stopped.
+  nothing was measured yet; the average is kept in the pairing store, 4.5). Larger files wait (state `WAITING`,
+  nothing marked failed) and are sent the next time the app is in the foreground, as a user-visible transfer (7.2),
+  which Android lets run to completion. The repository exposes the rule's verdict as `WaitingInfo.needsAppOpen`,
+  computed with the same function the uploader uses and shown whatever the connection state, so the row adds the spec's
+  line "Open PhonoTrainer on your home Wi-Fi to send this file: large files are sent while the app is open." (spec
+  7.7, D-41, F-20-AC10); links behind such a file are sent as usual. v1-complete resumable uploads
+  (`capabilities.resumable_uploads`) lift the rule (`needsAppOpen` is then always false): each background run
+  continues where the last one stopped.
 - **Files (v1-complete, `capabilities.resumable_uploads`)**: `GET` the session offset, then `PATCH` 8 MiB chunks with
   `Upload-Offset`; after an interruption continue from the computer's offset (QT-4 v1-complete).
 - **Before sending a file**: compare `file_bytes` with `max_upload_bytes` and `low_space`; refuse early with the
@@ -1322,7 +1434,8 @@ moment earlier is never sent (QT-6).
 
 ### 8.6 Re-runs
 
-`RERUN` ops call `POST /api/phone/jobs/{id}/rerun` with the op's UUID and `audio_only` (links only). The computer's
+`RERUN` ops call `POST /api/phone/jobs/{id}/rerun` with the op's UUID and `audio_only` (links only; a file's re-run
+always sends null, server-contract 6.7). The computer's
 new job replaces the failed one (its `deleted` event and the new job arrive together); the request keeps one row with
 the new job id. `410 source_gone` → `NEEDS_ATTENTION` "Your computer no longer has this file. Share it again." with
 "Remove". The automatic re-run after `interrupted` uses the same op, once per request (`auto_rerun_used`), in the
@@ -1395,7 +1508,13 @@ default spotlight (rules 3–5) is precomputed into `short.default_spot_*`; mode
 ### 9.4 Occurrences, examples, variants
 
 `OccurrenceExtractor` produces one row per word × change with eligibility, family and advice (from the reference). The
-phone's equivalents of the server corpus endpoints are queries on `occurrence` (D-16): change counts (eligible only),
+phone's equivalents of the server corpus endpoints are queries on `occurrence` (D-16), restricted to playable clips
+(study pack on the phone, spec F-06 item 2). Change counts come in the spec's two units (D-48): the **short count**
+of a change is the number of distinct `(job_id, short_first_segment)` among its eligible rows, which is by
+construction the number of shorts `ShortRepository.sequence(FeedMode.Change(label))` plays (the spotlight candidates
+of 9.3 are exactly the eligible rows), so "Flapping · 34" opens 34 shorts (F-03-AC7); the **occurrence count** is the
+number of its eligible rows ("12 times in your clips" on the phenomenon page only, F-15-AC1). Both come from one
+grouped query (`OccurrenceRepository.changeCounts()`, 3.4). The other queries are
 examples (`pickExamples`: eligible, ascending `diff_cost`, one per `word_key`, limit 8), symbol examples (the realized
 or dictionary IPA contains the symbol, tokenized with `reference.ipa_tokens`), quiz pools (80 per change) and word
 variants (group by `word_key` and `realized_ipa`).
@@ -1452,6 +1571,14 @@ an LRU cache of three clips keyed by job id and revision for the feed, the lesso
   marked "Needs downloading again".
 - Speed 0.5×/0.75×/1× with `PlaybackParameters(speed, pitch = 1f)` (pitch kept). "Hold to slow down" sets 0.5× while
   held. Track switch rebuilds the source with the other audio file at the same position.
+- **Track fallback** (spec F-06 Partial, D-47). When a short is prepared, the player picks the chosen track's file
+  from its `ClipMedia`; if that file is absent it plays the other one and sets `FeedPlaybackState.trackFallback`:
+  `DIALOGUE_NOT_ON_PHONE` (dialogue chosen, its file not downloaded yet), `MIX_NOT_ON_PHONE` (mix chosen, only the
+  dialogue present), `NO_DIALOGUE_TRACK` (dialogue chosen, the clip was analysed without one); null otherwise. The
+  short card (WP-17) words it under the clip line. A short that is playing never switches track by itself; when a
+  clip's artifacts change, WP-17 re-issues `setQueue` with fresh `ClipMedia` from `ClipContentRepository.media()`
+  (same items, same index), the pool re-prepares the neighbours, and the next short of that clip plays the arrived
+  track with the line gone (F-06-AC13).
 
 ### 11.2 Player pool for the vertical pager
 
@@ -1509,8 +1636,12 @@ optional haptic tick, and restores the previous speed on stop, swipe or audio-fo
 `AudioOnlyVisual` (`:feature:watch`) draws the current phrase's pitch line from `f0_track` (semitones around the
 clip's median), seeded by a stable hash of the job id (FNV-1a 32-bit) for its layout and its neutral palette choice
 from the design system (never family hues), so each audio clip looks different and identical every time; with reduced
-motion it does not move except with playback. The poster fallback is generated the same way from the title and stored
-in `cacheDir/posters/`. Both are composables; no bitmaps are bundled.
+motion it does not move except with playback. The poster fallback is generated the same way from the title (design
+7.4) by `PosterArt` (`:core:ui`, WP-03), the one composable that shows a clip's picture everywhere (Home, Library
+rows, the Clip page hero, the short's media area: the poster, else the fallback for a video clip, else the audio art);
+it is not in `:feature:watch` because Home and the Library cannot depend on a feature (2.2 rule 1). Rendered
+fallbacks are cached in `cacheDir/posters/`. Both are composables; no bitmaps are bundled (the static
+`ill_poster_fallback` of the export is a vector drawable).
 
 ### 11.7 Decoder capability
 
@@ -1540,7 +1671,13 @@ H.264 up to …", each marked hardware or software (`DecoderCapabilities.summary
   copy is handed to the expedited intake work (8.3), and a link while connected is sent by the expedited `send-now`
   work (7.2), both enqueued while the sheet is visible, never by the bare application scope, which Android 14+ freezes
   once the sheet closes. The sheet closes 2 s after the request is stored (and after the copy completes for files),
-  never with TalkBack on and never while the notification permission dialog it opened is pending (8.1).
+  never with TalkBack on and never while the notification question it opened is open; the 2 s count starts again
+  once it is answered (8.1, spec D-51).
+- A copy that fails for space while the sheet is open (`COPY_FAILED` `copy_no_space`) shows the space needed and,
+  for a video, "Try audio only" (spec 7.7, SH-AC15; design 9.22): the sheet calls `RequestRepository.perform(id, TRY_AUDIO_ONLY)`, which is
+  offered because the sheet still holds its sources (`holdSources`, 8.3), and the same request goes back to
+  `PREPARING` for the audio track; no second request is created and no partial copy is left. Once the sheet has
+  closed, the row in Requests offers "Remove" only (spec D-49).
 - "Open PhonoTrainer" and "See requests" start `MainActivity` through the internal alias (16.4) with
   `FLAG_ACTIVITY_NEW_TASK`, then `finish()`.
 - The in-app "Add a clip" screen (`:feature:requests`) uses the same `RequestRepository`; "Paste" reads the clipboard
@@ -1555,8 +1692,10 @@ H.264 up to …", each marked hardware or software (`DecoderCapabilities.summary
 - `Notifier` posts only for this phone's own requests (the caller passes request or clip ids; browser jobs never reach
   it), respects the permission and the two Settings switches, and posts each outcome once (flags in `request`).
   "Ready to watch" notifications are grouped with a summary when several arrive. Notification text never contains an
-  address or a link. The text of "Needs attention" comes from `RequestFailureCopy` (19), the same mapping the request
-  rows use.
+  address or a link. The text of "Needs attention" comes from `RequestFailureCopy.notificationLine` (19), the same
+  mapping the request rows use: "Couldn't download {site} link — Tap to try again or try audio only." only for
+  `download_forbidden`, and for every other failure its spec 8.6 title + " — Tap to see what you can do." (spec F-23,
+  D-40, F-23-AC4), so a notification never promises an action the request lacks.
 - Lock screen: clip titles and links are third-party text, so every notification is `VISIBILITY_PRIVATE` with a
   public version whose text is the channel's name ("Clips ready", "Needs attention", "Transfers"), already spec copy
   (security review L-12).
@@ -1753,7 +1892,9 @@ request was removed."). No URI scheme is registered (the notification intents' `
 
 `installSplashScreen()` before `super.onCreate`, `enableEdgeToEdge()`, root `semantics { testTagsAsResourceId = true }`.
 The splash stays until settings are read and the start destination is known (Welcome on first launch from the launcher;
-never for a share). Window backgrounds match each theme (no white flash). `androidx.profileinstaller` installs the
+never for a share). Window backgrounds match each theme (no white flash): the shell applies
+`UserSettings.appearance` at the root and, on API 31+, calls `UiModeManager.setApplicationNightMode` for Light or Dark
+through the helper WP-03 provides in `:core:designsystem`, so the next cold start's splash matches (design 12.4). `androidx.profileinstaller` installs the
 Baseline Profile generated by `:baselineprofile` (21.6) on a sideloaded install.
 
 What targetSdk 36 implies, stated so no WP rediscovers it (Android review L6): edge-to-edge is enforced (no opt-out),
@@ -1774,20 +1915,31 @@ architecture fixes the **API**, not the visuals:
   `ColorScheme` for light and dark (dynamic color off, as Artemi: the palette is the identity) and
   `PhonoTheme.colors` for roles Material 3 has no slot for: the four family hues (standard and color-vision-friendly
   sets), mark ink, scrims over video, status surfaces, neutral decorative tones for the audio visual. Typography from
-  the bundled fonts (an OFL UI font and Charis for IPA, unmodified TTF), shapes, spacing, motion durations and the
-  reduced-motion switch.
+  the three bundled OFL faces (Atkinson Hyperlegible Next for the UI, Newsreader for the display voice, Charis 7.000
+  for IPA; unmodified TTF, design 4.1), shapes, spacing, motion durations and the reduced-motion switch. Dark mode:
+  Compose colours follow `darkTheme`; a configuration context whose `uiMode` follows the in-app appearance makes
+  `drawable-night` illustrations match it; window and splash colours come from `values-night`; the shell applies the
+  appearance to the window through a WP-03 helper (16.5; design 12.1, 12.4).
 - `:core:ui` components (API frozen at M2, visuals by WP-03): `FamilyMark`, `MarkedWordSpan` builder (line style +
   icon + name), `ChangeChip`, `PracticeBadge`, `StatusLine` (icon + words), `AvailabilityChip`, `ExplainButton` +
   `ExplainSheet`, `IpaText`, `LoadingGate`, `EmptyState(illustration, title, body, actions)`, `CoachMarkHost`,
-  `PhonoButton`/cards/sheets, plus extension points for v1-complete features (`MouthRenderer`, `RecordSection`,
-  `PhraseDetailsEntry`, `ClipTranscriptTab`, `InsightsAvailability`, and, since revision 2, `ClipReductionMeters`)
-  bound with Dagger `@BindsOptionalOf`, so v1-core screens show the spec's fallbacks when a v1-complete module is
-  absent. Their shapes are in work-plan 4.4. Domain-aware components shared by several features (`ClipCard`,
-  `ClipRow`, `RequestRow`, `QuestionCard`, `AnswerFeedback`, `ShadowingPanel`, `OccurrenceRow`) live in `:core:ui`
-  `component/`, each built by one feature WP behind an API frozen at M2 (work-plan 4.5).
-- Assets from staging are converted (vectors to `VectorDrawable` or Compose `ImageVector`, launcher layers, legacy
-  WebP mipmaps from one geometry, monochrome and notification icons, illustrations) and committed with their sources
-  under `android/design-src/`; nothing in the build references the staging folder.
+  `PhonoButton`/cards/sheets, the visual-only pieces several features draw (`ShortProgress`, `PosterArt` with the
+  poster fallback of 11.6, `MarksLegend`; design 12.2), plus extension points for v1-complete features
+  (`MouthRenderer`, `RecordSection`, `PhraseDetailsEntry`, `ClipTranscriptTab`, `InsightsAvailability`, and, since
+  revision 2, `ClipReductionMeters`) bound with Dagger `@BindsOptionalOf`, so v1-core screens show the spec's
+  fallbacks when a v1-complete module is absent. Their shapes are in work-plan 4.4. Domain-aware components shared by
+  several features (`ClipCard`, `ClipRow`, `RequestRow` with `RequestFailureCopy`, `QuestionCard`, `AnswerFeedback`,
+  `ShadowingPanel`, `OccurrenceRow`, `ConnectionStatusCard` with `ProbeOutcomeCopy`, `ShareBridge` with
+  `ConnectionLine`) live in `:core:ui` `component/`, each built by one feature WP behind an API frozen at M2, with its
+  own strings file (work-plan 4.5).
+- Assets from staging are converted by WP-03 (`android/design-src/convert/`) into `:core:designsystem` and committed
+  with their sources under `android/design-src/`; nothing in the build references the staging folder. Icons,
+  illustrations, launcher layers, the monochrome and notification icons and the splash are vector drawables. The two
+  adaptive-icon XMLs live in `res/mipmap-anydpi/` (a `-v26` qualifier is obsolete at minSdk 29 and lint reports it as
+  `ObsoleteSdkInt`); **no legacy raster mipmaps** are made, because every supported device (API 29+) draws the
+  adaptive icon (spec F-25, D-50). Every `pathData` stays under lint's `VectorPath` limit of 3,000 characters (the
+  design track's export already splits the launcher background's halftone; design 12.3), because lint runs with
+  `warningsAsErrors` (23). The licence texts go to `assets/licenses/` with their index `bundled.json` (20.6).
 - Rules carried from Artemi: tokens only in screens (no hard-coded colors, fonts or sizes; a lint rule or hygiene
   grep enforces it), WCAG contrast on every surface a color can sit on (A-10), 48 dp targets, decorative art excluded
   from semantics, `@PreviewLightDark` previews of every state.
@@ -1848,12 +2000,29 @@ server already strips of escape codes and paths); unexpected exceptions are logg
 
 Copy: **one mapping for request failures** (delivery review D-24). `RequestFailureCopy` (in `:core:ui`
 `component/`, next to `RequestRow`, owned by WP-22, strings in `strings_request.xml`) maps a `RequestError` (a
-request-level code of server-contract 8.1 or a job code of 8.2) to the spec 8.6 title, body and actions, and to the
-F-23 notification line. Request rows (WP-22, WP-16's "In progress"), the share sheet (WP-23) and `Notifier` (`:core:
-notifications`, through its dependency on `:core:ui`) all use it. A job code the app does not know (for example the
-server's `live_stream` and `too_long`, until product writes their lines) maps to `processing_failed`'s copy with the
-computer's cleaned message. Other features keep one `…ErrorCopy.kt` each for their own errors (connection, storage,
-media).
+request-level code of server-contract 8.1, a job code of 8.2, or a phone-side copy code of 8.3) to the spec 8.6 and
+7.7 title, body and actions, and to the F-23 notification line:
+
+```kotlin
+object RequestFailureCopy {
+  fun of(error: RequestError, context: FailureContext): FailureCopy
+  fun notificationLine(error: RequestError, site: Site?): String  // F-23: the download_forbidden line, else title + " — Tap to see what you can do."
+}
+data class FailureContext(val kind: RequestKind, val site: Site?, val available: Set<RequestAction>,  // = Request.actions
+  val maxLinkDurationS: Long?)                                     // PairedComputer.capabilities?.maxLinkDurationS
+data class FailureCopy(val title: String, val body: String, val actions: List<RequestAction>)  // 8.6 order ∩ available
+```
+
+Rules: the actions shown are the spec's order for that failure intersected with `Request.actions` (8.4), so the copy
+never offers what the state machine refuses; `copy_no_space` without `TRY_AUDIO_ONLY` available uses the "…then share
+it again and choose Audio only." body (spec 7.7, D-49); `no_space` (job) lists "Try audio only" for a link and "Try
+again" for a file (D-49); `live_stream` and `too_long` have their own spec 8.6 copy (D-40): `too_long`'s `{limit}` is
+`maxLinkDurationS` written as whole hours when it is a multiple of 3,600 s ("1 hour", "2 hours"), otherwise as whole
+minutes ("90 minutes"), and when it is unknown the body reads "…up to the length set on your computer…" (SH-AC18).
+Request rows (WP-22, WP-16's "In progress"), the share sheet (WP-23) and `Notifier` (`:core:notifications`, through
+its dependency on `:core:ui`) all use it. Only a code the app does not know maps to `processing_failed`'s copy with
+the computer's cleaned message. Other features keep one `…ErrorCopy.kt` each for their own errors (connection,
+storage, media); the last probe outcome has one mapping, `ProbeOutcomeCopy` (6.2).
 
 ---------------------------------------------------------------------------------------------------------------
 
@@ -1908,8 +2077,9 @@ non-exportable, no user authentication) and stores only the ciphertext and IV of
 (restored to another phone, key invalidated), the pairing is treated as revoked ("Connect again", which then pairs as
 a new device, 6.3). The token and `K` never appear in logs, diagnostics, "Copy diagnostics", crash text or
 notifications. Because "Copy diagnostics" text is likely to be pasted into a public issue, it replaces the computer's
-address with its class ("private 192.168/16", "link-local") and leaves out the server and device ids, while Connection
-details itself still shows them on screen (security review L-7).
+address with its class ("private 192.168/16", "link-local"), leaves out this phone's own address entirely and leaves
+out the server and device ids, while Connection details itself still shows them on screen (security review L-7; spec
+D-39, F-22-AC4).
 
 ### 20.4 Logging hygiene
 
@@ -1937,13 +2107,28 @@ N+1 (`versionCode` + 1) for the update test.
 
 ### 20.6 Licences
 
-The AboutLibraries Gradle plugin (build-time) generates the dependency and licence metadata of the release runtime
-classpath into an asset, in strict mode with an allowlist (Apache-2.0, MIT, BSD-2-Clause, BSD-3-Clause, OFL-1.1, and
-the AndroidX licence identifiers) so an unknown or incompatible licence fails the build (X-AC3). The About and
-licences screen (F-24) renders that asset and the bundled licence texts (`assets/licenses/`) offline. A check
-compares the generated list with the Android section of `THIRD-PARTY-NOTICES.md`. WP-19 verifies the plugin under the
-configuration cache in its first week; the fallback is a small build-logic task that reads POM licences from the
-resolved runtime classpath.
+Two kinds of third-party material ship in the APK, and a dependency report only ever sees the first (spec F-24,
+D-50):
+1. **Runtime libraries.** The AboutLibraries Gradle plugin (build-time) generates the dependency and licence metadata
+   of the release runtime classpath into an asset, in strict mode with an allowlist (Apache-2.0, MIT, BSD-2-Clause,
+   BSD-3-Clause, OFL-1.1, and the AndroidX licence identifiers) so an unknown or incompatible licence fails the
+   build. WP-19 verifies the plugin under the configuration cache in its first week; the fallback is a small
+   build-logic task that reads POM licences from the resolved runtime classpath.
+2. **Bundled fonts and the vendored icon set** (Atkinson Hyperlegible Next, Newsreader and Charis under OFL-1.1;
+   Lucide 1.51.0 under ISC with Feather-derived glyphs under MIT). They are not libraries. WP-03 ships their licence
+   texts in `:core:designsystem` `assets/licenses/` together with `bundled.json`, an index generated by its conversion
+   script from `FONTS.txt` and `icons.json`: one entry per component with name, version, kind (`font` or `icons`),
+   files (font file names, or the icon count), SPDX licence, licence file and source, and the SHA-256 of each font
+   file.
+
+The **licence check** (`verifyLicences`, a build-logic task owned by the integrator, part of `check`; X-AC3) fails
+the build unless: (a) every library of the generated report has an entry in `THIRD-PARTY-NOTICES.md` 7.2 "Runtime
+libraries" and every 7.2 entry is in the report, with an allowlisted licence; (b) every entry of `bundled.json` has a
+row in 7.3 "Fonts and icons" and every 7.3 row is in `bundled.json`, its licence file exists in `assets/licenses/`,
+its licence is OFL-1.1, ISC or MIT, every font file under `:core:designsystem` `res/font/` is listed with a matching
+SHA-256, and no font file is unlisted. The About and licences screens (F-24, WP-24) render both offline: libraries
+from the generated asset, fonts and the icon set from `bundled.json` with their licence texts; the F-24-AC2 test
+compares the rendered list with both sources.
 
 ### 20.7 Repository hygiene checks (`scripts/hygiene/`)
 
@@ -2022,19 +2207,20 @@ Failure modes, each a one-line call in a test:
 | `stallUpload(afterBytes)` | an upload body that stops arriving (a Wi-Fi drop mid-`PUT`, QT-4) |
 | `revokeDevice()` | credential rejected (QT-8, F-02-AC8) |
 | `changeServerId()`, `changeLibraryId()` | a different computer at the address (QT-11), a workspace switch (QT-14) |
-| `impersonate()` | a second responder that answers discovery and `hello` with the paired server id and name but cannot prove it (security review H-1) |
+| `impersonate(proof = MISSING \| WRONG)` | a second responder that answers discovery and `hello` with the paired server id and name but with no proof or a wrong one, because it lacks this phone's key (security review H-1; spec D-37, F-02-AC11) |
 | `clockSkew(seconds)` | the computer's clock differs from the phone's |
 | `phoneAccessOff()`, `apiVersion = 5` | phone access off, a computer too old |
+| `lanForbidden()` | phone access on but suspended on this network: every phone route, `hello` included, answers `403 lan_forbidden` and discovery is silent (server-contract 2.1, 4.2; spec D-42, F-02-AC12) |
 | `restart(interrupt = true)` | queued and running jobs become `interrupted` (QT-5, QT-12) |
 | `deleteJob(id)`, `finishJob(id)`, `failJob(id, code)`, `progress(id, stage, percent)` | computer-side events |
 | `dropChannel()` | job channel lost (Checking state) |
-| `lowOnSpace()`, `maxUploadBytes = n` | upload refusals |
+| `lowOnSpace()`, `maxUploadBytes = n`, `maxLinkDurationS = n` | upload refusals; the link limit `too_long`'s copy names (SH-AC18) |
 
 Observation: `jobsWithKey(key)`, `requests` (recorded requests in order, to assert "the cancel reaches the computer
 before any new request", and that no `Authorization` header ever reached an impersonator), `pairedDevices`.
 `FakeDiscovery` replaces the UDP transport in end-to-end tests; the real `DiscoveryClient` is tested on the JVM against
-a responder bound to the loopback interface, including two responders with one server id (a conflict, not a
-duplicate).
+a responder bound to the loopback interface, including two responders with one name and one server id answering from
+two addresses (each a conflict, not a duplicate: `SearchState.Found.conflict`, no preselection, F-02-AC10).
 
 ### 21.4 Synthesized media
 
@@ -2173,7 +2359,8 @@ disturb; this one never runs web tasks):
 ## 23. Definition of done (every Android work package)
 
 1. `./gradlew :<module>:test` / `:<module>:testDebugUnitTest` for the modules touched, then `./gradlew check` green.
-2. `./gradlew lintDebug` clean, with no baseline (`warningsAsErrors = true`, `checkDependencies = true` on `:app`).
+2. `./gradlew lintDebug` clean, with no baseline (`warningsAsErrors = true`, `checkDependencies = true` on `:app`;
+   only the checks of the lint policy in 2.3 are ignored, through `config/lint/lint.xml`).
 3. `./gradlew assembleDebug`; `./gradlew assembleRelease` when dependencies, R8 rules, serialization or reflection
    changed.
 4. Instrumented tests, under the GMD lock (21.5), when UI, navigation, persistence, DI, media or work scheduling
@@ -2210,13 +2397,14 @@ disturb; this one never runs web tasks):
 
 ---------------------------------------------------------------------------------------------------------------
 
-## 25. Review log (revision 3)
+## 25. Review log (revisions 3 and 4)
 
 Three reviews of revision 2 (architecture), revision 1 (server contract) and revision 1 (work plan), dated
 2026-10-10: security (`S-…`), Android platform (`A-…`) and delivery and testability (`D-…`). Every finding is listed
 with its disposition: **fixed** (in the place named), **partly** (what was adopted and why the rest was not) or **not
 adopted** (with the evidence). "SC" is `server-contract.md`, "WP" is `work-plan.md`. Spec text is owned by the product
-track; where a fix touches it, the request is listed at the end and the architecture keeps the spec's behaviour.
+track; where a fix touches it, the request is listed in 25.3 and the architecture keeps the spec's behaviour. 25.4 is
+the pre-implementation closure of revision 4.
 
 ### 25.1 Blocker and high findings
 
@@ -2228,7 +2416,7 @@ track; where a fix touches it, the request is listed at the end and the architec
 | A-H1 | Nav3 decorators drop the inactive tab's state and ViewModels on every tab switch | fixed: each stack decorated separately, all composed; per-stack content keys; GMD proof at M2 | 16.2, 11.2; WP-02 |
 | A-H2 | application-scope work after leaving the foreground is frozen on Android 14+ | fixed: shared-file copies and the sheet's send are expedited WorkManager work enqueued while the sheet is visible; foreground passes may be cut short by design | 7.2, 8.3, 12; WP-09, WP-23, WP-25 |
 | A-H3 | `ShareActivity` keeps the default task affinity | fixed: `taskAffinity=""`, `finishAndRemoveTask()` when it roots its own task; GMD test with and without `NEW_TASK` | 12, 20.1, 21.5; WP-23 |
-| A-H4 | v1-core background uploads of large files can never finish | fixed: a file starts in the background only when it fits the window by measured throughput; larger files wait for the foreground; the optional row hint is a spec request | 8.5, 7.2; WP-09 |
+| A-H4 | v1-core background uploads of large files can never finish | fixed: a file starts in the background only when it fits the window by measured throughput; larger files wait for the foreground; the optional row hint is a spec request (closed by D-41, 25.4) | 8.5, 7.2; WP-09 |
 | D-02 | about 35 frozen types have no shape; `ClipData` is frozen before its designer starts | fixed: WP-12 and WP-04 start on day 0 and hand shapes by day 4; WP Appendix A gives every type's fields | 3.4; WP 4, Appendix A, WP-02, WP-04, WP-12 |
 | D-03 | integration by copying owned paths overwrites concurrent edits | fixed: git branches or worktrees per WP, three-way merge by the integrator, section rows merged as patches; WP-27 rebases on the post-gate server | 2.7; WP 2.1, WP-27 |
 | D-04 | 17 parallel WPs do not fit the development computer; the 32-day path is not real | fixed: three builder lanes plus the integrator (a fourth lane when memory allows), memory settings per copy, one GMD lock, area-filtered GMD runs; schedule restated | 2.4, 21.5, 23; WP 1.1 to 1.3 |
@@ -2245,7 +2433,7 @@ track; where a fix touches it, the request is listed at the end and the architec
 | Id | Disposition | Where |
 |---|---|---|
 | S-M-1 replayable bearer token | fixed with the reviewer's option (2): `PT1` signed requests, nonce cache, clock window, `clock_skew`; option (1) (last source address in `phone list`) not adopted: it would store addresses in a file, which SC 3.3 forbids, and signing removes the reusable credential it was meant to expose | 5.3, 8.5, 19; SC 3.2, 4.3, 6.2 |
-| S-M-2 pairing code relay | partly: "Paired: … (from <address>)" on the computer, conflicts never preselected, residual risk recorded; the pairing screen showing "{name} at {address}" is **not adopted** because spec F-02 behaviour 3 says no address is shown in the list; it and the conflict wording are spec requests (25.3) | 6.1; SC 2.2, 4.8 |
+| S-M-2 pairing code relay | partly: "Paired: … (from <address>)" on the computer, conflicts never preselected, residual risk recorded; the pairing screen showing "{name} at {address}" is **not adopted** because spec F-02 behaviour 3 says no address is shown in the list; it and the conflict wording are spec requests (25.3; closed by D-39, 25.4) | 6.1; SC 2.2, 4.8 |
 | S-M-3 server ids become file paths unchecked | fixed: DTO validation, closed extension map, canonical-path check, response and artifact size caps | 4.6, 5.4; WP-05b |
 | S-M-4 provider metadata trusted | fixed: `source.<ext>`, byte counting, own-authority refusal, `ClipData` items | 8.3, 12; WP-09, WP-23 |
 | S-M-5 resource exhaustion | partly: reservations, 4 sessions and 1 body per device, idle abort, 2 channels per device, upload writes on a dedicated limiter; the per-device job cap is **not adopted**: spec 11.5 and 12 moved it to Later (S-19 withdrawn, S-L5), and idempotency keys already stop retries from creating jobs | SC 4.7, 6.6 |
@@ -2315,18 +2503,62 @@ track; where a fix touches it, the request is listed at the end and the architec
 
 ### 25.3 Requests to the product track (spec text; the architecture already behaves as described)
 
+**All seven are closed by spec revision 3** (decisions D-37 to D-43, spec 15.6): each was accepted, the spec now says
+it, and the notes that waited for the text (6.1, 6.2 rule 2, 8.5, 19; SC 8.2 rows 4 and 5) were replaced by the copy
+in revision 4 (25.4).
+
 1. Spec 7.3 item 5 and 7.4: "checks that the address answers with the paired server id" → "checks that the address
    proves it is the paired computer" (the HMAC proof of 5.3 is a strict strengthening of the same rule).
+   **Closed: D-37.**
 2. Spec 11.6: the credential is captured only if someone records the pairing exchange; later requests are signed and
-   cannot be replayed.
+   cannot be replayed. **Closed: D-38.**
 3. F-02: wording for two computers answering with the same name or identity (listed, none preselected), and,
-   optionally, this phone's own Wi-Fi address in Connection details (security review M-2).
+   optionally, this phone's own Wi-Fi address in Connection details (security review M-2). **Closed: D-39 (both
+   parts; 6.1).**
 4. Spec 8.6: title and body for the job codes `live_stream` and `too_long`; until then they show the
-   `processing_failed` copy with the computer's message.
+   `processing_failed` copy with the computer's message. **Closed: D-40 (19).**
 5. Spec 7.7: optional row hint for a large file waiting for the app to be opened ("Open PhonoTrainer to send this
-   file"); until then the row shows the waiting text.
+   file"); until then the row shows the waiting text. **Closed: D-41 (8.5).**
 6. Spec 7.2 and S-01: phone access stays on across restarts **on the networks the operator approved**; on another
    network it is suspended until approved (operator-facing terminal behaviour, server-contract 2.1), and the computer's
-   default display name is "PhonoTrainer computer".
+   default display name is "PhonoTrainer computer". **Closed: D-42 (6.2 rule 5).**
 7. Spec 8.7 and S-23: phone-origin links longer than one hour (`max_link_duration_s`, editable on the computer) or
-   live streams are refused; confirm the default.
+   live streams are refused; confirm the default. **Closed: D-43** (default of 1 hour confirmed).
+
+### 25.4 Pre-implementation closure (revision 4, 2026-10-10)
+
+Inputs: the cross-track consistency review's open items for architecture, spec revision 3 (decisions D-37 to D-52,
+spec 15.6), the design track's asset review and the staged export. Every item was re-checked against the four
+documents before it was closed; items marked "found" were discovered while verifying the others. "WP" is
+`work-plan.md` (revision 3), "SC" `server-contract.md` (revision 3), "design" `design.md`; what the design track
+must mirror (C-02, C-04, C-13, C-14, C-19, C-21) was sent to it through the orchestrator.
+
+| Id | Item | Disposition | Where |
+|---|---|---|---|
+| C-01 | `changeCounts()` counted eligible occurrences, while the spec, the Home chips, the mode picker and the Learn cards count shorts (consistency open item 8; D-48) | fixed: `changeCounts()` returns `ChangeCount(shorts, occurrences)` from one grouped query over playable clips; `shorts` is by construction the length of the change-mode sequence (F-03-AC7), `occurrences` serves the phenomenon page only (F-15-AC1) | 3.4, 9.4; WP A.3, WP-10, WP-15, WP-17, WP-20 |
+| C-02 | `COPY_FAILED(no_space)` offered "Try audio only" with no transition, and a shared item's read grant ends with the sheet (consistency open item 9; D-49) | fixed: `COPY_FAILED` `copy_no_space` + "Try audio only" → `PREPARING` (audio track, same request) only while the source is readable: the open sheet holds its sources (`RequestRepository.holdSources`, new), or a picked file whose persisted permission is now kept while `copy_no_space`; otherwise the action is absent and the row reads "…then share it again and choose Audio only." with "Remove". Design asked to make 9.19's row and 9.22's sheet state conditional | 4.2, 8.3, 8.4, 12, 19; WP-09, WP-22, WP-23 |
+| C-03 | found: "Try audio only" on a video refused at sending (`too_large`) mapped to a `RERUN`, but no job exists to re-run | fixed: local re-extraction from the kept copy → `PREPARING`; the request id stays the upload key (a refused declaration opened no session; a stale `key_conflict` session is deleted first) | 8.4 |
+| C-04 | found: re-runs sent `audio_only` for any kind, which the server refuses for uploads (`400 invalid_option`), and the job `no_space` actions depend on the kind (D-49) | fixed: the re-run rows are split by kind (files always `audio_only` null); `Request.actions` is the one authority, and `RequestFailureCopy` shows the spec order intersected with it; a table test per code and kind | 8.4, 8.6, 19; WP 4.5, WP-09, WP-22 |
+| C-05 | found: "Send now" on a held request had no transition (D-46) | fixed: `WAITING` + "Send now" clears `held` and makes it due at once | 8.4; WP-09 (F-20-AC11) |
+| C-06 | found: the spec's "Free {N} MB" had no data behind it | fixed: `needed_bytes` column, `RequestError.neededBytes`, and the phone-side codes `copy_no_space`, `copy_unreadable`, `copy_interrupted`, `copy_missing` in `state_reason` | 4.2, 8.3; WP A.4 |
+| C-07 | 17 still said "legacy WebP mipmaps from one geometry", which minSdk 29 never uses (consistency open item 10; D-50) | fixed: struck; adaptive XMLs in `mipmap-anydpi/` (the design track's re-export already moved them there), no raster mipmaps; the `VectorPath` limit stated (the re-export split the launcher background; the longest staged path is now 2,976 characters as lint counts them, 2,732 without blanks; design 12.3) | 17; WP-03 |
+| C-08 | the licence check of 20.6 compared only the dependency report, which never lists the vendored fonts and icons (consistency open item 10; D-50; X-AC3, F-24-AC2) | fixed: two-part check `verifyLicences` (integrator): libraries against notices 7.2 through the report; fonts and the Lucide set against 7.3 through WP-03's `assets/licenses/bundled.json`, with licence files present and font SHA-256 equal; About renders both | 2.2, 17, 20.6; WP-03, WP-19, WP-24, WP 10 |
+| C-09 | 3.4 did not mirror the consistency pass's additive fields and ownership moves (consistency open item 11) | fixed: `Request` gains `waiting`, `timeline`, `rerunPending`, `updatedAt` in the listing; a revision 4 paragraph lists every other additive field (A.1 to A.9) and the moves (`ConnectionStatusCard` + `ProbeOutcomeCopy` WP-15, `ShareBridge` + `ConnectionLine` WP-23, `PosterArt` and `MarksLegend` WP-03, the shell's message host, banner slot and appearance helper) | 2.2, 3.1, 3.4, 11.6, 16.5, 17 |
+| C-10 | WP-03's inputs must equal the staged export | verified on 2026-10-10, after the design track's closure re-export: 173 files (`res/drawable` 142 = 122 icons, 3 launcher layers, `ic_notification`, 14 illustrations, 2 splash; `res/drawable-night` 16; `res/font` 5; `assets/licenses` 5; `res/mipmap-anydpi` 2; `res/values` 2; `res/values-night` 1); the 122 icon files equal `icons.json` (none extra or missing); the tool list follows `design-src/tools/` (`export_vectors.py`, `lint_vectors.py` included); WP-03 now lists them file by file with an inventory test, and adds `bundled.json` | WP-03 |
+| C-11 | D-37 (25.3 item 1): proof of identity, not the server id | closed; no behaviour change; the 6.2 note now cites the spec; `impersonate(proof = MISSING \| WRONG)` knob; F-02-AC11 tests | 6.2, 21.3; WP-05a, WP-07, WP 10 |
+| C-12 | D-38 (25.3 item 2): the credential travels once | closed; `SECURITY.md` states spec 11.6's wording (WP-19) | WP-19 |
+| C-13 | D-39 (25.3 item 3): discovery conflicts and this phone's address | closed: the conflict copy and `SearchState.Found.conflict`; Connection details shows `ConnectionDiagnostics.phoneAddress`; "Copy diagnostics" leaves it out; F-02-AC10 and F-22-AC4 assigned to WP-07 and WP-13 (Connection details is WP-13's destination, not WP-24's) | 6.1, 20.3, 21.3; WP A.1, WP-07, WP-13, WP 10 |
+| C-14 | D-40 (25.3 item 4): copy for `live_stream` and `too_long` | closed: `RequestFailureCopy` maps both (limit from `Capabilities.maxLinkDurationS`, as hours or minutes, or the unknown-limit body), the `processing_failed` fallback is for unknown codes only, the F-23 notification-line rule; SC 8.2 rows 4 and 5 name the titles | 13, 19; SC 8.2; WP 4.5, WP-05a, WP-22 |
+| C-15 | D-41 (25.3 item 5): large files wait for the app | closed: `WaitingInfo.needsAppOpen` from the uploader's own rule, shown whatever the connection state; the throughput average kept in the pairing store | 4.5, 8.5; WP 4.2, WP-09, WP-22 |
+| C-16 | D-42 (25.3 item 6): approved networks | closed: `phone_access: false` and `lan_forbidden` give `ProbeOutcome.PhoneAccessOff`, worded once by `ProbeOutcomeCopy` (WP-15, new ownership row); `lanForbidden()` knob; F-02-AC12 tests | 6.2, 21.3; WP 3.2, 4.5, WP-05a, WP-07, WP-13, WP-15 |
+| C-17 | D-43 (25.3 item 7): confined links, 1 hour default | closed; nothing to change (SC 3.2, 4.5, 9, 10.3 already) | — |
+| C-18 | D-44: lean channel events in v1-core | checked: no "v1-complete" wording for lean events remains in the three documents | — |
+| C-19 | D-45: no "What's in today's set" control; the card shows the set | mirrored: `StudySetItem.Short.done` (with `spotlight` and `savedTag`) from WP-14; WP-15 builds the card's sentence; F-03-AC10 tests | 3.4; WP A.5, WP-14, WP-15 |
+| C-20 | D-46: "Stop sending" holds the request | already the behaviour (8.4 `held`); see C-05; F-20-AC11 tests | 8.4; WP-09, WP-22 |
+| C-21 | D-47: copy for states that had none | mirrored: `UserMessageKind.CANCEL_UNDONE` carries the title; `FeedPlaybackState.trackFallback` with the queue refresh that ends it; F-06-AC13, F-14-AC4, F-20-AC12 tests | 3.4, 11.1; WP A.7, A.9, WP-09, WP-11, WP-17, WP-20, WP-22 |
+| C-22 | D-51: no auto-close while the notification question is open | mirrored: 8.1 and 12 name the in-app question and the system dialog, and the 2 s count restarts after the answer | 8.1, 12; WP-23 |
+| C-23 | D-48 to D-50, D-52 | D-48 is C-01, D-49 is C-02 to C-04, D-50 is C-07 and C-08; D-52 (defaults apply) changes nothing here | — |
+| C-24 | found: WP-17's mode picker shows short counts but did not consume `changeCounts()`, and nothing told it when a missing track arrived | fixed: WP-17 consumes `OccurrenceRepository.changeCounts` and `ClipRepository.clip` | 11.1; WP-17 |
+| C-25 | new and reworded acceptance criteria of spec revision 3 | traced: WP section 10 lists each AC with its WPs and what each proves (SH-AC17 and SH-AC18 are WP-22's and WP-09's: they are opened from Requests after the sheet closed) | WP 10 |
+| C-26 | 25.3 | all seven requests closed by D-37 to D-43; nothing remains open for the product track | 25.3 |
+| C-27 | closure verifier, blocking: lint's version-freshness checks would fail `warningsAsErrors` on the pinned catalog with no code change | fixed (orchestrator decision): lint policy in 2.3; `GradleDependency`, `AndroidGradlePluginVersion`, `NewerVersionAvailable` and `OldTargetApi` ignored through the one INTEGRATOR-owned `config/lint/lint.xml`, nothing else, no baseline | 2.3, 23; WP-02 (creates the file at M1), WP-19 |
