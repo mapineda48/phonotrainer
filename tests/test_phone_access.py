@@ -6,13 +6,16 @@ the approved Wi-Fi address 192.0.2.10 of `FakeNetinfo`.
 """
 
 import getpass
+import hashlib
 import json
 import re
 import socket
+import time
 from pathlib import Path
 
+import anyio
 import pytest
-from conftest import enable_phone_access, lan, loopback, wait_until
+from conftest import enable_phone_access, fake_analyze, lan, loopback, wait_until
 from fastapi.testclient import TestClient
 from phone_fixtures import (REFERENCE_DEVICE_ID, REFERENCE_HEADER, REFERENCE_KEY_HEX,
                             REFERENCE_NONCE, REFERENCE_SIGNATURES, REFERENCE_TOKEN,
@@ -492,3 +495,62 @@ def test_no_path_home_or_user_name_in_a_full_session(phone_app, paired, phone_st
         for value in forbidden:
             assert value not in text, (value, text[:200])
     assert any(re.search(r'"code":\s*"not_media"', t) for t in texts)
+
+
+def test_no_path_home_or_user_name_in_requests_uploads_or_the_channel(phone_server, tmp_path):
+    from phonotrainer.download import DownloadError
+    from phonotrainer.jobs import JobStore
+
+    def leaky_download(url, dest_dir, audio_only=False, progress=lambda m: None, **kwargs):
+        progress(f"Looking up the URL… ({dest_dir})")
+        raise DownloadError(f"ERROR: unable to write {Path(dest_dir).resolve()}/x.part, "
+                            f"{Path.home()}/{getpass.getuser()}/y: No space left on device")
+
+    store = JobStore(tmp_path / "workspace", analyze_fn=fake_analyze, corpus=None,
+                     download_dir=tmp_path / "downloads", download_fn=leaky_download)
+    app, signing, device_id = phone_server(store)
+    texts: list[str] = []
+
+    def record(resp):
+        assert resp.status_code < 500, resp.text
+        texts.append(resp.text)
+        return resp
+
+    with signing.websocket_connect("ws://192.0.2.10:8000/api/phone/events") as ws:
+        key = "00000000-0000-4000-8000-0000000000a1"
+        link = record(signing.post("/api/phone/jobs/link", json={
+            "client_request_id": key, "url": "https://youtu.be/abc123def45"})).json()["job"]
+        wait_until(lambda: store.get(link["id"]).status == "error")
+        record(signing.get(f"/api/phone/requests/{key}"))
+        record(signing.get(f"/api/phone/jobs/{link['id']}"))
+        rerun = record(signing.post(f"/api/phone/jobs/{link['id']}/rerun", json={
+            "client_request_id": "00000000-0000-4000-8000-0000000000a2"})).json()["job"]
+        wait_until(lambda: store.get(rerun["id"]).status == "error")
+        data = b"RIFF fake media" * 100
+        upload_key = "00000000-0000-4000-8000-0000000000a3"
+        record(signing.post("/api/phone/uploads", json={
+            "client_request_id": upload_key, "file_name": "VID_0001.mp4", "bytes": len(data),
+            "sha256": hashlib.sha256(data).hexdigest()}))
+        uploaded = record(signing.put(f"/api/phone/uploads/{upload_key}", content=data,
+                                      headers={"Content-Type": "application/octet-stream"}))
+        uploaded_id = uploaded.json()["job"]["id"]
+        record(signing.post(f"/api/phone/jobs/{uploaded_id}/cancel"))
+        wait_until(lambda: store.get(uploaded_id).status in ("done", "cancelled"))
+        record(signing.get("/api/phone/library"))
+        record(signing.delete(f"/api/phone/jobs/{rerun['id']}"))
+        frames = []
+
+        async def drain():
+            with anyio.move_on_after(1.5):
+                while True:
+                    frames.append((await ws._send_rx.receive())["text"])
+
+        time.sleep(0.6)                           # let the last coalesced events go out
+        ws.portal.call(drain)
+        texts.extend(frames)
+
+    assert any('"code":"no_space"' in t.replace(" ", "") for t in texts)
+    forbidden = [str(tmp_path), str(Path.home()), getpass.getuser(), str(store.root.resolve())]
+    for text in texts:
+        for value in forbidden:
+            assert value not in text, (value, text[:300])
