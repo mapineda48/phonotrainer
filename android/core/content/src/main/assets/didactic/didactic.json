@@ -1,0 +1,4930 @@
+{
+  "glossary": {
+    "attraction": {
+      "body": "A clean-up step: when the recognizer confuses two sounds in a way that teaches nothing (b heard as v), the expected sound is kept. Native changes are never touched.",
+      "example": null,
+      "learnMore": null,
+      "learnMoreLabel": null,
+      "title": "Attraction"
+    },
+    "canonical": {
+      "body": "The dictionary form lined up with the audio, sound by sound, so each expected sound can be compared with what was heard at the same moment.",
+      "example": null,
+      "learnMore": null,
+      "learnMoreLabel": null,
+      "title": "Expected form, placed in time"
+    },
+    "content-word": {
+      "body": "A word that carries meaning: nouns, main verbs, adjectives, adverbs. They usually keep their full vowels and get the stress.",
+      "example": null,
+      "learnMore": null,
+      "learnMoreLabel": null,
+      "title": "Content word"
+    },
+    "dictionary-form": {
+      "body": "How a dictionary writes the word when it is said slowly and alone (the citation form). Written between slashes: /…/.",
+      "example": "water → /wɔtɚ/",
+      "learnMore": null,
+      "learnMoreLabel": null,
+      "title": "Dictionary form"
+    },
+    "divergence": {
+      "body": "How far what was said is from the dictionary form, averaged per sound: 0 means identical.",
+      "example": null,
+      "learnMore": null,
+      "learnMoreLabel": null,
+      "title": "Divergence"
+    },
+    "engine": {
+      "body": "The model that listens to the audio and writes down the sounds it hears. The default, TIMIT-61, was trained on careful phonetic transcriptions and hears taps, glottal stops and unreleased stops.",
+      "example": null,
+      "learnMore": null,
+      "learnMoreLabel": null,
+      "title": "Phone engine"
+    },
+    "f0": {
+      "body": "How high or low the voice is, moment by moment (the fundamental frequency). The line rises in questions and falls at the end of statements.",
+      "example": null,
+      "learnMore": null,
+      "learnMoreLabel": null,
+      "title": "Pitch (F0)"
+    },
+    "family": {
+      "body": "Phenomena are grouped in four families: reduction (sounds weaken), t/d processes, assimilation (sounds blend) and word boundary (words run together). Each family has its own icon and underline style.",
+      "example": null,
+      "learnMore": {
+        "kind": "learn"
+      },
+      "learnMoreLabel": null,
+      "title": "Family of phenomena"
+    },
+    "function-word": {
+      "body": "A grammar word: articles, prepositions, pronouns, auxiliaries, conjunctions. They are usually unstressed and reduced.",
+      "example": null,
+      "learnMore": null,
+      "learnMoreLabel": null,
+      "title": "Function word"
+    },
+    "intonation-unit": {
+      "body": "A stretch of speech with one melody, usually a sentence or a phrase. Its last pitch movement tells a statement (falls) from a yes/no question (rises).",
+      "example": null,
+      "learnMore": null,
+      "learnMoreLabel": null,
+      "title": "Intonation unit"
+    },
+    "ipa": {
+      "body": "The International Phonetic Alphabet: one symbol for each sound, the same in every language. It shows what spelling hides — water has a [ɾ], not a [t].",
+      "example": null,
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": null
+      },
+      "learnMoreLabel": "Open the IPA chart",
+      "title": "IPA"
+    },
+    "ipa:aɪ": {
+      "body": "The jaw starts wide open with the tongue low, then everything closes up to /ɪ/.",
+      "example": "As in: my",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "aɪ"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[aɪ] closing diphthong"
+    },
+    "ipa:aɪə": {
+      "body": "Like “fire” but ending in a plain schwa, with no r-colouring.",
+      "example": "As in: fire (non-rhotic)",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "aɪə"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[aɪə] triphthong"
+    },
+    "ipa:aɪɚ": {
+      "body": "Three targets without a pause: open, then /ɪ/, then r-coloured.",
+      "example": "As in: fire",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "aɪɚ"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[aɪɚ] triphthong"
+    },
+    "ipa:aʊ": {
+      "body": "Starts low, then the tongue pulls back and the lips round towards /ʊ/.",
+      "example": "As in: now",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "aʊ"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[aʊ] closing diphthong"
+    },
+    "ipa:b": {
+      "body": "The same seal as /p/, but the vocal folds are already vibrating when it opens.",
+      "example": "As in: buy",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "b"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[b] voiced bilabial stop"
+    },
+    "ipa:b̚": {
+      "body": "The /b/ seal held shut and never opened; the voice fades away inside the closure.",
+      "example": "As in: the -b of “club” before a pause",
+      "learnMore": {
+        "kind": "phenomenon",
+        "label": "t_unreleased"
+      },
+      "learnMoreLabel": "See the change it belongs to",
+      "title": "[b̚] unreleased voiced bilabial stop"
+    },
+    "ipa:d": {
+      "body": "The same seal as /t/, with the voice running through it.",
+      "example": "As in: do",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "d"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[d] voiced alveolar stop"
+    },
+    "ipa:dʒ": {
+      "body": "The voiced version: closure and then /ʒ/. It is what /d/ becomes before a /j/ (“did you” → dɪdʒu).",
+      "example": "As in: judge",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "dʒ"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[dʒ] voiced postalveolar affricate"
+    },
+    "ipa:d̚": {
+      "body": "The /d/ seal held with no release; the voicing dies away inside the closure.",
+      "example": "As in: the -d of “good” in “good times”",
+      "learnMore": {
+        "kind": "phenomenon",
+        "label": "t_unreleased"
+      },
+      "learnMoreLabel": "See the change it belongs to",
+      "title": "[d̚] unreleased voiced alveolar stop"
+    },
+    "ipa:eə": {
+      "body": "Mid front vowel relaxing back into schwa.",
+      "example": "As in: square (non-rhotic)",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "eə"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[eə] centring diphthong"
+    },
+    "ipa:eɪ": {
+      "body": "Starts near /ɛ/ and closes upwards to /ɪ/. Stopping at the start is the commonest way to make it sound foreign.",
+      "example": "As in: say",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "eɪ"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[eɪ] closing diphthong"
+    },
+    "ipa:f": {
+      "body": "The lower lip touches the upper teeth and the air hisses between them. The lips never meet each other.",
+      "example": "As in: fee",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "f"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[f] voiceless labiodental fricative"
+    },
+    "ipa:h": {
+      "body": "Nothing blocks the mouth: the noise is made at the vocal folds while the tongue is already shaped for the vowel that follows.",
+      "example": "As in: hat",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "h"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[h] voiceless glottal fricative"
+    },
+    "ipa:i": {
+      "body": "The tongue is as high and as far forward as it goes without hissing; the lips are spread.",
+      "example": "As in: see",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "i"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[i] close front unrounded vowel"
+    },
+    "ipa:iə": {
+      "body": "/i/ relaxing back into schwa.",
+      "example": "As in: idea",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "iə"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[iə] centring diphthong"
+    },
+    "ipa:iː": {
+      "body": "The tongue is as high and as far forward as it goes without hissing; the lips are spread.",
+      "example": "As in: see",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "i"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[i] close front unrounded vowel"
+    },
+    "ipa:j": {
+      "body": "The tongue starts as high and as front as an /i/ and immediately slides off it.",
+      "example": "As in: yes",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "j"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[j] palatal approximant"
+    },
+    "ipa:ju": {
+      "body": "/j/ then /u/: the tongue starts against the palate and slides back while the lips round.",
+      "example": "As in: few",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "ju"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[ju] rising diphthong"
+    },
+    "ipa:k": {
+      "body": "The back of the tongue rises and seals against the soft palate.",
+      "example": "As in: key",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "k"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[k] voiceless velar stop"
+    },
+    "ipa:k̚": {
+      "body": "The back of the tongue seals against the velum and stays there; the release never comes.",
+      "example": "As in: the -k of “look” in “look back”",
+      "learnMore": {
+        "kind": "phenomenon",
+        "label": "t_unreleased"
+      },
+      "learnMoreLabel": "See the change it belongs to",
+      "title": "[k̚] unreleased voiceless velar stop"
+    },
+    "ipa:l": {
+      "body": "The tip touches the ridge but the sides of the tongue stay clear: the air leaves around them. At the end of a syllable the back rises too — that is the “dark” l.",
+      "example": "As in: let",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "l"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[l] alveolar lateral approximant"
+    },
+    "ipa:l̩": {
+      "body": "A dark /l/ that is the whole syllable: no vowel comes before it, the tongue goes straight to the ridge.",
+      "example": "As in: the -le of “bottle”",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "l̩"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[l̩] syllabic alveolar lateral"
+    },
+    "ipa:m": {
+      "body": "Lips closed and the velum drops: the whole airstream leaves through the nose.",
+      "example": "As in: my",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "m"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[m] bilabial nasal"
+    },
+    "ipa:m̩": {
+      "body": "An /m/ that is the whole syllable: the lips stay closed and the voice hums through the nose with no vowel before it.",
+      "example": "As in: the -m of “rhythm”",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "m̩"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[m̩] syllabic bilabial nasal"
+    },
+    "ipa:n": {
+      "body": "Tongue tip on the ridge and velum down: the mouth is blocked, the nose is not.",
+      "example": "As in: no",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "n"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[n] alveolar nasal"
+    },
+    "ipa:n̩": {
+      "body": "An /n/ that carries the syllable by itself: the tongue never leaves the ridge, and there is no vowel before it. Heard in “button” [bʌʔn̩] and “didn't”.",
+      "example": "As in: the -on of “button”",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "n̩"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[n̩] syllabic alveolar nasal"
+    },
+    "ipa:oɹ": {
+      "body": "Like “north” but starting higher; most Americans no longer keep the two apart.",
+      "example": "As in: force",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "oɹ"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[oɹ] r-coloured vowel"
+    },
+    "ipa:oʊ": {
+      "body": "Starts mid-back with the lips already rounded and closes towards /ʊ/.",
+      "example": "As in: go",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "oʊ"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[oʊ] closing diphthong"
+    },
+    "ipa:oːɹ": {
+      "body": "Like “north” but starting higher; most Americans no longer keep the two apart.",
+      "example": "As in: force",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "oɹ"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[oɹ] r-coloured vowel"
+    },
+    "ipa:p": {
+      "body": "Both lips seal, the pressure builds up behind them, and the release is a puff of air.",
+      "example": "As in: pie",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "p"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[p] voiceless bilabial stop"
+    },
+    "ipa:p̚": {
+      "body": "The lips seal as for /p/ and stay sealed: no puff of air, the next sound starts from behind closed lips.",
+      "example": "As in: the -p of “stop” said curtly",
+      "learnMore": {
+        "kind": "phenomenon",
+        "label": "t_unreleased"
+      },
+      "learnMoreLabel": "See the change it belongs to",
+      "title": "[p̚] unreleased voiceless bilabial stop"
+    },
+    "ipa:s": {
+      "body": "A narrow groove between the tip of the tongue and the ridge; the air whistles through it.",
+      "example": "As in: see",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "s"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[s] voiceless alveolar fricative"
+    },
+    "ipa:t": {
+      "body": "The tip of the tongue seals against the ridge behind the upper teeth.",
+      "example": "As in: tea",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "t"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[t] voiceless alveolar stop"
+    },
+    "ipa:tʃ": {
+      "body": "A stop that does not open straight up: it releases into the hiss of /ʃ/.",
+      "example": "As in: church",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "tʃ"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[tʃ] voiceless postalveolar affricate"
+    },
+    "ipa:t̚": {
+      "body": "The tip seals on the ridge and simply stays there: no burst. American English does this to most final /t/s — the /t/ is in the mouth, not in the ear. Listen for a tiny silence where the t should be: “that one” sounds like “tha' one”.",
+      "example": "As in: the -t of “that” in “that one”",
+      "learnMore": {
+        "kind": "phenomenon",
+        "label": "t_unreleased"
+      },
+      "learnMoreLabel": "See the change it belongs to",
+      "title": "[t̚] unreleased voiceless alveolar stop"
+    },
+    "ipa:u": {
+      "body": "The back of the tongue rises towards the velum while the lips round and push forward.",
+      "example": "As in: boot",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "u"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[u] close back rounded vowel"
+    },
+    "ipa:uː": {
+      "body": "The back of the tongue rises towards the velum while the lips round and push forward.",
+      "example": "As in: boot",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "u"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[u] close back rounded vowel"
+    },
+    "ipa:v": {
+      "body": "Like /f/, with voice. Watch the lip against the teeth: a /b/ closes both lips instead. Spanish b and v are one sound; English keeps “berry” and “very” apart.",
+      "example": "As in: view",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "v"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[v] voiced labiodental fricative"
+    },
+    "ipa:w": {
+      "body": "Two narrowings at once: the lips round hard and the back of the tongue rises towards the velum.",
+      "example": "As in: we",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "w"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[w] labial-velar approximant"
+    },
+    "ipa:z": {
+      "body": "The same groove as /s/, with the vocal folds vibrating. Spanish has no /z/: “rise” and “rice”, “plays” and “place” differ only by it.",
+      "example": "As in: zoo",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "z"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[z] voiced alveolar fricative"
+    },
+    "ipa:æ": {
+      "body": "The front of the tongue stays forward while the jaw drops wide open. It is the widest front vowel English has. Between Spanish a and e: “cat”. Saying [ɛ] or [a] instead is a common accent marker.",
+      "example": "As in: cat",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "æ"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[æ] near-open front unrounded vowel"
+    },
+    "ipa:ð": {
+      "body": "The same tongue between the teeth as /θ/, with the voice on. Not the same as [d]: “they” and “day” are different words.",
+      "example": "As in: this",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "ð"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[ð] voiced dental fricative"
+    },
+    "ipa:ŋ": {
+      "body": "The back of the tongue blocks the mouth against the lowered velum. No /ɡ/ follows it in English.",
+      "example": "As in: sing",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "ŋ"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[ŋ] velar nasal"
+    },
+    "ipa:ŋ̍": {
+      "body": "The back of the tongue stays on the velum after the /k/ and hums the last syllable through the nose: the /n/ of “bacon” has taken the /k/'s place.",
+      "example": "As in: “bacon” said fast",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "ŋ̍"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[ŋ̍] syllabic velar nasal"
+    },
+    "ipa:ɐ": {
+      "body": "A schwa with the jaw a little lower. espeak uses it for heavily reduced vowels. It counts as a weak vowel, like [ə].",
+      "example": "As in: a reduced “but”",
+      "learnMore": {
+        "kind": "phenomenon",
+        "label": "vowel_reduction"
+      },
+      "learnMoreLabel": "See the change it belongs to",
+      "title": "[ɐ] near-open central vowel"
+    },
+    "ipa:ɑ": {
+      "body": "Tongue low and pulled back, so the pharynx narrows behind it; the lips stay unrounded.",
+      "example": "As in: father",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "ɑ"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[ɑ] open back unrounded vowel"
+    },
+    "ipa:ɑɹ": {
+      "body": "Open back vowel that turns into an /ɹ/: the tongue rises and bunches without ever touching.",
+      "example": "As in: start",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "ɑɹ"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[ɑɹ] r-coloured vowel"
+    },
+    "ipa:ɑː": {
+      "body": "Tongue low and pulled back, so the pharynx narrows behind it; the lips stay unrounded.",
+      "example": "As in: father",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "ɑ"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[ɑ] open back unrounded vowel"
+    },
+    "ipa:ɑːɹ": {
+      "body": "Open back vowel that turns into an /ɹ/: the tongue rises and bunches without ever touching.",
+      "example": "As in: start",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "ɑɹ"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[ɑɹ] r-coloured vowel"
+    },
+    "ipa:ɒ": {
+      "body": "Low and back with a trace of rounding. American English usually merges it into /ɑ/.",
+      "example": "As in: British “lot”",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "ɒ"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[ɒ] open back rounded vowel"
+    },
+    "ipa:ɔ": {
+      "body": "Low at the back with the lips slightly rounded. Many Americans no longer separate it from /ɑ/.",
+      "example": "As in: thought",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "ɔ"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[ɔ] open-mid back rounded vowel"
+    },
+    "ipa:ɔɪ": {
+      "body": "Starts back and rounded, then slides forward and up to /ɪ/: the longest trip in the vowel space.",
+      "example": "As in: boy",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "ɔɪ"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[ɔɪ] closing diphthong"
+    },
+    "ipa:ɔɹ": {
+      "body": "Rounded back vowel closing into /ɹ/.",
+      "example": "As in: north",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "ɔɹ"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[ɔɹ] r-coloured vowel"
+    },
+    "ipa:ɔː": {
+      "body": "Low at the back with the lips slightly rounded. Many Americans no longer separate it from /ɑ/.",
+      "example": "As in: thought",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "ɔ"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[ɔ] open-mid back rounded vowel"
+    },
+    "ipa:ɔːɹ": {
+      "body": "Rounded back vowel closing into /ɹ/.",
+      "example": "As in: north",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "ɔɹ"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[ɔɹ] r-coloured vowel"
+    },
+    "ipa:ə": {
+      "body": "The resting mouth, with voice: tongue in the middle, no effort anywhere. Every unstressed vowel in English drifts here. The most frequent vowel of spoken English: “about”, “banana”, and the weak forms of “to”, “of” and “a”.",
+      "example": "As in: the a- of “about”",
+      "learnMore": {
+        "kind": "phenomenon",
+        "label": "vowel_reduction"
+      },
+      "learnMoreLabel": "See the change it belongs to",
+      "title": "[ə] mid central vowel (schwa)"
+    },
+    "ipa:əl": {
+      "body": "Schwa straight into a dark /l/: the tongue goes up to the ridge while the back stays low.",
+      "example": "As in: the -le of “little”",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "əl"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[əl] syllabic l"
+    },
+    "ipa:ɚ": {
+      "body": "Schwa plus /ɹ/ in one movement: the body of the tongue bunches towards the palate and the root pulls back. The -er of “letter”, and the weak form of “for” and “your”.",
+      "example": "As in: letter",
+      "learnMore": {
+        "kind": "phenomenon",
+        "label": "vowel_reduction"
+      },
+      "learnMoreLabel": "See the change it belongs to",
+      "title": "[ɚ] r-coloured mid central vowel"
+    },
+    "ipa:ɛ": {
+      "body": "Front of the tongue at mid height, jaw clearly more open than for /ɪ/.",
+      "example": "As in: dress",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "ɛ"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[ɛ] open-mid front unrounded vowel"
+    },
+    "ipa:ɛɹ": {
+      "body": "/ɛ/ falling back into the bunched /ɹ/.",
+      "example": "As in: square",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "ɛɹ"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[ɛɹ] r-coloured vowel"
+    },
+    "ipa:ɜ": {
+      "body": "Central and mid, with no r-colouring. In American English it almost always turns up as /ɝ/.",
+      "example": "As in: nurse without the r",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "ɜ"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[ɜ] open-mid central vowel"
+    },
+    "ipa:ɜː": {
+      "body": "Central and mid, with no r-colouring. In American English it almost always turns up as /ɝ/.",
+      "example": "As in: nurse without the r",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "ɜ"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[ɜ] open-mid central vowel"
+    },
+    "ipa:ɝ": {
+      "body": "The stressed /ɚ/: the same bunched tongue, held longer and louder.",
+      "example": "As in: bird",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "ɝ"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[ɝ] stressed r-coloured vowel"
+    },
+    "ipa:ɡ": {
+      "body": "The same back seal as /k/, voiced.",
+      "example": "As in: go",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "ɡ"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[ɡ] voiced velar stop"
+    },
+    "ipa:ɡ̚": {
+      "body": "The /ɡ/ seal at the velum, voiced as it closes and never opened.",
+      "example": "As in: the -g of “big” in “big deal”",
+      "learnMore": {
+        "kind": "phenomenon",
+        "label": "t_unreleased"
+      },
+      "learnMoreLabel": "See the change it belongs to",
+      "title": "[ɡ̚] unreleased voiced velar stop"
+    },
+    "ipa:ɪ": {
+      "body": "Like /i/ but loose: the tongue drops a little and pulls back. Keeping it tense turns “sit” into “seat”.",
+      "example": "As in: sit",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "ɪ"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[ɪ] near-close near-front unrounded vowel"
+    },
+    "ipa:ɪɹ": {
+      "body": "/ɪ/ falling back into the bunched /ɹ/.",
+      "example": "As in: near",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "ɪɹ"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[ɪɹ] r-coloured vowel"
+    },
+    "ipa:ɹ": {
+      "body": "Nothing touches anything: the body of the tongue bunches up towards the palate, the root pulls back and the lips round a little. Some speakers curl the tip up instead. Never a tap or a trill, unlike Spanish r.",
+      "example": "As in: red",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "ɹ"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[ɹ] alveolar approximant"
+    },
+    "ipa:ɾ": {
+      "body": "The tip bounces off the ridge once, too briefly to build up any pressure. This is what American /t/ and /d/ become between vowels. You hear it in “water”, “better” and “get it”. It is the single r of Spanish “pero”: you can already say it.",
+      "example": "As in: the -tt- of “butter”",
+      "learnMore": {
+        "kind": "phenomenon",
+        "label": "flapping"
+      },
+      "learnMoreLabel": "See the change it belongs to",
+      "title": "[ɾ] alveolar tap"
+    },
+    "ipa:ɾ̃": {
+      "body": "The same single tap as /ɾ/, but the velum stays down from the /n/ before it, so the tap sounds through the nose. It is why “winter” can sound like “winner”. Heard in “winter”, “twenty” and “internet” said fast.",
+      "example": "As in: the -nt- of “winter”",
+      "learnMore": {
+        "kind": "phenomenon",
+        "label": "nt_reduction"
+      },
+      "learnMoreLabel": "See the change it belongs to",
+      "title": "[ɾ̃] alveolar nasal tap"
+    },
+    "ipa:ʃ": {
+      "body": "The tongue pulls back a little from /s/ and the lips round: a deeper, darker hiss.",
+      "example": "As in: ship",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "ʃ"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[ʃ] voiceless postalveolar fricative"
+    },
+    "ipa:ʊ": {
+      "body": "High and back but loose, with only a hint of rounding.",
+      "example": "As in: book",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "ʊ"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[ʊ] near-close near-back rounded vowel"
+    },
+    "ipa:ʊɹ": {
+      "body": "/ʊ/ unrounding as it turns into /ɹ/.",
+      "example": "As in: cure",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "ʊɹ"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[ʊɹ] r-coloured vowel"
+    },
+    "ipa:ʌ": {
+      "body": "Tongue central and relaxed, jaw half open, lips doing nothing at all. The short “uh” of “cup”: not [æ] (cat) and not [ɑ] (father).",
+      "example": "As in: cup",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "ʌ"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[ʌ] open-mid back unrounded vowel"
+    },
+    "ipa:ʒ": {
+      "body": "The voiced twin of /ʃ/. It is what /z/ turns into before a /j/ (“as you” → aʒu).",
+      "example": "As in: vision",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "ʒ"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[ʒ] voiced postalveolar fricative"
+    },
+    "ipa:ʔ": {
+      "body": "The vocal folds close and cut the sound off. The mouth does nothing — that is why a glottalised /t/ looks like no /t/ at all. Heard as the t of “button” or “important”, like the catch in “uh-oh”.",
+      "example": "As in: the catch in “uh-oh”",
+      "learnMore": {
+        "kind": "phenomenon",
+        "label": "glottalization"
+      },
+      "learnMoreLabel": "See the change it belongs to",
+      "title": "[ʔ] glottal stop"
+    },
+    "ipa:θ": {
+      "body": "The tip of the tongue comes out between the teeth and the air passes over it. Many Spanish speakers say [s] or [t] here, but English keeps “think”, “sink” and “tink” apart.",
+      "example": "As in: think",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "θ"
+      },
+      "learnMoreLabel": "See it in the IPA chart",
+      "title": "[θ] voiceless dental fricative"
+    },
+    "ipa:ᵻ": {
+      "body": "The unstressed /ɪ/: as high as /ɪ/ but pulled back towards the centre, halfway to schwa. It is what tells “roses” from “Rosa's”.",
+      "example": "As in: the -e- of “roses”",
+      "learnMore": {
+        "kind": "phenomenon",
+        "label": "vowel_reduction"
+      },
+      "learnMoreLabel": "See the change it belongs to",
+      "title": "[ᵻ] near-close central unrounded vowel"
+    },
+    "linking": {
+      "body": "Two words joined without a pause. The end of one word runs into the start of the next.",
+      "example": "pick it up → pɪ‿kɪ‿ɾʌp",
+      "learnMore": null,
+      "learnMoreLabel": null,
+      "title": "Linking"
+    },
+    "low-confidence": {
+      "body": "The recognizer found little or nothing here (silence, laughter, music, overlapping voices). Labels on this word may be wrong.",
+      "example": null,
+      "learnMore": null,
+      "learnMoreLabel": null,
+      "title": "Low confidence"
+    },
+    "metric:deviate": {
+      "body": "Words where at least one sound was not the one the dictionary gives: changed, dropped or added. This is the headline of the research on spoken English: most words in real conversation do not sound like their dictionary form.",
+      "example": "water → wɔɾɚ (the t became a flap)",
+      "learnMore": {
+        "kind": "learn"
+      },
+      "learnMoreLabel": "See every change in Learn",
+      "title": "Words that differ from the dictionary"
+    },
+    "metric:flapping": {
+      "body": "Where a t or d sits after a vowel and before an unstressed vowel, how often it became a flap [ɾ], a quick tap like the Spanish r in \"pero\". Only the places where flapping can happen are counted.",
+      "example": "better → bɛɾɚ",
+      "learnMore": {
+        "kind": "phenomenon",
+        "label": "flapping"
+      },
+      "learnMoreLabel": "Learn about flapping",
+      "title": "Flapped t and d"
+    },
+    "metric:function_words": {
+      "body": "Of all the words, how many were small grammar words: to, of, and, the, can, you… They are usually unstressed and reduced, so a large part of what you hear is reduced by default.",
+      "example": "a cup of tea → ə kʌp ə ti",
+      "learnMore": null,
+      "learnMoreLabel": null,
+      "title": "Function words"
+    },
+    "metric:glottal_before_syllabic_n": {
+      "body": "A t before a syllabic n, as in \"button\" or \"certain\", said as a glottal stop. This is the usual American pronunciation of these words.",
+      "example": "button → bʌʔn̩",
+      "learnMore": {
+        "kind": "phenomenon",
+        "label": "glottalization"
+      },
+      "learnMoreLabel": "Learn about glottalization",
+      "title": "Glottal t before a syllabic n"
+    },
+    "metric:glottal_prevocalic": {
+      "body": "A t at the end of a word, before a word that starts with a vowel, said as a glottal stop [ʔ]: a short catch in the throat instead of a t. It is more common in younger speakers.",
+      "example": "get it → ɡɛʔ ɪt",
+      "learnMore": {
+        "kind": "phenomenon",
+        "label": "glottalization"
+      },
+      "learnMoreLabel": "Learn about glottalization",
+      "title": "Final t as a glottal stop"
+    },
+    "metric:labels_per_100_words": {
+      "body": "How often each phenomenon was found, scaled to 100 words, so recordings of different lengths can be compared.",
+      "example": null,
+      "learnMore": null,
+      "learnMoreLabel": null,
+      "title": "Phenomena per 100 words"
+    },
+    "metric:low_confidence": {
+      "body": "Words where the recognizer heard almost nothing: silence, laughter or music over the voice. They are left out of the measures above.",
+      "example": null,
+      "learnMore": null,
+      "learnMoreLabel": null,
+      "title": "Low-confidence words"
+    },
+    "metric:schwa_share": {
+      "body": "Of all the vowels heard, how many were schwa [ə], the short, relaxed \"uh\" of unstressed syllables. It is the most frequent vowel of spoken English; Spanish has no vowel like it, so it is worth learning to hear.",
+      "example": "about → əbaʊt",
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": "ə"
+      },
+      "learnMoreLabel": "Schwa in the IPA chart",
+      "title": "Schwa among the vowels"
+    },
+    "metric:segment_loss": {
+      "body": "Words where at least one whole sound disappeared, not just changed. When you listen, a missing sound is easy to take for a different word.",
+      "example": "next day → nɛks deɪ (the t is gone)",
+      "learnMore": {
+        "kind": "phenomenon",
+        "label": "t_deletion"
+      },
+      "learnMoreLabel": "Learn about t/d deletion",
+      "title": "Words that lose a sound"
+    },
+    "metric:syllable_loss": {
+      "body": "Words that came out with fewer syllables than the dictionary gives, usually because an unstressed vowel vanished. The word gets shorter than you expect.",
+      "example": "probably → pɹɑbli",
+      "learnMore": {
+        "kind": "phenomenon",
+        "label": "elision_syllable"
+      },
+      "learnMoreLabel": "Learn about elided syllables",
+      "title": "Words that lose a syllable"
+    },
+    "metric:weak_forms": {
+      "body": "Of the function words, how many the recognizer heard in their weak form, with the vowel reduced or a sound dropped. The strong form appears mostly at the end of a phrase or when the word is stressed.",
+      "example": "to → tə, of → əv, and → ən",
+      "learnMore": {
+        "kind": "phenomenon",
+        "label": "vowel_reduction"
+      },
+      "learnMoreLabel": "Learn about vowel reduction",
+      "title": "Function words in their weak form"
+    },
+    "metric:weak_forms_variant": {
+      "body": "Only for the espeak engine: each function word is scored against its strong and weak pronunciations, and only the confident decisions are counted here.",
+      "example": null,
+      "learnMore": null,
+      "learnMoreLabel": null,
+      "title": "Weak forms by form scoring"
+    },
+    "phenomenon": {
+      "body": "A regular change that happens when words are said in a stream, not one by one: a vowel weakens, a /t/ becomes a tap, two words link.",
+      "example": null,
+      "learnMore": {
+        "kind": "learn"
+      },
+      "learnMoreLabel": "Learn all of them",
+      "title": "Connected-speech phenomenon"
+    },
+    "phone": {
+      "body": "One speech sound. Each IPA symbol stands for one phone: t, ɾ and ʔ are three different phones.",
+      "example": null,
+      "learnMore": {
+        "kind": "ipa",
+        "symbol": null
+      },
+      "learnMoreLabel": "Open the IPA chart",
+      "title": "Phone"
+    },
+    "prominence": {
+      "body": "How much a word stands out: higher pitch, louder, longer. English makes content words (nouns, verbs, adjectives) prominent and reduces grammar words.",
+      "example": null,
+      "learnMore": null,
+      "learnMoreLabel": null,
+      "title": "Prominence"
+    },
+    "recognize-only": {
+      "body": "Learn to hear it, but you do not need to say it: it is casual, regional or socially marked, and it can sound forced from a learner.",
+      "example": null,
+      "learnMore": null,
+      "learnMoreLabel": null,
+      "title": "Recognize only"
+    },
+    "register": {
+      "body": "How widely a change is used: universal (every speaker, every situation), casual (relaxed speech) or marked (a region or group).",
+      "example": null,
+      "learnMore": null,
+      "learnMoreLabel": null,
+      "title": "Register"
+    },
+    "rhythm": {
+      "body": "How regular the syllables are. English stretches stressed syllables and squeezes the rest; Spanish keeps them more even. Measured here from the spacing of syllables, so treat it as a rough guide.",
+      "example": null,
+      "learnMore": null,
+      "learnMoreLabel": null,
+      "title": "Rhythm (approximate)"
+    },
+    "safe-to-produce": {
+      "body": "Native speakers use this change in every register, and a learner sounds natural using it too. Copy it.",
+      "example": null,
+      "learnMore": null,
+      "learnMoreLabel": null,
+      "title": "Safe to produce"
+    },
+    "schwa": {
+      "body": "The short, relaxed vowel [ə], as in the first sound of about. It is the most frequent vowel in spoken English: unstressed vowels turn into it.",
+      "example": "banana → bənænə",
+      "learnMore": null,
+      "learnMoreLabel": null,
+      "title": "Schwa"
+    },
+    "semitone": {
+      "body": "A step of pitch, the same for every voice. Measuring in semitones lets a deep voice and a high voice be compared.",
+      "example": null,
+      "learnMore": null,
+      "learnMoreLabel": null,
+      "title": "Semitone"
+    },
+    "separation": {
+      "body": "Before analyzing, the voices are separated from music and sound effects, so the recognizer hears speech only. You can play either the original mix or the dialogue alone.",
+      "example": null,
+      "learnMore": null,
+      "learnMoreLabel": null,
+      "title": "Dialogue separation"
+    },
+    "strong-form": {
+      "body": "The full pronunciation of a grammar word. It appears at the end of a phrase, under emphasis, or when quoted: “Yes, I can.”",
+      "example": "can → kæn",
+      "learnMore": null,
+      "learnMoreLabel": null,
+      "title": "Strong form"
+    },
+    "uptalk": {
+      "body": "A statement that ends with a rise, as if it were a question. Common in younger American speakers; you will hear it, but you do not need to produce it.",
+      "example": null,
+      "learnMore": null,
+      "learnMoreLabel": null,
+      "title": "Uptalk"
+    },
+    "weak-form": {
+      "body": "Small grammar words (to, of, and, can, you…) have a strong form and a weak form. In normal speech the weak one, usually with a schwa [ə], is the default.",
+      "example": "to → tə",
+      "learnMore": null,
+      "learnMoreLabel": null,
+      "title": "Weak form"
+    },
+    "what-was-said": {
+      "body": "The sounds the recognizer actually heard in this recording. Written between square brackets: […].",
+      "example": "water → [wɔɾɚ]",
+      "learnMore": null,
+      "learnMoreLabel": null,
+      "title": "What was said"
+    }
+  },
+  "ipaLayout": {
+    "allophonePlaces": [
+      {
+        "detail": "bilabial",
+        "key": "bilabial",
+        "label": "Lips"
+      },
+      {
+        "detail": "alveolar",
+        "key": "alveolar",
+        "label": "Gum ridge"
+      },
+      {
+        "detail": "velar",
+        "key": "velar",
+        "label": "Soft palate"
+      },
+      {
+        "detail": "glottal",
+        "key": "glottal",
+        "label": "Throat"
+      }
+    ],
+    "allophoneRows": [
+      {
+        "cells": {
+          "alveolar": [
+            "t̚",
+            "d̚"
+          ],
+          "bilabial": [
+            "p̚",
+            "b̚"
+          ],
+          "velar": [
+            "k̚",
+            "ɡ̚"
+          ]
+        },
+        "detail": "the closure is made but never opened",
+        "label": "Unreleased stop"
+      },
+      {
+        "cells": {
+          "alveolar": [
+            "ɾ",
+            "ɾ̃"
+          ]
+        },
+        "detail": "one very quick touch of the tongue",
+        "label": "Tap"
+      },
+      {
+        "cells": {
+          "glottal": [
+            "ʔ"
+          ]
+        },
+        "detail": "the throat closes for an instant",
+        "label": "Glottal stop"
+      }
+    ],
+    "consonantRows": [
+      {
+        "cells": {
+          "alveolar": [
+            "t",
+            "d"
+          ],
+          "bilabial": [
+            "p",
+            "b"
+          ],
+          "velar": [
+            "k",
+            "ɡ"
+          ]
+        },
+        "detail": "the air is stopped completely, then released",
+        "label": "Stop"
+      },
+      {
+        "cells": {
+          "postalveolar": [
+            "tʃ",
+            "dʒ"
+          ]
+        },
+        "detail": "a stop that opens into a hiss",
+        "label": "Affricate"
+      },
+      {
+        "cells": {
+          "alveolar": [
+            "s",
+            "z"
+          ],
+          "dental": [
+            "θ",
+            "ð"
+          ],
+          "glottal": [
+            "h"
+          ],
+          "labiodental": [
+            "f",
+            "v"
+          ],
+          "postalveolar": [
+            "ʃ",
+            "ʒ"
+          ]
+        },
+        "detail": "the air hisses through a narrow gap",
+        "label": "Fricative"
+      },
+      {
+        "cells": {
+          "alveolar": [
+            "n"
+          ],
+          "bilabial": [
+            "m"
+          ],
+          "velar": [
+            "ŋ"
+          ]
+        },
+        "detail": "the air goes out through the nose",
+        "label": "Nasal"
+      },
+      {
+        "cells": {
+          "alveolar": [
+            "ɹ"
+          ],
+          "bilabial": [
+            "w"
+          ],
+          "palatal": [
+            "j"
+          ]
+        },
+        "detail": "the tongue or lips come close without touching",
+        "label": "Approximant"
+      },
+      {
+        "cells": {
+          "alveolar": [
+            "l"
+          ]
+        },
+        "detail": "the air flows around the sides of the tongue",
+        "label": "Lateral"
+      }
+    ],
+    "glidingGroups": [
+      {
+        "detail": "the tongue glides from one vowel to another",
+        "label": "Diphthongs",
+        "symbols": [
+          "eɪ",
+          "aɪ",
+          "ɔɪ",
+          "aʊ",
+          "oʊ",
+          "ju"
+        ]
+      },
+      {
+        "detail": "a vowel that ends with the tongue in the r position",
+        "label": "Vowels with r",
+        "symbols": [
+          "ɪɹ",
+          "ɛɹ",
+          "ʊɹ",
+          "ɑɹ",
+          "ɔɹ",
+          "oɹ",
+          "aɪɚ"
+        ]
+      },
+      {
+        "detail": "heard in accents without r, and in a few words",
+        "label": "Non-rhotic glides",
+        "symbols": [
+          "iə",
+          "eə",
+          "aɪə"
+        ]
+      }
+    ],
+    "placed": [
+      "p",
+      "b",
+      "t",
+      "d",
+      "k",
+      "ɡ",
+      "tʃ",
+      "dʒ",
+      "f",
+      "v",
+      "θ",
+      "ð",
+      "s",
+      "z",
+      "ʃ",
+      "ʒ",
+      "h",
+      "m",
+      "n",
+      "ŋ",
+      "w",
+      "ɹ",
+      "j",
+      "l",
+      "p̚",
+      "b̚",
+      "t̚",
+      "d̚",
+      "k̚",
+      "ɡ̚",
+      "ɾ",
+      "ɾ̃",
+      "ʔ",
+      "n̩",
+      "m̩",
+      "ŋ̍",
+      "l̩",
+      "əl",
+      "i",
+      "u",
+      "ɪ",
+      "ᵻ",
+      "ʊ",
+      "ə",
+      "ɚ",
+      "ɝ",
+      "ɛ",
+      "ɜ",
+      "ʌ",
+      "ɔ",
+      "æ",
+      "ɐ",
+      "ɑ",
+      "ɒ",
+      "eɪ",
+      "aɪ",
+      "ɔɪ",
+      "aʊ",
+      "oʊ",
+      "ju",
+      "ɪɹ",
+      "ɛɹ",
+      "ʊɹ",
+      "ɑɹ",
+      "ɔɹ",
+      "oɹ",
+      "aɪɚ",
+      "iə",
+      "eə",
+      "aɪə"
+    ],
+    "places": [
+      {
+        "detail": "bilabial",
+        "key": "bilabial",
+        "label": "Lips"
+      },
+      {
+        "detail": "labiodental",
+        "key": "labiodental",
+        "label": "Lip + teeth"
+      },
+      {
+        "detail": "dental",
+        "key": "dental",
+        "label": "Teeth"
+      },
+      {
+        "detail": "alveolar",
+        "key": "alveolar",
+        "label": "Gum ridge"
+      },
+      {
+        "detail": "postalveolar",
+        "key": "postalveolar",
+        "label": "Behind the ridge"
+      },
+      {
+        "detail": "palatal",
+        "key": "palatal",
+        "label": "Hard palate"
+      },
+      {
+        "detail": "velar",
+        "key": "velar",
+        "label": "Soft palate"
+      },
+      {
+        "detail": "glottal",
+        "key": "glottal",
+        "label": "Throat"
+      }
+    ],
+    "reducedVowels": [
+      "ə",
+      "ɐ",
+      "ᵻ",
+      "ɚ"
+    ],
+    "syllabics": [
+      "n̩",
+      "m̩",
+      "ŋ̍",
+      "l̩",
+      "əl"
+    ],
+    "unplaced": [],
+    "vowelColumns": [
+      {
+        "detail": "",
+        "key": "front",
+        "label": "Front"
+      },
+      {
+        "detail": "",
+        "key": "central",
+        "label": "Central"
+      },
+      {
+        "detail": "",
+        "key": "back",
+        "label": "Back"
+      }
+    ],
+    "vowelRows": [
+      {
+        "cells": {
+          "back": [
+            "u"
+          ],
+          "front": [
+            "i"
+          ]
+        },
+        "detail": "tongue high, mouth almost closed",
+        "label": "Close"
+      },
+      {
+        "cells": {
+          "back": [
+            "ʊ"
+          ],
+          "central": [
+            "ᵻ"
+          ],
+          "front": [
+            "ɪ"
+          ]
+        },
+        "detail": "",
+        "label": "Near-close"
+      },
+      {
+        "cells": {
+          "central": [
+            "ə",
+            "ɚ",
+            "ɝ"
+          ]
+        },
+        "detail": "the relaxed middle of the mouth",
+        "label": "Mid"
+      },
+      {
+        "cells": {
+          "back": [
+            "ʌ",
+            "ɔ"
+          ],
+          "central": [
+            "ɜ"
+          ],
+          "front": [
+            "ɛ"
+          ]
+        },
+        "detail": "",
+        "label": "Open-mid"
+      },
+      {
+        "cells": {
+          "central": [
+            "ɐ"
+          ],
+          "front": [
+            "æ"
+          ]
+        },
+        "detail": "",
+        "label": "Near-open"
+      },
+      {
+        "cells": {
+          "back": [
+            "ɑ",
+            "ɒ"
+          ]
+        },
+        "detail": "tongue low, mouth open",
+        "label": "Open"
+      }
+    ]
+  },
+  "lessons": {
+    "contraction_lex": {
+      "demo": {
+        "dictionary": [
+          "w",
+          "ɑ",
+          "n",
+          "t",
+          "t",
+          "u"
+        ],
+        "from": "t",
+        "said": [
+          "w",
+          "ɑ",
+          "n",
+          "ə"
+        ],
+        "to": null,
+        "word": "want to"
+      },
+      "listenFor": "Two words fuse into one fixed form: “going to” → “gonna”, “want to” → “wanna”, “got to” → “gotta”, “let me” → “lemme”.",
+      "note": "“gonna” is only for the future before a verb (I'm gonna leave), never for movement (not “I'm gonna the store”). “wanna” only when want and to are side by side: “Who do you wanna win?” is wrong.",
+      "spanishTip": null
+    },
+    "elision_syllable": {
+      "demo": {
+        "dictionary": [
+          "k",
+          "æ",
+          "m",
+          "ɚ",
+          "ə"
+        ],
+        "from": "ɚ",
+        "said": [
+          "k",
+          "æ",
+          "m",
+          "ɹ",
+          "ə"
+        ],
+        "to": "ɹ",
+        "word": "camera"
+      },
+      "listenFor": "A whole unstressed syllable is skipped, so the word has one beat less: “probably” → “prob-ly”, “camera” → “cam-ra”, “family” → “fam-ly”.",
+      "note": null,
+      "spanishTip": null
+    },
+    "flapping": {
+      "demo": {
+        "dictionary": [
+          "w",
+          "ɔ",
+          "t",
+          "ɚ"
+        ],
+        "from": "t",
+        "said": [
+          "w",
+          "ɔ",
+          "ɾ",
+          "ɚ"
+        ],
+        "to": "ɾ",
+        "word": "water"
+      },
+      "listenFor": "A t or d between vowels becomes one very quick tap of the tongue: “water” sounds like “wadder”, “get it” like “geddit”.",
+      "note": "Not before a stressed syllable: “attack” and “return” keep a full t.",
+      "spanishTip": "The flap is the single r of Spanish “pero”. You already have this sound: use it for the t of “water”, “better” or “a lot of”."
+    },
+    "function_elision": {
+      "demo": {
+        "dictionary": [
+          "k",
+          "ʌ",
+          "p",
+          "ʌ",
+          "v"
+        ],
+        "from": "v",
+        "said": [
+          "k",
+          "ʌ",
+          "p",
+          "ə"
+        ],
+        "to": null,
+        "word": "cup of"
+      },
+      "listenFor": "A small function word keeps almost nothing: “of” → [ə] (“cup of tea” → “cuppa tea”), “them” → [əm] (“tell 'em”).",
+      "note": null,
+      "spanishTip": null
+    },
+    "glottalization": {
+      "demo": {
+        "dictionary": [
+          "b",
+          "ʌ",
+          "t",
+          "ə",
+          "n"
+        ],
+        "from": "t",
+        "said": [
+          "b",
+          "ʌ",
+          "ʔ",
+          "n̩"
+        ],
+        "to": "ʔ",
+        "word": "button"
+      },
+      "listenFor": "The t is replaced by a catch in the throat, as in “uh-oh”: “button” → “bu'n”, “important” → “impor'nt”.",
+      "note": null,
+      "spanishTip": null
+    },
+    "h_dropping": {
+      "demo": {
+        "dictionary": [
+          "t",
+          "ɛ",
+          "l",
+          "h",
+          "ɪ",
+          "m"
+        ],
+        "from": "h",
+        "said": [
+          "t",
+          "ɛ",
+          "l",
+          "ɪ",
+          "m"
+        ],
+        "to": null,
+        "word": "tell him"
+      },
+      "listenFor": "In unstressed he, him, his, her and have the h disappears: “tell him” → “tell-im”, “give her” → “giver”.",
+      "note": "Never at the start of a sentence: “He is here” keeps its h.",
+      "spanishTip": null
+    },
+    "linking": {
+      "demo": {
+        "dictionary": [
+          "d",
+          "ʌ",
+          "z",
+          "ɪ",
+          "t"
+        ],
+        "from": "z",
+        "said": [
+          "d",
+          "ʌ",
+          "z",
+          "ɪ",
+          "t"
+        ],
+        "to": "z",
+        "word": "does it"
+      },
+      "listenFor": "There is no pause between the words: a final consonant moves onto the next vowel (“pick it up” → “pi-ki-dup”), an r joins the next word (“far away”), or a w or y glide appears between two vowels (“go on” → “go-won”).",
+      "note": "American English never adds an r that is not written (“idea-r-is” is British).",
+      "spanishTip": null
+    },
+    "monophthongization": {
+      "demo": {
+        "dictionary": [
+          "m",
+          "aɪ"
+        ],
+        "from": "aɪ",
+        "said": [
+          "m",
+          "æ"
+        ],
+        "to": "æ",
+        "word": "my"
+      },
+      "listenFor": "A two-part vowel stays on its first part: “my” sounds like “ma”, “time” like “tahm”.",
+      "note": null,
+      "spanishTip": null
+    },
+    "nt_reduction": {
+      "demo": {
+        "dictionary": [
+          "w",
+          "ɪ",
+          "n",
+          "t",
+          "ɚ"
+        ],
+        "from": "t",
+        "said": [
+          "w",
+          "ɪ",
+          "ɾ̃",
+          "ɚ"
+        ],
+        "to": "ɾ̃",
+        "word": "winter"
+      },
+      "listenFor": "The t after n disappears or becomes a nasal tap: “twenty” → “twenny”, “winter” → almost “winner”, “internet” → “innernet”.",
+      "note": "Very American but variable: “winter” and “winner” often stay slightly different.",
+      "spanishTip": null
+    },
+    "palatalization": {
+      "demo": {
+        "dictionary": [
+          "ɡ",
+          "ɑ",
+          "t",
+          "j",
+          "u"
+        ],
+        "from": "t",
+        "said": [
+          "ɡ",
+          "ɑ",
+          "tʃ",
+          "ə"
+        ],
+        "to": "tʃ",
+        "word": "got you"
+      },
+      "listenFor": "A final t, d, s or z melts into a following “you”: “did you” → “didja”, “got you” → “gotcha”, “miss you” → “mishu”.",
+      "note": null,
+      "spanishTip": null
+    },
+    "place_assimilation": {
+      "demo": {
+        "dictionary": [
+          "t",
+          "ɛ",
+          "n",
+          "b",
+          "ʌ",
+          "k",
+          "s"
+        ],
+        "from": "n",
+        "said": [
+          "t",
+          "ɛ",
+          "m",
+          "b",
+          "ʌ",
+          "k",
+          "s"
+        ],
+        "to": "m",
+        "word": "ten bucks"
+      },
+      "listenFor": "A final n, t or d takes the place of the next sound: “ten bucks” → “tem bucks”, “in case” → “ing case”, “good boy” → “goob boy”.",
+      "note": "It happens by itself in fast speech; forcing it sounds odd. Learn to hear it.",
+      "spanishTip": null
+    },
+    "t_deletion": {
+      "demo": {
+        "dictionary": [
+          "n",
+          "ɛ",
+          "k",
+          "s",
+          "t",
+          "d",
+          "eɪ"
+        ],
+        "from": "t",
+        "said": [
+          "n",
+          "ɛ",
+          "k",
+          "s",
+          "d",
+          "eɪ"
+        ],
+        "to": null,
+        "word": "next day"
+      },
+      "listenFor": "When a word ends in a group of consonants, the t or d is skipped before the next consonant: “next day” → “nex' day”, “old man” → “ol' man”.",
+      "note": null,
+      "spanishTip": null
+    },
+    "t_unreleased": {
+      "demo": {
+        "dictionary": [
+          "ð",
+          "æ",
+          "t"
+        ],
+        "from": "t",
+        "said": [
+          "ð",
+          "æ",
+          "t̚"
+        ],
+        "to": "t̚",
+        "word": "that"
+      },
+      "listenFor": "At the end of a word the tongue closes for t, but no puff of air follows: “that one” sounds like “tha' one”, with a tiny silence where the t should be.",
+      "note": null,
+      "spanishTip": null
+    },
+    "th_stopping": {
+      "demo": {
+        "dictionary": [
+          "ð",
+          "æ",
+          "t"
+        ],
+        "from": "ð",
+        "said": [
+          "d",
+          "æ",
+          "t"
+        ],
+        "to": "d",
+        "word": "that"
+      },
+      "listenFor": "th is said as a plain d or t: “that” → “dat”, “thing” → “ting”.",
+      "note": null,
+      "spanishTip": "Many Spanish speakers already mix [ð] with [d]. Here it is a regional native feature to recognize — keep practising [θ] and [ð] in your own speech."
+    },
+    "vowel_reduction": {
+      "demo": {
+        "dictionary": [
+          "d",
+          "ʌ",
+          "z"
+        ],
+        "from": "ʌ",
+        "said": [
+          "d",
+          "ə",
+          "z"
+        ],
+        "to": "ə",
+        "word": "does"
+      },
+      "listenFor": "Unstressed syllables get short and quiet, and their vowel becomes a neutral “uh” [ə]. Listen for the small words — to, of, a, can, for — that almost vanish between the stressed ones.",
+      "note": "“can” reduces to [kən], but “can't” keeps its full [æ]: the vowel, not the t, tells them apart.",
+      "spanishTip": "Spanish gives every vowel its full value. Saying ba-NA-na with three clear a's instead of [bəˈnænə] is the most audible accent marker — and it also makes the reduced word hard to recognize."
+    },
+    "word_elision": {
+      "demo": null,
+      "listenFor": "The word is so short and quiet that no sound was found for it — usually a small function word in fast speech, or a word buried under laughter or music.",
+      "note": "Read this label with caution: it can also be a gap in the recognition.",
+      "spanishTip": null
+    }
+  },
+  "phones": [
+    {
+      "carry": null,
+      "cue": "Both lips seal, the pressure builds up behind them, and the release is a puff of air.",
+      "example": "pie",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.5,
+            "height": 0.45,
+            "jaw": 0.1,
+            "lipOpen": 0,
+            "lipRound": 0.08,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 0
+          }
+        },
+        {
+          "at": 0.75,
+          "pose": {
+            "body": 0.5,
+            "height": 0.45,
+            "jaw": 0.1,
+            "lipOpen": 0,
+            "lipRound": 0.08,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 0
+          }
+        }
+      ],
+      "manner": "stop",
+      "name": "voiceless bilabial stop",
+      "symbol": "p",
+      "voiced": false
+    },
+    {
+      "carry": null,
+      "cue": "The same seal as /p/, but the vocal folds are already vibrating when it opens.",
+      "example": "buy",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.5,
+            "height": 0.45,
+            "jaw": 0.1,
+            "lipOpen": 0,
+            "lipRound": 0.08,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.75,
+          "pose": {
+            "body": 0.5,
+            "height": 0.45,
+            "jaw": 0.1,
+            "lipOpen": 0,
+            "lipRound": 0.08,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "stop",
+      "name": "voiced bilabial stop",
+      "symbol": "b",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "The tip of the tongue seals against the ridge behind the upper teeth.",
+      "example": "tea",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.6,
+            "height": 0.5,
+            "jaw": 0.14,
+            "lipOpen": 0.34,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 0
+          }
+        },
+        {
+          "at": 0.75,
+          "pose": {
+            "body": 0.6,
+            "height": 0.5,
+            "jaw": 0.14,
+            "lipOpen": 0.34,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 0
+          }
+        }
+      ],
+      "manner": "stop",
+      "name": "voiceless alveolar stop",
+      "symbol": "t",
+      "voiced": false
+    },
+    {
+      "carry": null,
+      "cue": "The same seal as /t/, with the voice running through it.",
+      "example": "do",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.6,
+            "height": 0.5,
+            "jaw": 0.14,
+            "lipOpen": 0.34,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.75,
+          "pose": {
+            "body": 0.6,
+            "height": 0.5,
+            "jaw": 0.14,
+            "lipOpen": 0.34,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "stop",
+      "name": "voiced alveolar stop",
+      "symbol": "d",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "The back of the tongue rises and seals against the soft palate.",
+      "example": "key",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.45,
+            "height": 1,
+            "jaw": 0.18,
+            "lipOpen": 0.36,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.08,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 0
+          }
+        },
+        {
+          "at": 0.75,
+          "pose": {
+            "body": 0.45,
+            "height": 1,
+            "jaw": 0.18,
+            "lipOpen": 0.36,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.08,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 0
+          }
+        }
+      ],
+      "manner": "stop",
+      "name": "voiceless velar stop",
+      "symbol": "k",
+      "voiced": false
+    },
+    {
+      "carry": null,
+      "cue": "The same back seal as /k/, voiced.",
+      "example": "go",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.45,
+            "height": 1,
+            "jaw": 0.18,
+            "lipOpen": 0.36,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.08,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.75,
+          "pose": {
+            "body": 0.45,
+            "height": 1,
+            "jaw": 0.18,
+            "lipOpen": 0.36,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.08,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "stop",
+      "name": "voiced velar stop",
+      "symbol": "ɡ",
+      "voiced": true
+    },
+    {
+      "carry": {
+        "voice": 0
+      },
+      "cue": "The vocal folds close and cut the sound off. The mouth does nothing — that is why a glottalised /t/ looks like no /t/ at all.",
+      "example": "the catch in “uh-oh”",
+      "gestures": [],
+      "manner": "glottal",
+      "name": "glottal stop",
+      "symbol": "ʔ",
+      "voiced": false
+    },
+    {
+      "carry": null,
+      "cue": "The lips seal as for /p/ and stay sealed: no puff of air, the next sound starts from behind closed lips.",
+      "example": "the -p of “stop” said curtly",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.5,
+            "height": 0.45,
+            "jaw": 0.1,
+            "lipOpen": 0,
+            "lipRound": 0.08,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 0
+          }
+        },
+        {
+          "at": 1,
+          "pose": {
+            "body": 0.5,
+            "height": 0.45,
+            "jaw": 0.1,
+            "lipOpen": 0,
+            "lipRound": 0.08,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 0
+          }
+        }
+      ],
+      "manner": "unreleased",
+      "name": "unreleased voiceless bilabial stop",
+      "symbol": "p̚",
+      "voiced": false
+    },
+    {
+      "carry": null,
+      "cue": "The /b/ seal held shut and never opened; the voice fades away inside the closure.",
+      "example": "the -b of “club” before a pause",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.5,
+            "height": 0.45,
+            "jaw": 0.1,
+            "lipOpen": 0,
+            "lipRound": 0.08,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 1,
+          "pose": {
+            "body": 0.5,
+            "height": 0.45,
+            "jaw": 0.1,
+            "lipOpen": 0,
+            "lipRound": 0.08,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "unreleased",
+      "name": "unreleased voiced bilabial stop",
+      "symbol": "b̚",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "The tip seals on the ridge and simply stays there: no burst. American English does this to most final /t/s — the /t/ is in the mouth, not in the ear.",
+      "example": "the -t of “that” in “that one”",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.6,
+            "height": 0.5,
+            "jaw": 0.14,
+            "lipOpen": 0.34,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 0
+          }
+        },
+        {
+          "at": 1,
+          "pose": {
+            "body": 0.6,
+            "height": 0.5,
+            "jaw": 0.14,
+            "lipOpen": 0.34,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 0
+          }
+        }
+      ],
+      "manner": "unreleased",
+      "name": "unreleased voiceless alveolar stop",
+      "symbol": "t̚",
+      "voiced": false
+    },
+    {
+      "carry": null,
+      "cue": "The /d/ seal held with no release; the voicing dies away inside the closure.",
+      "example": "the -d of “good” in “good times”",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.6,
+            "height": 0.5,
+            "jaw": 0.14,
+            "lipOpen": 0.34,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 1,
+          "pose": {
+            "body": 0.6,
+            "height": 0.5,
+            "jaw": 0.14,
+            "lipOpen": 0.34,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "unreleased",
+      "name": "unreleased voiced alveolar stop",
+      "symbol": "d̚",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "The back of the tongue seals against the velum and stays there; the release never comes.",
+      "example": "the -k of “look” in “look back”",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.45,
+            "height": 1,
+            "jaw": 0.18,
+            "lipOpen": 0.36,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.08,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 0
+          }
+        },
+        {
+          "at": 1,
+          "pose": {
+            "body": 0.45,
+            "height": 1,
+            "jaw": 0.18,
+            "lipOpen": 0.36,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.08,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 0
+          }
+        }
+      ],
+      "manner": "unreleased",
+      "name": "unreleased voiceless velar stop",
+      "symbol": "k̚",
+      "voiced": false
+    },
+    {
+      "carry": null,
+      "cue": "The /ɡ/ seal at the velum, voiced as it closes and never opened.",
+      "example": "the -g of “big” in “big deal”",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.45,
+            "height": 1,
+            "jaw": 0.18,
+            "lipOpen": 0.36,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.08,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 1,
+          "pose": {
+            "body": 0.45,
+            "height": 1,
+            "jaw": 0.18,
+            "lipOpen": 0.36,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.08,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "unreleased",
+      "name": "unreleased voiced velar stop",
+      "symbol": "ɡ̚",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "Lips closed and the velum drops: the whole airstream leaves through the nose.",
+      "example": "my",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.5,
+            "height": 0.45,
+            "jaw": 0.1,
+            "lipOpen": 0,
+            "lipRound": 0.08,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 1,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.75,
+          "pose": {
+            "body": 0.5,
+            "height": 0.45,
+            "jaw": 0.1,
+            "lipOpen": 0,
+            "lipRound": 0.08,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 1,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "nasal",
+      "name": "bilabial nasal",
+      "symbol": "m",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "Tongue tip on the ridge and velum down: the mouth is blocked, the nose is not.",
+      "example": "no",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.6,
+            "height": 0.5,
+            "jaw": 0.14,
+            "lipOpen": 0.34,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 1,
+            "tipFront": 0.5,
+            "velum": 1,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.75,
+          "pose": {
+            "body": 0.6,
+            "height": 0.5,
+            "jaw": 0.14,
+            "lipOpen": 0.34,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 1,
+            "tipFront": 0.5,
+            "velum": 1,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "nasal",
+      "name": "alveolar nasal",
+      "symbol": "n",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "The back of the tongue blocks the mouth against the lowered velum. No /ɡ/ follows it in English.",
+      "example": "sing",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.45,
+            "height": 1,
+            "jaw": 0.18,
+            "lipOpen": 0.36,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.08,
+            "tipFront": 0.5,
+            "velum": 1,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.75,
+          "pose": {
+            "body": 0.45,
+            "height": 1,
+            "jaw": 0.18,
+            "lipOpen": 0.36,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.08,
+            "tipFront": 0.5,
+            "velum": 1,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "nasal",
+      "name": "velar nasal",
+      "symbol": "ŋ",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "An /n/ that carries the syllable by itself: the tongue never leaves the ridge, and there is no vowel before it.",
+      "example": "the -on of “button”",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.6,
+            "height": 0.5,
+            "jaw": 0.22,
+            "lipOpen": 0.34,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 1,
+            "tipFront": 0.5,
+            "velum": 1,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.75,
+          "pose": {
+            "body": 0.6,
+            "height": 0.5,
+            "jaw": 0.22,
+            "lipOpen": 0.34,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 1,
+            "tipFront": 0.5,
+            "velum": 1,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "nasal",
+      "name": "syllabic alveolar nasal",
+      "symbol": "n̩",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "An /m/ that is the whole syllable: the lips stay closed and the voice hums through the nose with no vowel before it.",
+      "example": "the -m of “rhythm”",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.5,
+            "height": 0.45,
+            "jaw": 0.14,
+            "lipOpen": 0,
+            "lipRound": 0.08,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 1,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.75,
+          "pose": {
+            "body": 0.5,
+            "height": 0.45,
+            "jaw": 0.14,
+            "lipOpen": 0,
+            "lipRound": 0.08,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 1,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "nasal",
+      "name": "syllabic bilabial nasal",
+      "symbol": "m̩",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "The back of the tongue stays on the velum after the /k/ and hums the last syllable through the nose: the /n/ of “bacon” has taken the /k/'s place.",
+      "example": "“bacon” said fast",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.45,
+            "height": 1,
+            "jaw": 0.22,
+            "lipOpen": 0.36,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.08,
+            "tipFront": 0.5,
+            "velum": 1,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.75,
+          "pose": {
+            "body": 0.45,
+            "height": 1,
+            "jaw": 0.22,
+            "lipOpen": 0.36,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.08,
+            "tipFront": 0.5,
+            "velum": 1,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "nasal",
+      "name": "syllabic velar nasal",
+      "symbol": "ŋ̍",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "The lower lip touches the upper teeth and the air hisses between them. The lips never meet each other.",
+      "example": "fee",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.5,
+            "height": 0.45,
+            "jaw": 0.12,
+            "lipOpen": 0.2,
+            "lipRound": 0.05,
+            "lipTuck": 1,
+            "root": 0.3,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 0
+          }
+        },
+        {
+          "at": 0.75,
+          "pose": {
+            "body": 0.5,
+            "height": 0.45,
+            "jaw": 0.12,
+            "lipOpen": 0.2,
+            "lipRound": 0.05,
+            "lipTuck": 1,
+            "root": 0.3,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 0
+          }
+        }
+      ],
+      "manner": "fricative",
+      "name": "voiceless labiodental fricative",
+      "symbol": "f",
+      "voiced": false
+    },
+    {
+      "carry": null,
+      "cue": "Like /f/, with voice. Watch the lip against the teeth: a /b/ closes both lips instead.",
+      "example": "view",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.5,
+            "height": 0.45,
+            "jaw": 0.12,
+            "lipOpen": 0.2,
+            "lipRound": 0.05,
+            "lipTuck": 1,
+            "root": 0.3,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.75,
+          "pose": {
+            "body": 0.5,
+            "height": 0.45,
+            "jaw": 0.12,
+            "lipOpen": 0.2,
+            "lipRound": 0.05,
+            "lipTuck": 1,
+            "root": 0.3,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "fricative",
+      "name": "voiced labiodental fricative",
+      "symbol": "v",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "The tip of the tongue comes out between the teeth and the air passes over it.",
+      "example": "think",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.6,
+            "height": 0.45,
+            "jaw": 0.22,
+            "lipOpen": 0.42,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 1,
+            "tipFront": 1,
+            "velum": 0,
+            "voice": 0
+          }
+        },
+        {
+          "at": 0.75,
+          "pose": {
+            "body": 0.6,
+            "height": 0.45,
+            "jaw": 0.22,
+            "lipOpen": 0.42,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 1,
+            "tipFront": 1,
+            "velum": 0,
+            "voice": 0
+          }
+        }
+      ],
+      "manner": "fricative",
+      "name": "voiceless dental fricative",
+      "symbol": "θ",
+      "voiced": false
+    },
+    {
+      "carry": null,
+      "cue": "The same tongue between the teeth as /θ/, with the voice on.",
+      "example": "this",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.6,
+            "height": 0.45,
+            "jaw": 0.22,
+            "lipOpen": 0.42,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 1,
+            "tipFront": 1,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.75,
+          "pose": {
+            "body": 0.6,
+            "height": 0.45,
+            "jaw": 0.22,
+            "lipOpen": 0.42,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 1,
+            "tipFront": 1,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "fricative",
+      "name": "voiced dental fricative",
+      "symbol": "ð",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "A narrow groove between the tip of the tongue and the ridge; the air whistles through it.",
+      "example": "see",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.65,
+            "height": 0.55,
+            "jaw": 0.1,
+            "lipOpen": 0.26,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.9,
+            "tipFront": 0.46,
+            "velum": 0,
+            "voice": 0
+          }
+        },
+        {
+          "at": 0.75,
+          "pose": {
+            "body": 0.65,
+            "height": 0.55,
+            "jaw": 0.1,
+            "lipOpen": 0.26,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.9,
+            "tipFront": 0.46,
+            "velum": 0,
+            "voice": 0
+          }
+        }
+      ],
+      "manner": "fricative",
+      "name": "voiceless alveolar fricative",
+      "symbol": "s",
+      "voiced": false
+    },
+    {
+      "carry": null,
+      "cue": "The same groove as /s/, with the vocal folds vibrating.",
+      "example": "zoo",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.65,
+            "height": 0.55,
+            "jaw": 0.1,
+            "lipOpen": 0.26,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.9,
+            "tipFront": 0.46,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.75,
+          "pose": {
+            "body": 0.65,
+            "height": 0.55,
+            "jaw": 0.1,
+            "lipOpen": 0.26,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.9,
+            "tipFront": 0.46,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "fricative",
+      "name": "voiced alveolar fricative",
+      "symbol": "z",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "The tongue pulls back a little from /s/ and the lips round: a deeper, darker hiss.",
+      "example": "ship",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.68,
+            "height": 0.62,
+            "jaw": 0.16,
+            "lipOpen": 0.34,
+            "lipRound": 0.45,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.84,
+            "tipFront": 0.12,
+            "velum": 0,
+            "voice": 0
+          }
+        },
+        {
+          "at": 0.75,
+          "pose": {
+            "body": 0.68,
+            "height": 0.62,
+            "jaw": 0.16,
+            "lipOpen": 0.34,
+            "lipRound": 0.45,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.84,
+            "tipFront": 0.12,
+            "velum": 0,
+            "voice": 0
+          }
+        }
+      ],
+      "manner": "fricative",
+      "name": "voiceless postalveolar fricative",
+      "symbol": "ʃ",
+      "voiced": false
+    },
+    {
+      "carry": null,
+      "cue": "The voiced twin of /ʃ/. It is what /z/ turns into before a /j/ (“as you” → aʒu).",
+      "example": "vision",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.68,
+            "height": 0.62,
+            "jaw": 0.16,
+            "lipOpen": 0.34,
+            "lipRound": 0.45,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.84,
+            "tipFront": 0.12,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.75,
+          "pose": {
+            "body": 0.68,
+            "height": 0.62,
+            "jaw": 0.16,
+            "lipOpen": 0.34,
+            "lipRound": 0.45,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.84,
+            "tipFront": 0.12,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "fricative",
+      "name": "voiced postalveolar fricative",
+      "symbol": "ʒ",
+      "voiced": true
+    },
+    {
+      "carry": {
+        "voice": 0
+      },
+      "cue": "Nothing blocks the mouth: the noise is made at the vocal folds while the tongue is already shaped for the vowel that follows.",
+      "example": "hat",
+      "gestures": [],
+      "manner": "glottal",
+      "name": "voiceless glottal fricative",
+      "symbol": "h",
+      "voiced": false
+    },
+    {
+      "carry": null,
+      "cue": "A stop that does not open straight up: it releases into the hiss of /ʃ/.",
+      "example": "church",
+      "gestures": [
+        {
+          "at": 0.1,
+          "pose": {
+            "body": 0.68,
+            "height": 0.62,
+            "jaw": 0.16,
+            "lipOpen": 0.34,
+            "lipRound": 0.45,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 1,
+            "tipFront": 0.16,
+            "velum": 0,
+            "voice": 0
+          }
+        },
+        {
+          "at": 0.45,
+          "pose": {
+            "body": 0.68,
+            "height": 0.62,
+            "jaw": 0.16,
+            "lipOpen": 0.34,
+            "lipRound": 0.45,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 1,
+            "tipFront": 0.16,
+            "velum": 0,
+            "voice": 0
+          }
+        },
+        {
+          "at": 0.75,
+          "pose": {
+            "body": 0.68,
+            "height": 0.62,
+            "jaw": 0.16,
+            "lipOpen": 0.34,
+            "lipRound": 0.45,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.84,
+            "tipFront": 0.12,
+            "velum": 0,
+            "voice": 0
+          }
+        },
+        {
+          "at": 0.95,
+          "pose": {
+            "body": 0.68,
+            "height": 0.62,
+            "jaw": 0.16,
+            "lipOpen": 0.34,
+            "lipRound": 0.45,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.84,
+            "tipFront": 0.12,
+            "velum": 0,
+            "voice": 0
+          }
+        }
+      ],
+      "manner": "affricate",
+      "name": "voiceless postalveolar affricate",
+      "symbol": "tʃ",
+      "voiced": false
+    },
+    {
+      "carry": null,
+      "cue": "The voiced version: closure and then /ʒ/. It is what /d/ becomes before a /j/ (“did you” → dɪdʒu).",
+      "example": "judge",
+      "gestures": [
+        {
+          "at": 0.1,
+          "pose": {
+            "body": 0.68,
+            "height": 0.62,
+            "jaw": 0.16,
+            "lipOpen": 0.34,
+            "lipRound": 0.45,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 1,
+            "tipFront": 0.16,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.45,
+          "pose": {
+            "body": 0.68,
+            "height": 0.62,
+            "jaw": 0.16,
+            "lipOpen": 0.34,
+            "lipRound": 0.45,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 1,
+            "tipFront": 0.16,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.75,
+          "pose": {
+            "body": 0.68,
+            "height": 0.62,
+            "jaw": 0.16,
+            "lipOpen": 0.34,
+            "lipRound": 0.45,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.84,
+            "tipFront": 0.12,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.95,
+          "pose": {
+            "body": 0.68,
+            "height": 0.62,
+            "jaw": 0.16,
+            "lipOpen": 0.34,
+            "lipRound": 0.45,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.84,
+            "tipFront": 0.12,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "affricate",
+      "name": "voiced postalveolar affricate",
+      "symbol": "dʒ",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "The tip bounces off the ridge once, too briefly to build up any pressure. This is what American /t/ and /d/ become between vowels.",
+      "example": "the -tt- of “butter”",
+      "gestures": [
+        {
+          "at": 0.5,
+          "pose": {
+            "body": 0.5,
+            "height": 0.42,
+            "jaw": 0.18,
+            "lipOpen": 0.36,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.97,
+            "tipFront": 0.52,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "tap",
+      "name": "alveolar tap",
+      "symbol": "ɾ",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "The same single tap as /ɾ/, but the velum stays down from the /n/ before it, so the tap sounds through the nose. It is why “winter” can sound like “winner”.",
+      "example": "the -nt- of “winter”",
+      "gestures": [
+        {
+          "at": 0.5,
+          "pose": {
+            "body": 0.5,
+            "height": 0.42,
+            "jaw": 0.18,
+            "lipOpen": 0.36,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.97,
+            "tipFront": 0.52,
+            "velum": 1,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "tap",
+      "name": "alveolar nasal tap",
+      "symbol": "ɾ̃",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "The tip touches the ridge but the sides of the tongue stay clear: the air leaves around them. At the end of a syllable the back rises too — that is the “dark” l.",
+      "example": "let",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.3,
+            "height": 0.42,
+            "jaw": 0.16,
+            "lipOpen": 0.36,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.5,
+            "tip": 1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.75,
+          "pose": {
+            "body": 0.3,
+            "height": 0.42,
+            "jaw": 0.16,
+            "lipOpen": 0.36,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.5,
+            "tip": 1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "lateral",
+      "name": "alveolar lateral approximant",
+      "symbol": "l",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "A dark /l/ that is the whole syllable: no vowel comes before it, the tongue goes straight to the ridge.",
+      "example": "the -le of “bottle”",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.3,
+            "height": 0.42,
+            "jaw": 0.22,
+            "lipOpen": 0.36,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.5,
+            "tip": 1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.75,
+          "pose": {
+            "body": 0.3,
+            "height": 0.42,
+            "jaw": 0.22,
+            "lipOpen": 0.36,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.5,
+            "tip": 1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "lateral",
+      "name": "syllabic alveolar lateral",
+      "symbol": "l̩",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "Nothing touches anything: the body of the tongue bunches up towards the palate, the root pulls back and the lips round a little. Some speakers curl the tip up instead.",
+      "example": "red",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.55,
+            "height": 0.6,
+            "jaw": 0.2,
+            "lipOpen": 0.34,
+            "lipRound": 0.4,
+            "lipTuck": 0,
+            "root": 0.62,
+            "tip": 0.45,
+            "tipFront": 0.1,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.75,
+          "pose": {
+            "body": 0.55,
+            "height": 0.6,
+            "jaw": 0.2,
+            "lipOpen": 0.34,
+            "lipRound": 0.4,
+            "lipTuck": 0,
+            "root": 0.62,
+            "tip": 0.45,
+            "tipFront": 0.1,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "approximant",
+      "name": "alveolar approximant",
+      "symbol": "ɹ",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "The tongue starts as high and as front as an /i/ and immediately slides off it.",
+      "example": "yes",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.95,
+            "height": 0.88,
+            "jaw": 0.12,
+            "lipOpen": 0.26,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.75,
+          "pose": {
+            "body": 0.95,
+            "height": 0.88,
+            "jaw": 0.12,
+            "lipOpen": 0.26,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "approximant",
+      "name": "palatal approximant",
+      "symbol": "j",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "Two narrowings at once: the lips round hard and the back of the tongue rises towards the velum.",
+      "example": "we",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.5,
+            "height": 0.86,
+            "jaw": 0.14,
+            "lipOpen": 0.14,
+            "lipRound": 0.9,
+            "lipTuck": 0,
+            "root": 0.35,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.75,
+          "pose": {
+            "body": 0.5,
+            "height": 0.86,
+            "jaw": 0.14,
+            "lipOpen": 0.14,
+            "lipRound": 0.9,
+            "lipTuck": 0,
+            "root": 0.35,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "approximant",
+      "name": "labial-velar approximant",
+      "symbol": "w",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "The tongue is as high and as far forward as it goes without hissing; the lips are spread.",
+      "example": "see",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.96,
+            "height": 0.9,
+            "jaw": 0.19799999999999995,
+            "lipOpen": 0.29444,
+            "lipRound": 0,
+            "lipTuck": 0,
+            "root": 0.15,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.75,
+          "pose": {
+            "body": 0.96,
+            "height": 0.9,
+            "jaw": 0.19799999999999995,
+            "lipOpen": 0.29444,
+            "lipRound": 0,
+            "lipTuck": 0,
+            "root": 0.15,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "vowel",
+      "name": "close front unrounded vowel",
+      "symbol": "i",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "Like /i/ but loose: the tongue drops a little and pulls back. Keeping it tense turns “sit” into “seat”.",
+      "example": "sit",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.88,
+            "height": 0.74,
+            "jaw": 0.3228,
+            "lipOpen": 0.391784,
+            "lipRound": 0,
+            "lipTuck": 0,
+            "root": 0.2,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.75,
+          "pose": {
+            "body": 0.88,
+            "height": 0.74,
+            "jaw": 0.3228,
+            "lipOpen": 0.391784,
+            "lipRound": 0,
+            "lipTuck": 0,
+            "root": 0.2,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "vowel",
+      "name": "near-close near-front unrounded vowel",
+      "symbol": "ɪ",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "Front of the tongue at mid height, jaw clearly more open than for /ɪ/.",
+      "example": "dress",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.8,
+            "height": 0.55,
+            "jaw": 0.471,
+            "lipOpen": 0.5073799999999999,
+            "lipRound": 0,
+            "lipTuck": 0,
+            "root": 0.25,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.75,
+          "pose": {
+            "body": 0.8,
+            "height": 0.55,
+            "jaw": 0.471,
+            "lipOpen": 0.5073799999999999,
+            "lipRound": 0,
+            "lipTuck": 0,
+            "root": 0.25,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "vowel",
+      "name": "open-mid front unrounded vowel",
+      "symbol": "ɛ",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "The front of the tongue stays forward while the jaw drops wide open. It is the widest front vowel English has.",
+      "example": "cat",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.71,
+            "height": 0.3,
+            "jaw": 0.666,
+            "lipOpen": 0.6594800000000001,
+            "lipRound": 0,
+            "lipTuck": 0,
+            "root": 0.32,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.75,
+          "pose": {
+            "body": 0.71,
+            "height": 0.3,
+            "jaw": 0.666,
+            "lipOpen": 0.6594800000000001,
+            "lipRound": 0,
+            "lipTuck": 0,
+            "root": 0.32,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "vowel",
+      "name": "near-open front unrounded vowel",
+      "symbol": "æ",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "Tongue low and pulled back, so the pharynx narrows behind it; the lips stay unrounded.",
+      "example": "father",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.04,
+            "height": 0.14,
+            "jaw": 0.7908,
+            "lipOpen": 0.7379033999999999,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.75,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.75,
+          "pose": {
+            "body": 0.04,
+            "height": 0.14,
+            "jaw": 0.7908,
+            "lipOpen": 0.7379033999999999,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.75,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "vowel",
+      "name": "open back unrounded vowel",
+      "symbol": "ɑ",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "Low and back with a trace of rounding. American English usually merges it into /ɑ/.",
+      "example": "British “lot”",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.06,
+            "height": 0.2,
+            "jaw": 0.744,
+            "lipOpen": 0.612272,
+            "lipRound": 0.3,
+            "lipTuck": 0,
+            "root": 0.7,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.75,
+          "pose": {
+            "body": 0.06,
+            "height": 0.2,
+            "jaw": 0.744,
+            "lipOpen": 0.612272,
+            "lipRound": 0.3,
+            "lipTuck": 0,
+            "root": 0.7,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "vowel",
+      "name": "open back rounded vowel",
+      "symbol": "ɒ",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "Tongue central and relaxed, jaw half open, lips doing nothing at all.",
+      "example": "cup",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.39,
+            "height": 0.4,
+            "jaw": 0.588,
+            "lipOpen": 0.5986400000000001,
+            "lipRound": 0,
+            "lipTuck": 0,
+            "root": 0.45,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.75,
+          "pose": {
+            "body": 0.39,
+            "height": 0.4,
+            "jaw": 0.588,
+            "lipOpen": 0.5986400000000001,
+            "lipRound": 0,
+            "lipTuck": 0,
+            "root": 0.45,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "vowel",
+      "name": "open-mid back unrounded vowel",
+      "symbol": "ʌ",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "Low at the back with the lips slightly rounded. Many Americans no longer separate it from /ɑ/.",
+      "example": "thought",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.14,
+            "height": 0.34,
+            "jaw": 0.6348,
+            "lipOpen": 0.4922366,
+            "lipRound": 0.45,
+            "lipTuck": 0,
+            "root": 0.6,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.75,
+          "pose": {
+            "body": 0.14,
+            "height": 0.34,
+            "jaw": 0.6348,
+            "lipOpen": 0.4922366,
+            "lipRound": 0.45,
+            "lipTuck": 0,
+            "root": 0.6,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "vowel",
+      "name": "open-mid back rounded vowel",
+      "symbol": "ɔ",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "High and back but loose, with only a hint of rounding.",
+      "example": "book",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.45,
+            "height": 0.7,
+            "jaw": 0.3540000000000001,
+            "lipOpen": 0.3120900000000001,
+            "lipRound": 0.5,
+            "lipTuck": 0,
+            "root": 0.4,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.75,
+          "pose": {
+            "body": 0.45,
+            "height": 0.7,
+            "jaw": 0.3540000000000001,
+            "lipOpen": 0.3120900000000001,
+            "lipRound": 0.5,
+            "lipTuck": 0,
+            "root": 0.4,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "vowel",
+      "name": "near-close near-back rounded vowel",
+      "symbol": "ʊ",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "The back of the tongue rises towards the velum while the lips round and push forward.",
+      "example": "boot",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.52,
+            "height": 0.88,
+            "jaw": 0.2136,
+            "lipOpen": 0.17629959999999997,
+            "lipRound": 0.85,
+            "lipTuck": 0,
+            "root": 0.35,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.75,
+          "pose": {
+            "body": 0.52,
+            "height": 0.88,
+            "jaw": 0.2136,
+            "lipOpen": 0.17629959999999997,
+            "lipRound": 0.85,
+            "lipTuck": 0,
+            "root": 0.35,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "vowel",
+      "name": "close back rounded vowel",
+      "symbol": "u",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "The resting mouth, with voice: tongue in the middle, no effort anywhere. Every unstressed vowel in English drifts here.",
+      "example": "the a- of “about”",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.5,
+            "height": 0.45,
+            "jaw": 0.5489999999999999,
+            "lipOpen": 0.5540145,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.75,
+          "pose": {
+            "body": 0.5,
+            "height": 0.45,
+            "jaw": 0.5489999999999999,
+            "lipOpen": 0.5540145,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "vowel",
+      "name": "mid central vowel (schwa)",
+      "symbol": "ə",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "A schwa with the jaw a little lower. espeak uses it for heavily reduced vowels.",
+      "example": "a reduced “but”",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.46,
+            "height": 0.32,
+            "jaw": 0.6504,
+            "lipOpen": 0.6311292,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.4,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.75,
+          "pose": {
+            "body": 0.46,
+            "height": 0.32,
+            "jaw": 0.6504,
+            "lipOpen": 0.6311292,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.4,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "vowel",
+      "name": "near-open central vowel",
+      "symbol": "ɐ",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "The unstressed /ɪ/: as high as /ɪ/ but pulled back towards the centre, halfway to schwa. It is what tells “roses” from “Rosa's”.",
+      "example": "the -e- of “roses”",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.68,
+            "height": 0.66,
+            "jaw": 0.3852,
+            "lipOpen": 0.440456,
+            "lipRound": 0,
+            "lipTuck": 0,
+            "root": 0.25,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.75,
+          "pose": {
+            "body": 0.68,
+            "height": 0.66,
+            "jaw": 0.3852,
+            "lipOpen": 0.440456,
+            "lipRound": 0,
+            "lipTuck": 0,
+            "root": 0.25,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "vowel",
+      "name": "near-close central unrounded vowel",
+      "symbol": "ᵻ",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "Schwa plus /ɹ/ in one movement: the body of the tongue bunches towards the palate and the root pulls back.",
+      "example": "letter",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.55,
+            "height": 0.58,
+            "jaw": 0.44760000000000005,
+            "lipOpen": 0.41575880000000004,
+            "lipRound": 0.3,
+            "lipTuck": 0,
+            "root": 0.65,
+            "tip": 0.42,
+            "tipFront": 0.15,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.75,
+          "pose": {
+            "body": 0.55,
+            "height": 0.58,
+            "jaw": 0.44760000000000005,
+            "lipOpen": 0.41575880000000004,
+            "lipRound": 0.3,
+            "lipTuck": 0,
+            "root": 0.65,
+            "tip": 0.42,
+            "tipFront": 0.15,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "vowel",
+      "name": "r-coloured mid central vowel",
+      "symbol": "ɚ",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "The stressed /ɚ/: the same bunched tongue, held longer and louder.",
+      "example": "bird",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.55,
+            "height": 0.58,
+            "jaw": 0.44760000000000005,
+            "lipOpen": 0.41575880000000004,
+            "lipRound": 0.3,
+            "lipTuck": 0,
+            "root": 0.65,
+            "tip": 0.42,
+            "tipFront": 0.15,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.75,
+          "pose": {
+            "body": 0.55,
+            "height": 0.58,
+            "jaw": 0.44760000000000005,
+            "lipOpen": 0.41575880000000004,
+            "lipRound": 0.3,
+            "lipTuck": 0,
+            "root": 0.65,
+            "tip": 0.42,
+            "tipFront": 0.15,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "vowel",
+      "name": "stressed r-coloured vowel",
+      "symbol": "ɝ",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "Central and mid, with no r-colouring. In American English it almost always turns up as /ɝ/.",
+      "example": "nurse without the r",
+      "gestures": [
+        {
+          "at": 0.25,
+          "pose": {
+            "body": 0.5,
+            "height": 0.5,
+            "jaw": 0.51,
+            "lipOpen": 0.51091,
+            "lipRound": 0.1,
+            "lipTuck": 0,
+            "root": 0.4,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.75,
+          "pose": {
+            "body": 0.5,
+            "height": 0.5,
+            "jaw": 0.51,
+            "lipOpen": 0.51091,
+            "lipRound": 0.1,
+            "lipTuck": 0,
+            "root": 0.4,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "vowel",
+      "name": "open-mid central vowel",
+      "symbol": "ɜ",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "Starts near /ɛ/ and closes upwards to /ɪ/. Stopping at the start is the commonest way to make it sound foreign.",
+      "example": "say",
+      "gestures": [
+        {
+          "at": 0.18,
+          "pose": {
+            "body": 0.82,
+            "height": 0.56,
+            "jaw": 0.46319999999999995,
+            "lipOpen": 0.501296,
+            "lipRound": 0,
+            "lipTuck": 0,
+            "root": 0.25,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.85,
+          "pose": {
+            "body": 0.88,
+            "height": 0.74,
+            "jaw": 0.3228,
+            "lipOpen": 0.391784,
+            "lipRound": 0,
+            "lipTuck": 0,
+            "root": 0.2,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "diphthong",
+      "name": "closing diphthong",
+      "symbol": "eɪ",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "Starts mid-back with the lips already rounded and closes towards /ʊ/.",
+      "example": "go",
+      "gestures": [
+        {
+          "at": 0.18,
+          "pose": {
+            "body": 0.28,
+            "height": 0.45,
+            "jaw": 0.5489999999999999,
+            "lipOpen": 0.39775399999999994,
+            "lipRound": 0.6,
+            "lipTuck": 0,
+            "root": 0.55,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.85,
+          "pose": {
+            "body": 0.45,
+            "height": 0.7,
+            "jaw": 0.3540000000000001,
+            "lipOpen": 0.3120900000000001,
+            "lipRound": 0.5,
+            "lipTuck": 0,
+            "root": 0.4,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "diphthong",
+      "name": "closing diphthong",
+      "symbol": "oʊ",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "The jaw starts wide open with the tongue low, then everything closes up to /ɪ/.",
+      "example": "my",
+      "gestures": [
+        {
+          "at": 0.18,
+          "pose": {
+            "body": 0.42,
+            "height": 0.12,
+            "jaw": 0.8064,
+            "lipOpen": 0.768992,
+            "lipRound": 0,
+            "lipTuck": 0,
+            "root": 0.45,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.85,
+          "pose": {
+            "body": 0.88,
+            "height": 0.74,
+            "jaw": 0.3228,
+            "lipOpen": 0.391784,
+            "lipRound": 0,
+            "lipTuck": 0,
+            "root": 0.2,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "diphthong",
+      "name": "closing diphthong",
+      "symbol": "aɪ",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "Starts low, then the tongue pulls back and the lips round towards /ʊ/.",
+      "example": "now",
+      "gestures": [
+        {
+          "at": 0.18,
+          "pose": {
+            "body": 0.42,
+            "height": 0.12,
+            "jaw": 0.8064,
+            "lipOpen": 0.768992,
+            "lipRound": 0,
+            "lipTuck": 0,
+            "root": 0.45,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.85,
+          "pose": {
+            "body": 0.45,
+            "height": 0.7,
+            "jaw": 0.3540000000000001,
+            "lipOpen": 0.3120900000000001,
+            "lipRound": 0.5,
+            "lipTuck": 0,
+            "root": 0.4,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "diphthong",
+      "name": "closing diphthong",
+      "symbol": "aʊ",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "Starts back and rounded, then slides forward and up to /ɪ/: the longest trip in the vowel space.",
+      "example": "boy",
+      "gestures": [
+        {
+          "at": 0.18,
+          "pose": {
+            "body": 0.14,
+            "height": 0.34,
+            "jaw": 0.6348,
+            "lipOpen": 0.4922366,
+            "lipRound": 0.45,
+            "lipTuck": 0,
+            "root": 0.6,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.85,
+          "pose": {
+            "body": 0.88,
+            "height": 0.74,
+            "jaw": 0.3228,
+            "lipOpen": 0.391784,
+            "lipRound": 0,
+            "lipTuck": 0,
+            "root": 0.2,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "diphthong",
+      "name": "closing diphthong",
+      "symbol": "ɔɪ",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "Open back vowel that turns into an /ɹ/: the tongue rises and bunches without ever touching.",
+      "example": "start",
+      "gestures": [
+        {
+          "at": 0.18,
+          "pose": {
+            "body": 0.04,
+            "height": 0.14,
+            "jaw": 0.7908,
+            "lipOpen": 0.7379033999999999,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.75,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.85,
+          "pose": {
+            "body": 0.55,
+            "height": 0.58,
+            "jaw": 0.44760000000000005,
+            "lipOpen": 0.41575880000000004,
+            "lipRound": 0.3,
+            "lipTuck": 0,
+            "root": 0.65,
+            "tip": 0.42,
+            "tipFront": 0.15,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "diphthong",
+      "name": "r-coloured vowel",
+      "symbol": "ɑɹ",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "Rounded back vowel closing into /ɹ/.",
+      "example": "north",
+      "gestures": [
+        {
+          "at": 0.18,
+          "pose": {
+            "body": 0.14,
+            "height": 0.34,
+            "jaw": 0.6348,
+            "lipOpen": 0.4922366,
+            "lipRound": 0.45,
+            "lipTuck": 0,
+            "root": 0.6,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.85,
+          "pose": {
+            "body": 0.55,
+            "height": 0.58,
+            "jaw": 0.44760000000000005,
+            "lipOpen": 0.41575880000000004,
+            "lipRound": 0.3,
+            "lipTuck": 0,
+            "root": 0.65,
+            "tip": 0.42,
+            "tipFront": 0.15,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "diphthong",
+      "name": "r-coloured vowel",
+      "symbol": "ɔɹ",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "Like “north” but starting higher; most Americans no longer keep the two apart.",
+      "example": "force",
+      "gestures": [
+        {
+          "at": 0.18,
+          "pose": {
+            "body": 0.28,
+            "height": 0.45,
+            "jaw": 0.5489999999999999,
+            "lipOpen": 0.39775399999999994,
+            "lipRound": 0.6,
+            "lipTuck": 0,
+            "root": 0.55,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.85,
+          "pose": {
+            "body": 0.55,
+            "height": 0.58,
+            "jaw": 0.44760000000000005,
+            "lipOpen": 0.41575880000000004,
+            "lipRound": 0.3,
+            "lipTuck": 0,
+            "root": 0.65,
+            "tip": 0.42,
+            "tipFront": 0.15,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "diphthong",
+      "name": "r-coloured vowel",
+      "symbol": "oɹ",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "/ɪ/ falling back into the bunched /ɹ/.",
+      "example": "near",
+      "gestures": [
+        {
+          "at": 0.18,
+          "pose": {
+            "body": 0.88,
+            "height": 0.74,
+            "jaw": 0.3228,
+            "lipOpen": 0.391784,
+            "lipRound": 0,
+            "lipTuck": 0,
+            "root": 0.2,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.85,
+          "pose": {
+            "body": 0.55,
+            "height": 0.58,
+            "jaw": 0.44760000000000005,
+            "lipOpen": 0.41575880000000004,
+            "lipRound": 0.3,
+            "lipTuck": 0,
+            "root": 0.65,
+            "tip": 0.42,
+            "tipFront": 0.15,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "diphthong",
+      "name": "r-coloured vowel",
+      "symbol": "ɪɹ",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "/ɛ/ falling back into the bunched /ɹ/.",
+      "example": "square",
+      "gestures": [
+        {
+          "at": 0.18,
+          "pose": {
+            "body": 0.8,
+            "height": 0.55,
+            "jaw": 0.471,
+            "lipOpen": 0.5073799999999999,
+            "lipRound": 0,
+            "lipTuck": 0,
+            "root": 0.25,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.85,
+          "pose": {
+            "body": 0.55,
+            "height": 0.58,
+            "jaw": 0.44760000000000005,
+            "lipOpen": 0.41575880000000004,
+            "lipRound": 0.3,
+            "lipTuck": 0,
+            "root": 0.65,
+            "tip": 0.42,
+            "tipFront": 0.15,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "diphthong",
+      "name": "r-coloured vowel",
+      "symbol": "ɛɹ",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "/ʊ/ unrounding as it turns into /ɹ/.",
+      "example": "cure",
+      "gestures": [
+        {
+          "at": 0.18,
+          "pose": {
+            "body": 0.45,
+            "height": 0.7,
+            "jaw": 0.3540000000000001,
+            "lipOpen": 0.3120900000000001,
+            "lipRound": 0.5,
+            "lipTuck": 0,
+            "root": 0.4,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.85,
+          "pose": {
+            "body": 0.55,
+            "height": 0.58,
+            "jaw": 0.44760000000000005,
+            "lipOpen": 0.41575880000000004,
+            "lipRound": 0.3,
+            "lipTuck": 0,
+            "root": 0.65,
+            "tip": 0.42,
+            "tipFront": 0.15,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "diphthong",
+      "name": "r-coloured vowel",
+      "symbol": "ʊɹ",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "Three targets without a pause: open, then /ɪ/, then r-coloured.",
+      "example": "fire",
+      "gestures": [
+        {
+          "at": 0.12,
+          "pose": {
+            "body": 0.42,
+            "height": 0.12,
+            "jaw": 0.8064,
+            "lipOpen": 0.768992,
+            "lipRound": 0,
+            "lipTuck": 0,
+            "root": 0.45,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.5,
+          "pose": {
+            "body": 0.88,
+            "height": 0.74,
+            "jaw": 0.3228,
+            "lipOpen": 0.391784,
+            "lipRound": 0,
+            "lipTuck": 0,
+            "root": 0.2,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.9,
+          "pose": {
+            "body": 0.55,
+            "height": 0.58,
+            "jaw": 0.44760000000000005,
+            "lipOpen": 0.41575880000000004,
+            "lipRound": 0.3,
+            "lipTuck": 0,
+            "root": 0.65,
+            "tip": 0.42,
+            "tipFront": 0.15,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "diphthong",
+      "name": "triphthong",
+      "symbol": "aɪɚ",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "Like “fire” but ending in a plain schwa, with no r-colouring.",
+      "example": "fire (non-rhotic)",
+      "gestures": [
+        {
+          "at": 0.12,
+          "pose": {
+            "body": 0.42,
+            "height": 0.12,
+            "jaw": 0.8064,
+            "lipOpen": 0.768992,
+            "lipRound": 0,
+            "lipTuck": 0,
+            "root": 0.45,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.5,
+          "pose": {
+            "body": 0.88,
+            "height": 0.74,
+            "jaw": 0.3228,
+            "lipOpen": 0.391784,
+            "lipRound": 0,
+            "lipTuck": 0,
+            "root": 0.2,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.9,
+          "pose": {
+            "body": 0.5,
+            "height": 0.45,
+            "jaw": 0.5489999999999999,
+            "lipOpen": 0.5540145,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "diphthong",
+      "name": "triphthong",
+      "symbol": "aɪə",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "/i/ relaxing back into schwa.",
+      "example": "idea",
+      "gestures": [
+        {
+          "at": 0.18,
+          "pose": {
+            "body": 0.96,
+            "height": 0.9,
+            "jaw": 0.19799999999999995,
+            "lipOpen": 0.29444,
+            "lipRound": 0,
+            "lipTuck": 0,
+            "root": 0.15,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.85,
+          "pose": {
+            "body": 0.5,
+            "height": 0.45,
+            "jaw": 0.5489999999999999,
+            "lipOpen": 0.5540145,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "diphthong",
+      "name": "centring diphthong",
+      "symbol": "iə",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "Mid front vowel relaxing back into schwa.",
+      "example": "square (non-rhotic)",
+      "gestures": [
+        {
+          "at": 0.18,
+          "pose": {
+            "body": 0.8,
+            "height": 0.55,
+            "jaw": 0.471,
+            "lipOpen": 0.5073799999999999,
+            "lipRound": 0,
+            "lipTuck": 0,
+            "root": 0.25,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.85,
+          "pose": {
+            "body": 0.5,
+            "height": 0.45,
+            "jaw": 0.5489999999999999,
+            "lipOpen": 0.5540145,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "diphthong",
+      "name": "centring diphthong",
+      "symbol": "eə",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "Schwa straight into a dark /l/: the tongue goes up to the ridge while the back stays low.",
+      "example": "the -le of “little”",
+      "gestures": [
+        {
+          "at": 0.18,
+          "pose": {
+            "body": 0.5,
+            "height": 0.45,
+            "jaw": 0.5489999999999999,
+            "lipOpen": 0.5540145,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.85,
+          "pose": {
+            "body": 0.3,
+            "height": 0.42,
+            "jaw": 0.16,
+            "lipOpen": 0.36,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.5,
+            "tip": 1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "lateral",
+      "name": "syllabic l",
+      "symbol": "əl",
+      "voiced": true
+    },
+    {
+      "carry": null,
+      "cue": "/j/ then /u/: the tongue starts against the palate and slides back while the lips round.",
+      "example": "few",
+      "gestures": [
+        {
+          "at": 0.18,
+          "pose": {
+            "body": 0.95,
+            "height": 0.88,
+            "jaw": 0.12,
+            "lipOpen": 0.26,
+            "lipRound": 0.05,
+            "lipTuck": 0,
+            "root": 0.3,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        },
+        {
+          "at": 0.85,
+          "pose": {
+            "body": 0.52,
+            "height": 0.88,
+            "jaw": 0.2136,
+            "lipOpen": 0.17629959999999997,
+            "lipRound": 0.85,
+            "lipTuck": 0,
+            "root": 0.35,
+            "tip": 0.1,
+            "tipFront": 0.5,
+            "velum": 0,
+            "voice": 1
+          }
+        }
+      ],
+      "manner": "diphthong",
+      "name": "rising diphthong",
+      "symbol": "ju",
+      "voiced": true
+    }
+  ],
+  "schema": 1,
+  "sources": [
+    {
+      "path": "web/src/articulation/phones.ts",
+      "sha256": "89e6cae47c42f34869cf15d3ba50e728b5a0263c86fccb55fba2783a7c22ec7f"
+    },
+    {
+      "path": "web/src/articulation/pose.ts",
+      "sha256": "e6167ffe1f8ad3f9a0f6911d8bf09e3dc375e2a07d388673ad0fd5a305778ed2"
+    },
+    {
+      "path": "web/src/didactic/glossary/index.ts",
+      "sha256": "e36858908310913884dd5d7bc87c4df266852b96e816242fab6cf46f36dc3be2"
+    },
+    {
+      "path": "web/src/didactic/glossary/ipa.ts",
+      "sha256": "516422544929f4d67911c35d2b82fe3b9f53918c82edee8869409b29a5654a89"
+    },
+    {
+      "path": "web/src/didactic/glossary/metrics.ts",
+      "sha256": "fc0a433eae155a9353ade0b60285665c1a5e70f846b6c3afb5df088bc9475e29"
+    },
+    {
+      "path": "web/src/didactic/glossary/terms.ts",
+      "sha256": "9742a4e4ac56ade574abceebc034b4dade74a4411a2f4a3c1f32d805b9089048"
+    },
+    {
+      "path": "web/src/didactic/glossary/types.ts",
+      "sha256": "4bb8076b1505cb681a384b52dab564db5b4b3f9bdc0ca2daa281f3fb04915762"
+    },
+    {
+      "path": "web/src/features/learn/content.ts",
+      "sha256": "e5bdd74f77a463d8336aff9011ff1ad7fb57d3ce912ce873e32888551c87171b"
+    },
+    {
+      "path": "web/src/features/learn/ipaLayout.ts",
+      "sha256": "da26aff49b8d84a5b8b65b13aca74109872d437470d2eec594c82676145ae6f5"
+    },
+    {
+      "path": "web/src/paths.ts",
+      "sha256": "84ef3e3c4184b959140a0004b89b70299298adba4009824a6bca6bab3f7cecfb"
+    }
+  ],
+  "symbolPhenomenon": {
+    "b̚": "t_unreleased",
+    "d̚": "t_unreleased",
+    "k̚": "t_unreleased",
+    "p̚": "t_unreleased",
+    "t̚": "t_unreleased",
+    "ɐ": "vowel_reduction",
+    "ə": "vowel_reduction",
+    "ɚ": "vowel_reduction",
+    "ɡ̚": "t_unreleased",
+    "ɾ": "flapping",
+    "ɾ̃": "nt_reduction",
+    "ʔ": "glottalization",
+    "ᵻ": "vowel_reduction"
+  }
+}
