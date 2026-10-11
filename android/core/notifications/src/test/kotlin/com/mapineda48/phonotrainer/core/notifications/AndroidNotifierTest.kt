@@ -93,8 +93,8 @@ class AndroidNotifierTest {
     assertThat(shadowOf(one).requestCode).isNotEqualTo(shadowOf(two).requestCode)
     assertThat(shadowOf(one).savedIntent.filterEquals(shadowOf(two).savedIntent)).isFalse()
     listOf(one to clipA, two to clipB).forEach { (pending, clip) ->
-      assertThat(shadowOf(pending).isActivityIntent).isTrue()
-      assertThat(shadowOf(pending).flags and PendingIntent.FLAG_IMMUTABLE).isNotEqualTo(0)
+      assertThat(shadowOf(pending).isActivity).isTrue()
+      assertThat(shadowOf(pending).isImmutable).isTrue()
       // Exactly the alias intent the shell honours once (architecture 16.4), so a recreate does not navigate again.
       val saved = shadowOf(pending).savedIntent
       assertThat(saved.filterEquals(InternalEntry.intent(context, NavTarget.ClipFeed(clip)))).isTrue()
