@@ -510,8 +510,15 @@ The downloader itself is confined for phone-origin jobs (9): only site-specific 
 extractor, which fetches arbitrary pages and the URLs embedded in them), no live streams, and bounded size and
 duration.
 
-Residual risk, documented in the README and `android/SECURITY.md`: a supported site's own redirects, followed by the
-downloader after the check, could still reach a LAN address. Only phones the operator paired can submit links.
+The page a link names can hand over to other URLs, and service, media and redirect URLs are read from it, so the
+phone-origin download is confined twice: `allowed_extractors = ["default", "-generic", "-mediasite.*"]` (no extractor
+whose links may name any host; a test scans the remaining ones), and `ssrf.confined_connections()` checks every socket
+connect of the download (global unicast only, at the address actually reached) and refuses outside programs whose
+arguments carry a network URL; yt-dlp's Urllib/Requests/Websockets handlers only, `external_downloader: native`,
+`concurrent_fragment_downloads: 1`, `proxy: ""`. A refused connect fails the job with `refused_address`.
+
+Residual risk, documented in the README and `android/SECURITY.md`: DNS lookups go through the computer's resolver; the
+JavaScript runtime runs YouTube's player code. Only phones the operator paired can submit links.
 
 ### 4.6 No absolute paths or user names to LAN clients (S-06)
 
@@ -1184,7 +1191,7 @@ codes. Old jobs get codes too, because only the text is needed.
 |---|---|---|---|
 | 1 | `cancelled` | status `cancelled` (the store writes "Cancelled before starting." or "Cancelled during the analysis."; the rule is on the status, never on the text) | Cancelled |
 | 2 | `interrupted` | starts with `Interrupted: the server stopped` (written by `jobs._load_job` for queued and running jobs at a restart) | S-15 |
-| 3 | `refused_address` | starts with `LinkRefused:` (the check before a phone-origin download, 4.5) | This link can't be analyzed |
+| 3 | `refused_address` | starts with `LinkRefused:` (the check before a phone-origin download, 4.5, or a connect the confined download refused, 9) | This link can't be analyzed |
 | 4 | `live_stream` | starts with `LiveStreamRefused:` (9) | Live streams can't be analyzed |
 | 5 | `too_long` | starts with `TooLongRefused:` (longer than `max_link_duration_s` or larger than `max_upload_bytes`, 9) | This video is too long for your computer (the body names `max_link_duration_s` from `capabilities`, 3.4) |
 | 6 | `playlist` | `that is a playlist` | That's a playlist |
@@ -1233,17 +1240,25 @@ Changes in `phonotrainer/download.py` (shared by the browser client and phones):
 7. **Phone-origin downloads are confined** (security review H-2). A job created by a phone (6.5, 6.7) carries
    `origin = "phone"` in `job.json`; `JobStore` passes `phone_origin=True` to its `download_fn`, and `download()`
    then wraps yt-dlp as follows (browser and CLI downloads keep today's options, S-21):
-   - `allowed_extractors = ["default", "-generic"]` (verified in yt-dlp 2026.8.19: `YoutubeDL.py` reads the option and
-     resolves `-name` exclusions). Every site-specific extractor still works, so "Other website" links keep meaning
+   - `allowed_extractors = ["default", "-generic", "-mediasite.*"]` (verified in yt-dlp 2026.8.19: `YoutubeDL.py` reads
+     the option and resolves `-name` exclusions; no extractor whose links may name any host remains, and a test scans
+     the remaining ones). Every site-specific extractor still works, so "Other website" links keep meaning
      something (spec 8.2), but no arbitrary page is fetched and no embedded URL is followed, and a `t.co` link can
      only hand over to a site-specific extractor. A link no extractor accepts fails as `unsupported_site`.
+   - `ssrf.confined_connections()` checks every socket connect of the downloading thread and the threads it starts
+     (global unicast only, at the address actually reached, after every redirect and DNS answer) and refuses outside
+     programs whose arguments carry a network URL; yt-dlp keeps only its Urllib, Requests and Websockets handlers,
+     with `external_downloader: native`, `concurrent_fragment_downloads: 1` and `proxy: ""`. A refused connect fails
+     the job as `LinkRefused` (`refused_address`, 8.2).
    - Two phases: `extract_info(url, download=False)` first; then the wrapper refuses, before any media byte is
      fetched, a live, upcoming or post-live stream (`is_live`, or `live_status` in `is_live`, `is_upcoming`,
      `post_live`) with `LiveStreamRefused`, a `duration` above `max_link_duration_s` (3.2) or a known
      `filesize`/`filesize_approx` above `max_upload_bytes` with `TooLongRefused`, and less free space than
      `MIN_FREE_BYTES` plus the expected size with `NoSpaceRefused`; then it downloads the resolved info
      (`process_ie_result(info, download=True)`) with `max_filesize = max_upload_bytes` as a second bound for sizes
-     not known in advance. A file that still ends up larger is deleted and the job fails with `TooLongRefused`.
+     not known in advance. A file that still ends up larger is deleted and the job fails with `TooLongRefused`. When
+     the site gives no size, free space is checked against `max_upload_bytes` (twice when formats are merged); a video
+     whose site gives no duration is measured with ffprobe after the download and refused as `too_long`.
    - yt-dlp also gets a `logger` that notices its `max_filesize` skip (which yt-dlp 2026.8.19 reports only as a screen
      line, returning no file) and raises `TooLongRefused`; a refused download deletes the partial files it wrote (only
      inside the download directory).
@@ -1269,7 +1284,7 @@ an over-long video, an unknown-size video that grows past the limit, and a refus
 | `registry.py` | devices, keys, pairing codes, attempts, re-activation proofs, identity proofs, rate limits | `DeviceRegistry`, `Device`, `PairingError`, `hello_proof()` |
 | `access.py` | pure ASGI middlewares (`http` and `websocket` scopes): loopback or LAN, approved arrival address, route allowlist on the decoded path, Host validation, JSON body limits, phone-access state; the always-installed loopback Host rule | `PhoneAccessMiddleware`, `LoopbackHostGuard`, `is_loopback()` |
 | `auth.py` | request signatures (4.3) to device, for HTTP routes (dependency) and the channel; nonce cache | `current_device()`, `authenticate_ws()`, `verify_signature()` |
-| `ssrf.py` | link checks (4.5), including NAT64, 6to4 and Teredo | `check_link(url, resolver) -> str`, `LinkRefused` |
+| `ssrf.py` | link checks (4.5), including NAT64, 6to4 and Teredo; the connect guard of a confined download (9) | `check_link(url, resolver) -> str`, `LinkRefused`, `confined_connections()` |
 | `state.py` | stage, progress details, queue position, title, site, error classification, clean messages | `stage_of()`, `classify_error()`, `clean_message()`, `site_of()`, `clean_title()` |
 | `shape.py` | the PhoneJob serializer, the lean variant, the revision | `phone_job(job, caller, store, artifacts)`, `revision_of()` |
 | `artifacts.py` | artifact table, checksum cache, media facts, background warmer | `ArtifactIndex`, `ARTIFACTS` |
