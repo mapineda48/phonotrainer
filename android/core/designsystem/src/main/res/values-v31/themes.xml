@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- API 31+: the platform splash draws the animated stylus P once (700 ms: the stroke, then the blot), with no icon
+     background (design 7.1, 12.4). The other two themes are the same as in values/. -->
+<resources>
+    <style name="Theme.Phono.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/phono_page</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_mark_animated</item>
+        <item name="windowSplashScreenAnimationDuration">700</item>
+        <item name="postSplashScreenTheme">@style/Theme.Phono</item>
+    </style>
+</resources>

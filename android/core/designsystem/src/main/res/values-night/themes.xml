@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- "Scratch on soot" (design 1.1): the dark window. The splash and share-sheet themes take their colours from
+     values-night/colors.xml through their parents. -->
 <resources>
     <style name="Theme.Phono" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">@color/phono_window_background</item>
