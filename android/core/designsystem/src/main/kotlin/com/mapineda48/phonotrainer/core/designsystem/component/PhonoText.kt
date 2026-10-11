@@ -64,7 +64,7 @@ fun PhonoText(
 
 @PreviewLightDark
 @Composable
-private fun PhonoTextPreview() {
+internal fun PhonoTextPreview() {
   PhonoPreviewSurface {
     PhonoText("Sounds change between words.", style = MaterialTheme.typography.bodyLarge)
     PhonoText("want to → wanna", style = MaterialTheme.typography.titleMedium)

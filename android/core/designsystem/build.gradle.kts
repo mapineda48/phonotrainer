@@ -1,3 +1,5 @@
+import com.android.build.api.variant.HasUnitTest
+
 // Theme, tokens, brand resources and base components (architecture 17, design 12.1). WP-03 fills the API that WP-02
 // froze at the contract freeze; the resources come from the design track's staging export through
 // android/design-src/convert/convert.py, under the frozen names of work-plan 4.1.
@@ -21,6 +23,23 @@ dependencies {
   // The conversion tests read palette.json, icons.json and bundled.json.
   testImplementation(libs.kotlinx.serialization.json)
   debugImplementation(libs.androidx.compose.ui.test.manifest)
+}
+
+// The screenshot tests of design 11 over this module's previews. Their support (PreviewScreenshots) is a test source
+// root of both modules of the design system, this one and :core:ui. Goldens are compared by default and recorded with
+// -Pphono.screenshots=record.
+androidComponents {
+  onVariants { variant ->
+    (variant as? HasUnitTest)?.unitTest?.sources?.kotlin?.addStaticSourceDirectory("src/testShared/kotlin")
+  }
+}
+
+tasks.withType<Test>().configureEach {
+  val screenshots = providers.gradleProperty("phono.screenshots").orElse("verify")
+  inputs.property("screenshotMode", screenshots)
+  inputs.files(fileTree("src/test/screenshots")).withPathSensitivity(PathSensitivity.RELATIVE)
+    .withPropertyName("screenshotGoldens")
+  systemProperty("phono.screenshots", screenshots.get())
 }
 
 // The JVM tests prove the conversion against the design track's sources (the 173-file inventory, the palette drift,

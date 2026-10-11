@@ -159,7 +159,7 @@ fun PhonoBadge(
 
 @PreviewLightDark
 @Composable
-private fun ChipsPreview() {
+internal fun ChipsPreview() {
   PhonoPreviewSurface {
     Row(horizontalArrangement = Arrangement.spacedBy(PhonoSpacing.chipGap)) {
       PhonoChip("Outline", onClick = {})

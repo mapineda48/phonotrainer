@@ -70,7 +70,7 @@ fun EmptyState(
 
 @PreviewLightDark
 @Composable
-private fun EmptyStatePreview() {
+internal fun EmptyStatePreview() {
   PhonoPreviewSurface {
     EmptyState(
       illustration = PhonoIllustrations.SavedEmpty,

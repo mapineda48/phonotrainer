@@ -254,7 +254,7 @@ private fun Pointer(color: Color, up: Boolean) {
 
 @PreviewLightDark
 @Composable
-private fun SheetsPreview() {
+internal fun SheetsPreview() {
   PhonoPreviewSurface {
     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { SheetHandle() }
     DialogCard(

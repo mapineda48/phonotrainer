@@ -195,7 +195,7 @@ fun RadioCard(
 
 @PreviewLightDark
 @Composable
-private fun SelectionPreview() {
+internal fun SelectionPreview() {
   PhonoPreviewSurface {
     SegmentedControl(
       options = listOf(SegmentedOption("Marks"), SegmentedOption("Plain"), SegmentedOption("IPA"), SegmentedOption("Off")),

@@ -92,7 +92,7 @@ fun Notice(
 
 @PreviewLightDark
 @Composable
-private fun NoticePreview() {
+internal fun NoticePreview() {
   PhonoPreviewSurface {
     Notice("Clips you add wait on this phone until it reaches your computer.")
     Notice(

@@ -13,7 +13,7 @@ import com.mapineda48.phonotrainer.core.designsystem.theme.PhonoTheme
 /** The two textures of design 5.4 on the page: grain with fibres (tab roots), then the halftone in a corner and full. */
 @PreviewLightDark
 @Composable
-private fun TexturesPreview() {
+internal fun TexturesPreview() {
   PhonoPreviewSurface {
     Box(Modifier.fillMaxWidth().height(120.dp).paperGrain(fibres = true))
     Box(

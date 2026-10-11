@@ -159,7 +159,7 @@ fun VideoAvailabilityChip(video: VideoAvailability, modifier: Modifier = Modifie
 
 @PreviewLightDark
 @Composable
-private fun StatusPreview() {
+internal fun StatusPreview() {
   PhonoPreviewSurface {
     StatusLine("2 waiting on this phone", icon = PhonoIcons.StatusWaiting)
     StatusLine("1 analyzing · 40 %", tone = StatusTone.ACTIVE)

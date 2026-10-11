@@ -98,7 +98,7 @@ private const val INDETERMINATE_MS = 1400
 
 @PreviewLightDark
 @Composable
-private fun ProgressBarPreview() {
+internal fun ProgressBarPreview() {
   PhonoPreviewSurface {
     PhonoProgressBar(0.42f, label = "Bringing 2 clips to this phone", value = "34 MB of 61 MB")
     PhonoProgressBar(1f, label = "Storage", value = "1.2 GB")

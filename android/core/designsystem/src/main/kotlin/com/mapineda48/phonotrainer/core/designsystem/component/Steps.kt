@@ -213,7 +213,7 @@ private fun NodeDisc(size: Dp, fill: Color, ring: Color?, content: @Composable (
 
 @PreviewLightDark
 @Composable
-private fun StepsPreview() {
+internal fun StepsPreview() {
   PhonoPreviewSurface {
     RouteLine(
       nodes = listOf(

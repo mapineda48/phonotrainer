@@ -28,7 +28,7 @@ fun Illustration(@DrawableRes illustration: Int, modifier: Modifier = Modifier) 
 
 @PreviewLightDark
 @Composable
-private fun IllustrationPreview() {
+internal fun IllustrationPreview() {
   PhonoPreviewSurface {
     Illustration(PhonoIllustrations.FeedEmpty)
     Illustration(PhonoIllustrations.SetDone)

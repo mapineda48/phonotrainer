@@ -131,7 +131,7 @@ fun PhonoBottomBar(
 
 @PreviewLightDark
 @Composable
-private fun BarsPreview() {
+internal fun BarsPreview() {
   PhonoPreviewSurface {
     PhonoTopBar("Connection details", onBack = {}, backLabel = "Back")
     PhonoTopBar("Storage on this phone", onBack = {}, backLabel = "Back", scrolled = true) {
