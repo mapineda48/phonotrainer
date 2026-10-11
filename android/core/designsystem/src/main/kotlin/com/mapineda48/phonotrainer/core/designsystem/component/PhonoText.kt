@@ -1,6 +1,7 @@
 package com.mapineda48.phonotrainer.core.designsystem.component
 
 import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -12,6 +13,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.PreviewLightDark
 import com.mapineda48.phonotrainer.core.designsystem.theme.PhonoFonts
 
 /**
@@ -58,4 +60,14 @@ fun PhonoText(
     maxLines = maxLines,
     overflow = overflow,
   )
+}
+
+@PreviewLightDark
+@Composable
+private fun PhonoTextPreview() {
+  PhonoPreviewSurface {
+    PhonoText("Sounds change between words.", style = MaterialTheme.typography.bodyLarge)
+    PhonoText("want to → wanna", style = MaterialTheme.typography.titleMedium)
+    PhonoText("Listen → repeat → compare", style = MaterialTheme.typography.labelLarge)
+  }
 }
