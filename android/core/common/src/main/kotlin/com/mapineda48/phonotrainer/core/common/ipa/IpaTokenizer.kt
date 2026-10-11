@@ -120,7 +120,7 @@ class IpaTokenizer(tokens: Collection<String>) {
     private const val LONG = 'ː'
     private const val HALF_LONG = 'ˑ'
     private const val UNDERTIE = '‿'
-    private const val BYTE_ORDER_MARK = '﻿'
+    private const val BYTE_ORDER_MARK = '\uFEFF'
 
     private fun isStress(char: Char): Boolean = char == PRIMARY_STRESS || char == SECONDARY_STRESS
 
