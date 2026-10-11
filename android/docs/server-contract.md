@@ -1244,6 +1244,9 @@ Changes in `phonotrainer/download.py` (shared by the browser client and phones):
      `MIN_FREE_BYTES` plus the expected size with `NoSpaceRefused`; then it downloads the resolved info
      (`process_ie_result(info, download=True)`) with `max_filesize = max_upload_bytes` as a second bound for sizes
      not known in advance. A file that still ends up larger is deleted and the job fails with `TooLongRefused`.
+   - yt-dlp also gets a `logger` that notices its `max_filesize` skip (which yt-dlp 2026.8.19 reports only as a screen
+     line, returning no file) and raises `TooLongRefused`; a refused download deletes the partial files it wrote (only
+     inside the download directory).
    - Immediately before the first phase it calls `ssrf.check_link()` again (4.5; `LinkRefused` on a refused address).
    - `PHONOTRAINER_YTDLP_REMOTE_COMPONENTS` (point 3) applies to phone-origin downloads too.
 
