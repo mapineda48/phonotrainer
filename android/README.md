@@ -85,10 +85,11 @@ installed on the test phone, so a later release can always update it in place; `
   `:core:testing`.
 - **End-to-end tests** (`app/src/androidTest/.../e2e/`) run the real app on the managed emulator with real
   repositories over one global set of test seams (`e2e/di/`): a fake PhonoTrainer computer per test (`FakeComputer`,
-  reached over the loopback network and by a fake discovery), a scripted network, in-memory databases, a clock tests
-  move (`e2e/support/TestTime`), and a test WorkManager whose work runs when `e2e/support/WorkDriver` releases it.
-  `e2e/support/TestSeeder` seeds the fake computer and brings the clips to the phone through the real stack. Each area
-  has its own robot under `e2e/<area>/`, behind the façade `e2e/PhonoRobot`.
+  reached over the loopback network and by a fake discovery; the address policy is the release one widened by
+  `127.0.0.1` alone), a scripted network, in-memory databases, a clock tests move (`e2e/support/TestTime`), and a
+  test WorkManager whose work runs when `e2e/support/WorkDriver` releases it. `e2e/support/TestSeeder` seeds the fake
+  computer and brings the clips to the phone through the real stack. Each area has its own robot under `e2e/<area>/`,
+  behind the façade `e2e/PhonoRobot`.
 - **`:qasmoke`** drives the unmodified `qa` APK from outside with UiAutomator: no test code runs inside the minified
   app, so it proves the R8 rules the way a release would exercise them.
 - **Device QA** (`scripts/device-qa/`) drives an emulator or the test phone with `adb` for what automated tests cannot

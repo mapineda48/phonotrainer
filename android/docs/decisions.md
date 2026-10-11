@@ -7,6 +7,19 @@ they fix.
 
 ## Build and test infrastructure
 
+### I-08 The end-to-end address policy is the release one plus `127.0.0.1` (2026-10-11, WP-19)
+
+Architecture 21.5 asks `TestNetworkModule` for "an `AddressPolicy` that also allows loopback". A `@TestInstallIn`
+module cannot be uninstalled per test, so whatever it accepts is what every end-to-end test of every area runs under,
+including the cleartext-confinement proof (X-AC6). The test policy therefore does not restate the rules of
+architecture 5.2: it calls `NetworkPolicyModule.addressPolicy()` (the release `:core:network` binding) and admits one
+more host, the literal `127.0.0.1` the in-process fake computer listens on. Private and link-local ranges behave
+exactly as in a release (10/8 with the emulator's 10.0.2.2, 172.16/12, 192.168/16, 169.254/16), and a host name never
+passes, however it begins. `GlobalTestSetTest.theAddressPolicyIsTheReleaseOnePlusLoopback` pins both the vectors and
+the agreement with the release policy. This relies on `NetworkPolicyModule.addressPolicy()` staying a public,
+parameterless function; if `:core:network` changes that shape, the `:app` test sources stop compiling at the merge,
+and the integrator moves the delegation to the new form rather than copying the rules.
+
 ### I-07 The app holds okio at the version OkHttp needs (2026-10-11, WP-19)
 
 The end-to-end fake computer is OkHttp's MockWebServer running inside the app's process, and the app's runtime

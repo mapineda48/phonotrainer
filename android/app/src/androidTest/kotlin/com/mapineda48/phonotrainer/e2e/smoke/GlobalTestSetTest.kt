@@ -23,6 +23,7 @@ import com.mapineda48.phonotrainer.core.domain.model.ClipAvailability
 import com.mapineda48.phonotrainer.core.domain.model.ClipQuery
 import com.mapineda48.phonotrainer.core.domain.spi.DiscoveryTransport
 import com.mapineda48.phonotrainer.core.domain.spi.NetworkMonitor
+import com.mapineda48.phonotrainer.core.network.NetworkPolicyModule
 import com.mapineda48.phonotrainer.core.network.api.AddressPolicy
 import com.mapineda48.phonotrainer.core.testing.TestClock
 import com.mapineda48.phonotrainer.core.testing.computer.FakeComputer
@@ -105,6 +106,36 @@ class GlobalTestSetTest {
     assertThat(library.openHelper.databaseName).isNull()
     assertThat(learning.openHelper.databaseName).isNull()
     assertThat(work.workInfos()).isEmpty()
+  }
+
+  /**
+   * The test policy is the release one plus loopback and nothing more (architecture 5.2, 21.5), so the cleartext
+   * confinement proven end to end (X-AC6) is the release one: every private and link-local range the release accepts
+   * is a candidate here too, and no host name passes, however much it starts like a private address.
+   */
+  @Test
+  fun theAddressPolicyIsTheReleaseOnePlusLoopback() {
+    val release = NetworkPolicyModule.addressPolicy()
+    // hygiene: test-vector begin
+    val accepted = listOf("10.0.2.2", "10.1.2.3", "172.16.0.1", "172.31.255.254", "192.168.1.1", "169.254.1.1")
+    val rejected = listOf(
+      "10.example.test", "10.evil.example", "192.168.1.1.attacker.example", "172.15.0.1", "172.32.0.1", "169.253.1.1",
+      "192.169.1.1", "010.1.2.3", "10.1.2.256", "10.1.2", "203.0.113.7", "127.0.0.2", "localhost", "::1", "",
+    )
+    // hygiene: test-vector end
+
+    assertThat(addressPolicy.allowsCandidate("127.0.0.1")).isTrue()
+    assertThat(release.allowsCandidate("127.0.0.1")).isFalse()
+    for (host in accepted) {
+      assertWithMessage("accepts %s", host).that(addressPolicy.allowsCandidate(host)).isTrue()
+    }
+    for (host in rejected) {
+      assertWithMessage("rejects %s", host).that(addressPolicy.allowsCandidate(host)).isFalse()
+    }
+    for (host in accepted + rejected) {
+      assertWithMessage("agrees with the release policy on %s", host)
+        .that(addressPolicy.allowsCandidate(host)).isEqualTo(release.allowsCandidate(host))
+    }
   }
 
   @Test

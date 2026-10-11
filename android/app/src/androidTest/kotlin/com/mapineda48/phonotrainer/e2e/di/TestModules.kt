@@ -39,19 +39,30 @@ import kotlinx.coroutines.plus
 // `@TestInstallIn` module applies to every test of this source set and cannot be uninstalled, so nothing here may fake
 // a repository; a test that truly needs one uses a per-class `@UninstallModules` plus `@BindValue` and says why.
 
-/** Replaces `NetworkPolicyModule`: loopback and the emulator's host alias are candidates too; no network binding. */
+/**
+ * Replaces `NetworkPolicyModule`: the release address policy plus loopback (architecture 21.5), and no network binding.
+ * The release rules are not copied here but taken from `NetworkPolicyModule` itself, so every end-to-end test runs
+ * under the cleartext confinement the release build has (architecture 5.2, X-AC6): an IPv4 literal in 10/8 (the
+ * emulator's host alias 10.0.2.2 included), 172.16/12, 192.168/16 or 169.254/16, and nothing else but 127.0.0.1.
+ */
 @Module
 @TestInstallIn(components = [SingletonComponent::class], replaces = [NetworkPolicyModule::class])
 object TestNetworkModule {
   @Provides
-  fun addressPolicy(): AddressPolicy = object : AddressPolicy {
-    override fun allowsCandidate(host: String): Boolean =
-      host == "127.0.0.1" || host == "10.0.2.2" || host.startsWith("10.") || host.startsWith("192.168.")
-  }
+  fun addressPolicy(): AddressPolicy = ReleasePolicyPlusLoopback(NetworkPolicyModule.addressPolicy())
 
   @Provides
   fun networkBinder(): ComputerNetworkBinder = object : ComputerNetworkBinder {
     override fun bind(networkHandle: Long?) = Unit
+  }
+}
+
+/** [release] widened by exactly one address, the loopback one the in-process fake computer listens on. */
+internal class ReleasePolicyPlusLoopback(private val release: AddressPolicy) : AddressPolicy {
+  override fun allowsCandidate(host: String): Boolean = host == LOOPBACK || release.allowsCandidate(host)
+
+  companion object {
+    const val LOOPBACK = "127.0.0.1"
   }
 }
 
