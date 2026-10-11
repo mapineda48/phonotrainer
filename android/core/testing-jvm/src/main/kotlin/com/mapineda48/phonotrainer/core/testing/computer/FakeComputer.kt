@@ -12,6 +12,7 @@ import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import java.net.InetAddress
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * The stateful fake PhonoTrainer computer of architecture 21.3 (AD-23), written from `server-contract.md` alone:
@@ -32,6 +33,9 @@ import java.util.Locale
  *
  * Every LAN client is treated as on an approved network (4.2); `lanForbidden()` models a suspended one. Times come
  * from [clock]; real time only bounds what is network-level (the `Slow` latency, discovery reply rates).
+ *
+ * The same computer also answers [FakeComputerClient], an in-memory `ComputerClient` that needs no socket: before
+ * [start] the computer has a virtual [address] that only that client reaches.
  */
 class FakeComputer(
   val clock: FakeComputerClock = FakeComputerClock.running(),
@@ -46,7 +50,11 @@ class FakeComputer(
   private var responder: DiscoveryResponder? = null
   private val impersonators = mutableListOf<Impersonator>()
 
-  /** Starts listening on the loopback interface (an ephemeral port). */
+  init {
+    core.port = VIRTUAL_PORT_BASE + VIRTUAL_PORTS.getAndIncrement() % VIRTUAL_PORT_SPAN
+  }
+
+  /** Starts listening on the loopback interface (an ephemeral port), which becomes the computer's [address]. */
   fun start(): FakeComputer {
     server.serverSocketFactory = network
     server.dispatcher = core
@@ -56,18 +64,21 @@ class FakeComputer(
   }
 
   override fun close() {
-    impersonators.forEach { it.close() }
+    impersonatorsInMemory.forEach { it.close() }
     responder?.close()
     locked { core.dropChannels() }
     network.closeAll()
     server.close()
   }
 
-  /** The computer's address, as discovery or the learner would give it. */
-  val address: HostPort get() = HostPort(HOST, server.port)
+  /**
+   * The computer's address, as discovery or the learner would give it: the listening port once [start]ed, before that
+   * a virtual port that only [FakeComputerClient] reaches.
+   */
+  val address: HostPort get() = HostPort(HOST, locked { core.port })
 
   /** `http://<address><path>`. */
-  fun url(path: String): HttpUrl = "http://$HOST:${server.port}$path".toHttpUrl()
+  fun url(path: String): HttpUrl = "http://$HOST:${address.port}$path".toHttpUrl()
 
   /** A signer for [phone] whose `ts` is this computer's own clock (always inside the window, server-contract 4.3). */
   fun signerFor(phone: PhoneCredentials): ReferenceSigner = ReferenceSigner(phone) { serverTimeS() }
@@ -108,10 +119,15 @@ class FakeComputer(
     get() = locked { core.freeBytes }
     set(value) = locked { core.freeBytes = value }
 
+  /**
+   * Whether the computer answers. Going `Unreachable` also ends [FakeComputerClient]'s channels, as missing pongs end
+   * a real phone's channel (the network layer's channels fail through the phone's own pings).
+   */
   var reachability: Reachability
     get() = core.reachability
     set(value) {
       core.reachability = value
+      if (value == Reachability.Unreachable) locked { core.dropInMemoryChannels() }
     }
 
   /** The body of `GET /api/phone/reference`. */
@@ -247,7 +263,9 @@ class FakeComputer(
   /** A second responder claiming this computer's server id and name, with no proof or a wrong one (F-02-AC11). */
   fun impersonate(proof: ProofMode): Impersonator {
     val (id, display, version) = locked { Triple(core.serverId, core.name, core.apiVersion) }
-    return Impersonator(proof, id, display, version, ::serverTimeS, HOST).also { impersonators += it }
+    val impersonator = Impersonator(proof, id, display, version, ::serverTimeS, HOST)
+    synchronized(impersonators) { impersonators += impersonator }
+    return impersonator
   }
 
   /** The computer's clock runs [seconds] ahead of what the phone learned (negative: behind), server-contract 4.3. */
@@ -430,6 +448,7 @@ class FakeComputer(
 
   val uploadsInFlight: List<UploadInFlight>
     get() = locked {
+      core.sweepIdleBodies()
       core.inFlight.filter { !it.ended }.map {
         UploadInFlight(RequestId(it.key), it.head.method, it.receivedBytes, it.contentLength)
       }
@@ -464,6 +483,12 @@ class FakeComputer(
 
   // ---------------------------------------------------------------------------------------------------------------
   // Internals
+
+  /** The state [FakeComputerClient] exchanges with in memory. */
+  internal val inMemoryCore: ComputerCore get() = core
+
+  /** The impersonators this computer started, which [FakeComputerClient] also reaches by their address. */
+  internal val impersonatorsInMemory: List<Impersonator> get() = synchronized(impersonators) { impersonators.toList() }
 
   private inline fun <T> locked(block: () -> T): T = synchronized(core.lock, block)
 
@@ -566,6 +591,11 @@ class FakeComputer(
     private const val SEEDED_PERCENT = 40
     private const val PHONE_VIDEO_SHORT_SIDE = 720
     private const val LOW_FREE_BYTES = 1L * FakeCapabilities.GIB
+
+    // Virtual ports (before start) come from a range Linux never hands out as ephemeral ports.
+    private const val VIRTUAL_PORT_BASE = 20_000
+    private const val VIRTUAL_PORT_SPAN = 10_000
+    private val VIRTUAL_PORTS = AtomicInteger()
 
     private val VIDEO_SUFFIXES = setOf("webm", "mp4", "mkv", "mov", "avi", "m4v")
     private val MEDIA_TYPES = mapOf(

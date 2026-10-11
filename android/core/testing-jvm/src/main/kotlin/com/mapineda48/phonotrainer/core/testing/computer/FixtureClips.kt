@@ -24,7 +24,8 @@ object FixtureClips {
    * the dialogue was separated (the job's title is the source).
    */
   val mkAnalysis: ClipContentProvider = ClipContentProvider { title, separateDialogue ->
-    content(AnalysisFixtures.mkAnalysis(source = title ?: "clip", dialogueSeparation = separateDialogue), separateDialogue)
+    val analysis = AnalysisFixtures.mkAnalysis(source = title ?: "clip", dialogueSeparation = separateDialogue)
+    content(analysis, separateDialogue)
   }
 
   /** Every finished job serves [variant] of the parser's test matrix (its own `meta` is kept as it is). */
@@ -66,7 +67,8 @@ object FixtureClips {
     return counts.mapNotNull { (label, value) -> (value as? JsonPrimitive)?.intOrNull?.let { label to it } }.toMap()
   }
 
-  private fun JsonObject.number(name: String): Double? = (this[name] as? JsonPrimitive)?.takeIf { !it.isString }?.doubleOrNull
+  private fun JsonObject.number(name: String): Double? =
+    (this[name] as? JsonPrimitive)?.takeIf { !it.isString }?.doubleOrNull
 
   private const val MIN_AUDIO_S = 0.1
 }

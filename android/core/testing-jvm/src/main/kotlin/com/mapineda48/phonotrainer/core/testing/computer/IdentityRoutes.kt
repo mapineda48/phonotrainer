@@ -37,7 +37,7 @@ internal fun ComputerCore.hello(call: Call): MockResponse {
   if ((deviceId == null) != (challenge == null)) throw invalidRequest("device_id and challenge go together.")
   if (challenge != null && !CHALLENGE.matches(challenge)) throw invalidRequest("The challenge is not valid.")
   if (deviceId != null && !DEVICE_ID.matches(deviceId)) throw invalidRequest("The device id is not valid.")
-  if (deviceId != null) rateLimit("hello", call.connection?.remoteAddress ?: "unknown", perSource = 20, total = 120)
+  if (deviceId != null) rateLimit("hello", call.source, perSource = 20, total = 120)
   val device = deviceId?.let { devices[it] }
   return json(
     HTTP_OK,
@@ -69,7 +69,7 @@ internal fun ComputerCore.pair(call: Call): MockResponse {
     throw invalidRequest("previous_device_id and previous_token_proof go together.")
   }
   // A well-formed request is an attempt (malformed ones never reach the code), as in WP-01's registry.
-  rateLimit("pair", call.connection?.remoteAddress ?: "unknown", perSource = 10, total = 30)
+  rateLimit("pair", call.source, perSource = 10, total = 30)
   if (appVersion < minAppVersion) {
     throw Refusal(HTTP_UPGRADE_REQUIRED, "app_too_old", "This app is older than this computer accepts.")
   }

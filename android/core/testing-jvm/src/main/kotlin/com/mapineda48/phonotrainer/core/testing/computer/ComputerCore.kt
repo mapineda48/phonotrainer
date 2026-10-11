@@ -31,8 +31,11 @@ internal class Refusal(
   val headers: Map<String, String> = emptyMap(),
 ) : RuntimeException(code ?: detail)
 
-/** One request being dispatched. */
-internal class Call(val request: RecordedRequest, val connection: Connection?) {
+/**
+ * One request being dispatched, from the network layer or from the in-memory exchange; [watch] is its upload body
+ * when the body was followed byte by byte.
+ */
+internal class Call(val request: RecordedRequest, val peer: Peer?, val watch: BodyWatch?) {
   val method: String = request.method.uppercase(Locale.ROOT)
   val target: String = request.target
   val rawPath: String = target.substringBefore('?')
@@ -46,8 +49,8 @@ internal class Call(val request: RecordedRequest, val connection: Connection?) {
 
   val wantsWebSocket: Boolean get() = header("Upgrade")?.equals("websocket", ignoreCase = true) == true
 
-  /** The watched body of this request (uploads), when the network layer followed it. */
-  val watch: BodyWatch? = connection?.completedBody?.takeIf { it.head.target == target && it.head.method == request.method }
+  /** The source address for the rate limits. */
+  val source: String get() = peer?.remoteAddress ?: "unknown"
 }
 
 /**
@@ -118,24 +121,32 @@ internal class ComputerCore(
   // Dispatch
 
   override fun dispatch(request: RecordedRequest): MockResponse {
-    val call = Call(request, FakeNetwork.current.get())
-    var response: MockResponse
-    synchronized(lock) {
-      response = try {
-        handle(call)
-      } catch (refusal: Refusal) {
-        // A refused WebSocket upgrade is closed before accept: the phone sees HTTP 403 and nothing else (7).
-        if (call.wantsWebSocket) MockResponse.Builder().code(HTTP_FORBIDDEN).build() else refusalResponse(refusal)
-      } finally {
-        call.watch?.let(::endWatch)
-      }
-      val dropped = response.onResponseStart != null
-      record(call, if (dropped) null else response.code, call.device?.id)
-    }
+    val connection = FakeNetwork.current.get()
+    val watch = connection?.completedBody
+      ?.takeIf { it.head.target == request.target && it.head.method == request.method }
+    val response = exchange(Call(request, connection, watch))
     return when (val slow = reachability) {
       is Reachability.Slow -> response.newBuilder().headersDelay(slow.latency.toMillis(), TimeUnit.MILLISECONDS).build()
       else -> response
     }
+  }
+
+  /**
+   * Handles one request and records it, whichever way it arrived. Reachability and latency are the caller's: the
+   * network layer moves no byte while unreachable, and the in-memory exchange checks it before calling.
+   */
+  fun exchange(call: Call): MockResponse = synchronized(lock) {
+    val response = try {
+      handle(call)
+    } catch (refusal: Refusal) {
+      // A refused WebSocket upgrade is closed before accept: the phone sees HTTP 403 and nothing else (7).
+      if (call.wantsWebSocket) MockResponse.Builder().code(HTTP_FORBIDDEN).build() else refusalResponse(refusal)
+    } finally {
+      call.watch?.let(::endWatch)
+    }
+    val dropped = response.onResponseStart != null
+    record(call, if (dropped) null else response.code, call.device?.id)
+    response
   }
 
   /**
@@ -144,6 +155,7 @@ internal class ComputerCore(
    * the signature, the handler.
    */
   private fun handle(call: Call): MockResponse {
+    sweepIdleBodies()
     expireUploads()
     takeRule(faults, call.method, call.rawPath)?.let { return faultResponse(it) }
     if (apiVersion < API_VERSION_CORE) return oldServer(call)
@@ -334,7 +346,8 @@ internal class ComputerCore(
 
   /** Sends the job to every channel (and the queue positions it may have moved). */
   fun publish(job: Job) {
-    channels.forEach { channel ->
+    // Over a copy: an in-memory channel's collector may run in place and close its channel.
+    channels.toList().forEach { channel ->
       channel.socket?.send(event("job") { put("job", jobJson(job, channel.deviceId, lean = true)) })
     }
   }
@@ -346,7 +359,7 @@ internal class ComputerCore(
   }
 
   fun publishDeleted(id: String) {
-    channels.forEach { channel -> channel.socket?.send(event("deleted") { put("id", id) }) }
+    channels.toList().forEach { channel -> channel.socket?.send(event("deleted") { put("id", id) }) }
   }
 
   fun channelHello(channel: Channel): List<String> = listOf(
@@ -372,8 +385,9 @@ internal class ComputerCore(
 
   /** Closes every phone channel abruptly (the phone sees the channel fail, architecture 5.5). */
   fun dropChannels() {
-    channels.forEach(Channel::drop)
+    val all = channels.toList()
     channels.clear()
+    all.forEach(Channel::drop)
   }
 
   /** Forgets the in-memory rate-limit windows (a process restart). */
@@ -385,13 +399,14 @@ internal class ComputerCore(
   // ---------------------------------------------------------------------------------------------------------------
   // Uploads streamed through the network layer (4.7, 6.6)
 
-  override fun bodyStarting(connection: Connection, head: RequestHead): BodyWatch? = synchronized(lock) {
+  override fun bodyStarting(peer: Peer, head: RequestHead): BodyWatch? = synchronized(lock) {
     val method = head.method.uppercase(Locale.ROOT)
     if (method != "PUT" && method != "PATCH") return null
     val segments = head.path.split('/').filter { it.isNotEmpty() }
     if (segments.size != 4 || segments.take(3) != listOf("api", "phone", "uploads")) return null
     val key = (percentDecode(segments[3]) ?: return null).lowercase(Locale.ROOT)
     val length = head.contentLength ?: return null
+    sweepIdleBodies()
     expireUploads()
     val deviceId = peekSignature(head)
     val session = deviceId?.let { sessions[it to key] }
@@ -415,7 +430,7 @@ internal class ComputerCore(
         busy = true
       }
     }
-    BodyWatch(connection, head, key, deviceId, length, admitted, busy, stallAt, clock.nowMillis()).also { watch ->
+    BodyWatch(peer, head, key, deviceId, length, admitted, busy, stallAt, clock.nowMillis()).also { watch ->
       if (admitted) {
         inFlight += watch
         watch.startOffset = session?.offset ?: 0L
@@ -455,7 +470,24 @@ internal class ComputerCore(
   fun abortWatch(watch: BodyWatch) {
     if (watch.ended) return
     finishInterrupted(watch)
-    watch.connection.abort()
+    watch.peer.abort()
+  }
+
+  /**
+   * The 30 s idle abort for bodies of the in-memory exchange, which has no reading thread to notice idleness (the
+   * network layer's bodies are checked by their own connection, [abortIfIdle]).
+   */
+  fun sweepIdleBodies() {
+    val now = clock.nowMillis()
+    inFlight.filter { it.peer.inMemory && it.admitted && !it.ended && now - it.lastByteAtMillis >= IDLE_ABORT_MS }
+      .forEach(::finishInterrupted)
+  }
+
+  /** Closes the in-memory channels (an unreachable computer answers no ping, so the phone's channel fails). */
+  fun dropInMemoryChannels() {
+    val lost = channels.filter { it.peer?.inMemory == true }
+    channels -= lost.toSet()
+    lost.forEach(Channel::drop)
   }
 
   private fun finishInterrupted(watch: BodyWatch) {

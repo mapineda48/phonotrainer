@@ -58,7 +58,8 @@ class Impersonator internal constructor(
     return started.port
   }
 
-  private fun answer(request: RecordedRequest): MockResponse {
+  /** Answers one request (from its server, or from [FakeComputerClient] in memory) and records it. */
+  internal fun answer(request: RecordedRequest): MockResponse {
     val headers = request.headers.toMultimap().mapValues { it.value.joinToString(", ") }
     val path = request.target.substringBefore('?')
     val response = if (request.method == "GET" && path == "/api/phone/hello") hello(request) else refused()
