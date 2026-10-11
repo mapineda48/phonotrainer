@@ -108,6 +108,17 @@ class GlobalTestSetTest {
     assertThat(work.workInfos()).isEmpty()
   }
 
+  /** CR-01-A1: the in-memory learning database names its history as a real one does, with one `learning_id`. */
+  @Test
+  fun theInMemoryLearningDatabaseHasItsLearningId() {
+    val rows = learning.openHelper.writableDatabase.query("SELECT `key`, `value` FROM learning_meta").use { cursor ->
+      buildList { while (cursor.moveToNext()) add(cursor.getString(0) to cursor.getString(1)) }
+    }
+
+    assertThat(rows.map { it.first }).containsExactly("learning_id")
+    assertThat(UUID.fromString(rows.single().second).toString()).isEqualTo(rows.single().second)
+  }
+
   /**
    * The test policy is the release one plus loopback and nothing more (architecture 5.2, 21.5), so the cleartext
    * confinement proven end to end (X-AC6) is the release one: every private and link-local range the release accepts

@@ -84,7 +84,10 @@ object TestConnectivitySeamsModule {
   fun discovery(fake: FakeDiscovery): DiscoveryTransport = fake
 }
 
-/** Replaces `DatabaseModule`: in-memory databases, fresh for every test. */
+/**
+ * Replaces `DatabaseModule`: in-memory databases, fresh for every test. `learning.db` gets its `learning_id` from the
+ * production callback (CR-01-A1), so each test's learning history is named as a real one is.
+ */
 @Module
 @TestInstallIn(components = [SingletonComponent::class], replaces = [DatabaseModule::class])
 object TestDatabaseModule {
@@ -96,7 +99,9 @@ object TestDatabaseModule {
   @Provides
   @Singleton
   fun learningDatabase(@ApplicationContext context: Context): LearningDatabase =
-    Room.inMemoryDatabaseBuilder(context, LearningDatabase::class.java).build()
+    Room.inMemoryDatabaseBuilder(context, LearningDatabase::class.java)
+      .addCallback(LearningDatabase.LEARNING_ID_CALLBACK)
+      .build()
 }
 
 /** Replaces `ClockModule`: a clock tests move by hand. */
