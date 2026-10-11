@@ -985,6 +985,8 @@ runner is injectable), cached in `<job>/phone/media.json`:
 ```
 - `file_name`: a base name (no `/` or `\`), at most 200 characters, control characters removed, suffix in the
   server's media suffixes (`.webm .mp4 .mkv .mov .avi .m4v .mp3 .wav .m4a .flac .ogg .opus .aac`, case-insensitive).
+  It is stored under a name shortened to at most 200 UTF-8 bytes, suffix kept (the same declaration always gives the
+  same name).
   An audio-only extraction made on the phone arrives as `.m4a`, `.ogg` or `.webm` (architecture 8.3).
 - `bytes`: 1 ≤ bytes ≤ `max_upload_bytes`. `sha256`: 64 hex.
 
@@ -993,7 +995,9 @@ Answers:
   "expires_at": "2026-10-12T09:41:00+00:00", "max_chunk_bytes": 8388608, "resumable": false}}` — a new session.
 - `200` with the same body for an existing session of that key. In core the offset is always 0 (an interrupted part
   was discarded); in complete it is the number of bytes received and `resumable` is true.
-- `200 {"state": "done", "job": PhoneJob}` — the key already created a job (a lost response after the upload).
+- `200 {"state": "done", "job": PhoneJob}` — the key already created a job (a lost response after the upload), only
+  when the name, `bytes` and `sha256` match that job's upload (recorded as `upload_bytes` and `upload_sha256` in its
+  `job.json`; a job that recorded neither is matched on the name); otherwise `409 key_conflict`.
 - A new session **reserves** its `bytes` against free space until it ends (4.7).
 - Errors: `400 unsupported_type` (detail lists the accepted suffixes), `413 too_large` (detail names the limit),
   `507 no_space` (free space minus open reservations would drop below 2 GiB), `409 key_conflict` (the key declared
@@ -1009,6 +1013,8 @@ Answers:
 - Errors: `404 unknown_upload` (no session: declare first), `411 length_required`, `400 length_mismatch`,
   `422 checksum_mismatch` (the part is deleted; the phone sends again), `507 no_space`, `409 upload_busy` (another
   body for this device is still receiving bytes, 4.7).
+- A file-system failure while storing the file: `507 no_space` or a 5xx `server_error` (`Connection: close`); the
+  part is deleted and the session kept, so the phone sends the file again later.
 - A body aborted after 30 s without a byte answers `400 length_mismatch` with `Connection: close` (if the client
   still reads); a body replaced by a newer one ("newest wins", below) answers `409 upload_busy`; an answer sent before
   the body was read carries `Connection: close`.
@@ -1189,7 +1195,7 @@ transient), **done** (the operation already happened).
 | `upload_busy` | 409 | another upload body of this device is still receiving bytes, or 4 sessions are open (4.7) | transient |
 | `not_ready`, `not_video` | 409 | phone video request on a job not done or not a video | defect |
 | Record yourself (unchanged): `length_required` 411, `too_large` 413, `missing_file` 400, `bad_span` 400, `unsupported_type` 415, `undecodable` 422, `too_long` 413, `too_short` 422, `no_voice` 422, `empty` 422, `ffmpeg_missing` 500 | | as `/api/jobs/{id}/compare` | mapped to the F-13 copy |
-| (none) | 5xx | server fault | transient |
+| (none), `server_error` | 5xx | server fault (`server_error`: an upload the computer could not store, 6.6) | transient |
 
 ### 8.2 Job failure codes (S-13, S-15): `PhoneJob.error.code`
 
@@ -1323,8 +1329,9 @@ an over-long video, an unknown-size video that grows past the limit, and a refus
   `PHONOTRAINER_PORT` and `PHONOTRAINER_HOST`. With phone access it runs uvicorn with
   `http="phonotrainer.phone.connections:Guarded…Protocol"` (4.7; the httptools variant when httptools is installed,
   else the h11 one) and first raises the soft `RLIMIT_NOFILE` to the hard limit (at most 65,536).
-- `phonotrainer/jobs.py`: `Job` gains `device_id`, `client_request_id`, `rerun_of`, `origin` (persisted in
-  `job.json`, read with defaults, absent from `to_public()`) and a runtime `enqueue_seq`; the worker passes
+- `phonotrainer/jobs.py`: `Job` gains `device_id`, `client_request_id`, `rerun_of`, `origin`, `upload_bytes`,
+  `upload_sha256` (persisted in `job.json`, read with defaults, absent from `to_public()`; the last two record the file
+  a phone uploaded, 6.6) and a runtime `enqueue_seq`; the worker passes
   `phone_origin=True` to `download_fn` for phone-origin link jobs (9); `JobStore` gains `find_by_request(device_id, key)`,
   keyword arguments `device_id`, `client_request_id`, `rerun_of` on `create_from_url` and `adopt_upload`,
   `adopt_file(path, file_name, options, …)` (moves a finished upload in), `rerun(job_id, device_id, key, audio_only)`
