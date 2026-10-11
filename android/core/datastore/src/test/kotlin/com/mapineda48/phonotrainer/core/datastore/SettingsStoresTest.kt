@@ -5,9 +5,16 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.google.common.truth.Truth.assertThat
 import com.mapineda48.phonotrainer.core.domain.model.Appearance
+import com.mapineda48.phonotrainer.core.domain.model.CaptionMode
 import com.mapineda48.phonotrainer.core.domain.model.CoachMarkId
+import com.mapineda48.phonotrainer.core.domain.model.ColorChoice
+import com.mapineda48.phonotrainer.core.domain.model.EndOfShort
 import com.mapineda48.phonotrainer.core.domain.model.JobId
+import com.mapineda48.phonotrainer.core.domain.model.LessonGuidance
+import com.mapineda48.phonotrainer.core.domain.model.MotionChoice
+import com.mapineda48.phonotrainer.core.domain.model.PatternChoice
 import com.mapineda48.phonotrainer.core.domain.model.StorageBudget
+import com.mapineda48.phonotrainer.core.domain.model.Track
 import com.mapineda48.phonotrainer.core.domain.model.UserSettings
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
@@ -59,6 +66,43 @@ class SettingsStoresTest {
     )
     repository.update { changed }
 
+    val reopened = DataStoreSettingsRepository(store, storeScope)
+    reopened.awaitLoaded()
+    assertThat(reopened.settings.value).isEqualTo(changed)
+  }
+
+  @Test
+  fun everyFieldAwayFromItsDefaultRoundTrips() = runTest(scope.testScheduler) {
+    val repository = DataStoreSettingsRepository(store, storeScope)
+    val changed = UserSettings(
+      appearance = Appearance.LIGHT,
+      colors = ColorChoice.COLOR_VISION_FRIENDLY,
+      patterns = PatternChoice.OFF,
+      motion = MotionChoice.REDUCE,
+      defaultSpeed = 0.5f,
+      playEachShort = false,
+      endOfShort = EndOfShort.NEXT,
+      captions = CaptionMode.IPA,
+      listenFirst = true,
+      track = Track.DIALOGUE,
+      excludedFromMix = setOf(JobId("20261004-133519-a77c"), JobId("20261005-101010-b88d")),
+      questionsAfterSet = false,
+      lessonGuidance = LessonGuidance.COMPACT,
+      downloadVideos = false,
+      storageBudget = StorageBudget.Limit(5_000_000_000),
+      notifyReady = false,
+      notifyAttention = false,
+      welcomeDone = true,
+      notificationsAsked = true,
+    )
+    // Every field differs from the default, so a field that is not stored fails the comparison below.
+    val defaults = UserSettings()
+    UserSettings::class.java.declaredFields.filterNot { java.lang.reflect.Modifier.isStatic(it.modifiers) }.forEach {
+      it.isAccessible = true
+      assertThat(it.get(changed)).isNotEqualTo(it.get(defaults))
+    }
+
+    repository.update { changed }
     val reopened = DataStoreSettingsRepository(store, storeScope)
     reopened.awaitLoaded()
     assertThat(reopened.settings.value).isEqualTo(changed)

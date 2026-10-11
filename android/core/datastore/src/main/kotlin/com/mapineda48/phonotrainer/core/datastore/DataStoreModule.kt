@@ -7,6 +7,10 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStoreFile
 import com.mapineda48.phonotrainer.core.common.di.ApplicationScope
 import com.mapineda48.phonotrainer.core.common.di.IoDispatcher
+import com.mapineda48.phonotrainer.core.datastore.credential.CredentialCipher
+import com.mapineda48.phonotrainer.core.datastore.credential.KeystoreCredentialCipher
+import com.mapineda48.phonotrainer.core.datastore.pairing.DataStorePairingStore
+import com.mapineda48.phonotrainer.core.datastore.pairing.PairingStore
 import com.mapineda48.phonotrainer.core.domain.api.CoachMarkRepository
 import com.mapineda48.phonotrainer.core.domain.api.SettingsRepository
 import dagger.Binds
@@ -63,6 +67,10 @@ object DataStoreModule {
   }
 }
 
+/**
+ * The typed wrappers over the two files. Kept apart from [DataStoreModule], which the end-to-end tests replace
+ * (`TestDataStoreModule`), so the stores stay real there.
+ */
 @Module
 @InstallIn(SingletonComponent::class)
 interface DataStoreBindings {
@@ -71,4 +79,10 @@ interface DataStoreBindings {
 
   @Binds
   fun coachMarks(impl: DataStoreCoachMarkRepository): CoachMarkRepository
+
+  @Binds
+  fun pairing(impl: DataStorePairingStore): PairingStore
+
+  @Binds
+  fun credentialCipher(impl: KeystoreCredentialCipher): CredentialCipher
 }
