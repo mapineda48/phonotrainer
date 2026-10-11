@@ -989,6 +989,9 @@ Answers:
 - Errors: `404 unknown_upload` (no session: declare first), `411 length_required`, `400 length_mismatch`,
   `422 checksum_mismatch` (the part is deleted; the phone sends again), `507 no_space`, `409 upload_busy` (another
   body for this device is still receiving bytes, 4.7).
+- A body aborted after 30 s without a byte answers `400 length_mismatch` with `Connection: close` (if the client
+  still reads); a body replaced by a newer one ("newest wins", below) answers `409 upload_busy`; an answer sent before
+  the body was read carries `Connection: close`.
 - An interrupted body (connection lost) deletes the part in core; the session stays, so the phone restarts with the
   same key (spec 7.7 v1-core).
 - **A body can never wedge its key** (delivery review D-08): when Wi-Fi drops mid-`PUT`, the server's request may
