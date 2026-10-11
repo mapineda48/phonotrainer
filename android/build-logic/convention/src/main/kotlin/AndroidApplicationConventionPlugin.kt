@@ -2,6 +2,7 @@ import com.android.build.api.dsl.ApplicationExtension
 import com.mapineda48.phonotrainer.buildlogic.Sdk
 import com.mapineda48.phonotrainer.buildlogic.configureAndroidCommon
 import com.mapineda48.phonotrainer.buildlogic.configureAndroidUnitTests
+import com.mapineda48.phonotrainer.buildlogic.configureDependencyGuard
 import com.mapineda48.phonotrainer.buildlogic.configureLicenceReport
 import com.mapineda48.phonotrainer.buildlogic.configureManagedDevice
 import com.mapineda48.phonotrainer.buildlogic.configureReleaseSigning
@@ -19,6 +20,7 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
   override fun apply(target: Project) {
     with(target) {
       pluginManager.apply("com.android.application")
+      configureDependencyGuard(jvm = false, compileTask = "preBuild")
 
       extensions.configure<ApplicationExtension> {
         configureAndroidCommon(this)

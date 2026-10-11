@@ -2,6 +2,7 @@ import com.android.build.api.dsl.LibraryExtension
 import com.mapineda48.phonotrainer.buildlogic.Sdk
 import com.mapineda48.phonotrainer.buildlogic.configureAndroidCommon
 import com.mapineda48.phonotrainer.buildlogic.configureAndroidUnitTests
+import com.mapineda48.phonotrainer.buildlogic.configureDependencyGuard
 import com.mapineda48.phonotrainer.buildlogic.libs
 import com.mapineda48.phonotrainer.buildlogic.library
 import org.gradle.api.Plugin
@@ -18,6 +19,7 @@ class AndroidLibraryConventionPlugin : Plugin<Project> {
   override fun apply(target: Project) {
     with(target) {
       pluginManager.apply("com.android.library")
+      configureDependencyGuard(jvm = false, compileTask = "preBuild")
 
       extensions.configure<LibraryExtension> {
         configureAndroidCommon(this)

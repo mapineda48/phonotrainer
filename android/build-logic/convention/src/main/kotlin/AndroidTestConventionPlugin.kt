@@ -2,6 +2,7 @@ import com.android.build.api.dsl.TestExtension
 import com.android.build.api.variant.TestAndroidComponentsExtension
 import com.mapineda48.phonotrainer.buildlogic.Sdk
 import com.mapineda48.phonotrainer.buildlogic.configureAndroidCommon
+import com.mapineda48.phonotrainer.buildlogic.configureDependencyGuard
 import com.mapineda48.phonotrainer.buildlogic.configureManagedDevice
 import com.mapineda48.phonotrainer.buildlogic.libs
 import com.mapineda48.phonotrainer.buildlogic.library
@@ -21,6 +22,7 @@ class AndroidTestConventionPlugin : Plugin<Project> {
   override fun apply(target: Project) {
     with(target) {
       pluginManager.apply("com.android.test")
+      configureDependencyGuard(jvm = false, compileTask = "preBuild")
 
       extensions.configure<TestExtension> {
         configureAndroidCommon(this)

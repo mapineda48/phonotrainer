@@ -1,5 +1,6 @@
 import com.android.build.api.dsl.Lint
 import com.mapineda48.phonotrainer.buildlogic.Sdk
+import com.mapineda48.phonotrainer.buildlogic.configureDependencyGuard
 import com.mapineda48.phonotrainer.buildlogic.configureLintPolicy
 import com.mapineda48.phonotrainer.buildlogic.libs
 import com.mapineda48.phonotrainer.buildlogic.library
@@ -23,6 +24,7 @@ class JvmLibraryConventionPlugin : Plugin<Project> {
       // Lint analyses JVM modules too: with `checkDependencies` on :app their sources are linted with the app's, under
       // the same policy (otherwise lint treats them as external jars).
       pluginManager.apply("com.android.lint")
+      configureDependencyGuard(jvm = true, compileTask = "compileKotlin")
 
       extensions.configure<KotlinJvmExtension> {
         jvmToolchain(Sdk.JAVA)
