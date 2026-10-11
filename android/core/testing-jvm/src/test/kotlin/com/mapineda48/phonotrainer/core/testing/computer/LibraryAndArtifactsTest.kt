@@ -3,8 +3,10 @@ package com.mapineda48.phonotrainer.core.testing.computer
 import com.google.common.truth.Truth.assertThat
 import com.mapineda48.phonotrainer.core.domain.model.JobId
 import com.mapineda48.phonotrainer.core.domain.model.RequestId
+import com.mapineda48.phonotrainer.core.testing.fixtures.AnalysisFixtures
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.double
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.long
@@ -91,7 +93,7 @@ class LibraryAndArtifactsTest {
     assertThat(job.str("status")).isEqualTo("done")
     assertThat(job.str("title")).isEqualTo("Ordering coffee")
     assertThat(job.obj("source").str("site")).isEqualTo("youtube")
-    assertThat(job.obj("summary")["words"]!!.prim().int).isEqualTo(MinimalClip.WORDS)
+    assertThat(job.obj("summary")["words"]!!.prim().int).isEqualTo(AnalysisFixtures.MkAnalysis.WORDS)
     assertThat(job.obj("analysis")["dialogue_separation"]!!.prim().boolean).isTrue()
     assertThat(job.obj("media").str("kind")).isEqualTo("video")
     assertThat(job.obj("media")["rotation"]!!.prim().int).isEqualTo(0)
@@ -287,13 +289,30 @@ class LibraryAndArtifactsTest {
   }
 
   @Test
-  fun theServedAnalysisIsTheMinimalClip() {
+  fun theServedAnalysisIsFakeAnalyzesMkAnalysis() {
     val id = computer.addFinishedClip()
 
-    val analysis = phone.get(artifactEntry(id, "analysis").str("url")!!).json
+    val served = phone.get(artifactEntry(id, "analysis").str("url")!!).bytes
 
-    assertThat(analysis.arr("segments")).hasSize(MinimalClip.SEGMENTS)
-    assertThat(analysis.obj("meta").str("source")).isEqualTo("Seeded clip")
+    val expected = AnalysisFixtures.mkAnalysis(source = "Seeded clip", dialogueSeparation = true)
+    assertThat(served).isEqualTo(AnalysisFixtures.encode(expected))
+    val summary = phone.get("/api/phone/jobs/${id.value}").json.obj("summary")
+    assertThat(summary["segments"]!!.prim().int).isEqualTo(AnalysisFixtures.MkAnalysis.SEGMENTS)
+    assertThat(summary["duration_s"]!!.prim().double).isEqualTo(AnalysisFixtures.MkAnalysis.DURATION_S)
+    val counts = summary.obj("phenomena_counts").mapValues { it.value.prim().int }
+    assertThat(counts).isEqualTo(AnalysisFixtures.MkAnalysis.CHANGE_COUNTS)
+  }
+
+  @Test
+  fun aTestCanServeAnotherFixtureVariant() {
+    computer.clips = FixtureClips.of(AnalysisFixtures.Variant.RULES_3)
+    val id = computer.addJob(JobSeed(separateDialogue = false))
+
+    val served = phone.get(artifactEntry(id, "analysis").str("url")!!).bytes
+
+    assertThat(served).isEqualTo(AnalysisFixtures.bytes(AnalysisFixtures.Variant.RULES_3))
+    val names = phone.get("/api/phone/jobs/${id.value}").json.arr("artifacts").map { it.jsonObject.str("name") }
+    assertThat(names).doesNotContain("audio_dialogue")
   }
 
   private fun artifactEntry(id: JobId, name: String) = phone.get("/api/phone/jobs/${id.value}").json

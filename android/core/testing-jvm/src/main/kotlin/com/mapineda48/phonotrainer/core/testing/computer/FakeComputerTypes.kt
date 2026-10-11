@@ -122,7 +122,7 @@ data class FakeCapabilities(
   }
 }
 
-/** The content a finished job serves: its clip data and audio (see [MinimalClip]). */
+/** The content a finished job serves: its clip data and audio (see [FixtureClips]). */
 class ClipContent(
   val analysisJson: ByteArray,
   val audioMix: ByteArray,

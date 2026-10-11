@@ -37,7 +37,7 @@ class FakeComputer(
   val clock: FakeComputerClock = FakeComputerClock.running(),
   seed: Long = DEFAULT_SEED,
   name: String = DEFAULT_NAME,
-  clips: ClipContentProvider = MinimalClip.provider,
+  clips: ClipContentProvider = FixtureClips.mkAnalysis,
 ) : AutoCloseable {
   private val core = ComputerCore(clock, seed, name, clips)
   private val network = FakeNetwork(core)
@@ -134,7 +134,7 @@ class FakeComputer(
     get() = locked { core.renditionStatus == ArtifactStatus.PREPARING }
     set(value) = locked { core.renditionStatus = if (value) ArtifactStatus.PREPARING else ArtifactStatus.READY }
 
-  /** What jobs that finish serve (MinimalClip until WP-12's AnalysisFixtures is merged). */
+  /** What jobs that finish serve: [FixtureClips.mkAnalysis] unless a test chooses another [FixtureClips] provider. */
   var clips: ClipContentProvider
     get() = locked { core.clips }
     set(value) = locked { core.clips = value }
