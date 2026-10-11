@@ -1,0 +1,66 @@
+/* Phonautograph, change request CR-01 (spec revision 4): the two removals (On this phone / On your computer),
+   the deletion state, the reach strip of the removal dialogs, consequence lines, and the shared-progress line.
+   Only palette.json tokens (via theme.css variables). Reference drawings for android/docs/design.md 9.26-9.27. */
+
+/* place blocks (Clip page, Summary tab end) */
+.place { padding: 2px 14px 14px; }
+.place .grouphead { margin: 12px 0 8px; }
+.place .grouphead .kicker { font-size: 14px; }
+.place p { font-size: 15px; line-height: 1.42; color: var(--ink-2); }
+.sizes { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; font-size: 15px; padding: 2px 0 8px; }
+.sizes span:nth-child(even) { font-weight: 700; text-align: right; }
+.keeprow { display: flex; align-items: center; gap: 12px; min-height: 56px; border-top: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline); margin-bottom: 12px; }
+.keeprow .t { flex: 1; } .keeprow .t b { display: block; font-size: 16px; } .keeprow .t span { display: block; font-size: 14px; color: var(--ink-2); line-height: 1.35; }
+.place .acts { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.place .acts .btn { justify-content: flex-start; }
+.place.alert { box-shadow: var(--shadow-sheet), inset 4px 0 0 var(--ink); }
+
+/* the deletion state: status line, reason line, the dashed "not yet" pill of the Clip page header */
+.stline { display: flex; gap: 10px; align-items: flex-start; font-weight: 800; font-size: 17px; line-height: 1.3; color: var(--ink); }
+.stline .ico { margin-top: 1px; }
+.reason { display: flex; gap: 8px; align-items: flex-start; font-size: 15px; line-height: 1.4; color: var(--ink-2); margin-top: 6px; }
+.reason .ico { margin-top: 2px; color: var(--ink); }
+.badge.pending { background: var(--galley); border: 1.5px dashed var(--outline); padding: 0 9px; white-space: normal; text-align: left; line-height: 1.25; min-height: 30px; }
+.badge.going { background: var(--galley); border: 1.5px solid var(--outline); padding: 0 9px; }
+.crit { color: var(--critical); }
+
+/* mini route: the deletion parked on the phone (dotted) or on its way (solid + nib); decorative */
+.mroute { display: grid; grid-template-columns: 78px 1fr 78px; align-items: start; margin-top: 10px; }
+.mroute .n { display: flex; flex-direction: column; align-items: center; gap: 7px; font-size: 14px; color: var(--ink-2); text-align: center; line-height: 1.2; }
+.mroute .n.here { color: var(--ink); font-weight: 700; }
+.mroute .tr { padding-top: 11px; }
+
+/* nodes shared by the mini route and the reach strip */
+.pnode { position: relative; width: 44px; height: 44px; border-radius: 22px; display: grid; place-items: center; background: var(--sheet); color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--outline); flex: none; }
+.pnode.here { background: var(--ink); color: var(--on-ink); box-shadow: none; }
+.pnode.hub { box-shadow: inset 0 0 0 2px var(--critical); }
+.pnode .bdg { position: absolute; right: -5px; bottom: -4px; width: 20px; height: 20px; border-radius: 10px; background: var(--ink); color: var(--on-ink); display: grid; place-items: center; box-shadow: 0 0 0 2px var(--sheet); }
+.pnode.here .bdg { background: var(--sheet); color: var(--ink); box-shadow: 0 0 0 2px var(--ink); }
+
+/* reach strip: where a removal takes the clip (decorative; the dialog body says it in words) */
+.reach { position: relative; display: grid; gap: 0; margin: 2px 0 14px; }
+.reach.four { grid-template-columns: repeat(4, 1fr); }
+.reach.two { grid-template-columns: 84px 84px; column-gap: 40px; }
+.reach .col { display: flex; flex-direction: column; align-items: center; gap: 8px; font-size: 14px; line-height: 1.2; color: var(--ink-2); text-align: center; position: relative; z-index: 1; }
+.reach .col b { color: var(--ink); }
+.reach .wire { position: absolute; top: 21px; height: 0; border-top: 1.5px solid var(--ink-2); z-index: 0; }
+.reach .wire.dotted { border-top: 2px dotted var(--ink-2); }
+
+/* dialogs: place mark, consequence lines, stacked buttons */
+.dialog .mark { margin-bottom: 12px; }
+.dialog p.body { font-size: 16px; line-height: 1.5; margin-top: 10px; color: var(--ink); }
+.conseq { display: flex; gap: 10px; align-items: flex-start; font-size: 15px; line-height: 1.42; color: var(--ink-2); margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--hairline); }
+.conseq .ico { color: var(--ink); margin-top: 2px; }
+.dialog .acts.stack { flex-direction: column; align-items: stretch; gap: 8px; }
+.dialog .acts.stack .btn { width: 100%; }
+
+/* the shared-progress line (Practice, Saved) */
+.syncline { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; line-height: 1.4; color: var(--ink-2); }
+.syncline .ico { color: var(--ink); margin-top: 1px; }
+
+/* specimen boards */
+.board { padding: 14px 16px 30px; }
+.spec { margin-top: 18px; }
+.spec > .kicker { display: block; margin-bottom: 8px; }
+.spec .note { font-size: 14px; color: var(--ink-2); line-height: 1.35; margin-top: 6px; }
+.dlg-static { position: relative; left: auto; right: auto; margin: 0; }

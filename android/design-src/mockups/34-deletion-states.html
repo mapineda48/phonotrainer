@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=412">
+<title>Deletion and shared-progress states</title>
+<link rel="stylesheet" href="kit/theme.css"><link rel="stylesheet" href="kit/places.css">
+<script src="kit/icons.js"></script><script src="kit/art.js"></script><script src="kit/kit.js"></script><script src="kit/places.js"></script>
+<style>
+  .cliprow { display: grid; grid-template-columns: 104px 1fr 40px; gap: 12px; padding: 12px 0; border-top: 1px solid var(--hairline); align-items: start; }
+  .cliprow:first-child { border-top: 0; }
+  .cliprow .poster { width: 104px; height: 66px; border-radius: 8px; overflow: hidden; position: relative; }
+  .cliprow .ttl { font-weight: 700; font-size: 16px; line-height: 1.25; }
+  .cliprow .meta { font-size: 14px; color: var(--ink-2); line-height: 1.35; }
+  .tags { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 4px; font-size: 14px; font-weight: 600; }
+  .tags span, .del { display: inline-flex; gap: 4px; align-items: flex-start; }
+  .del { font-size: 14px; font-weight: 700; margin-top: 4px; line-height: 1.3; }
+  .del .ico { margin-top: 1px; }
+  .shelfrow { display: flex; gap: 12px; align-items: flex-start; }
+  .clip { width: 176px; flex: none; padding: 8px 8px 10px; }
+  .clip .poster { aspect-ratio: 16/10; border-radius: 8px; overflow: hidden; }
+  .clip .ttl { font-weight: 700; font-size: 15px; line-height: 1.25; margin-top: 8px; }
+  .clip .meta { font-size: 14px; color: var(--ink-2); }
+  .avail { font-size: 14px; display: flex; align-items: flex-start; gap: 5px; font-weight: 600; margin-top: 4px; line-height: 1.3; }
+  .avail .ico { margin-top: 1px; }
+  .snack.static { position: relative; left: auto; right: auto; bottom: auto; margin-top: 8px; }
+  .notoff { display: flex; gap: 8px; align-items: flex-start; font-size: 15px; line-height: 1.42; color: var(--ink-2); padding: 8px 0; border-top: 1px solid var(--hairline); }
+  .notoff:first-of-type { border-top: 0; }
+  .notoff .ico { color: var(--ink); margin-top: 2px; }
+  .lines .syncline { padding: 8px 0; border-top: 1px solid var(--hairline); }
+  .lines .syncline:first-child { border-top: 0; }
+</style></head>
+<body>
+<div class="phone tall grain">
+  <div class="board">
+    <div class="kicker">States · change request CR-01</div>
+    <h1 class="display" style="font-size:30px;line-height:1.1;margin-top:4px">Deleting from your computer, and progress that travels</h1>
+    <p class="lede" style="margin-top:6px">One glyph for the deletion everywhere (the trash), a dashed ring while it waits on this phone, a solid ring once it is on its way. Words always say which.</p>
+
+    <div class="spec">
+      <span class="kicker">1 · Clip page header (F-05)</span>
+      <div class="row gap8 wrap"><span class="badge"><span data-icon="smartphone" data-size="15"></span>On this phone</span><span class="badge pending"><span data-icon="trash-2" data-size="15"></span>Waiting to be deleted from your computer</span></div>
+      <div class="row gap8 wrap" style="margin-top:8px"><span class="badge"><span data-icon="smartphone" data-size="15"></span>On this phone</span><span class="badge going"><span data-icon="trash-2" data-size="15"></span>Deleting from your computer…</span></div>
+    </div>
+
+    <div class="spec">
+      <span class="kicker">2 · Library rows (F-04)</span>
+      <div class="card pad" style="padding-top:2px;padding-bottom:2px">
+        <div class="cliprow"><div class="poster frame scene-cafe"></div><div><div class="ttl">Coffee shop small talk</div><div class="meta">4 min 21 s · 691 words · 14 changes</div>
+          <div class="tags"><span><span data-icon="tv-minimal-play" data-size="16"></span>YouTube</span><span><span data-icon="smartphone" data-size="16"></span>On this phone</span></div>
+          <div class="del"><span data-icon="trash-2" data-size="16"></span>Waiting to be deleted from your computer</div></div><span class="iconbtn" aria-label="More actions"><span data-icon="ellipsis-vertical" data-size="22"></span></span></div>
+        <div class="cliprow"><div class="poster" data-art="poster" data-opts='{"seed":14,"w":104,"h":66}'></div><div><div class="ttl">Kitchen chat with Sam</div><div class="meta">2 min 05 s · 318 words · 8 changes</div>
+          <div class="tags"><span><span data-icon="file-video" data-size="16"></span>Phone file</span><span><span data-icon="smartphone" data-size="16"></span>On this phone</span></div>
+          <div class="del"><span data-icon="trash-2" data-size="16"></span>Deleting from your computer…</div></div><span class="iconbtn" aria-label="More actions"><span data-icon="ellipsis-vertical" data-size="22"></span></span></div>
+      </div>
+      <p class="note">The row's menu never offers the deletion: it lives only on the Clip page.</p>
+    </div>
+
+    <div class="spec">
+      <span class="kicker">3 · Home shelf card (F-03)</span>
+      <div class="shelfrow">
+        <div class="card clip"><div class="poster frame scene-cafe"></div><div class="ttl">Coffee shop small talk</div><div class="meta">4 min 21 s · 12 shorts</div>
+          <div class="avail"><span data-icon="smartphone" data-size="16"></span>On this phone</div>
+          <div class="avail" style="font-weight:700"><span data-icon="trash-2" data-size="16"></span>Waiting to be deleted from your computer</div></div>
+        <p class="note" style="margin-top:0">The line wraps; it is never cut. TalkBack reads it in the card's sentence.</p>
+      </div>
+    </div>
+
+    <div class="spec">
+      <span class="kicker">4 · “On your computer” block, every other state (F-05 item 6)</span>
+      <section class="card place">
+        <div class="grouphead"><span class="kicker"><span data-icon="monitor" data-size="18"></span>On your computer</span></div>
+        <div class="stline"><span data-icon="trash-2" data-size="20"></span>Deleting from your computer…</div>
+        <div data-mroute="sending" data-w="190"></div>
+      </section>
+      <section class="card place" style="margin-top:12px">
+        <div class="grouphead"><span class="kicker"><span data-icon="monitor" data-size="18"></span>On your computer</span></div>
+        <div class="stline"><span data-icon="trash-2" data-size="20"></span>Waiting to be deleted from your computer</div>
+        <div class="reason"><span data-icon="clock" data-size="16"></span>Your computer is using a different library: this waits until it uses this clip's library again.</div>
+        <div data-mroute="waiting" data-w="190"></div>
+        <div class="acts"><span class="btn"><span data-icon="undo-2" data-size="18"></span>Undo</span></div>
+      </section>
+      <section class="card place alert" style="margin-top:12px">
+        <div class="grouphead"><span class="kicker"><span data-icon="monitor" data-size="18"></span>On your computer</span></div>
+        <div class="stline"><span data-icon="circle-alert" data-size="20" data-cls="crit"></span>Couldn't delete “Coffee shop small talk” from your computer.</div>
+        <p style="margin-top:6px">Your computer answered that it can't delete this clip right now.</p>
+        <div class="acts"><span class="btn primary"><span data-icon="rotate-ccw" data-size="18"></span>Try again</span><span class="btn"><span data-icon="undo-2" data-size="18"></span>Keep the clip</span></div>
+      </section>
+      <section class="card place" style="margin-top:12px">
+        <div class="grouphead"><span class="kicker"><span data-icon="monitor" data-size="18"></span>On your computer · not offered</span></div>
+        <div class="notoff"><span data-icon="info" data-size="18"></span><span>This clip came from a computer you forgot. You can remove it from this phone; to delete it there, use that computer.</span></div>
+        <div class="notoff"><span data-icon="info" data-size="18"></span><span>This clip is from another library on your computer. You can remove it from this phone; to delete it there, switch your computer back to that library.</span></div>
+        <div class="notoff"><span data-icon="info" data-size="18"></span><span>To delete this clip everywhere, delete it on your computer, or update PhonoTrainer there to do it from this phone.</span></div>
+      </section>
+      <p class="note">The three sentences are alternatives: one shows, whichever applies.</p>
+    </div>
+
+    <div class="spec">
+      <span class="kicker">5 · One-shot messages</span>
+      <div class="snack static" role="status">“Coffee shop small talk” was deleted from your computer.</div>
+      <div class="snack static" role="status">“Morning radio interview” was removed from your computer's list.</div>
+      <div class="snack static" role="status">Deletion undone: “Coffee shop small talk” stays on your computer.</div>
+    </div>
+
+    <div class="spec">
+      <span class="kicker">6 · Shared progress line (F-17 item 6, F-09 item 5)</span>
+      <div class="card pad lines">
+        <p class="syncline"><span data-icon="smartphone" data-size="16"></span><span>Kept only on this phone.</span></p>
+        <p class="syncline"><span data-icon="monitor-smartphone" data-size="16"></span><span>Shared through your computer · last synced 5 min ago</span></p>
+        <p class="syncline"><span data-icon="clock" data-size="16"></span><span>Reset on this phone. It reaches your computer the next time this phone connects.</span></p>
+      </div>
+      <div class="card pad" style="margin-top:12px">
+        <div class="topbar" style="min-height:48px;padding:0"><span class="iconbtn" aria-label="Back"><span data-icon="arrow-left" data-size="24"></span></span><h1>Saved</h1></div>
+        <p class="lede">Shorts and words you want to hear again. Saved shorts come back in your sets.</p>
+        <p class="syncline" style="margin-top:6px"><span data-icon="monitor-smartphone" data-size="16"></span><span>Shared through your computer · last synced 5 min ago</span></p>
+      </div>
+    </div>
+  </div>
+</div>
+</body></html>

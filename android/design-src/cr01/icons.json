@@ -1,0 +1,20 @@
+{
+  "_about": "Icon inventory added by change request CR-01 (spec revision 4: deleting a finished analysis from the phone, shared progress). Same rules and schema as ../icons.json (Lucide v1.51.0, ISC, Feather-derived glyphs MIT; 24 x 24 grid, round caps and joins). Staged apart from the v1 export so the 173-file inventory WP-03 converts stays exactly as frozen (design.md 6.1). Export: tools/lucide_icons.py --inventory cr01/icons.json --svg-dir cr01/svg/icons, then tools/svg2vd.py per master into cr01/export/res/drawable/ (precision 3, as export_vectors.py does for icons). Conversion into :core:designsystem (PhonoIcons, bundled.json, notices 7.3) is the integrator WP-26's, in CR-01-A2 (work-plan 4.7). 'reuses' lists the existing v1 resources CR-01 gives new uses; they need no new file.",
+  "lucideVersion": "1.51.0",
+  "icons": [
+    {"res": "ic_undo", "lucide": "undo-2", "stroke": 2, "group": "requests", "meaning": "Withdraw a deletion from your computer: the clip stays as it was", "used": "\"Undo\" on a deletion waiting on this phone (Clip page block, Requests row) and \"Keep the clip\" after a refused deletion: both drop the deletion and leave the clip as it was (design 9.26)"},
+    {"res": "ic_browser", "lucide": "app-window", "stroke": 2, "group": "availability", "meaning": "The browser client on your computer", "used": "the \"Browser\" node of the reach strip in the \"Delete from your computer?\" confirmation (design 9.26); decorative there, always beside its word"}
+  ],
+  "reuses": [
+    {"res": "ic_remove", "lucide": "trash-2", "new use": "\"Delete from your computer…\" (danger button) and its confirm button; the deletion badge (waiting: dashed ring, deleting: solid ring); the title line of deletion rows in Requests; the reach strip's affected-node badge"},
+    {"res": "ic_avail_on_phone", "lucide": "smartphone", "new use": "place head \"On this phone\" (Clip page), place mark of \"Remove from this phone?\" and of the phone-only practice reset, reach-strip phone nodes, the line \"Kept only on this phone.\""},
+    {"res": "ic_avail_on_computer", "lucide": "monitor", "new use": "place head \"On your computer\" (Clip page), place mark of \"Delete from your computer?\", reach-strip computer node"},
+    {"res": "ic_pairing", "lucide": "monitor-smartphone", "new use": "the line \"Shared through your computer · last synced {time}\" (Practice, Saved) and the place mark of \"Forget your practice history everywhere?\""},
+    {"res": "ic_status_waiting", "lucide": "clock", "new use": "the reason line of a waiting deletion (Clip page block, Requests), the consequence line \"Your computer isn't reachable now…\", the line \"Reset on this phone. It reaches your computer…\""},
+    {"res": "ic_status_sending", "lucide": "send", "new use": "the state line \"Deleting from your computer…\" of a deletion row in Requests (the Clip page block and the badge keep the trash glyph for the whole deletion)"},
+    {"res": "ic_status_attention", "lucide": "circle-alert", "new use": "\"Couldn't delete “{title}” from your computer.\" (critical, alert card)"},
+    {"res": "ic_save", "lucide": "bookmark", "new use": "the consequence line \"Your {N} saved items from this clip go too.\""},
+    {"res": "ic_info", "lucide": "info", "new use": "the three \"not offered\" sentences of the \"On your computer\" block"},
+    {"res": "ic_step_done", "lucide": "check", "new use": "the reach strip's \"stays\" badge (the computer node of \"Remove from this phone?\")"}
+  ]
+}

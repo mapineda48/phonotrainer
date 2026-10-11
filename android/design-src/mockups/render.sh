@@ -13,6 +13,9 @@ PAGES=(
   06-watch-portrait 07-watch-question 08-watch-set-end 09-mode-picker 10-lesson-compare 11-lesson-boundary:1560
   12-learn 13-phenomenon 14-practice 15-library 16-clip-page 17-requests:auto:"&full=1" 18-request-detail:auto:"&full=1" 19-share-connected
   20-share-queued 21-connect-none 22-settings-display 22-settings-full=22-settings-display:auto:"&full=1" 23-welcome 24-saved-empty 27-watch-large-text 25-illustrations:auto:"&full=1" 26-brand:auto:"&full=1"
+  # change request CR-01 (v1-complete): the two removals, the deletion state, shared progress
+  28-clip-computer:auto:"&full=1" 29-clip-delete-waiting=28-clip-computer:auto:"&full=1&state=waiting" 30-delete-dialog
+  31-removal-dialogs:auto:"&full=1" 32-requests-deletions:auto:"&full=1" 33-practice-shared:auto:"&full=1" 34-deletion-states:auto:"&full=1"
 )
 want=("$@")
 render() { # output page height extra theme

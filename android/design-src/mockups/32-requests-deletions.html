@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=412">
+<title>Requests with deletions from your computer</title>
+<link rel="stylesheet" href="kit/theme.css"><link rel="stylesheet" href="kit/places.css">
+<script src="kit/icons.js"></script><script src="kit/art.js"></script><script src="kit/kit.js"></script><script src="kit/places.js"></script>
+<style>
+  .content { padding: 0 16px 120px; }
+  .rq { padding: 14px 14px 14px 16px; }
+  .rq + .rq { margin-top: 10px; }
+  .rq .st { display: flex; gap: 10px; align-items: flex-start; font-weight: 800; font-size: 17px; line-height: 1.3; }
+  .rq .st .ico { margin-top: 1px; }
+  .rq .src { display: flex; gap: 6px; align-items: center; font-size: 15px; color: var(--ink-2); margin-top: 4px; }
+  .rq p { font-size: 15px; line-height: 1.4; margin-top: 6px; }
+  .acts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+  .twonodes { display: grid; grid-template-columns: 52px 1fr 52px 1fr 52px; align-items: center; margin-top: 10px; }
+  .twonodes .lab { font-size: 14px; text-align: center; margin-top: 2px; color: var(--ink-2); }
+  .bignode { width: 44px; height: 44px; border-radius: 22px; display: grid; place-items: center; box-shadow: inset 0 0 0 1.5px var(--outline); background: var(--sheet); margin: 0 auto; }
+  .bignode.here { background: var(--ink); color: var(--on-ink); box-shadow: none; }
+</style></head>
+<body>
+<div class="phone grain">
+  <div data-statusbar></div>
+  <div class="topbar"><span class="iconbtn" aria-label="Back"><span data-icon="arrow-left" data-size="24"></span></span><h1>Requests</h1></div>
+  <div class="content">
+    <p class="lede">What you asked your computer to analyze, and where it is now.</p>
+    <p class="small b" style="margin-top:6px;display:flex;gap:6px;align-items:center"><span data-icon="monitor-check" data-size="18"></span>Connected to Desk PC · checked 10 s ago</p>
+
+    <div class="grouphead"><span class="kicker"><span data-icon="circle-alert" data-size="18" data-cls="crit"></span>Needs your attention <span class="n">1</span></span></div>
+    <section class="card alert rq" aria-label="Couldn't delete Asking for directions from your computer. Opens its clip page.">
+      <div class="st"><span data-icon="circle-alert" data-size="22" data-cls="crit"></span>Couldn't delete “Asking for directions” from your computer.</div>
+      <p>Your computer answered that it can't delete this clip right now.</p>
+      <div class="acts"><span class="btn primary"><span data-icon="rotate-ccw" data-size="18"></span>Try again</span><span class="btn"><span data-icon="undo-2" data-size="18"></span>Keep the clip</span></div>
+    </section>
+
+    <div class="grouphead"><span class="kicker"><span data-icon="clock" data-size="18"></span>Waiting on this phone <span class="n">2</span></span></div>
+    <section class="card rq">
+      <div class="st"><span data-icon="trash-2" data-size="22"></span>Delete “Coffee shop small talk” from your computer</div>
+      <div class="reason"><span data-icon="clock" data-size="16"></span>Your computer is using a different library: this waits until it uses this clip's library again.</div>
+      <div data-mroute="waiting" data-w="200"></div>
+      <div class="acts" style="grid-template-columns:1fr"><span class="btn"><span data-icon="undo-2" data-size="18"></span>Undo</span></div>
+    </section>
+    <section class="card rq">
+      <div class="st"><span data-icon="clock" data-size="22"></span>Stopped by you: it waits here until you tap Send now.</div>
+      <div class="src"><span data-icon="file-video" data-size="18"></span>bus-stop-chat.mp4 · 48 MB · added 3 min ago</div>
+      <div class="twonodes" aria-hidden="true">
+        <div><span class="bignode here"><span data-icon="smartphone" data-size="20"></span></span><div class="lab b" style="color:var(--ink)">Phone</div></div>
+        <div data-trace='{"w":90,"h":20,"seed":3,"progress":0.0,"nib":false,"accents":3,"dash":"1 5","restW":2}'></div>
+        <div><span class="bignode"><span data-icon="monitor" data-size="20"></span></span><div class="lab">Computer</div></div>
+        <div data-trace='{"w":90,"h":20,"seed":6,"progress":0.0,"nib":false,"accents":3,"dash":"1 5","restW":2}'></div>
+        <div><span class="bignode"><span data-icon="square-play" data-size="20"></span></span><div class="lab">Ready</div></div>
+      </div>
+      <div class="acts"><span class="btn"><span data-icon="send" data-size="18"></span>Send now</span><span class="btn quiet"><span data-icon="trash-2" data-size="18"></span>Remove</span></div>
+    </section>
+
+    <div class="grouphead"><span class="kicker"><span data-icon="send" data-size="18"></span>Sending <span class="n">1</span></span></div>
+    <section class="card rq">
+      <div class="st"><span data-icon="trash-2" data-size="22"></span>Delete “Kitchen chat with Sam” from your computer</div>
+      <div class="reason"><span data-icon="send" data-size="16"></span>Deleting from your computer…</div>
+      <div data-mroute="sending" data-w="200"></div>
+    </section>
+  </div>
+  <div data-navbar="Home"></div>
+</div>
+</body></html>
