@@ -581,6 +581,7 @@ The README's phone-access section and `android/SECURITY.md` state these in these
   access is on (not while suspended, 2.1) and stopped at shutdown or when phone access is switched off live. If the
   port is busy it logs one warning line (no address), sets `capabilities.discovery = false` and the server runs on:
   manual address entry still works.
+- A server bound to a loopback address (`--host 127.0.0.1`) runs no responder: no phone could connect to it.
 - No mDNS, no multicast, no broadcast from the computer: the phone broadcasts, the computer answers by unicast.
 
 ### 5.2 Probe datagram (phone → broadcast)
@@ -1251,7 +1252,7 @@ an over-long video, an unknown-size video that grows past the limit, and a refus
 | Module | Responsibility | Main names |
 |---|---|---|
 | `__init__.py` | product constants | `DISCOVERY_PORT = 45317`, `MIN_APP_VERSION = 1`, `PAIRING_CODE_TTL_S = 300`, `PAIRING_MAX_WRONG = 5`, `MAX_UPLOAD_BYTES_DEFAULT = 2 GiB`, `MIN_FREE_BYTES = 2 GiB`, `LOW_SPACE_BYTES = 4 GiB`, `MAX_CHUNK_BYTES = 8 MiB`, `UPLOAD_EXPIRY_S = 48 h`, `MAX_CHANNELS = 8`, `MAX_CHANNELS_PER_DEVICE = 2`, `MAX_SESSIONS_PER_DEVICE = 4`, `UPLOAD_IDLE_ABORT_S = 30`, `UPLOAD_TAKEOVER_IDLE_S = 10`, `SIGNATURE_WINDOW_S = 300`, `NONCE_TTL_S = 600`, `MAX_LINK_DURATION_S_DEFAULT = 3600`, `MAX_JSON_BYTES = 16 KiB` |
-| `settings.py` | every injectable seam, passed to `create_app(phone=…)`; a public, stable entry point (the host-side fake computer of 12 builds it) | `PhoneSettings(config_dir, clock, resolver, media_probe, disk_usage, netinfo, which, runner, discovery_port)` |
+| `settings.py` | every injectable seam, passed to `create_app(phone=…)`; a public, stable entry point (the host-side fake computer of 12 builds it); new fields only at the end, with defaults: `port` (the listening port, set by `serve`), `discovery_host` (the responder's bind address, default `0.0.0.0`; tests use `127.0.0.1`), `host` (the HTTP bind address, set by `serve`; a loopback one means no responder, 5.1) | `PhoneSettings(config_dir, clock, resolver, media_probe, disk_usage, netinfo, which, runner, discovery_port, port, discovery_host, host)` |
 | `config.py` | configuration directory, permission checks at every open (3.1), atomic JSON files, the inter-process lock | `config_dir()`, `JsonFile`, `locked()` |
 | `identity.py` | server id, name, phone-access flag, approved networks and the active approved addresses (2.1), library id, capabilities | `ServerIdentity`, `ApprovedNetworks`, `library_id(workspace)`, `Capabilities` |
 | `registry.py` | devices, keys, pairing codes, attempts, re-activation proofs, identity proofs, rate limits | `DeviceRegistry`, `Device`, `PairingError`, `hello_proof()` |
@@ -1281,7 +1282,8 @@ an over-long video, an unknown-size video that grows past the limit, and a refus
   (complete); `LoopbackHostGuard` is installed in every case (1.3); `serve(..., phone=None)` binds `0.0.0.0` when
   phone access is on (or suspended) and no host was given, passes `proxy_headers=False` in every mode, and
   `access_log=False` when phone access is on (or suspended), opens the browser at `127.0.0.1`, writes and removes
-  `runtime.json`.
+  `runtime.json`; it passes its port and host into the phone settings, and to the `--reload` factory through
+  `PHONOTRAINER_PORT` and `PHONOTRAINER_HOST`.
 - `phonotrainer/jobs.py`: `Job` gains `device_id`, `client_request_id`, `rerun_of`, `origin` (persisted in
   `job.json`, read with defaults, absent from `to_public()`) and a runtime `enqueue_seq`; the worker passes
   `phone_origin=True` to `download_fn` for phone-origin link jobs (9); `JobStore` gains `find_by_request(device_id, key)`,
