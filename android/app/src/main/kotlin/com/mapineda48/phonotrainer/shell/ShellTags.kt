@@ -32,6 +32,7 @@ import com.mapineda48.phonotrainer.core.navigation.YourComputerKey
 /** Test tags of the app shell ("shell.<element>"); part of the test contract (work-plan 2.6). */
 object ShellTags {
   const val SNACKBAR = "shell.snackbar"
+  const val BOTTOM_BAR = "shell.bottomBar"
   const val BANNER = "shell.banner.connectAgain"
   const val BANNER_ACTION = "shell.banner.connectAgain.action"
   const val ANNOUNCER = "shell.announcer"
