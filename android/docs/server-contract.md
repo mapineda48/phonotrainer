@@ -363,7 +363,8 @@ The job store ignores it (it only loads directories with a `job.json`).
 
 **`<workspace>/.phone-uploads/`** (upload sessions, 6.6): `<client_request_id>.json` (session) and
 `<client_request_id>.part` (bytes received). Same filesystem as the jobs, so a finished upload is moved into its job
-with a rename (no second copy, S-10).
+with a rename (no second copy, S-10). Session files are named by the key alone, so a key held by another device's
+open upload session (a UUID clash) answers `409 key_conflict` (6.1).
 
 **`<workspace>/<job id>/phone/`** (derived per-job files, regenerable at any time): `checksums.json`, `media.json`
 (6.4), and in v1-complete the renditions and `renditions.json`. Deleting a job deletes them with its directory.
@@ -643,7 +644,9 @@ UTF-8 JSON object, at most 512 bytes:
   device returns the job that key created (`200`), whatever its status, as long as that job exists. The key is stored
   in the job's `job.json` (`client_request_id`, with `device_id`), so it survives restarts. A key reused for a
   different request (another URL, another file, another job to re-run) gives `409 key_conflict`. Lookups and creation
-  happen under the store's lock, so two concurrent requests with one key create one job.
+  happen under the store's lock, so two concurrent requests with one key create one job. Upload session files are
+  named by the key alone (3.2), so a key held by another device's open upload session (a UUID clash) answers
+  `409 key_conflict`.
 - Cancel, delete and unpair are naturally idempotent (6.2, 6.7).
 
 ### 6.2 Identity, pairing, health
