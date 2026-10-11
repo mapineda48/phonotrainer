@@ -5,6 +5,22 @@ measurements the work plan asks to record (NFR-02 with and without the Baseline 
 Newest first within each section. The planning documents stay authoritative; an entry here never changes behaviour
 they fix.
 
+## Data and the frozen contract
+
+### I-10 The `learning_id` callback overrides Room's connection callbacks (2026-10-11, WP-19)
+
+Work-plan 4.7 (CR-01-A1) fixes what `LearningDatabase.LEARNING_ID_CALLBACK` does: a plain insert of
+(`learning_id`, a random UUID) in `onCreate`, the same insert with `INSERT OR IGNORE` in `onOpen`. Room 2.8 declares
+each callback twice, once with a `SupportSQLiteDatabase` and once with an `androidx.sqlite.SQLiteConnection`, and its
+connection manager calls only the second; without a driver it passes a connection that wraps the support database,
+and the default body forwards to the first. The callback overrides the connection forms, with a prepared statement
+and bound values, so it runs the same way if the databases ever move to a driver. `onOpen` alone would already name a
+new database; `onCreate` is kept as the plan writes it, and the open after it then changes nothing.
+`LearningIdTest` (`:core:database`, Robolectric) proves one id that survives reopening, a version 1 file without the
+row gaining one on open, and a new id for every new database; replacing `INSERT OR IGNORE` by `INSERT OR REPLACE`, or
+dropping `onOpen`, makes it fail. `LearningIdOnDeviceTest` repeats the first case on the managed device, and
+`GlobalTestSetTest.theInMemoryLearningDatabaseHasItsLearningId` covers the end-to-end set's in-memory builder.
+
 ## Build and test infrastructure
 
 ### I-09 Two lint analyses at a time inside the Gradle daemon (2026-10-11, WP-19)
