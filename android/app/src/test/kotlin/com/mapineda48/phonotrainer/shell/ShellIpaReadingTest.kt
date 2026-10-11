@@ -4,6 +4,7 @@ import com.google.common.truth.Truth.assertThat
 import com.mapineda48.phonotrainer.core.testing.fake.content.FakeDidacticContent
 import com.mapineda48.phonotrainer.core.testing.fake.content.FakeReferenceRepository
 import com.mapineda48.phonotrainer.core.testing.fake.content.SampleDidactic
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
@@ -11,6 +12,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Test
 
 /** The reading the shell provides to `IpaText` (A-05): inventory tokens and phone names, built off the main thread. */
+@OptIn(ExperimentalCoroutinesApi::class)
 class ShellIpaReadingTest {
   private val reference = FakeReferenceRepository()
   private val didactic = FakeDidacticContent()
