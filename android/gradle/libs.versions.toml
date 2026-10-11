@@ -8,6 +8,9 @@
 androidGradlePlugin = "9.4.1"
 kotlin = "2.4.20"
 ksp = "2.3.12"
+# Licence report (build time only, architecture 2.4 and 20.6): chosen and verified by WP-19 under the configuration
+# cache on 2026-10-10 (the latest stable release on the Gradle Plugin Portal; Apache-2.0).
+aboutLibraries = "15.2.0"
 
 androidxActivity = "1.13.0"
 androidxBenchmark = "1.5.0"
@@ -118,8 +121,10 @@ turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 android-gradlePlugin = { module = "com.android.tools.build:gradle", version.ref = "androidGradlePlugin" }
 kotlin-gradlePlugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
 room-gradlePlugin = { module = "androidx.room:room-gradle-plugin", version.ref = "androidxRoom" }
+aboutlibraries-gradlePlugin = { module = "com.mikepenz.aboutlibraries.plugin:aboutlibraries-plugin", version.ref = "aboutLibraries" }
 
 [plugins]
+aboutlibraries-android = { id = "com.mikepenz.aboutlibraries.plugin.android", version.ref = "aboutLibraries" }
 android-application = { id = "com.android.application", version.ref = "androidGradlePlugin" }
 android-library = { id = "com.android.library", version.ref = "androidGradlePlugin" }
 android-lint = { id = "com.android.lint", version.ref = "androidGradlePlugin" }
