@@ -37,6 +37,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.PreviewLightDark
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.mapineda48.phonotrainer.core.designsystem.icons.PhonoIcons
 import com.mapineda48.phonotrainer.core.designsystem.theme.PhonoColors
@@ -114,7 +115,7 @@ fun PhonoBaseButton(
       .widthIn(min = PhonoSizes.minTarget)
       .heightIn(min = if (buttonSize == ButtonSize.LARGE) PhonoSizes.buttonHeightLarge else PhonoSizes.buttonHeight)
       .alpha(if (enabled) 1f else PhonoColors.DISABLED_ALPHA)
-      .offset(y = if (pressed && emphasis == ButtonEmphasis.PRIMARY) 1.dp else 0.dp)
+      .offset { IntOffset(0, if (pressed && emphasis == ButtonEmphasis.PRIMARY) 1.dp.roundToPx() else 0) }
       .clip(buttonShape)
       .background(fill)
       .then(if (ring != null) Modifier.border(PhonoSizes.ring, ring, buttonShape) else Modifier)

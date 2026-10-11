@@ -30,6 +30,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.PreviewLightDark
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.mapineda48.phonotrainer.core.designsystem.icons.PhonoIcons
 import com.mapineda48.phonotrainer.core.designsystem.theme.PhonoColors
@@ -135,7 +136,7 @@ fun PhonoSwitch(
       val thumb = if (checked) 24.dp else 16.dp
       Box(
         modifier = Modifier
-          .offset(x = thumbOffset - if (checked) 4.dp else 0.dp)
+          .offset { IntOffset((thumbOffset - if (checked) 4.dp else 0.dp).roundToPx(), 0) }
           .size(thumb)
           .clip(CircleShape)
           .background(if (checked) colors.onInk else colors.outline),

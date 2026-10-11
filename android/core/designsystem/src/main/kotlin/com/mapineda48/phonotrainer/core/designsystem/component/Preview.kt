@@ -18,9 +18,9 @@ import com.mapineda48.phonotrainer.core.domain.model.PatternChoice
  */
 @Composable
 fun PhonoPreviewSurface(
+  modifier: Modifier = Modifier,
   colors: ColorChoice = ColorChoice.STANDARD,
   patterns: PatternChoice = PatternChoice.FOLLOW_COLORS,
-  modifier: Modifier = Modifier,
   content: @Composable ColumnScope.() -> Unit,
 ) {
   PhonoTheme(colors = colors, patterns = patterns) {

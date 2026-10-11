@@ -1,5 +1,6 @@
 package com.mapineda48.phonotrainer.core.designsystem.brand
 
+import androidx.annotation.ColorRes
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Row
@@ -66,6 +67,15 @@ object PhonoBrandArt {
   @DrawableRes val Notification: Int = R.drawable.ic_notification
   @DrawableRes val SplashMark: Int = R.drawable.splash_mark
   @DrawableRes val SplashMarkAnimated: Int = R.drawable.splash_mark_animated
+
+  /** The page (window and splash background), light or dark through values-night. */
+  @ColorRes val Page: Int = R.color.phono_page
+
+  /** Ink (bone in dark): the splash mark, and the only accent a notification may set (design 12.3: never kraft). */
+  @ColorRes val Ink: Int = R.color.phono_ink
+
+  /** The launcher tile's kraft, the same in both themes. */
+  @ColorRes val LauncherTile: Int = R.color.phono_launcher_tile
 }
 
 /** The stylus P in [color] (ink by default), [size] square. Decorative: the words beside it name the app. */

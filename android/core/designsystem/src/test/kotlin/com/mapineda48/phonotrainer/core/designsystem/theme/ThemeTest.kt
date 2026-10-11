@@ -7,6 +7,7 @@ import android.graphics.drawable.AdaptiveIconDrawable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
@@ -104,7 +105,7 @@ class ThemeTest {
     compose.setContent {
       PhonoTheme(darkTheme = true) {
         val ctx = LocalContext.current
-        night = ctx.getColor(R.color.phono_page)
+        night = LocalResources.current.getColor(R.color.phono_page, null)
         systemDark = isSystemInDarkTheme()
         hasActivity = generateSequence(ctx) { (it as? android.content.ContextWrapper)?.baseContext }
           .any { it is android.app.Activity }
