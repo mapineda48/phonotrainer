@@ -138,7 +138,8 @@ class PhoneRuntime:
     def download_limits(self) -> DownloadLimits:
         """The bounds of a phone-origin link download, read now (server.json
         may have changed): the duration and size limits, free space minus the
-        open upload reservations, and the SSRF check with this server's resolver."""
+        open upload reservations, the SSRF check with this server's resolver,
+        and its media probe (a video whose site gave no duration is measured)."""
         resolver = self.settings.resolver
 
         def disk_usage(path):
@@ -148,7 +149,8 @@ class PhoneRuntime:
         return DownloadLimits(max_duration_s=self.identity.max_link_duration_s,
                               max_bytes=self.identity.max_upload_bytes,
                               min_free_bytes=MIN_FREE_BYTES, disk_usage=disk_usage,
-                              check_link=lambda url: check_link(url, resolver))
+                              check_link=lambda url: check_link(url, resolver),
+                              media_probe=self.settings.media_probe)
 
     # --- discovery ----------------------------------------------------------------------
     @property

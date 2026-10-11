@@ -16,15 +16,29 @@ before its download starts (DNS answers can change in between):
 4. a resolution that fails or takes too long is `CannotCheckLink`: a link is
    never accepted unchecked.
 
-Residual risk (README): a supported site's own redirects, followed by the
-downloader after the check, could still reach a local address.
+The link is only where a download starts: the page it names can hand over to
+other URLs (a short link, a post that embeds a video elsewhere), a service
+call or a media URL can be read from that page, and any of them can redirect.
+So the confined download also runs inside `confined_connections()`: on the
+thread that runs it, and on every thread it starts, each socket connect is
+checked against the address it is about to reach (after every redirect and
+every DNS answer, so DNS rebinding gains nothing), and an outside program
+whose arguments carry a network URL (ffmpeg fetching a stream itself, for
+example) is not started. A refused connect raises `ConnectRefused`, and the
+job fails with `LinkRefused`, the code `refused_address`.
 """
 
 from __future__ import annotations
 
 import concurrent.futures
+import contextlib
 import ipaddress
-from typing import Callable
+import os
+import re
+import socket
+import subprocess
+import threading
+from typing import Callable, Iterator
 from urllib.parse import urlsplit
 
 MAX_URL_CHARS = 2048
@@ -61,6 +75,15 @@ class LinkRefused(Exception):
 
 class CannotCheckLink(Exception):
     """The host could not be resolved (or not in time): try again later."""
+
+
+class ConnectRefused(LinkRefused, ConnectionRefusedError):
+    """A connect (or an outside program) the confined download may not make.
+
+    Also an OSError, so yt-dlp's networking turns it into its own transport
+    error at once (no "unexpected error" retried with another handler); the
+    `Confinement` keeps the refusal, and `download()` fails the job with a
+    plain `LinkRefused` (job code `refused_address`)."""
 
 
 def public_address(text: str) -> bool:
@@ -143,3 +166,156 @@ def check_link(url: str, resolver: Callable[[str], list[str]],
         if not public_address(address):
             raise LinkRefused()
     return trimmed
+
+
+# --- the connect-time guard (server-contract 9 point 7) -----------------------------------
+
+EXTERNAL_TOOL_DETAIL = ("This video needs an outside download tool, which links from phones "
+                        "may not use.")
+
+# A URL inside a program's argument: `scheme://`. Only `file:` is local.
+_URL_IN_ARGUMENT = re.compile(r"([A-Za-z][A-Za-z0-9+.-]*)://")
+
+
+def connect_allowed(host: str, port: int) -> bool:
+    """The rule for every connect of a confined download: the address it is
+    about to reach must be global unicast (`public_address`). A host name
+    instead of an address is refused: the C library would resolve it out of
+    sight, and the downloaders always connect to addresses."""
+    return public_address(host)
+
+
+class Confinement:
+    """One confined download: the rule for its connects, and the first
+    refusal, kept even when the downloader catches the exception and carries
+    on (`download()` then fails the job as refused all the same)."""
+
+    def __init__(self, allow: Callable[[str, int], bool]) -> None:
+        self.allow = allow
+        self.active = True
+        self.refused: LinkRefused | None = None
+
+    def refuse(self, message: str = REFUSED_DETAIL) -> ConnectRefused:
+        refusal = ConnectRefused(message)
+        if self.refused is None:
+            self.refused = refusal
+        return refusal
+
+    def check_connect(self, family: int, address) -> None:
+        if (family in (socket.AF_INET, socket.AF_INET6) and isinstance(address, tuple)
+                and len(address) >= 2 and isinstance(address[0], str)):
+            try:
+                if self.allow(address[0], int(address[1])):
+                    return
+            except (TypeError, ValueError):
+                pass
+        raise self.refuse()                           # private, local, a name, or a Unix socket
+
+    def check_program(self, argv) -> None:
+        if carries_network_url(argv):
+            raise self.refuse(EXTERNAL_TOOL_DETAIL)
+
+
+def carries_network_url(argv) -> bool:
+    """Does a program's argument list (or command string) carry a URL other
+    than a local `file:` one?"""
+    if argv is None:
+        return False
+    items = argv if isinstance(argv, (list, tuple)) else [argv]
+    for item in items:
+        try:
+            text = os.fsdecode(item) if isinstance(item, (bytes, os.PathLike)) else str(item)
+        except (TypeError, ValueError):
+            continue
+        if any(m.group(1).lower() != "file" for m in _URL_IN_ARGUMENT.finditer(text)):
+            return True
+    return False
+
+
+_LOCAL = threading.local()
+_HOOKS_LOCK = threading.Lock()
+_hooks_installed = False
+
+
+def current_confinement() -> Confinement | None:
+    """The confinement of the calling thread, if a confined download runs on it."""
+    confinement = getattr(_LOCAL, "confinement", None)
+    return confinement if confinement is not None and confinement.active else None
+
+
+@contextlib.contextmanager
+def confined_connections(allow: Callable[[str, int], bool] | None = None
+                         ) -> Iterator[Confinement]:
+    """Confine the calling thread (and every thread it starts) while the block
+    runs: each socket connect must reach an address `allow(host, port)`
+    accepts (`connect_allowed` by default), and no program whose arguments
+    carry a network URL is started. Other threads are never affected."""
+    _install_hooks()
+    previous = getattr(_LOCAL, "confinement", None)
+    confinement = Confinement(allow or connect_allowed)
+    _LOCAL.confinement = confinement
+    try:
+        yield confinement
+    finally:
+        confinement.active = False                    # threads it started are let go too
+        _LOCAL.confinement = previous
+
+
+def _install_hooks() -> None:
+    """Wrap, once per process, the three doors a download can leave by:
+    `socket.socket.connect` (and `connect_ex`), `subprocess.Popen` and
+    `threading.Thread.start` (a thread started by a confined thread is
+    confined as well). Outside a confined thread each wrapper only adds one
+    thread-local lookup."""
+    global _hooks_installed
+    with _HOOKS_LOCK:
+        if _hooks_installed:
+            return
+        real_connect = socket.socket.connect
+        real_connect_ex = socket.socket.connect_ex
+        real_popen_init = subprocess.Popen.__init__
+        real_start = threading.Thread.start
+
+        def check(sock, address) -> None:
+            confinement = current_confinement()
+            if confinement is not None:
+                try:
+                    confinement.check_connect(sock.family, address)
+                except ConnectRefused:
+                    sock.close()
+                    raise
+
+        def connect(self, address):
+            check(self, address)
+            return real_connect(self, address)
+
+        def connect_ex(self, address):
+            check(self, address)
+            return real_connect_ex(self, address)
+
+        def popen_init(self, *args, **kwargs):
+            confinement = current_confinement()
+            if confinement is not None:
+                confinement.check_program(args[0] if args else kwargs.get("args"))
+            real_popen_init(self, *args, **kwargs)
+
+        def start(self):
+            confinement = current_confinement()
+            if confinement is not None:
+                run = self.run
+
+                def confined_run():
+                    _LOCAL.confinement = confinement
+                    try:
+                        run()
+                    finally:
+                        _LOCAL.confinement = None
+
+                self.run = confined_run
+            return real_start(self)
+
+        socket.socket.connect = connect
+        socket.socket.connect_ex = connect_ex
+        subprocess.Popen.__init__ = popen_init
+        threading.Thread.start = start
+        _hooks_installed = True

@@ -345,10 +345,124 @@ def test_phone_origin_downloads_use_site_extractors_and_a_size_bound(tmp_path):
     seen = {}
     path = confined(tmp_path, seen)
     assert path.is_file()
-    assert seen["allowed_extractors"] == ["default", "-generic"]
+    # never the generic extractor, nor the Mediasite ones (their links may name any host)
+    assert seen["allowed_extractors"] == ["default", "-generic", "-mediasite.*"]
     assert seen["max_filesize"] == 2 * GIB
     assert seen["format"] == VIDEO_FORMAT and seen["js_runtimes"] == {"node": {}}
+    # yt-dlp's own downloaders (the connect guard sees their sockets), one
+    # fragment at a time, and no proxy (it would hide the address reached)
+    assert seen["external_downloader"] == {"default": "native"}
+    assert seen["concurrent_fragment_downloads"] == 1 and seen["proxy"] == ""
     assert confined.made[0].fetched
+
+
+def test_a_confined_download_runs_inside_the_connect_guard(tmp_path):
+    from phonotrainer.phone.ssrf import current_confinement
+
+    seen = []
+
+    class Watching(TwoPhaseYDL):
+        def extract_info(self, url, download=True):
+            seen.append(current_confinement())
+            return super().extract_info(url, download)
+
+        def process_ie_result(self, info, download=True):
+            seen.append(current_confinement())
+            return super().process_ie_result(info, download)
+
+    download("https://youtu.be/abc123", tmp_path, ydl_factory=lambda o: Watching(o),
+             phone_origin=True, limits=limits(), which=which_of(), environ={})
+    assert len(seen) == 2 and all(c is not None for c in seen) and seen[0] is seen[1]
+    assert current_confinement() is None                    # and only while it runs
+    seen.clear()
+    download("https://youtu.be/abc123", tmp_path / "b", ydl_factory=lambda o: Recording(o, seen),
+             which=which_of(), environ={})
+    assert seen == [None]                                   # browser downloads are not confined
+
+
+class Recording(FakeYDL):
+    def __init__(self, options, seen):
+        super().__init__(options)
+        self.seen = seen
+
+    def extract_info(self, url, download=True):
+        from phonotrainer.phone.ssrf import current_confinement
+
+        self.seen.append(current_confinement())
+        return super().extract_info(url, download)
+
+
+def test_a_refused_connect_fails_the_job_as_a_refused_address(tmp_path):
+    """Whatever yt-dlp makes of the refusal (here a generic error after it
+    caught the transport error), the job fails with `LinkRefused`."""
+    import socket as socket_module
+
+    from phonotrainer.phone.ssrf import LinkRefused
+    from phonotrainer.phone.state import classify_error
+
+    class Reaching(TwoPhaseYDL):
+        def process_ie_result(self, info, download=True):
+            try:
+                with socket_module.create_connection(("127.0.0.1", 9), timeout=1):
+                    pass
+            except OSError as exc:
+                raise RuntimeError(f"Unable to download video data: {exc}") from None
+            raise AssertionError("the connect must be refused")
+
+    with pytest.raises(LinkRefused) as refused:
+        download("https://youtu.be/abc123", tmp_path, ydl_factory=lambda o: Reaching(o),
+                 phone_origin=True, limits=limits(), which=which_of(), environ={})
+    assert type(refused.value) is LinkRefused
+    assert classify_error("error", f"LinkRefused: {refused.value}") == "refused_address"
+
+
+def test_an_unknown_size_is_checked_as_the_largest_it_may_reach(tmp_path):
+    """A site that gives no size (common for HLS and DASH) may still deliver
+    up to `max_bytes`, twice that while two formats wait to be merged: the
+    free-space check counts that, not zero."""
+    from phonotrainer.download import needed_bytes
+
+    lim = limits(max_bytes=GIB, disk_usage=lambda path: type("U", (), {"free": 2 * GIB + GIB})())
+    assert needed_bytes({}, lim) == GIB
+    assert needed_bytes({"requested_formats": [{}, {}]}, lim) == 2 * GIB
+    assert needed_bytes({"filesize": 100}, lim) == 100
+    assert confined(tmp_path / "one", lim=lim, info={}).is_file()            # 3 GiB - 1 GiB ≥ 2 GiB
+    with pytest.raises(NoSpaceRefused):
+        confined(tmp_path / "two", lim=lim, info={"requested_formats": [{}, {}]})
+    assert not confined.made[0].fetched
+
+
+@pytest.mark.parametrize("probed, refused", [
+    ({"format": {"duration": "3601.5"}}, True),
+    ({"format": {}, "streams": [{"duration": "12"}, {"duration": "3700"}]}, True),
+    ({"format": {"duration": "59.9"}}, False),
+    (None, False),                                  # ffprobe could not tell: kept
+])
+def test_a_video_whose_site_gave_no_duration_is_measured(tmp_path, probed, refused):
+    probes = []
+
+    def probe(path):
+        probes.append(path)
+        return probed
+
+    lim = limits(media_probe=probe)
+    if refused:
+        with pytest.raises(TooLongRefused, match="up to 60 minutes"):
+            confined(tmp_path, lim=lim, info={"duration": None})
+        assert not [p for p in tmp_path.iterdir() if p.is_file()]
+    else:
+        assert confined(tmp_path, lim=lim, info={"duration": None}).is_file()
+    assert len(probes) == 1
+    # a site that gave the duration is not probed again
+    confined(tmp_path / "known", lim=lim)
+    assert len(probes) == 1
+
+
+def test_a_probe_that_cannot_run_keeps_the_file(tmp_path):
+    def broken(path):
+        raise OSError("ffprobe is missing")
+
+    assert confined(tmp_path, lim=limits(media_probe=broken), info={"duration": None}).is_file()
 
 
 @pytest.mark.parametrize("info, refusal", [
