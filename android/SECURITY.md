@@ -123,6 +123,7 @@ component updates this table in the same merge.
 | permission | `android.permission.WAKE_LOCK` |
 | permission | `android.permission.RECEIVE_BOOT_COMPLETED` |
 | permission | `android.permission.FOREGROUND_SERVICE` |
+| permission | `android.permission.POST_NOTIFICATIONS` |
 | permission | `com.mapineda48.phonotrainer.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` |
 | activity | `com.mapineda48.phonotrainer.MainActivity` |
 | activity | `com.mapineda48.phonotrainer.feature.share.ShareActivity` |
@@ -136,8 +137,10 @@ Where each entry comes from:
   `ACCESS_NETWORK_STATE`.
 - `WAKE_LOCK`, `RECEIVE_BOOT_COMPLETED` and `FOREGROUND_SERVICE` are merged from WorkManager (`work-runtime`), as
   architecture 20.1 expects for the first two; `FOREGROUND_SERVICE` belongs to WorkManager's own foreground service,
-  which is not exported. The other permissions of 20.1 join this table when the modules that use them declare them:
-  `POST_NOTIFICATIONS` (`:core:notifications`) and `FOREGROUND_SERVICE_DATA_SYNC` (`:core:sync`).
+  which is not exported. The other permission of 20.1 joins this table when the module that uses it declares it:
+  `FOREGROUND_SERVICE_DATA_SYNC` (`:core:sync`).
+- `POST_NOTIFICATIONS` is declared by `:core:notifications` (architecture 13): on Android 13 and later it is asked
+  in context after the first stored request (spec F-23), never at first launch; below 13 it is granted at install.
 - `DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` is the signature-level permission that AndroidX Core declares and
   requests for the app itself, so a receiver registered as not exported stays private on versions before API 33.
 - `MainActivity` is the launcher activity (`singleTask`, default affinity). `ShareActivity` (`:feature:share`) is the
