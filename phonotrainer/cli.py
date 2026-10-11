@@ -263,10 +263,10 @@ def _print_corpus_metrics(console: Console, result: dict) -> None:
                    "turning it on approves the networks this computer is on now). "
                    "Default: the remembered choice, off if never chosen.")
 @click.option("--phone-interface", "phone_interfaces", multiple=True,
-              help="Also approve this virtual interface for phones (repeatable; "
-                   "container, virtual-machine and VPN interfaces are excluded by "
-                   "default). With phone access already on, only this interface is "
-                   "added.")
+              help="Also approve this interface for phones (repeatable; container, "
+                   "virtual-machine and VPN interfaces, and networks with public "
+                   "addresses, are excluded by default). With phone access already "
+                   "on, only this interface is added.")
 def ui(workspace: str, port: int, host: str | None, no_open: bool, reload: bool,
        import_dirs: tuple[str, ...], allow_dirs: tuple[str, ...],
        phone_access: bool | None, phone_interfaces: tuple[str, ...]) -> None:
@@ -286,12 +286,13 @@ def ui(workspace: str, port: int, host: str | None, no_open: bool, reload: bool,
     from pathlib import Path
 
     roots = [Path.home(), Path.cwd(), *(Path(d) for d in allow_dirs)]
-    phone = prepare_phone_access(phone_access, phone_interfaces)
+    notes: list[str] = []
+    phone = prepare_phone_access(phone_access, phone_interfaces, notes=notes)
     shown = host if host not in (None, "0.0.0.0") else "127.0.0.1"
     console.print(f"[bold]PhonoTrainer UI[/] → [cyan]http://{shown}:{port}[/]  "
                   f"(workspace: {workspace})")
     if phone is not None:
-        for line in banner(phone, port, host):
+        for line in [*banner(phone, port, host), *notes]:
             console.print(line, markup=False, highlight=False, soft_wrap=True)
     serve(workspace=workspace, host=host, port=port, reload=reload,
           open_browser=not no_open, allowed_roots=roots, phone=phone)

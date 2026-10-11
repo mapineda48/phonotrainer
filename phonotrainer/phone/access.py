@@ -13,7 +13,9 @@ upgrades: both see `http` and `websocket` scopes alike.
   that one, so a proxy header that rewrote the peer (uvicorn runs with
   `proxy_headers=False`, this is the second line) still cannot skip the rule.
 - `PhoneAccessMiddleware` (phone access on or suspended): LAN clients reach only
-  `/api/phone/*`, only on the local addresses of approved networks, and only
+  `/api/phone/*`, only on the local addresses of approved networks, only from
+  inside the network they reached (`peer_allowed`: not another subnet, a
+  container, a VPN peer or the internet routed to that address), and only
   with `Host` equal to the address they connected to; phone paths with dot
   segments or an encoded slash are refused; with phone access switched off
   live, every phone route except `hello` answers `phone_access_off`; JSON
@@ -48,6 +50,12 @@ FILE_BODY_ROUTES = (
     ("PUT", re.compile(r"^/api/phone/uploads/[^/]+$")),
     ("PATCH", re.compile(r"^/api/phone/uploads/[^/]+$")),
 )
+
+
+def is_file_body(method: str, path: str) -> bool:
+    """A phone route whose body is a file (an upload's PUT or PATCH)."""
+    method = str(method).upper()
+    return any(m == method and rx.match(path) for m, rx in FILE_BODY_ROUTES)
 
 
 def is_loopback(host: str | None) -> bool:
@@ -129,13 +137,22 @@ def _loopback_host_ok(values: list[str], names: set[str]) -> bool:
             or host in names)
 
 
+def _announces_body(scope: Scope) -> bool:
+    if _header(scope, b"transfer-encoding"):
+        return True
+    return any(value.strip() not in ("", "0") for value in _header(scope, b"content-length"))
+
+
 async def _deny(scope: Scope, receive: Receive, send: Send, status: int, code: str) -> None:
     if scope["type"] == "websocket":
         # Closed before accept: the client sees the handshake refused (HTTP 403).
         await receive()
         await send({"type": "websocket.close", "code": 1008})
         return
-    await error_response(status, code)(scope, receive, send)
+    # A refused request's body is never read: the connection closes after the
+    # answer instead of waiting for (or discarding) what the client still sends.
+    headers = {"Connection": "close"} if _announces_body(scope) else None
+    await error_response(status, code, headers=headers)(scope, receive, send)
 
 
 class LoopbackHostGuard:
@@ -182,6 +199,29 @@ def _lan_host_ok(values: list[str], server: tuple[str, int] | None) -> bool:
     return host == server[0] and (port is None or port == server[1])
 
 
+def peer_allowed(client: str | None, iface) -> bool:
+    """May this LAN peer use the approved interface it reached? Only from
+    inside that interface's network, and only from an address that is not
+    global unicast (private, link-local, shared…), the rule discovery
+    applies to its probes (5.4). A peer with a global address is accepted
+    only when the approved network is itself global, which `phone on` never
+    approves unless the operator names the interface (`--phone-interface`)."""
+    if not client:
+        return False
+    try:
+        address = ipaddress.ip_address(client.split("%", 1)[0])
+        network = ipaddress.ip_interface(f"{iface.address}/{iface.prefix}").network
+    except (ValueError, TypeError):
+        return False
+    if isinstance(address, ipaddress.IPv6Address):
+        if address.ipv4_mapped is None:
+            return False                          # approved networks are IPv4
+        address = address.ipv4_mapped
+    if address not in network:
+        return False
+    return not address.is_global or network.is_global
+
+
 class PhoneAccessMiddleware:
     """LAN restrictions and phone-route rules (phone access on or suspended)."""
 
@@ -199,7 +239,8 @@ class PhoneAccessMiddleware:
         if not is_loopback(client):
             server = scope.get("server")
             server = (str(server[0]), int(server[1])) if server else None
-            if server is None or not self.runtime.is_approved_address(server[0]):
+            iface = self.runtime.approved_interface(server[0]) if server else None
+            if iface is None or not peer_allowed(client, iface):
                 await _deny(scope, receive, send, 403, "lan_forbidden")
                 return
             if not _lan_host_ok(_header(scope, b"host"), server):
@@ -229,13 +270,17 @@ class PhoneAccessMiddleware:
     @staticmethod
     def _body_rule(scope: Scope, path: str) -> tuple[int, str] | None:
         method = scope.get("method", "GET").upper()
-        if any(m == method and rx.match(path) for m, rx in FILE_BODY_ROUTES):
+        if is_file_body(method, path):
             return None
         lengths = _header(scope, b"content-length")
-        chunked = any("chunked" in v.lower() for v in _header(scope, b"transfer-encoding"))
         json_route = any(m == method and rx.match(path) for m, rx in JSON_ROUTES)
+        if _header(scope, b"transfer-encoding"):
+            # A chunked body (even beside a Content-Length, which it would
+            # override) is never measured in advance: refused on every route
+            # that does not stream a file.
+            return 411, "length_required"
         if not lengths:
-            if json_route or chunked:
+            if json_route:
                 return 411, "length_required"
             return None
         if len(lengths) > 1 or not lengths[0].strip().isdigit():

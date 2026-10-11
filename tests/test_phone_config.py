@@ -259,6 +259,26 @@ def test_active_addresses():
     assert approvable([LOOPBACK_IF, DOCKER, TUNNEL, down]) == []
 
 
+def test_public_networks_are_approved_only_when_named(isolated_config, fake_clock):
+    """A computer plugged straight into the ISP's modem, or on a campus network
+    with public addressing: approving it would open pairing to the internet."""
+    from phone_fixtures import PUBLIC_V4
+
+    from phonotrainer.phone.identity import is_public, skipped_public
+
+    modem = Interface("eth0", PUBLIC_V4, 24, None)
+    cgnat = Interface("wwan0", "100.64.1.2", 10, None)          # hygiene: test-vector
+    assert is_public(modem) and not is_public(WLAN_HOME) and not is_public(cgnat)
+    assert approvable([LOOPBACK_IF, WLAN_HOME, modem, cgnat]) == [WLAN_HOME, cgnat]
+    assert skipped_public([LOOPBACK_IF, WLAN_HOME, modem, DOCKER]) == [modem]
+    assert approvable([WLAN_HOME, modem], extra=["eth0"]) == [WLAN_HOME, modem]
+    assert skipped_public([modem], extra=["eth0"]) == []
+    identity = ServerIdentity(ConfigDir(isolated_config), fake_clock)
+    identity.load()
+    approved = identity.turn_on([LOOPBACK_IF, WLAN_HOME, modem])
+    assert [entry["interface"] for entry in approved] == ["wlan0"]
+
+
 def fake_sysfs(root, name: str, device: str, kind: int):
     """/sys/class/net/<name> → /sys/devices/<device>/net/<name>, with its type."""
     target = root / "devices" / device / "net" / name

@@ -10,13 +10,15 @@ from __future__ import annotations
 
 import sys
 import time
+from datetime import datetime
 from typing import Callable, Iterable
 
 import click
 
 from . import PAIRING_MAX_WRONG
 from .config import ConfigDir, ConfigError, runtime_info
-from .identity import ServerIdentity, active_addresses
+from .identity import (MAX_NAME_CHARS, ServerIdentity, active_addresses, public_note,
+                       skipped_public)
 from .netinfo import Interface, interfaces as real_interfaces
 from .registry import DeviceRegistry
 from .settings import PhoneSettings
@@ -25,6 +27,8 @@ POLL_S = 0.5
 
 UI_COMMAND = "phonotrainer ui --phone-access"
 PAIR_COMMAND = "phonotrainer phone pair"
+RENAME_LINE = 'Rename this computer for your phone with: phonotrainer phone name "…"'
+SHORT_ID_CHARS = 12                       # "dev_" and the first 8 characters
 
 
 def _open_identity(config: ConfigDir) -> ServerIdentity:
@@ -48,7 +52,8 @@ def _shown(active: list[Interface], host: str | None) -> list[Interface]:
 
 def prepare_phone_access(choice: bool | None, extra_interfaces: Iterable[str],
                          netinfo: Callable[[], list[Interface]] | None = None,
-                         config: ConfigDir | None = None) -> PhoneSettings | None:
+                         config: ConfigDir | None = None,
+                         notes: list[str] | None = None) -> PhoneSettings | None:
     """`ui --phone-access/--no-phone-access/--phone-interface`: remember the
     choice (approving the networks the computer is on now when turning it on)
     and return the settings to start the server with, or None for off.
@@ -56,7 +61,10 @@ def prepare_phone_access(choice: bool | None, extra_interfaces: Iterable[str],
     `--phone-interface` alone (phone access already on) approves only the
     interfaces it names: approving every network the computer is on now is
     what `--phone-access` and `phone on` do, never a side effect of naming a
-    VPN or container interface on a café Wi-Fi."""
+    VPN or container interface on a café Wi-Fi.
+
+    `notes` receives extra lines for the banner: on the first start (this
+    call created the computer's identity), how to rename the computer."""
     netinfo = netinfo or real_interfaces
     config = config or ConfigDir()
     extra = tuple(extra_interfaces)
@@ -64,13 +72,18 @@ def prepare_phone_access(choice: bool | None, extra_interfaces: Iterable[str],
         return None                       # never chose: off, and nothing is created
     identity = _open_identity(config)
     if choice is True:
-        identity.turn_on(netinfo(), extra)
+        current = netinfo()
+        identity.turn_on(current, extra)
+        if notes is not None:
+            notes.extend(public_note(iface) for iface in skipped_public(current, extra))
     elif choice is None and identity.phone_access and extra:
         identity.turn_on([iface for iface in netinfo() if iface.name in extra], extra)
     elif choice is False:
         identity.turn_off()
     if not identity.phone_access:
         return None
+    if identity.created and notes is not None:
+        notes.append(RENAME_LINE)
     return PhoneSettings(config_dir=config.path, netinfo=netinfo)
 
 
@@ -142,11 +155,16 @@ def turn_on() -> None:
     """Turn phone access on and approve the networks this computer is on now."""
     config = ConfigDir()
     identity = _open_identity(config)
-    for entry in identity.turn_on(real_interfaces()):
+    current = real_interfaces()
+    for entry in identity.turn_on(current):
         click.echo(f"Approved for phones: {entry['interface']} {entry['network']}")
+    for iface in skipped_public(current):
+        click.echo(public_note(iface))
     click.echo("Phone access is now ON.")
     if runtime_info(config) is None:
         click.echo("Restart `phonotrainer ui` to apply it.")
+    if identity.created:
+        click.echo(RENAME_LINE)
 
 
 @phone.command("off")
@@ -224,3 +242,111 @@ def wait_for_pairing(registry: DeviceRegistry, expires_at: float,
             registry.delete_code()
             return 3
         sleep(POLL_S)
+
+
+# --- paired phones ----------------------------------------------------------------------
+
+def _short_id(device_id: str) -> str:
+    return device_id[:SHORT_ID_CHARS]
+
+
+def _local_time(text: str | None) -> str:
+    if not text:
+        return "never"
+    try:
+        return datetime.fromisoformat(text).astimezone().strftime("%Y-%m-%d %H:%M")
+    except ValueError:
+        return "unknown"
+
+
+def relative(text: str | None, now: float) -> str:
+    """"just now", "5 minutes ago", "3 hours ago", "2 days ago" or "never"."""
+    if not text:
+        return "never"
+    try:
+        seconds = max(0, int(now - datetime.fromisoformat(text).timestamp()))
+    except ValueError:
+        return "unknown"
+    for size, unit in ((86400, "day"), (3600, "hour"), (60, "minute")):
+        if seconds >= size:
+            count = seconds // size
+            return f"{count} {unit}{'s' if count != 1 else ''} ago"
+    return "just now"
+
+
+def _phone_line(device, now: float) -> str:
+    version = f"{device.app_version_name} ({device.app_version})" if device.app_version_name \
+        else str(device.app_version)
+    line = (f"{device.name}   {_short_id(device.device_id)}   paired "
+            f"{_local_time(device.paired_at)}   last seen {relative(device.last_seen_at, now)}   "
+            f"app {version}")
+    if device.revoked:
+        line += f"   revoked {_local_time(device.revoked_at)}"
+    return line
+
+
+@phone.command("list")
+@click.option("--all", "show_all", is_flag=True, default=False,
+              help="Also list revoked phones.")
+def list_phones(show_all: bool) -> None:
+    """Paired phones: name, id, paired at, last seen, app version."""
+    registry = DeviceRegistry(ConfigDir(), time.time)
+    devices = sorted(registry.devices(include_revoked=show_all), key=lambda d: d.paired_at)
+    if not devices:
+        click.echo("No paired phones." if not show_all else "No phones have ever paired.")
+        return
+    now = time.time()
+    for device in devices:
+        click.echo(_phone_line(device, now))
+
+
+@phone.command("revoke")
+@click.argument("target", required=False)
+@click.option("--all", "revoke_all", is_flag=True, default=False, help="Revoke every phone.")
+@click.option("--yes", is_flag=True, default=False, help="Do not ask before revoking every phone.")
+def revoke(target: str | None, revoke_all: bool, yes: bool) -> None:
+    """Revoke a phone (by name or the start of its id); it stops working at
+    its next request."""
+    registry = DeviceRegistry(ConfigDir(), time.time)
+    if revoke_all:
+        active = registry.devices()
+        if not active:
+            click.echo("No paired phones.")
+            return
+        if not yes and not click.confirm(f"Revoke all {len(active)} phones?", default=False):
+            click.echo("Nothing was revoked.")
+            return
+        count = registry.revoke_all()
+        click.echo(f"Revoked {count} phone{'s' if count != 1 else ''}.")
+        return
+    if not target:
+        raise click.UsageError("Name a phone (its name or the start of its id), or use --all.")
+    active = registry.devices()
+    exact = [d for d in active if d.device_id == target]
+    matches = exact or [d for d in active
+                        if d.device_id.startswith(target) or d.name.casefold() == target.casefold()]
+    if not matches:
+        _fail(f'No paired phone matches "{target}". See `phonotrainer phone list`.', 1)
+    if len(matches) > 1:
+        click.echo(f'More than one phone matches "{target}"; use more of its id:')
+        now = time.time()
+        for device in matches:
+            click.echo(f"  {_phone_line(device, now)}")
+        sys.exit(2)
+    device = matches[0]
+    registry.revoke(device.device_id)
+    click.echo(f"Revoked: {device.name} ({_short_id(device.device_id)}). "
+               "It stops working at its next request.")
+
+
+@phone.command("name")
+@click.argument("name")
+def rename(name: str) -> None:
+    """Rename this computer as phones see it (1 to 40 characters)."""
+    identity = _open_identity(ConfigDir())
+    try:
+        cleaned = identity.rename(name)
+    except ValueError:
+        _fail(f"The name must be 1 to {MAX_NAME_CHARS} characters long "
+              "(control characters are removed).", 1)
+    click.echo(f'Phones now see this computer as "{cleaned}".')

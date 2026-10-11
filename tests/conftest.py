@@ -184,7 +184,7 @@ def wait_until(predicate, timeout: float = 10.0, interval: float = 0.02):
 import pytest  # noqa: E402
 
 from phone_fixtures import (FakeClock, FakeDisk, FakeNetinfo, FakeProbe,  # noqa: E402
-                            PT1Auth, fake_resolver, fake_which, no_runner)
+                            FakeResolver, PT1Auth, fake_which, no_runner)
 
 
 @pytest.fixture(autouse=True)
@@ -196,7 +196,7 @@ def isolated_config(tmp_path_factory, monkeypatch):
 
 # What serve() writes into the environment (for `uvicorn --reload`'s factory).
 SERVE_ENV = ("PHONOTRAINER_WORKSPACE", "PHONOTRAINER_ROOTS", "PHONOTRAINER_PHONE_ACCESS",
-             "PHONOTRAINER_PORT", "PHONOTRAINER_CONFIG_DIR")
+             "PHONOTRAINER_PORT", "PHONOTRAINER_HOST", "PHONOTRAINER_CONFIG_DIR")
 
 
 @pytest.fixture
@@ -235,12 +235,19 @@ def fake_disk():
 
 
 @pytest.fixture
-def phone_settings(isolated_config, fake_clock, fake_netinfo, fake_probe, fake_disk):
+def fake_resolver():
+    return FakeResolver()
+
+
+@pytest.fixture
+def phone_settings(isolated_config, fake_clock, fake_netinfo, fake_probe, fake_disk,
+                   fake_resolver):
     from phonotrainer.phone.settings import PhoneSettings
 
     return PhoneSettings(config_dir=isolated_config, clock=fake_clock, resolver=fake_resolver,
                          media_probe=fake_probe, disk_usage=fake_disk, netinfo=fake_netinfo,
-                         which=fake_which, runner=no_runner, discovery_port=0)
+                         which=fake_which, runner=no_runner, discovery_port=0,
+                         discovery_host="127.0.0.1")
 
 
 def phone_download(url, dest_dir, audio_only=False, progress=lambda m: None, **kwargs):
@@ -347,3 +354,42 @@ def blocking_analyze():
     analyze.release = release
     analyze.started = started
     return analyze
+
+
+def paired_client(app, clock, name="Pixel 9"):
+    """Pair one more phone through the API; returns (signing client, device id)."""
+    from phonotrainer.phone.registry import token_key
+
+    client = lan(app)
+    resp, _ = pair_phone(app, client, name=name)
+    assert resp.status_code == 201, resp.text
+    body = resp.json()
+    client.auth = PT1Auth(body["device_id"], token_key(body["token"]), clock)
+    return client, body["device_id"]
+
+
+@pytest.fixture
+def phone_server(phone_settings, tmp_path):
+    """A factory for an app with phone access on around a store the test
+    builds: `make(store)` → (app, signing client, device id). Every app's
+    lifespan runs until the test ends; every store is shut down."""
+    from fastapi.testclient import TestClient
+
+    from phonotrainer.server import create_app
+
+    opened = []
+
+    def make(store, name="Pixel 9"):
+        enable_phone_access(phone_settings)
+        app = create_app(store=store, phone=phone_settings, web_dist=tmp_path / "not-built",
+                         allowed_roots=[tmp_path])
+        lifespan = TestClient(app)
+        lifespan.__enter__()
+        opened.append((lifespan, store))
+        signing, device_id = paired_client(app, phone_settings.clock, name)
+        return app, signing, device_id
+
+    yield make
+    for lifespan, store in opened:
+        lifespan.__exit__(None, None, None)
+        store.shutdown()

@@ -6,13 +6,16 @@ the approved Wi-Fi address 192.0.2.10 of `FakeNetinfo`.
 """
 
 import getpass
+import hashlib
 import json
 import re
 import socket
+import time
 from pathlib import Path
 
+import anyio
 import pytest
-from conftest import enable_phone_access, lan, loopback, wait_until
+from conftest import enable_phone_access, fake_analyze, lan, loopback, wait_until
 from fastapi.testclient import TestClient
 from phone_fixtures import (REFERENCE_DEVICE_ID, REFERENCE_HEADER, REFERENCE_KEY_HEX,
                             REFERENCE_NONCE, REFERENCE_SIGNATURES, REFERENCE_TOKEN,
@@ -99,6 +102,60 @@ def test_a_lan_request_on_an_unapproved_address_is_forbidden(phone_app):
         for path in ("/api/phone/hello", "/api/phone/health", "/api/browse", "/"):
             resp = client.get(path)
             assert resp.status_code == 403 and resp.json() == LAN_FORBIDDEN, (server, path)
+
+
+# hygiene: test-vector begin
+@pytest.mark.parametrize("peer", [
+    "203.0.113.77",          # the internet, routed to the approved address
+    "198.51.100.5",          # another subnet of the router, a container network
+    "1.2.3.4",               # a public address
+    "::ffff:198.51.100.5",   # the same, IPv4-mapped
+    "fd00::5", "not-an-address",
+])
+def test_a_peer_outside_the_approved_network_is_forbidden(phone_app, peer):
+    """The approved address is reachable only from inside its own network,
+    the rule discovery applies to probes (5.4): not from a guest network that
+    is not isolated, a container or VM on this computer, a VPN peer, or the
+    internet when the address is routable."""
+    client = lan(phone_app, client=(peer, 40000))
+    resp = client.get("/api/phone/hello")
+    assert resp.status_code == 403 and resp.json() == LAN_FORBIDDEN
+    code = phone_app.state.phone.registry.create_code().code
+    resp = client.post("/api/phone/pair", json={"code": code, "device_name": "Far away",
+                                                "app_version": 1})
+    assert resp.status_code == 403 and resp.json() == LAN_FORBIDDEN
+    assert phone_app.state.phone.registry.devices() == []
+    ws = asgi_call(phone_app, "GET", b"/api/phone/events", client=(peer, 40000), websocket=True)
+    assert ws["closed"] and not ws["accepted"]
+# hygiene: test-vector end
+
+
+def test_a_peer_inside_the_approved_network_is_answered(phone_app):
+    for peer in ("192.0.2.77", "::ffff:192.0.2.77"):  # hygiene: test-vector
+        resp = lan(phone_app, client=(peer, 40000)).get("/api/phone/hello")
+        assert resp.status_code == 200, peer
+        assert resp.json()["phone_access"] is True
+
+
+# hygiene: test-vector begin
+def test_peer_allowed():
+    from phone_fixtures import PUBLIC_V4
+
+    from phonotrainer.phone.access import peer_allowed
+    from phonotrainer.phone.netinfo import Interface
+
+    home = Interface("wlan0", "192.0.2.10", 24, None)
+    assert peer_allowed("192.0.2.200", home) and peer_allowed("::ffff:192.0.2.1", home)
+    assert not peer_allowed("192.0.3.1", home) and not peer_allowed(None, home)
+    assert not peer_allowed("2001:db8::1", home) and not peer_allowed("", home)
+    # an approved public network (only when named): its peers are global, and accepted
+    named = Interface("eth0", PUBLIC_V4, 24, None)
+    neighbour = PUBLIC_V4.rsplit(".", 1)[0] + ".99"
+    assert peer_allowed(neighbour, named)
+    # however wide the network, a peer from outside it is refused
+    wide = Interface("eth1", "198.51.100.10", 16, None)
+    assert peer_allowed("198.51.7.7", wide) and not peer_allowed("203.0.113.7", wide)
+# hygiene: test-vector end
 
 
 def test_phone_access_off_leaves_lan_clients_as_today(phone_store, tmp_path, done_job):
@@ -380,6 +437,7 @@ def test_forwarded_for_cannot_skip_the_loopback_host_rule(
     app = create_app(store=phone_store, phone=phone, web_dist=tmp_path / "nb",
                      allowed_roots=[tmp_path])
     monkeypatch.setattr(server, "create_app", lambda *a, **kw: app)
+    monkeypatch.setattr("phonotrainer.phone.connections.raise_open_file_limit", lambda: None)
     server.serve(workspace=tmp_path / "ws", open_browser=False, phone=phone)
     (served, kwargs), = uvicorn_calls
     assert served is app and kwargs["proxy_headers"] is False
@@ -432,6 +490,23 @@ def test_json_bodies_must_declare_a_small_length(phone_app):
     resp = lan(phone_app).post("/api/phone/pair", content=chunks(),
                                headers={"Content-Type": "application/json"})
     assert resp.status_code == 411 and resp.json()["code"] == "length_required"
+
+
+def test_a_chunked_body_is_refused_even_beside_a_content_length(phone_app):
+    """Transfer-Encoding overrides Content-Length: a declared 20 bytes could
+    hide megabytes of chunks, so no route that is not a file upload takes it."""
+    headers = [(b"content-type", b"application/json"), (b"content-length", b"20"),
+               (b"transfer-encoding", b"chunked")]
+    for method, path in (("POST", b"/api/phone/pair"), ("POST", b"/api/phone/jobs/link"),
+                         ("GET", b"/api/phone/health")):
+        resp = asgi_call(phone_app, method, path, headers=headers)
+        assert resp["status"] == 411, path
+        assert json.loads(resp["body"])["code"] == "length_required"
+        # the body is never read: the connection closes after the answer
+        assert resp["headers"].get("connection") == "close", path
+    # a refusal of a request without a body keeps the connection
+    resp = asgi_call(phone_app, "GET", b"/api/browse")
+    assert resp["status"] == 403 and "connection" not in resp["headers"]
 
 
 def test_a_phone_validation_error_is_400_but_the_browsers_stays_422(phone_app):
@@ -492,3 +567,62 @@ def test_no_path_home_or_user_name_in_a_full_session(phone_app, paired, phone_st
         for value in forbidden:
             assert value not in text, (value, text[:200])
     assert any(re.search(r'"code":\s*"not_media"', t) for t in texts)
+
+
+def test_no_path_home_or_user_name_in_requests_uploads_or_the_channel(phone_server, tmp_path):
+    from phonotrainer.download import DownloadError
+    from phonotrainer.jobs import JobStore
+
+    def leaky_download(url, dest_dir, audio_only=False, progress=lambda m: None, **kwargs):
+        progress(f"Looking up the URL… ({dest_dir})")
+        raise DownloadError(f"ERROR: unable to write {Path(dest_dir).resolve()}/x.part, "
+                            f"{Path.home()}/{getpass.getuser()}/y: No space left on device")
+
+    store = JobStore(tmp_path / "workspace", analyze_fn=fake_analyze, corpus=None,
+                     download_dir=tmp_path / "downloads", download_fn=leaky_download)
+    app, signing, device_id = phone_server(store)
+    texts: list[str] = []
+
+    def record(resp):
+        assert resp.status_code < 500, resp.text
+        texts.append(resp.text)
+        return resp
+
+    with signing.websocket_connect("ws://192.0.2.10:8000/api/phone/events") as ws:
+        key = "00000000-0000-4000-8000-0000000000a1"
+        link = record(signing.post("/api/phone/jobs/link", json={
+            "client_request_id": key, "url": "https://youtu.be/abc123def45"})).json()["job"]
+        wait_until(lambda: store.get(link["id"]).status == "error")
+        record(signing.get(f"/api/phone/requests/{key}"))
+        record(signing.get(f"/api/phone/jobs/{link['id']}"))
+        rerun = record(signing.post(f"/api/phone/jobs/{link['id']}/rerun", json={
+            "client_request_id": "00000000-0000-4000-8000-0000000000a2"})).json()["job"]
+        wait_until(lambda: store.get(rerun["id"]).status == "error")
+        data = b"RIFF fake media" * 100
+        upload_key = "00000000-0000-4000-8000-0000000000a3"
+        record(signing.post("/api/phone/uploads", json={
+            "client_request_id": upload_key, "file_name": "VID_0001.mp4", "bytes": len(data),
+            "sha256": hashlib.sha256(data).hexdigest()}))
+        uploaded = record(signing.put(f"/api/phone/uploads/{upload_key}", content=data,
+                                      headers={"Content-Type": "application/octet-stream"}))
+        uploaded_id = uploaded.json()["job"]["id"]
+        record(signing.post(f"/api/phone/jobs/{uploaded_id}/cancel"))
+        wait_until(lambda: store.get(uploaded_id).status in ("done", "cancelled"))
+        record(signing.get("/api/phone/library"))
+        record(signing.delete(f"/api/phone/jobs/{rerun['id']}"))
+        frames = []
+
+        async def drain():
+            with anyio.move_on_after(1.5):
+                while True:
+                    frames.append((await ws._send_rx.receive())["text"])
+
+        time.sleep(0.6)                           # let the last coalesced events go out
+        ws.portal.call(drain)
+        texts.extend(frames)
+
+    assert any('"code":"no_space"' in t.replace(" ", "") for t in texts)
+    forbidden = [str(tmp_path), str(Path.home()), getpass.getuser(), str(store.root.resolve())]
+    for text in texts:
+        for value in forbidden:
+            assert value not in text, (value, text[:300])

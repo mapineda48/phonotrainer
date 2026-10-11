@@ -30,6 +30,23 @@ DETAILS = {
     "unknown_job": "There is no such job on this computer.",
     "unknown_artifact": "There is no such file for this job.",
     "artifact_not_ready": "This file is not ready yet.",
+    "unknown_request": "This phone sent no request with that id.",
+    "unknown_upload": "There is no such upload; declare it first.",
+    "invalid_url": "This is not a link PhonoTrainer can open.",
+    "refused_address": "This link points to a private or local address.",
+    "cannot_check_link": "This computer could not look up the link's website. Try again later.",
+    "key_conflict": "This request id was already used for a different request.",
+    "not_own_job": "This job was not sent from this phone.",
+    "already_finished": "This job already finished; it was not cancelled.",
+    "not_deletable": "Delete it on your computer.",
+    "not_rerunnable": "Only a failed or cancelled job can run again.",
+    "source_gone": "Your computer no longer has this file.",
+    "invalid_option": "Audio only applies to links.",
+    "unsupported_type": "PhonoTrainer cannot analyze this kind of file.",
+    "no_space": "This computer would drop below 2 GiB of free space.",
+    "length_mismatch": "The body length differs from the declared size.",
+    "checksum_mismatch": "The file arrived damaged; send it again.",
+    "upload_busy": "Another upload from this phone is still receiving bytes.",
 }
 
 
