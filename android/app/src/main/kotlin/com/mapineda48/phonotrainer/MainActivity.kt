@@ -30,10 +30,12 @@ import com.mapineda48.phonotrainer.core.ui.a11y.LocalReducedMotion
 import com.mapineda48.phonotrainer.core.ui.a11y.LocalTalkBackOn
 import com.mapineda48.phonotrainer.core.ui.a11y.rememberReducedMotion
 import com.mapineda48.phonotrainer.core.ui.a11y.rememberTalkBackOn
+import com.mapineda48.phonotrainer.core.ui.ipa.LocalIpaReading
 import com.mapineda48.phonotrainer.shell.AppNavigator
 import com.mapineda48.phonotrainer.shell.PhonoShell
 import com.mapineda48.phonotrainer.shell.ShellAnnouncer
 import com.mapineda48.phonotrainer.shell.ShellInputs
+import com.mapineda48.phonotrainer.shell.ShellIpaReading
 import com.mapineda48.phonotrainer.shell.TargetResolver
 import com.mapineda48.phonotrainer.shell.rememberAppNavigator
 import dagger.hilt.android.AndroidEntryPoint
@@ -44,9 +46,10 @@ import kotlinx.coroutines.launch
 
 /**
  * The single activity (architecture 16.5): the splash until the settings are read, edge to edge, the theme from
- * `UserSettings.appearance`, and the shell. Internal targets are honoured only through the `.InternalEntry` alias,
- * in [onCreate] only when there is no saved state, and in [onNewIntent]; once applied, the target is removed from the
- * activity's intent, so a rotation or a process-death restore never navigates again (architecture 16.4).
+ * `UserSettings.appearance`, how IPA is read aloud (A-05), and the shell. Internal targets are honoured only through
+ * the `.InternalEntry` alias, in [onCreate] only when there is no saved state, and in [onNewIntent]; once applied, the
+ * target is removed from the activity's intent, so a rotation or a process-death restore never navigates again
+ * (architecture 16.4).
  */
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -61,6 +64,8 @@ class MainActivity : ComponentActivity() {
   @Inject lateinit var computerStatus: ComputerStatusRepository
 
   @Inject lateinit var announcer: ShellAnnouncer
+
+  @Inject lateinit var ipaReading: ShellIpaReading
 
   private val pendingTarget = MutableStateFlow<NavTarget?>(null)
 
@@ -89,6 +94,7 @@ class MainActivity : ComponentActivity() {
 
     setContent {
       val current by settings.settings.collectAsStateWithLifecycle()
+      val reading by ipaReading.reading.collectAsStateWithLifecycle()
       val navigator = rememberAppNavigator(resolver)
       SideEffect { this.navigator = navigator }
       LaunchedEffect(navigator) {
@@ -108,6 +114,7 @@ class MainActivity : ComponentActivity() {
       CompositionLocalProvider(
         LocalReducedMotion provides rememberReducedMotion(current.motion),
         LocalTalkBackOn provides rememberTalkBackOn(),
+        LocalIpaReading provides reading,
       ) {
         PhonoTheme(
           darkTheme = current.appearance.isDark(),
