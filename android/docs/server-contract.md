@@ -542,7 +542,7 @@ JavaScript runtime runs YouTube's player code. Only phones the operator paired c
 
 | Limit | Value | Answer |
 |---|---|---|
-| JSON request bodies on phone routes | `Content-Length` required, at most 16 KiB | `411 length_required` / `413 too_large` |
+| JSON request bodies on phone routes | `Content-Length` required, at most 16 KiB; a `Transfer-Encoding` header on a phone route that is not a file upload is refused | `411 length_required` / `413 too_large` |
 | LAN request head | complete within 10 s of the connection or of the previous answer | the connection is closed |
 | LAN request body that is not a file upload | complete within 10 s of its head | the connection is closed |
 | LAN connections | at most 16 per peer address, 128 in total on approved addresses, 16 in total on other local addresses; loopback unlimited; a connection that becomes a WebSocket leaves the counts (the channel has its own limits) | closed at once |
@@ -559,6 +559,9 @@ JavaScript runtime runs YouTube's player code. Only phones the operator paired c
 | Discovery replies | 5.4 | silently dropped |
 | Phone-origin link downloads | 9: no live stream, at most `max_link_duration_s`, at most `max_upload_bytes`, free space checked before the download | job codes `live_stream`, `too_long`, `no_space` (8.2) |
 | Record yourself | unchanged: 8 MiB + 64 KiB, 30 s, concurrency 2 | existing codes |
+
+A refusal sent before a request body was read (by the middleware, or by an upload route) carries `Connection: close`:
+the connection closes after the answer instead of waiting for the rest of a body the server will not use.
 
 Upload bodies are awaited on the event loop and only each received chunk's write is dispatched to a worker thread
 (a dedicated `anyio.CapacityLimiter(4)`), so an idle or slow upload holds no thread of the pool the browser client's
@@ -1170,7 +1173,7 @@ transient), **done** (the operation already happened).
 | `bad_host` | 400 | Host header refused | defect |
 | `invalid_request` | 400 | malformed body or parameters | defect |
 | `too_large` | 413 | JSON body over 16 KiB, or file over `max_upload_bytes` | permanent (files: "Too large for your computer's limit") |
-| `length_required` | 411 | no `Content-Length` | defect |
+| `length_required` | 411 | no `Content-Length`, or a `Transfer-Encoding` header on a phone route that is not a file upload (4.7) | defect |
 | `length_mismatch` | 400 | upload body length differs from the declaration | transient (restart the upload) |
 | `checksum_mismatch` | 422 | upload SHA-256 differs | transient (restart; after 3, needs attention as "damaged") |
 | `unsupported_type` | 400 | file suffix not accepted | permanent |
