@@ -6,6 +6,8 @@ import com.mapineda48.phonotrainer.core.common.di.IoDispatcher
 import com.mapineda48.phonotrainer.core.domain.api.Announcer
 import com.mapineda48.phonotrainer.core.domain.api.Clock
 import com.mapineda48.phonotrainer.core.domain.api.UserMessages
+import com.mapineda48.phonotrainer.core.domain.spi.ClipRemovalHook
+import com.mapineda48.phonotrainer.core.domain.spi.StartupTask
 import com.mapineda48.phonotrainer.shell.ShellAnnouncer
 import com.mapineda48.phonotrainer.shell.ShellUserMessages
 import dagger.Binds
@@ -13,6 +15,7 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import dagger.multibindings.Multibinds
 import java.time.Instant
 import java.time.ZoneId
 import javax.inject.Singleton
@@ -67,4 +70,19 @@ interface ShellModule {
 
   @Binds
   fun announcer(impl: ShellAnnouncer): Announcer
+}
+
+/**
+ * Declares the two SPI sets that cores contribute to with `@IntoSet` (work-plan 4.2), so the module that injects one
+ * (`StartupCheck` and the clip removal, WP-08) builds whether or not any core contributes yet (decision I-16).
+ * Contributors only add `@Binds @IntoSet`; they need no declaration of their own.
+ */
+@Module
+@InstallIn(SingletonComponent::class)
+interface SpiSetsModule {
+  @Multibinds
+  fun startupTasks(): Set<StartupTask>
+
+  @Multibinds
+  fun clipRemovalHooks(): Set<ClipRemovalHook>
 }

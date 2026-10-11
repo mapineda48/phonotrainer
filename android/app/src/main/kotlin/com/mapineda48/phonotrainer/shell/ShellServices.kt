@@ -11,7 +11,9 @@ import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * One-shot messages as state (architecture 3.1): one is [current] at a time, the shell shows it as a snackbar and
- * reports it consumed, and the next in line follows. A message survives rotation (it lives here, not in the UI).
+ * reports it consumed, and the next in line follows. A message survives rotation (it lives here, not in the UI). Ids
+ * are unique among the messages here: one posted with an id already current or waiting gets a fresh one from
+ * [UserMessage.nextId], so consuming one message never consumes or hides another (decision I-16).
  */
 @Singleton
 class ShellUserMessages @Inject constructor() : UserMessages {
@@ -22,7 +24,9 @@ class ShellUserMessages @Inject constructor() : UserMessages {
   override val current: StateFlow<UserMessage?> = state.asStateFlow()
 
   override fun post(message: UserMessage) = synchronized(lock) {
-    if (state.value == null) state.value = message else waiting.addLast(message)
+    val taken = state.value?.id == message.id || waiting.any { it.id == message.id }
+    val unique = if (taken) message.copy(id = UserMessage.nextId()) else message
+    if (state.value == null) state.value = unique else waiting.addLast(unique)
   }
 
   override fun consumed(id: Long) = synchronized(lock) {

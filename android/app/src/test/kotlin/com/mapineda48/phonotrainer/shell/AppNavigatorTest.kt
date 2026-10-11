@@ -103,6 +103,27 @@ class AppNavigatorTest {
   }
 
   @Test
+  fun navigatingToTheKeyAlreadyOnTopChangesNothing() {
+    navigator.navigate(LibraryKey)
+    navigator.navigate(LibraryKey)
+    assertThat(stacks.getValue(Tab.HOME)).containsExactly(HomeKey, LibraryKey).inOrder()
+
+    // A started feed that is already the Watch root stays the same entry (an equal key would replace it, and the
+    // replaced entry's state and ViewModels would be cleared with it).
+    val start = WatchKey(FeedStart.TodaySet)
+    navigator.navigate(start)
+    navigator.switchTab(Tab.HOME)
+    navigator.navigate(WatchKey(FeedStart.TodaySet))
+    assertThat(navigator.currentTab).isEqualTo(Tab.WATCH)
+    assertThat(stacks.getValue(Tab.WATCH).single()).isSameInstanceAs(start)
+
+    navigator.navigate(PracticeKey(focus = "flapping"))
+    val practiceRoot = stacks.getValue(Tab.PRACTICE).single()
+    navigator.navigate(PracticeKey(focus = "flapping"))
+    assertThat(stacks.getValue(Tab.PRACTICE).single()).isSameInstanceAs(practiceRoot)
+  }
+
+  @Test
   fun aMissingRequestOpensRequestsWithTheNotice() = runTest(scope.testScheduler) {
     navigator.open(NavTarget.RequestDetail(RequestId("gone")))
     assertThat(stacks.getValue(Tab.HOME)).containsExactly(HomeKey, RequestsKey).inOrder()
@@ -118,10 +139,28 @@ class AppNavigatorTest {
     assertThat(stacks.getValue(Tab.WATCH)).containsExactly(WatchKey(FeedStart.InOrder(here, null, fromStart = false)))
     assertThat(navigator.currentTab).isEqualTo(Tab.WATCH)
 
+    navigator.open(NavTarget.ClipFeed(JobId("gone")))
+    assertThat(navigator.currentTab).isEqualTo(Tab.HOME)
+    assertThat(stacks.getValue(Tab.HOME)).containsExactly(HomeKey)
+    // Spec 5.4: "That clip is no longer on this phone."
+    assertThat(messages.posted.map { it.kind }).containsExactly(UserMessageKind.CLIP_GONE)
+  }
+
+  @Test
+  fun aWordWhoseClipIsGoneOpensTheLibraryWithItsOwnNotice() = runTest(scope.testScheduler) {
     navigator.open(NavTarget.WordLesson(JobId("gone"), segment = 1, word = 2))
     assertThat(navigator.currentTab).isEqualTo(Tab.HOME)
     assertThat(stacks.getValue(Tab.HOME)).containsExactly(HomeKey, LibraryKey).inOrder()
-    assertThat(messages.posted.map { it.kind }).containsExactly(UserMessageKind.CLIP_GONE)
+    // Spec 5.4: "That clip is no longer on your computer or this phone." (decision I-14).
+    assertThat(messages.posted.map { it.kind }).containsExactly(UserMessageKind.WORD_CLIP_GONE)
+  }
+
+  @Test
+  fun everyNoticeOfTheResolverHasItsOwnId() = runTest(scope.testScheduler) {
+    navigator.open(NavTarget.RequestDetail(RequestId("gone")))
+    navigator.open(NavTarget.RequestDetail(RequestId("gone")))
+    navigator.open(NavTarget.ClipFeed(JobId("gone")))
+    assertThat(messages.posted.map { it.id }.toSet()).hasSize(3)
   }
 
   private fun detail(id: JobId) = ClipDetail(

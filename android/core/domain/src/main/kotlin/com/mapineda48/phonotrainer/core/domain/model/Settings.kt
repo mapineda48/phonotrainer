@@ -1,5 +1,7 @@
 package com.mapineda48.phonotrainer.core.domain.model
 
+import java.util.concurrent.atomic.AtomicLong
+
 // Work-plan Appendix A.9: settings, messages and notifications (WP-02, WP-24). The navigation block of A.9 lives in
 // :core:navigation.
 
@@ -46,11 +48,31 @@ enum class LessonGuidance { FULL, COMPACT }
 /**
  * A one-shot message the app shell shows as a snackbar (architecture 3.1). [args]: TOO_LATE_TO_CANCEL and
  * CANCEL_UNDONE carry the request title ("Cancel undone: “{title}” won't be cancelled.", D-47); CLIPS_REMOVED the
- * count; the others none.
+ * count; the others none. [id] comes from [nextId], the one allocator (posters use `UserMessages.post(kind, args)`).
  */
-data class UserMessage(val id: Long, val kind: UserMessageKind, val args: List<String> = emptyList())
+data class UserMessage(val id: Long, val kind: UserMessageKind, val args: List<String> = emptyList()) {
+  companion object {
+    private val ids = AtomicLong()
 
-enum class UserMessageKind { CLIP_GONE, REQUEST_REMOVED, LIBRARY_CHANGED, CLIPS_REMOVED, TOO_LATE_TO_CANCEL, CANCEL_UNDONE }
+    /** A message id no other message of this process has (decision I-16). */
+    fun nextId(): Long = ids.incrementAndGet()
+  }
+}
+
+/**
+ * CLIP_GONE: a clip target (notification, "New on this phone") whose clip is gone, "That clip is no longer on this
+ * phone."; WORD_CLIP_GONE: a word target inside the app whose clip is gone, "That clip is no longer on your computer
+ * or this phone." (spec 5.4; added after B1 as an additive member, decision I-14).
+ */
+enum class UserMessageKind {
+  CLIP_GONE,
+  REQUEST_REMOVED,
+  LIBRARY_CHANGED,
+  CLIPS_REMOVED,
+  TOO_LATE_TO_CANCEL,
+  CANCEL_UNDONE,
+  WORD_CLIP_GONE,
+}
 
 enum class TransferKind { UPLOAD, DOWNLOAD, SHARE_COPY }
 

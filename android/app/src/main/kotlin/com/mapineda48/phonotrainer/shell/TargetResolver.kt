@@ -4,7 +4,6 @@ import com.mapineda48.phonotrainer.core.domain.api.ClipRepository
 import com.mapineda48.phonotrainer.core.domain.api.RequestRepository
 import com.mapineda48.phonotrainer.core.domain.api.UserMessages
 import com.mapineda48.phonotrainer.core.domain.model.JobId
-import com.mapineda48.phonotrainer.core.domain.model.UserMessage
 import com.mapineda48.phonotrainer.core.domain.model.UserMessageKind
 import com.mapineda48.phonotrainer.core.navigation.FeedStart
 import com.mapineda48.phonotrainer.core.navigation.HomeKey
@@ -19,7 +18,8 @@ import kotlinx.coroutines.flow.first
 
 /**
  * Resolves an internal target (spec 5.4, architecture 16.4): the place it names when it still exists, else its
- * nearest parent with the spec's notice.
+ * nearest parent with the spec's notice: a clip target's "That clip is no longer on this phone." (CLIP_GONE), a word
+ * target's "That clip is no longer on your computer or this phone." (WORD_CLIP_GONE).
  */
 class TargetResolver @Inject constructor(
   private val clips: ClipRepository,
@@ -49,12 +49,14 @@ class TargetResolver @Inject constructor(
           navigator.navigate(WatchKey(FeedStart.AtWord(target.jobId, target.segment, target.word, openLesson = true)))
         } else {
           navigator.replace(Tab.HOME, listOf(HomeKey, LibraryKey))
-          notice(UserMessageKind.CLIP_GONE)
+          notice(UserMessageKind.WORD_CLIP_GONE)
         }
     }
   }
 
   private suspend fun exists(id: JobId): Boolean = clips.clip(id).first() != null
 
-  private fun notice(kind: UserMessageKind) = messages.post(UserMessage(System.nanoTime(), kind))
+  private fun notice(kind: UserMessageKind) {
+    messages.post(kind)
+  }
 }

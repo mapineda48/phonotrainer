@@ -249,6 +249,7 @@ private fun messageText(message: UserMessage): String {
     }
     UserMessageKind.TOO_LATE_TO_CANCEL -> stringResource(R.string.message_too_late_to_cancel, title)
     UserMessageKind.CANCEL_UNDONE -> stringResource(R.string.message_cancel_undone, title)
+    UserMessageKind.WORD_CLIP_GONE -> stringResource(R.string.message_word_clip_gone)
   }
 }
 

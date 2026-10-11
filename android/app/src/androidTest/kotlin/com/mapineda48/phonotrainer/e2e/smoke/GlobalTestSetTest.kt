@@ -21,8 +21,11 @@ import com.mapineda48.phonotrainer.core.domain.api.PairingRepository
 import com.mapineda48.phonotrainer.core.domain.api.SyncController
 import com.mapineda48.phonotrainer.core.domain.model.ClipAvailability
 import com.mapineda48.phonotrainer.core.domain.model.ClipQuery
+import com.mapineda48.phonotrainer.core.domain.spi.ClipRemovalHook
 import com.mapineda48.phonotrainer.core.domain.spi.DiscoveryTransport
 import com.mapineda48.phonotrainer.core.domain.spi.NetworkMonitor
+import com.mapineda48.phonotrainer.core.domain.spi.StartupOrder
+import com.mapineda48.phonotrainer.core.domain.spi.StartupTask
 import com.mapineda48.phonotrainer.core.network.NetworkPolicyModule
 import com.mapineda48.phonotrainer.core.network.api.AddressPolicy
 import com.mapineda48.phonotrainer.core.testing.TestClock
@@ -92,6 +95,10 @@ class GlobalTestSetTest {
 
   @Inject lateinit var clips: ClipRepository
 
+  @Inject lateinit var startupTasks: Set<@JvmSuppressWildcards StartupTask>
+
+  @Inject lateinit var removalHooks: Set<@JvmSuppressWildcards ClipRemovalHook>
+
   private val context: Context get() = InstrumentationRegistry.getInstrumentation().targetContext
 
   @Before
@@ -109,6 +116,16 @@ class GlobalTestSetTest {
   }
 
   /** CR-01-A1: the in-memory learning database names its history as a real one does, with one `learning_id`. */
+  @Test
+  fun theSpiSetsAreDeclaredAndEveryStartupTaskCarriesItsOrder() {
+    // Declared with @Multibinds in :app (decision I-16), so StartupCheck (WP-08) and the clip removal (WP-08) can
+    // inject them before, and whether or not, any core contributes one.
+    startupTasks.forEach { task ->
+      assertWithMessage(task.javaClass.name).that(task.javaClass.isAnnotationPresent(StartupOrder::class.java)).isTrue()
+    }
+    assertThat(removalHooks.size).isAtLeast(0)
+  }
+
   @Test
   fun theInMemoryLearningDatabaseHasItsLearningId() {
     val rows = learning.openHelper.writableDatabase.query("SELECT `key`, `value` FROM learning_meta").use { cursor ->

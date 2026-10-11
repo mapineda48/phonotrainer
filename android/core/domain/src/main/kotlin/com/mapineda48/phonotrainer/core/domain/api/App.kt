@@ -2,6 +2,7 @@ package com.mapineda48.phonotrainer.core.domain.api
 
 import com.mapineda48.phonotrainer.core.domain.model.SyncReason
 import com.mapineda48.phonotrainer.core.domain.model.UserMessage
+import com.mapineda48.phonotrainer.core.domain.model.UserMessageKind
 import java.time.Instant
 import java.time.ZoneId
 import kotlinx.coroutines.flow.StateFlow
@@ -25,9 +26,17 @@ fun interface SyncTrigger {
 interface UserMessages {
   val current: StateFlow<UserMessage?>
 
+  /** Queues [message]; its id should come from [UserMessage.nextId]. Prefer [post] with a kind. */
   fun post(message: UserMessage)
 
   fun consumed(id: Long)
+
+  /** Queues a message of [kind] under a fresh id from the one allocator and returns that id (decision I-16). */
+  fun post(kind: UserMessageKind, args: List<String> = emptyList()): Long {
+    val id = UserMessage.nextId()
+    post(UserMessage(id, kind, args))
+    return id
+  }
 }
 
 /** The only way to make polite TalkBack announcements, for the event kinds A-04 allows (architecture 18). */

@@ -14,6 +14,7 @@
 
     <!-- One-shot messages (design 9.23, UserMessageKind). -->
     <string name="message_clip_gone">That clip is no longer on this phone.</string>
+    <string name="message_word_clip_gone">That clip is no longer on your computer or this phone.</string>
     <string name="message_request_removed">This request was removed.</string>
     <string name="message_library_changed">Your computer is using a different library. Clips from the other one stay on this phone until you remove them.</string>
     <plurals name="message_clips_removed">

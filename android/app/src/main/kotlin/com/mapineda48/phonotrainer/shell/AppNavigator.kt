@@ -20,7 +20,9 @@ import kotlinx.coroutines.launch
  * destination, from a tab root go Home, and from Home's root leave the app (the shell lets the system take that Back).
  *
  * Tab roots switch tabs instead of being pushed. A feed with a start (`WatchKey(start)`) becomes the Watch tab's new
- * root, and `PracticeKey(focus)` the Practice tab's; Back from either goes Home.
+ * root, and `PracticeKey(focus)` the Practice tab's; Back from either goes Home. Navigating to the key already on top
+ * (a double tap) changes nothing: an equal key would share the entry's content key, so pushing or replacing it would
+ * stack a duplicate or clear the shown entry's state (decision I-16).
  */
 @Stable
 internal class AppNavigator(
@@ -42,10 +44,16 @@ internal class AppNavigator(
     when (key) {
       HomeKey -> show(Tab.HOME)
       LearnKey -> show(Tab.LEARN)
-      is WatchKey -> if (key.start == null) show(Tab.WATCH) else replace(Tab.WATCH, listOf(key))
-      is PracticeKey -> if (key.focus == null) show(Tab.PRACTICE) else replace(Tab.PRACTICE, listOf(key))
-      else -> stack(currentTab).add(key)
+      is WatchKey -> if (key.start == null) show(Tab.WATCH) else root(Tab.WATCH, key)
+      is PracticeKey -> if (key.focus == null) show(Tab.PRACTICE) else root(Tab.PRACTICE, key)
+      else -> stack(currentTab).let { stack -> if (stack.lastOrNull() != key) stack.add(key) }
     }
+  }
+
+  /** Makes [key] the only entry of [of] and shows it; when it already is, only shows it. */
+  private fun root(of: Tab, key: NavKey) {
+    val stack = stack(of)
+    if (stack.size == 1 && stack.single() == key) show(of) else replace(of, listOf(key))
   }
 
   override fun back() {
