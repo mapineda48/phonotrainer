@@ -293,6 +293,16 @@ directory; for an external drive, use `phonotrainer ui --allow-dir /mnt/videos`.
 > your `$HOME` that anyone can read without credentials: never expose it on a
 > public interface.
 
+## Android client
+
+PhonoTrainer has an Android app in [`android/`](android/): your analysed clips
+on the phone as a feed of short vertical clips with a home dashboard, lessons
+and practice, and new work (a shared link, a video or audio file) sent to this
+computer over your home Wi-Fi, or kept on the phone until it is reachable. It
+is an independent Gradle build; [`android/README.md`](android/README.md) says
+how to build, test and sign it, and the next section how to let it reach this
+computer. `make android-check` runs its checks.
+
 ## Phone access (Android client)
 
 The Android client (`android/`) studies your clips on the phone and sends new
