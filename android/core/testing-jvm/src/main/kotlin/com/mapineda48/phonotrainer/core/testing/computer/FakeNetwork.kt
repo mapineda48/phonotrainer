@@ -70,13 +70,27 @@ internal class FakeNetwork(private val host: NetworkHost) : ServerSocketFactory(
   }
 }
 
+/**
+ * Where a request came from: an accepted connection of the network layer, or `FakeComputerClient`'s in-memory
+ * exchange. The computer aborts a peer to end an upload body (newest wins, idleness, a restart) or a channel.
+ */
+internal interface Peer {
+  /** The source address, for the per-source rate limits. */
+  val remoteAddress: String
+
+  /** True for the in-memory exchange, which has no thread of its own to notice idleness (ComputerCore sweeps it). */
+  val inMemory: Boolean
+
+  fun abort()
+}
+
 /** What the network layer asks of the fake computer. Every method is called from a connection's own thread. */
 internal interface NetworkHost {
   /** True while the computer must not answer (reachability `UNREACHABLE`). */
   val unreachable: Boolean
 
   /** A request head arrived; returns a watch when its body is an upload body the computer follows. */
-  fun bodyStarting(connection: Connection, head: RequestHead): BodyWatch?
+  fun bodyStarting(peer: Peer, head: RequestHead): BodyWatch?
 
   /** Bytes of a watched body reached the computer. */
   fun bodyBytes(watch: BodyWatch, bytes: ByteArray, offset: Int, length: Int)
@@ -99,7 +113,7 @@ internal class RequestHead(val method: String, val target: String, val headers: 
 
 /** An upload body being received; created by [NetworkHost.bodyStarting], guarded by the computer's lock. */
 internal class BodyWatch(
-  val connection: Connection,
+  val peer: Peer,
   val head: RequestHead,
   val key: String,
   val deviceId: String?,
@@ -130,7 +144,7 @@ internal class Connection(
   private val raw: Socket,
   private val host: NetworkHost,
   private val onClosed: (Connection) -> Unit,
-) {
+) : Peer {
   @Volatile var aborted = false
     private set
 
@@ -140,9 +154,11 @@ internal class Connection(
   /** The head of the request most recently read on this connection. */
   @Volatile var head: RequestHead? = null
 
-  val remoteAddress: String get() = raw.inetAddress?.hostAddress ?: "unknown"
+  override val remoteAddress: String get() = raw.inetAddress?.hostAddress ?: "unknown"
 
-  fun abort() {
+  override val inMemory: Boolean get() = false
+
+  override fun abort() {
     aborted = true
     closeRaw()
   }

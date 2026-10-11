@@ -21,7 +21,7 @@ internal fun ComputerCore.events(call: Call): MockResponse {
   ) {
     throw Refusal(HTTP_FORBIDDEN, null, "Too many open channels.") // an upgrade refusal has no body (dispatch)
   }
-  val channel = Channel(deviceId, call.connection)
+  val channel = Channel(deviceId, call.peer)
   channels += channel
   return MockResponse.Builder().webSocketUpgrade(ChannelListener(this, channel)).build()
 }

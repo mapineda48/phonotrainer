@@ -128,12 +128,12 @@ internal class UploadSession(
 }
 
 /** An open (or opening) phone channel (server-contract 7). */
-internal class Channel(val deviceId: String, private val connection: Connection?) {
+internal class Channel(val deviceId: String, val peer: Peer?) {
   var socket: WebSocket? = null
 
   /** Ends the channel abruptly. A server-side WebSocket has no call to cancel, so its connection is closed. */
   fun drop() {
-    connection?.abort()
+    peer?.abort()
   }
 }
 
