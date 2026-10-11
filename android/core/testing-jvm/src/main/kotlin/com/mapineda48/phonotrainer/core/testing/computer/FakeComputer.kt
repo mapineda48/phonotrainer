@@ -130,10 +130,13 @@ class FakeComputer(
       if (value == Reachability.Unreachable) locked { core.dropInMemoryChannels() }
     }
 
-  /** The body of `GET /api/phone/reference`. */
+  /**
+   * The body of `GET /api/phone/reference`. By default the reference snapshot the app bundles (the server's
+   * `/api/reference`), declaring this computer's [apiVersion]; a body a test sets is served as it is.
+   */
   var referenceJson: String
-    get() = locked { core.referenceJson }
-    set(value) = locked { core.referenceJson = value }
+    get() = locked { core.referenceBody() }
+    set(value) = locked { core.referenceOverride = value }
 
   /** The pairing and challenge rate limits of 2.3 and 4.7 (on by default). */
   var rateLimits: Boolean

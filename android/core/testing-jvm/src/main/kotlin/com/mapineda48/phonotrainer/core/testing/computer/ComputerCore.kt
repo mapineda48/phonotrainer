@@ -82,7 +82,8 @@ internal class ComputerCore(
   var rateLimits = true
   var deferRunningCancel = false
   var renditionStatus = ArtifactStatus.READY
-  var referenceJson: String = DEFAULT_REFERENCE
+  /** The `/reference` body a test set; null serves [ReferenceSnapshot] at the current [apiVersion]. */
+  var referenceOverride: String? = null
   val linkHosts = HashMap<String, LinkHostAnswer>()
 
   @Volatile var reachability: Reachability = Reachability.Reachable
@@ -116,6 +117,9 @@ internal class ComputerCore(
   fun serverTimeS(): Long = clock.nowSeconds() + skewS
 
   fun serverNowMillis(): Long = clock.nowMillis() + skewS * MILLIS
+
+  /** The body of `GET /api/phone/reference` (6.8). */
+  fun referenceBody(): String = referenceOverride ?: ReferenceSnapshot.body(apiVersion)
 
   // ---------------------------------------------------------------------------------------------------------------
   // Dispatch
@@ -659,9 +663,6 @@ internal class ComputerCore(
     )
     val UUID_RE = Regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
     val JOB_ID_RE = Regex("^\\d{8}-\\d{6}-[0-9a-f]{4}$")
-
-    /** A minimal `/api/reference` body; tests that need the real one set [FakeComputer.referenceJson]. */
-    const val DEFAULT_REFERENCE = """{"api_version": 6, "families": [], "phenomena": []}"""
 
     /** Decodes `%XX` escapes (not `+`); null when an escape is malformed. */
     fun percentDecode(segment: String): String? {
