@@ -33,7 +33,7 @@ internal sealed interface Answer {
   /** Nothing answered within the phone's timeout: the computer is unreachable, or nothing listens at the address. */
   data object NoAnswer : Answer
 
-  /** The connection closed without an answer: the request was applied and its answer lost, or the body was aborted. */
+  /** The connection closed without an answer: the request was applied and its answer lost, or the computer restarted. */
   data object Dropped : Answer
 }
 
@@ -93,6 +93,7 @@ internal class InMemoryWire(private val lan: () -> List<FakeComputer>) {
     val watch = when (val streamed = stream(core, peer, request, onBodyProgress)) {
       Streamed.Stalled -> return Answer.NoAnswer
       Streamed.Aborted -> return Answer.Dropped
+      is Streamed.Answered -> return respond(core.refusalResponse(streamed.answer))
       is Streamed.Whole -> streamed.watch
     }
     val response = core.exchange(Call(recorded(request), peer, watch))
@@ -106,8 +107,11 @@ internal class InMemoryWire(private val lan: () -> List<FakeComputer>) {
     /** The body stopped arriving (`stallUpload`): the phone hears nothing until its own timeout. */
     data object Stalled : Streamed
 
-    /** The computer aborted the body while it arrived (a restart, `DELETE` of the upload, newest wins). */
+    /** The computer went away while the body arrived (a restart). */
     data object Aborted : Streamed
+
+    /** The computer ended the body and answered it (a newer body, "Remove", the idle abort; server-contract 6.6). */
+    class Answered(val answer: Refusal) : Streamed
   }
 
   /** Hands an upload body to the computer chunk by chunk, as the network layer does for a streamed one. */
@@ -127,6 +131,7 @@ internal class InMemoryWire(private val lan: () -> List<FakeComputer>) {
     val watch = core.bodyStarting(peer, head)
     var sent = 0
     while (sent < body.size) {
+      watch?.takeIf { it.ended }?.answer?.let { return Streamed.Answered(it) }
       if (peer.aborted) return Streamed.Aborted
       var length = minOf(CHUNK_BYTES, body.size - sent)
       val stallAt = watch?.stallAt
@@ -136,6 +141,7 @@ internal class InMemoryWire(private val lan: () -> List<FakeComputer>) {
       sent += length
       onProgress?.invoke(sent.toLong())
     }
+    watch?.takeIf { it.ended }?.answer?.let { return Streamed.Answered(it) }
     if (peer.aborted) return Streamed.Aborted
     watch?.complete = true
     return Streamed.Whole(watch)

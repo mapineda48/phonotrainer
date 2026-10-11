@@ -205,7 +205,8 @@ class FakeComputer(
   /**
    * The next [times] requests whose path matches [path] (`*` matches one segment; [method] optional) get [status]
    * with the error envelope `{detail, code}` ([code] null leaves `code` out, as a plain 5xx does) and, for 429,
-   * `Retry-After`.
+   * `Retry-After`. An upload the computer cannot store (server-contract 6.6) is a `failNext` of the upload `PUT`
+   * with `500, "server_error"` or `507, "no_space"`: the session stays, and the phone sends the file again later.
    */
   fun failNext(
     path: String,
@@ -235,8 +236,10 @@ class FakeComputer(
 
   /**
    * The next [times] upload bodies (`PUT` or `PATCH`) stop arriving after [afterBytes] bytes: a Wi-Fi drop mid-upload
-   * (QT-4). The computer then sees an idle body: a newer body for the same key replaces it after 10 s, and it is
-   * aborted after 30 s, both on [clock] (server-contract 4.7, 6.6).
+   * (QT-4). The computer then sees an idle body: a newer body for the same key replaces it after 10 s (the stalled
+   * call is answered `409 upload_busy`), and it is aborted after 30 s (`400 length_mismatch`), both on [clock] and
+   * with `Connection: close` (server-contract 4.7, 6.6). Over HTTP a client still waiting reads that answer; in memory
+   * the stalled call has already returned `NoAnswer`, and the answer is only recorded in [requests].
    */
   fun stallUpload(afterBytes: Long, times: Int = 1) = locked {
     core.stalls += FaultRule(null, "api/phone/uploads/*", times, atBytes = afterBytes)
@@ -430,7 +433,7 @@ class FakeComputer(
   // ---------------------------------------------------------------------------------------------------------------
   // Observation
 
-  /** Every request that reached the computer, in arrival order (and upload bodies that ended without an answer). */
+  /** Every request that reached the computer, in arrival order (and upload bodies the computer ended early). */
   val requests: List<RecordedCall> get() = locked { core.calls.toList() }
 
   val jobs: List<FakeJobSnapshot> get() = locked { core.jobs.values.map(::snapshot) }

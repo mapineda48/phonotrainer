@@ -167,6 +167,155 @@ class UploadsTest {
   }
 
   @Test
+  fun putRefusalsSentBeforeTheBodyCloseTheConnection() {
+    val bytes = FakeMediaBytes.video(salt = 21)
+    val key = TestPhone.newKey()
+    val unknown = phone.put("/api/phone/uploads/$key", bytes)
+    phone.declare(key, "a.mp4", bytes)
+    val chunked = phone.send("PUT", "/api/phone/uploads/$key", TestPhone.chunked("x"))
+    val short = phone.put("/api/phone/uploads/$key", bytes.copyOf(bytes.size - 1))
+    computer.lowOnSpace()
+    val full = phone.put("/api/phone/uploads/$key", bytes)
+    computer.lowOnSpace(false)
+    val damaged = phone.put("/api/phone/uploads/$key", bytes.copyOf().also { it[10] = (it[10] + 1).toByte() })
+
+    for (refused in listOf(unknown, chunked, short, full)) {
+      assertThat(refused.headers["Connection"]).isEqualTo("close")
+    }
+    assertThat(unknown.code to unknown.errorCode).isEqualTo(404 to "unknown_upload")
+    assertThat(full.code to full.errorCode).isEqualTo(507 to "no_space")
+    // A checksum is known only once the whole body was read: that answer keeps the connection.
+    assertThat(damaged.code to damaged.errorCode).isEqualTo(422 to "checksum_mismatch")
+    assertThat(damaged.headers["Connection"]).isNull()
+  }
+
+  @Test
+  fun anUploadBodyWithATransferEncodingIsLengthRequired() {
+    val key = TestPhone.newKey()
+    phone.declare(key, "a.mp4", byteArrayOf(1, 2))
+    val target = "/api/phone/uploads/$key"
+    val authorization = PhoneCrypto.authorization(
+      credentials.deviceId.value, credentials.key, "PUT", target, computer.serverTimeS(), "0123456789abcdef0123456789abcdef",
+    )
+    val head = "PUT $target HTTP/1.1\r\nHost: ${computer.address.host}:${computer.address.port}\r\n" +
+      "Authorization: $authorization\r\nContent-Length: 2\r\nTransfer-Encoding: chunked\r\n" +
+      "Connection: close\r\n\r\n\u0001\u0002"
+
+    assertThat(TestPhone.rawStatus(computer, head)).isEqualTo(411)
+    assertThat(computer.uploadSessions.single().offset).isEqualTo(0)
+  }
+
+  @Test
+  fun aBusyBodyIsRefusedWithConnectionClose() {
+    val bytes = FakeMediaBytes.video(size = 4_000, salt = 22)
+    val key = TestPhone.newKey()
+    val otherKey = TestPhone.newKey()
+    phone.declare(key, "stall.mp4", bytes)
+    phone.declare(otherKey, "next.mp4", bytes)
+    computer.stallUpload(afterBytes = 1_000)
+    putInBackground(key, bytes)
+    awaitInFlight { it.singleOrNull()?.receivedBytes == 1_000L }
+
+    val busy = phone.put("/api/phone/uploads/$otherKey", bytes)
+
+    assertThat(busy.code to busy.errorCode).isEqualTo(409 to "upload_busy")
+    assertThat(busy.headers["Connection"]).isEqualTo("close")
+  }
+
+  @Test
+  fun aFileTheComputerCannotStoreKeepsItsSessionForAnotherPut() {
+    val bytes = FakeMediaBytes.video(salt = 23)
+    val key = TestPhone.newKey()
+    phone.declare(key, "a.mp4", bytes)
+    computer.failNext("/api/phone/uploads/*", 500, "server_error", method = "PUT")
+    computer.failNext("/api/phone/uploads/*", 507, "no_space", method = "PUT")
+
+    val failed = phone.put("/api/phone/uploads/$key", bytes)
+    val full = phone.put("/api/phone/uploads/$key", bytes)
+    val sessions = computer.uploadSessions
+    val again = phone.put("/api/phone/uploads/$key", bytes)
+
+    assertThat(failed.code to failed.errorCode).isEqualTo(500 to "server_error")
+    assertThat(full.code to full.errorCode).isEqualTo(507 to "no_space")
+    assertThat(sessions.map { it.clientRequestId }).containsExactly(RequestId(key))
+    assertThat(again.code).isEqualTo(201)
+  }
+
+  @Test
+  fun aKeyHeldByAnotherPhonesOpenSessionIsAConflict() {
+    val bytes = FakeMediaBytes.video(salt = 24)
+    val key = TestPhone.newKey()
+    val other = TestPhone(computer, computer.pairDevice("Other phone"))
+    phone.declare(key, "mine.mp4", bytes)
+    val failed = computer.addJob(JobSeed(status = JobStatus.ERROR, deviceId = other.credentials!!.deviceId))
+
+    val declared = other.declare(key, "mine.mp4", bytes)
+    val link = other.createLink("https://www.youtube.com/watch?v=abc", key = key)
+    val rerun = other.rerun(failed.value, key = key)
+    val put = other.put("/api/phone/uploads/$key", bytes)
+    val removed = other.delete("/api/phone/uploads/$key")
+
+    assertThat(declared.code to declared.errorCode).isEqualTo(409 to "key_conflict")
+    assertThat(link.code to link.errorCode).isEqualTo(409 to "key_conflict")
+    assertThat(rerun.code to rerun.errorCode).isEqualTo(409 to "key_conflict")
+    assertThat(put.code to put.errorCode).isEqualTo(404 to "unknown_upload")
+    assertThat(removed.code).isEqualTo(204)
+    assertThat(computer.uploadSessions.single().deviceId).isEqualTo(credentials.deviceId)
+    assertThat(phone.put("/api/phone/uploads/$key", bytes).code).isEqualTo(201)
+  }
+
+  @Test
+  fun aDeclarationIsDoneOnlyForTheFileItsKeyUploaded() {
+    val bytes = FakeMediaBytes.video(size = 2_000, salt = 25)
+    val key = TestPhone.newKey()
+    val id = JobId(phone.upload(bytes, "same.mp4", key).jobId)
+    computer.removeSource(id)
+
+    val same = phone.declare(key, "same.mp4", bytes)
+    val otherContent = phone.declare(key, "same.mp4", FakeMediaBytes.video(size = 2_000, salt = 26))
+    val otherSize = phone.declare(key, "same.mp4", FakeMediaBytes.video(size = 2_001, salt = 25))
+    val otherName = phone.declare(key, "other.mp4", bytes)
+
+    assertThat(same.code to same.json.str("state")).isEqualTo(200 to "done")
+    assertThat(same.jobId).isEqualTo(id.value)
+    for (refused in listOf(otherContent, otherSize, otherName)) {
+      assertThat(refused.code to refused.errorCode).isEqualTo(409 to "key_conflict")
+    }
+  }
+
+  @Test
+  fun storedNamesAreShortenedToFitTheDiskKeepingTheirSuffix() {
+    val accented = "\u00e9".repeat(150) + ".mp4"
+    val emoji = "\ud83d\ude00".repeat(150) + ".mp4"
+
+    val first = phone.upload(FakeMediaBytes.video(salt = 27), accented)
+    val second = phone.upload(FakeMediaBytes.video(salt = 28), emoji)
+    val tooLong = phone.declare(TestPhone.newKey(), "a".repeat(197) + ".mp4", FakeMediaBytes.video(salt = 29))
+
+    assertThat(first.code).isEqualTo(201)
+    assertThat(first.job.obj("source").str("file_name")).isEqualTo("\u00e9".repeat(98) + ".mp4")
+    assertThat(first.job.str("title")).isEqualTo("\u00e9".repeat(98))
+    assertThat(second.code).isEqualTo(201)
+    assertThat(second.job.obj("source").str("file_name")).isEqualTo("\ud83d\ude00".repeat(49) + ".mp4")
+    assertThat(tooLong.code to tooLong.errorCode).isEqualTo(400 to "invalid_request")
+  }
+
+  @Test
+  fun aRepeatedLongDeclarationStillMatchesItsSessionAndItsJob() {
+    val bytes = FakeMediaBytes.video(salt = 30)
+    val key = TestPhone.newKey()
+    val name = "\u00e9".repeat(150) + ".webm"
+    phone.declare(key, name, bytes)
+
+    val repeated = phone.declare(key, name, bytes)
+    phone.put("/api/phone/uploads/$key", bytes)
+    val done = phone.declare(key, name, bytes)
+
+    assertThat(repeated.code to repeated.json.str("state")).isEqualTo(200 to "open")
+    assertThat(done.code to done.json.str("state")).isEqualTo(200 to "done")
+  }
+
+  @Test
   fun deletingAnUploadIsAlways204() {
     val bytes = FakeMediaBytes.video(salt = 7)
     val key = TestPhone.newKey()
@@ -201,9 +350,29 @@ class UploadsTest {
     val second = phone.put("/api/phone/uploads/$key", bytes)
 
     assertThat(second.code).isEqualTo(201)
-    assertThat(stalled.get(TestPhone.TIMEOUT_S * 2, TimeUnit.SECONDS).isFailure).isTrue()
+    val replaced = stalled.get(TestPhone.TIMEOUT_S * 2, TimeUnit.SECONDS).getOrThrow()
+    assertThat(replaced.code).isEqualTo(409)
+    assertThat(replaced.errorCode).isEqualTo("upload_busy")
+    assertThat(replaced.headers["Connection"]).isEqualTo("close")
     assertThat(computer.jobsWithKey(RequestId(key))).hasSize(1)
     assertThat(computer.job(JobId(second.jobId))!!.sourceBytes).isEqualTo(bytes)
+  }
+
+  @Test
+  fun removingAnUploadWhileItsBodyArrivesAnswersThatBodyBusy() {
+    val bytes = FakeMediaBytes.video(size = 4_000, salt = 18)
+    val key = TestPhone.newKey()
+    phone.declare(key, "stall.mp4", bytes)
+    computer.stallUpload(afterBytes = 1_000)
+    val stalled = putInBackground(key, bytes)
+    awaitInFlight { it.singleOrNull()?.receivedBytes == 1_000L }
+
+    assertThat(phone.delete("/api/phone/uploads/$key").code).isEqualTo(204)
+
+    val removed = stalled.get(TestPhone.TIMEOUT_S * 2, TimeUnit.SECONDS).getOrThrow()
+    assertThat(removed.code to removed.errorCode).isEqualTo(409 to "upload_busy")
+    assertThat(computer.uploadSessions).isEmpty()
+    assertThat(computer.requests.last { it.method == "PUT" }.status).isEqualTo(409)
   }
 
   @Test
@@ -242,7 +411,7 @@ class UploadsTest {
   }
 
   @Test
-  fun aBodyIdleFor30SecondsIsAbortedAndItsPartDeleted() {
+  fun aBodyIdleForThirtySecondsIsAbortedWithLengthMismatch() {
     val bytes = FakeMediaBytes.video(size = 4_000, salt = 13)
     val key = TestPhone.newKey()
     phone.declare(key, "stall.mp4", bytes)
@@ -253,9 +422,12 @@ class UploadsTest {
     computer.clock.advanceSeconds(30)
     awaitInFlight { it.isEmpty() }
 
-    assertThat(stalled.get(TestPhone.TIMEOUT_S * 2, TimeUnit.SECONDS).isFailure).isTrue()
+    val aborted = stalled.get(TestPhone.TIMEOUT_S * 2, TimeUnit.SECONDS).getOrThrow()
+    assertThat(aborted.code).isEqualTo(400)
+    assertThat(aborted.errorCode).isEqualTo("length_mismatch")
+    assertThat(aborted.headers["Connection"]).isEqualTo("close")
     assertThat(computer.uploadSessions.single().offset).isEqualTo(0)
-    assertThat(computer.requests.last { it.method == "PUT" }.status).isNull()
+    assertThat(computer.requests.last { it.method == "PUT" }.status).isEqualTo(400)
     assertThat(phone.put("/api/phone/uploads/$key", bytes).code).isEqualTo(201)
   }
 

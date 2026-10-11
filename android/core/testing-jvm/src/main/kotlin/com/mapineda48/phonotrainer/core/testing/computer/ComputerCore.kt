@@ -32,6 +32,35 @@ internal class Refusal(
 ) : RuntimeException(code ?: detail) {
   /** The same refusal, answered before the request body was read: the connection closes after it (4.7, 6.6). */
   fun closing(): Refusal = Refusal(status, code, detail, extra, headers + ("Connection" to "close"))
+
+  /** `{"detail": …, "code": …}` and any extra fields (server-contract 6.1). */
+  fun envelope(): JsonObject = JsonObject(
+    buildMap {
+      put("detail", JsonPrimitive(detail))
+      code?.let { put("code", JsonPrimitive(it)) }
+      putAll(extra)
+    },
+  )
+
+  /**
+   * The answer as HTTP/1.1 bytes, with the headers of [ComputerCore.refusalResponse]: what a connection writes itself
+   * when the computer answers a body it ended before the dispatcher saw the request (6.6).
+   */
+  fun wireBytes(): ByteArray {
+    val body = envelope().toString().toByteArray(Charsets.UTF_8)
+    val head = buildString {
+      append("HTTP/1.1 ").append(status).append(' ').append(REASONS[status] ?: "Error").append("\r\n")
+      append("Content-Type: application/json; charset=utf-8\r\n")
+      append("Cache-Control: no-store\r\n")
+      headers.forEach { (name, value) -> append(name).append(": ").append(value).append("\r\n") }
+      append("Content-Length: ").append(body.size).append("\r\n\r\n")
+    }
+    return head.toByteArray(Charsets.ISO_8859_1) + body
+  }
+
+  private companion object {
+    val REASONS = mapOf(400 to "Bad Request", 409 to "Conflict")
+  }
 }
 
 /**
@@ -105,7 +134,8 @@ internal class ComputerCore(
   // Job store and uploads (6.3 to 6.7).
   val jobs = TreeMap<String, Job>()
   private var nextSeq = 0L
-  val sessions = LinkedHashMap<Pair<String, String>, UploadSession>()
+  /** Upload sessions by key alone, as the server names their files (3.2): a key belongs to one device at a time. */
+  val sessions = LinkedHashMap<String, UploadSession>()
   val inFlight = mutableListOf<BodyWatch>()
   val channels = mutableListOf<Channel>()
 
@@ -368,6 +398,9 @@ internal class ComputerCore(
   fun jobForKey(deviceId: String, key: String): Job? =
     jobs.values.firstOrNull { it.deviceId == deviceId && it.clientRequestId == key }
 
+  /** [deviceId]'s open upload session for [key]; another device's session under the same key is not its own. */
+  fun ownSession(deviceId: String, key: String): UploadSession? = sessions[key]?.takeIf { it.deviceId == deviceId }
+
   /** Sends the job to every channel (and the queue positions it may have moved). */
   fun publish(job: Job) {
     // Over a copy: an in-memory channel's collector may run in place and close its channel.
@@ -433,7 +466,7 @@ internal class ComputerCore(
     sweepIdleBodies()
     expireUploads()
     val deviceId = peekSignature(head)
-    val session = deviceId?.let { sessions[it to key] }
+    val session = deviceId?.let { ownSession(it, key) }
     val acceptable = session != null && phoneAccess && !lanForbidden && apiVersion >= API_VERSION_CORE &&
       when (method) {
         "PUT" -> length == session.bytes
@@ -447,7 +480,7 @@ internal class ComputerCore(
       val now = clock.nowMillis()
       val others = inFlight.filter { it.deviceId == deviceId && !it.ended }
       if (others.all { it.key == key && now - it.lastByteAtMillis >= NEWEST_WINS_IDLE_MS }) {
-        others.forEach { abortWatch(it) }
+        others.forEach(::supersede)
         admitted = true
         stallAt = takeRule(stalls, method, head.path)?.atBytes
       } else {
@@ -473,27 +506,36 @@ internal class ComputerCore(
     watch.receivedBytes += length
     if (!watch.admitted) return
     watch.lastByteAtMillis = clock.nowMillis()
-    val session = watch.deviceId?.let { sessions[it to watch.key] } ?: return
+    val session = watch.deviceId?.let { ownSession(it, watch.key) } ?: return
     session.lastActivityMillis = watch.lastByteAtMillis
     if (watch.streamsToPart) session.part.write(bytes, offset, length)
   }
 
   override fun bodyInterrupted(watch: BodyWatch): Unit = synchronized(lock) {
     if (watch.ended) return
-    finishInterrupted(watch)
+    endBody(watch, answer = null)
   }
 
   override fun abortIfIdle(watch: BodyWatch): Boolean = synchronized(lock) {
     if (!watch.admitted || watch.ended) return false
     if (clock.nowMillis() - watch.lastByteAtMillis < IDLE_ABORT_MS) return false
-    finishInterrupted(watch)
+    endBody(watch, idleAbort())
     true
   }
 
-  /** Newest wins: an older idle body for the same key is cancelled (4.7). */
+  /**
+   * Newest wins, or "Remove" while the body arrives: the body ends and its call is answered `409 upload_busy` (6.6),
+   * which its connection writes if the phone still reads.
+   */
+  fun supersede(watch: BodyWatch) {
+    if (watch.ended) return
+    endBody(watch, superseded())
+  }
+
+  /** The computer goes away under the body (a restart): no answer, the connection closes. */
   fun abortWatch(watch: BodyWatch) {
     if (watch.ended) return
-    finishInterrupted(watch)
+    endBody(watch, answer = null)
     watch.peer.abort()
   }
 
@@ -504,7 +546,7 @@ internal class ComputerCore(
   fun sweepIdleBodies() {
     val now = clock.nowMillis()
     inFlight.filter { it.peer.inMemory && it.admitted && !it.ended && now - it.lastByteAtMillis >= IDLE_ABORT_MS }
-      .forEach(::finishInterrupted)
+      .forEach { endBody(it, idleAbort()) }
   }
 
   /** Closes the in-memory channels (an unreachable computer answers no ping, so the phone's channel fails). */
@@ -514,11 +556,16 @@ internal class ComputerCore(
     lost.forEach(Channel::drop)
   }
 
-  private fun finishInterrupted(watch: BodyWatch) {
+  /**
+   * Ends a body before the dispatcher saw it: with [answer] when the computer answers it (the idle abort, a newer body,
+   * "Remove"; recorded with its status), or without one when the connection is lost or the computer restarts.
+   */
+  private fun endBody(watch: BodyWatch, answer: Refusal?) {
+    watch.answer = answer
     watch.ended = true
     inFlight -= watch
     if (watch.admitted) {
-      val session = watch.deviceId?.let { sessions[it to watch.key] }
+      val session = watch.deviceId?.let { ownSession(it, watch.key) }
       if (session != null) {
         session.lastActivityMillis = clock.nowMillis()
         // Core: the part is deleted. Complete: the bytes that reached the disk are kept (they are already there).
@@ -527,10 +574,16 @@ internal class ComputerCore(
     }
     calls += RecordedCall(
       method = watch.head.method, target = watch.head.target, headers = watch.head.headers,
-      bodySize = watch.receivedBytes, atEpochMillis = clock.nowMillis(), status = null,
+      bodySize = watch.receivedBytes, atEpochMillis = clock.nowMillis(), status = answer?.status,
       signedBy = watch.deviceId?.let(::DeviceId),
     )
   }
+
+  private fun idleAbort() =
+    Refusal(HTTP_BAD_REQUEST, "length_mismatch", "The upload sent nothing for 30 seconds; send it again.").closing()
+
+  private fun superseded() =
+    Refusal(HTTP_CONFLICT, "upload_busy", "A newer upload of this file replaced this one.").closing()
 
   /** The dispatcher handled the request: its body no longer holds the device's upload slot. */
   private fun endWatch(watch: BodyWatch) {
@@ -581,14 +634,7 @@ internal class ComputerCore(
     )
   }
 
-  fun refusalResponse(refusal: Refusal): MockResponse {
-    val body = buildMap<String, JsonElement> {
-      put("detail", JsonPrimitive(refusal.detail))
-      refusal.code?.let { put("code", JsonPrimitive(it)) }
-      putAll(refusal.extra)
-    }
-    return json(refusal.status, JsonObject(body), refusal.headers)
-  }
+  fun refusalResponse(refusal: Refusal): MockResponse = json(refusal.status, refusal.envelope(), refusal.headers)
 
   fun json(status: Int, body: JsonElement, headers: Map<String, String> = emptyMap()): MockResponse {
     val builder = MockResponse.Builder()
