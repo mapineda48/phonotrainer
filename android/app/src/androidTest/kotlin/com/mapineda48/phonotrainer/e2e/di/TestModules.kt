@@ -20,7 +20,6 @@ import com.mapineda48.phonotrainer.core.network.NetworkPolicyModule
 import com.mapineda48.phonotrainer.core.network.api.AddressPolicy
 import com.mapineda48.phonotrainer.core.network.api.ComputerNetworkBinder
 import com.mapineda48.phonotrainer.core.testing.TestClock
-import com.mapineda48.phonotrainer.core.testing.fake.connectivity.FakeDiscoveryTransport
 import com.mapineda48.phonotrainer.core.testing.fake.connectivity.FakeNetworkMonitor
 import com.mapineda48.phonotrainer.di.ClockModule
 import dagger.Module
@@ -35,19 +34,22 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.plus
 
-// The one global set of test modules of architecture 21.5 (integrator-owned). Repositories stay real: the B1 stubs
-// until their owners merge, the real implementations afterwards. `FakeComputerModule` joins when WP-05a's
-// FakeComputer is merged.
+// The one global set of test modules of architecture 21.5 (integrator-owned), with `FakeComputerModule` in its own
+// file. Repositories stay real: the B1 stubs until their owners merge, the real implementations afterwards. A
+// `@TestInstallIn` module applies to every test of this source set and cannot be uninstalled, so nothing here may fake
+// a repository; a test that truly needs one uses a per-class `@UninstallModules` plus `@BindValue` and says why.
 
-/** Replaces `NetworkPolicyModule`: loopback and the emulator's host alias are candidates too; no network binding. */
+/**
+ * Replaces `NetworkPolicyModule`: the release address policy plus loopback (architecture 21.5), and no network binding.
+ * The release rules are not copied here but taken from `NetworkPolicyModule` itself, so every end-to-end test runs
+ * under the cleartext confinement the release build has (architecture 5.2, X-AC6): an IPv4 literal in 10/8 (the
+ * emulator's host alias 10.0.2.2 included), 172.16/12, 192.168/16 or 169.254/16, and nothing else but 127.0.0.1.
+ */
 @Module
 @TestInstallIn(components = [SingletonComponent::class], replaces = [NetworkPolicyModule::class])
 object TestNetworkModule {
   @Provides
-  fun addressPolicy(): AddressPolicy = object : AddressPolicy {
-    override fun allowsCandidate(host: String): Boolean =
-      host == "127.0.0.1" || host == "10.0.2.2" || host.startsWith("10.") || host.startsWith("192.168.")
-  }
+  fun addressPolicy(): AddressPolicy = ReleasePolicyPlusLoopback(NetworkPolicyModule.addressPolicy())
 
   @Provides
   fun networkBinder(): ComputerNetworkBinder = object : ComputerNetworkBinder {
@@ -55,7 +57,19 @@ object TestNetworkModule {
   }
 }
 
-/** Replaces `ConnectivitySeamsModule`: a scripted network (Wi-Fi by default) and discovery. Tests inject the fakes. */
+/** [release] widened by exactly one address, the loopback one the in-process fake computer listens on. */
+internal class ReleasePolicyPlusLoopback(private val release: AddressPolicy) : AddressPolicy {
+  override fun allowsCandidate(host: String): Boolean = host == LOOPBACK || release.allowsCandidate(host)
+
+  companion object {
+    const val LOOPBACK = "127.0.0.1"
+  }
+}
+
+/**
+ * Replaces `ConnectivitySeamsModule`: a scripted network (Wi-Fi by default; inject [FakeNetworkMonitor] to switch to
+ * offline or mobile only) and [FakeDiscovery], which this test's fake computer answers.
+ */
 @Module
 @TestInstallIn(components = [SingletonComponent::class], replaces = [ConnectivitySeamsModule::class])
 object TestConnectivitySeamsModule {
@@ -67,11 +81,7 @@ object TestConnectivitySeamsModule {
   fun networkMonitor(fake: FakeNetworkMonitor): NetworkMonitor = fake
 
   @Provides
-  @Singleton
-  fun fakeDiscovery(): FakeDiscoveryTransport = FakeDiscoveryTransport()
-
-  @Provides
-  fun discovery(fake: FakeDiscoveryTransport): DiscoveryTransport = fake
+  fun discovery(fake: FakeDiscovery): DiscoveryTransport = fake
 }
 
 /** Replaces `DatabaseModule`: in-memory databases, fresh for every test. */

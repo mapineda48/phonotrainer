@@ -357,3 +357,230 @@ and deserved.
 total, the longest ~120 characters) for the purposes of critical commentary and
 identification. Each repository is governed by its own license.
 </content>
+
+## 7. Android client
+
+### 7.1 Overview
+
+The Android client in `android/` is built into an APK, and **an APK redistributes what it contains**: the runtime
+libraries compiled into it (7.2) and the fonts and icons bundled with it (7.3). Unlike the Python side (§3), these
+obligations travel with every copy of the app, so this section is exhaustive for what ships, and the build checks it.
+The tools that only build or test the app are not redistributed (7.4). Where the introduction of this file says the
+repository carries a single third-party file, this section supersedes it for `android/`.
+
+**Licences.** Every runtime library is licensed under Apache-2.0, except the protocol-buffers runtime that AndroidX
+DataStore repackages (`datastore-preferences-external-protobuf`, BSD-3-Clause). The bundled fonts are under the SIL Open
+Font License 1.1 and the icon set under ISC (with MIT for the glyphs it inherits from Feather). Apache-2.0 is compatible
+with GPL-3.0 (not with GPL-2.0-only, which is one more reason for "or later"), and BSD-3-Clause, MIT, ISC and the OFL
+are permissive; the app as a whole is distributed under GPL-3.0-or-later and the permissive notices stay with it. No
+copyleft obligation is added. The app contains no analytics, crash-reporting, advertising or cloud SDK.
+
+**How the list is kept true.** The build generates the list itself and fails when this section disagrees with it
+(architecture 20.6, X-AC3):
+- The AboutLibraries Gradle plugin (7.4) writes the dependency and licence metadata of every variant's runtime
+  classpath into the app (`res/raw/aboutlibraries.json`), offline and in strict mode: a library with no licence, or
+  with a licence other than Apache-2.0, MIT, BSD-2-Clause, BSD-3-Clause or OFL-1.1, fails the build.
+- `verifyLicences`, part of `./gradlew check`, compares the release report with the table of 7.2 in both directions
+  (Maven coordinates, version and licence; a missing library is reported with the row to paste), and
+  `:core:designsystem`'s `assets/licenses/bundled.json` with the table of 7.3 in both directions: every licence text it
+  names must exist, its licence must be OFL-1.1, ISC or MIT, and every font file under `res/font/` must be listed with
+  its SHA-256.
+- The app's "Open-source licences" screen shows both lists offline (spec F-24).
+
+The tables are read by the check: 7.2 needs the columns Library, Coordinates, Version and Licence; 7.3 the columns
+Component, Version and Licence (others may follow). A licence is an SPDX identifier or expression.
+
+### 7.2 Runtime libraries
+
+Every library on the release runtime classpath, as the licence report lists it. The AndroidX, Jetpack Compose, Hilt and
+Dagger libraries are by The Android Open Source Project and Google; Kotlin and kotlinx by JetBrains; Okio by Square.
+
+| Library | Coordinates | Version | Licence |
+|---|---|---|---|
+| Activity | `androidx.activity:activity` | 1.13.0 | Apache-2.0 |
+| Activity Compose | `androidx.activity:activity-compose` | 1.13.0 | Apache-2.0 |
+| Activity Kotlin Extensions | `androidx.activity:activity-ktx` | 1.13.0 | Apache-2.0 |
+| Annotation | `androidx.annotation:annotation` | 1.10.0 | Apache-2.0 |
+| Experimental annotation | `androidx.annotation:annotation-experimental` | 1.5.0 | Apache-2.0 |
+| Annotation | `androidx.annotation:annotation-jvm` | 1.10.0 | Apache-2.0 |
+| AppCompat Resources | `androidx.appcompat:appcompat-resources` | 1.7.0 | Apache-2.0 |
+| Android Arch-Common | `androidx.arch.core:core-common` | 2.2.0 | Apache-2.0 |
+| Android Arch-Runtime | `androidx.arch.core:core-runtime` | 2.2.0 | Apache-2.0 |
+| AndroidX Autofill | `androidx.autofill:autofill` | 1.0.0 | Apache-2.0 |
+| collections | `androidx.collection:collection` | 1.5.0 | Apache-2.0 |
+| collections | `androidx.collection:collection-jvm` | 1.5.0 | Apache-2.0 |
+| Collections Kotlin Extensions | `androidx.collection:collection-ktx` | 1.5.0 | Apache-2.0 |
+| Compose Animation | `androidx.compose.animation:animation` | 1.12.1 | Apache-2.0 |
+| Compose Animation | `androidx.compose.animation:animation-android` | 1.12.1 | Apache-2.0 |
+| Compose Animation Core | `androidx.compose.animation:animation-core` | 1.12.1 | Apache-2.0 |
+| Compose Animation Core | `androidx.compose.animation:animation-core-android` | 1.12.1 | Apache-2.0 |
+| Compose Foundation | `androidx.compose.foundation:foundation` | 1.12.1 | Apache-2.0 |
+| Compose Foundation | `androidx.compose.foundation:foundation-android` | 1.12.1 | Apache-2.0 |
+| Compose Layouts | `androidx.compose.foundation:foundation-layout` | 1.12.1 | Apache-2.0 |
+| Compose Layouts | `androidx.compose.foundation:foundation-layout-android` | 1.12.1 | Apache-2.0 |
+| Compose Material3 Components | `androidx.compose.material3:material3` | 1.4.0 | Apache-2.0 |
+| Compose Material3 Components | `androidx.compose.material3:material3-android` | 1.4.0 | Apache-2.0 |
+| Compose Material Ripple | `androidx.compose.material:material-ripple` | 1.12.1 | Apache-2.0 |
+| Compose Material Ripple | `androidx.compose.material:material-ripple-android` | 1.12.1 | Apache-2.0 |
+| Compose Runtime | `androidx.compose.runtime:runtime` | 1.12.1 | Apache-2.0 |
+| Compose Runtime | `androidx.compose.runtime:runtime-android` | 1.12.1 | Apache-2.0 |
+| Compose Runtime Annotation | `androidx.compose.runtime:runtime-annotation` | 1.12.1 | Apache-2.0 |
+| Compose Runtime Annotation | `androidx.compose.runtime:runtime-annotation-android` | 1.12.1 | Apache-2.0 |
+| Compose Runtime Retain | `androidx.compose.runtime:runtime-retain` | 1.12.1 | Apache-2.0 |
+| Compose Runtime Retain | `androidx.compose.runtime:runtime-retain-android` | 1.12.1 | Apache-2.0 |
+| Compose Saveable | `androidx.compose.runtime:runtime-saveable` | 1.12.1 | Apache-2.0 |
+| Compose Saveable | `androidx.compose.runtime:runtime-saveable-android` | 1.12.1 | Apache-2.0 |
+| Compose UI | `androidx.compose.ui:ui` | 1.12.1 | Apache-2.0 |
+| Compose UI | `androidx.compose.ui:ui-android` | 1.12.1 | Apache-2.0 |
+| Compose Geometry | `androidx.compose.ui:ui-geometry` | 1.12.1 | Apache-2.0 |
+| Compose Geometry | `androidx.compose.ui:ui-geometry-android` | 1.12.1 | Apache-2.0 |
+| Compose Graphics | `androidx.compose.ui:ui-graphics` | 1.12.1 | Apache-2.0 |
+| Compose Graphics | `androidx.compose.ui:ui-graphics-android` | 1.12.1 | Apache-2.0 |
+| Compose UI Text | `androidx.compose.ui:ui-text` | 1.12.1 | Apache-2.0 |
+| Compose UI Text | `androidx.compose.ui:ui-text-android` | 1.12.1 | Apache-2.0 |
+| Compose UI Preview Tooling | `androidx.compose.ui:ui-tooling-preview` | 1.12.1 | Apache-2.0 |
+| Compose UI Preview Tooling | `androidx.compose.ui:ui-tooling-preview-android` | 1.12.1 | Apache-2.0 |
+| Compose Unit | `androidx.compose.ui:ui-unit` | 1.12.1 | Apache-2.0 |
+| Compose Unit | `androidx.compose.ui:ui-unit-android` | 1.12.1 | Apache-2.0 |
+| Compose Util | `androidx.compose.ui:ui-util` | 1.12.1 | Apache-2.0 |
+| Compose Util | `androidx.compose.ui:ui-util-android` | 1.12.1 | Apache-2.0 |
+| AndroidX Futures | `androidx.concurrent:concurrent-futures` | 1.1.0 | Apache-2.0 |
+| AndroidX Futures Kotlin Extensions | `androidx.concurrent:concurrent-futures-ktx` | 1.1.0 | Apache-2.0 |
+| Core | `androidx.core:core` | 1.19.1 | Apache-2.0 |
+| Core Kotlin Extensions | `androidx.core:core-ktx` | 1.19.1 | Apache-2.0 |
+| SplashScreen | `androidx.core:core-splashscreen` | 1.2.0 | Apache-2.0 |
+| androidx.core:core-viewtree | `androidx.core:core-viewtree` | 1.0.0 | Apache-2.0 |
+| Support Custom View | `androidx.customview:customview` | 1.0.0 | Apache-2.0 |
+| androidx.customview:poolingcontainer | `androidx.customview:customview-poolingcontainer` | 1.0.0 | Apache-2.0 |
+| DataStore | `androidx.datastore:datastore` | 1.2.1 | Apache-2.0 |
+| DataStore | `androidx.datastore:datastore-android` | 1.2.1 | Apache-2.0 |
+| DataStore Core | `androidx.datastore:datastore-core` | 1.2.1 | Apache-2.0 |
+| DataStore Core | `androidx.datastore:datastore-core-android` | 1.2.1 | Apache-2.0 |
+| DataStore Core Okio | `androidx.datastore:datastore-core-okio` | 1.2.1 | Apache-2.0 |
+| DataStore Core Okio | `androidx.datastore:datastore-core-okio-jvm` | 1.2.1 | Apache-2.0 |
+| Preferences DataStore | `androidx.datastore:datastore-preferences` | 1.2.1 | Apache-2.0 |
+| Preferences DataStore | `androidx.datastore:datastore-preferences-android` | 1.2.1 | Apache-2.0 |
+| Preferences DataStore Core | `androidx.datastore:datastore-preferences-core` | 1.2.1 | Apache-2.0 |
+| Preferences DataStore Core | `androidx.datastore:datastore-preferences-core-android` | 1.2.1 | Apache-2.0 |
+| Preferences External Protobuf | `androidx.datastore:datastore-preferences-external-protobuf` | 1.2.1 | BSD-3-Clause |
+| Preferences DataStore Proto | `androidx.datastore:datastore-preferences-proto` | 1.2.1 | Apache-2.0 |
+| Emoji2 | `androidx.emoji2:emoji2` | 1.4.0 | Apache-2.0 |
+| Support fragment | `androidx.fragment:fragment` | 1.5.1 | Apache-2.0 |
+| Android Graphics Path | `androidx.graphics:graphics-path` | 1.0.1 | Apache-2.0 |
+| Hilt Common | `androidx.hilt:hilt-common` | 1.4.0 | Apache-2.0 |
+| ViewModel Hilt Extension | `androidx.hilt:hilt-lifecycle-viewmodel` | 1.4.0 | Apache-2.0 |
+| ViewModel Compose Hilt Extension | `androidx.hilt:hilt-lifecycle-viewmodel-compose` | 1.4.0 | Apache-2.0 |
+| WorkManager Hilt Extension | `androidx.hilt:hilt-work` | 1.4.0 | Apache-2.0 |
+| Support Interpolators | `androidx.interpolator:interpolator` | 1.0.0 | Apache-2.0 |
+| Lifecycle-Common | `androidx.lifecycle:lifecycle-common` | 2.11.0 | Apache-2.0 |
+| Lifecycle-Common for Java 8 | `androidx.lifecycle:lifecycle-common-java8` | 2.11.0 | Apache-2.0 |
+| Lifecycle-Common | `androidx.lifecycle:lifecycle-common-jvm` | 2.11.0 | Apache-2.0 |
+| Lifecycle LiveData | `androidx.lifecycle:lifecycle-livedata` | 2.11.0 | Apache-2.0 |
+| Lifecycle LiveData Core | `androidx.lifecycle:lifecycle-livedata-core` | 2.11.0 | Apache-2.0 |
+| LiveData Core Kotlin Extensions | `androidx.lifecycle:lifecycle-livedata-core-ktx` | 2.11.0 | Apache-2.0 |
+| Lifecycle Process | `androidx.lifecycle:lifecycle-process` | 2.11.0 | Apache-2.0 |
+| Lifecycle Runtime | `androidx.lifecycle:lifecycle-runtime` | 2.11.0 | Apache-2.0 |
+| Lifecycle Runtime | `androidx.lifecycle:lifecycle-runtime-android` | 2.11.0 | Apache-2.0 |
+| Lifecycle Runtime Compose | `androidx.lifecycle:lifecycle-runtime-compose` | 2.11.0 | Apache-2.0 |
+| Lifecycle Runtime Compose | `androidx.lifecycle:lifecycle-runtime-compose-android` | 2.11.0 | Apache-2.0 |
+| Lifecycle Kotlin Extensions | `androidx.lifecycle:lifecycle-runtime-ktx` | 2.11.0 | Apache-2.0 |
+| Lifecycle Kotlin Extensions | `androidx.lifecycle:lifecycle-runtime-ktx-android` | 2.11.0 | Apache-2.0 |
+| Lifecycle Service | `androidx.lifecycle:lifecycle-service` | 2.11.0 | Apache-2.0 |
+| Lifecycle ViewModel | `androidx.lifecycle:lifecycle-viewmodel` | 2.11.0 | Apache-2.0 |
+| Lifecycle ViewModel | `androidx.lifecycle:lifecycle-viewmodel-android` | 2.11.0 | Apache-2.0 |
+| Lifecycle ViewModel Compose | `androidx.lifecycle:lifecycle-viewmodel-compose` | 2.11.0 | Apache-2.0 |
+| Lifecycle ViewModel Compose | `androidx.lifecycle:lifecycle-viewmodel-compose-android` | 2.11.0 | Apache-2.0 |
+| Lifecycle ViewModel Kotlin Extensions | `androidx.lifecycle:lifecycle-viewmodel-ktx` | 2.11.0 | Apache-2.0 |
+| Androidx Lifecycle Navigation3 ViewModel | `androidx.lifecycle:lifecycle-viewmodel-navigation3` | 2.11.0 | Apache-2.0 |
+| Androidx Lifecycle Navigation3 ViewModel | `androidx.lifecycle:lifecycle-viewmodel-navigation3-android` | 2.11.0 | Apache-2.0 |
+| Lifecycle ViewModel with SavedState | `androidx.lifecycle:lifecycle-viewmodel-savedstate` | 2.11.0 | Apache-2.0 |
+| Lifecycle ViewModel with SavedState | `androidx.lifecycle:lifecycle-viewmodel-savedstate-android` | 2.11.0 | Apache-2.0 |
+| Support loader | `androidx.loader:loader` | 1.0.0 | Apache-2.0 |
+| Androidx Navigation 3 Runtime | `androidx.navigation3:navigation3-runtime` | 1.2.0 | Apache-2.0 |
+| Androidx Navigation 3 Runtime | `androidx.navigation3:navigation3-runtime-android` | 1.2.0 | Apache-2.0 |
+| Androidx Navigation 3 UI | `androidx.navigation3:navigation3-ui` | 1.2.0 | Apache-2.0 |
+| Androidx Navigation 3 UI | `androidx.navigation3:navigation3-ui-android` | 1.2.0 | Apache-2.0 |
+| Navigation Event | `androidx.navigationevent:navigationevent` | 1.1.1 | Apache-2.0 |
+| Navigation Event | `androidx.navigationevent:navigationevent-android` | 1.1.1 | Apache-2.0 |
+| NavigationEvent Compose | `androidx.navigationevent:navigationevent-compose` | 1.1.1 | Apache-2.0 |
+| NavigationEvent Compose | `androidx.navigationevent:navigationevent-compose-android` | 1.1.1 | Apache-2.0 |
+| Profile Installer | `androidx.profileinstaller:profileinstaller` | 1.4.1 | Apache-2.0 |
+| Room-Common | `androidx.room:room-common` | 2.8.5 | Apache-2.0 |
+| Room-Common | `androidx.room:room-common-jvm` | 2.8.5 | Apache-2.0 |
+| Room Kotlin Extensions | `androidx.room:room-ktx` | 2.8.5 | Apache-2.0 |
+| Room-Runtime | `androidx.room:room-runtime` | 2.8.5 | Apache-2.0 |
+| Room-Runtime | `androidx.room:room-runtime-android` | 2.8.5 | Apache-2.0 |
+| Saved State | `androidx.savedstate:savedstate` | 1.4.0 | Apache-2.0 |
+| Saved State | `androidx.savedstate:savedstate-android` | 1.4.0 | Apache-2.0 |
+| Saved State Compose | `androidx.savedstate:savedstate-compose` | 1.4.0 | Apache-2.0 |
+| Saved State Compose | `androidx.savedstate:savedstate-compose-android` | 1.4.0 | Apache-2.0 |
+| SavedState Kotlin Extensions | `androidx.savedstate:savedstate-ktx` | 1.4.0 | Apache-2.0 |
+| SQLite | `androidx.sqlite:sqlite` | 2.6.2 | Apache-2.0 |
+| SQLite | `androidx.sqlite:sqlite-android` | 2.6.2 | Apache-2.0 |
+| SQLite Framework Integration | `androidx.sqlite:sqlite-framework` | 2.6.2 | Apache-2.0 |
+| SQLite Framework Integration | `androidx.sqlite:sqlite-framework-android` | 2.6.2 | Apache-2.0 |
+| Android App Startup Runtime | `androidx.startup:startup-runtime` | 1.1.1 | Apache-2.0 |
+| Android Tracing | `androidx.tracing:tracing` | 1.2.0 | Apache-2.0 |
+| Android Tracing Runtime Kotlin Extensions | `androidx.tracing:tracing-ktx` | 1.2.0 | Apache-2.0 |
+| Support VectorDrawable | `androidx.vectordrawable:vectordrawable` | 1.1.0 | Apache-2.0 |
+| Support AnimatedVectorDrawable | `androidx.vectordrawable:vectordrawable-animated` | 1.1.0 | Apache-2.0 |
+| VersionedParcelable | `androidx.versionedparcelable:versionedparcelable` | 1.1.1 | Apache-2.0 |
+| Support View Pager | `androidx.viewpager:viewpager` | 1.0.0 | Apache-2.0 |
+| WindowManager | `androidx.window:window` | 1.5.0 | Apache-2.0 |
+| WindowManager Core | `androidx.window:window-core` | 1.5.0 | Apache-2.0 |
+| WindowManager Core | `androidx.window:window-core-android` | 1.5.0 | Apache-2.0 |
+| WorkManager Runtime | `androidx.work:work-runtime` | 2.12.0 | Apache-2.0 |
+| WorkManager Kotlin Extensions | `androidx.work:work-runtime-ktx` | 2.12.0 | Apache-2.0 |
+| FindBugs-jsr305 | `com.google.code.findbugs:jsr305` | 3.0.2 | Apache-2.0 |
+| Dagger | `com.google.dagger:dagger` | 2.60.1 | Apache-2.0 |
+| Dagger Lint Rules AAR Distribution | `com.google.dagger:dagger-lint-aar` | 2.60.1 | Apache-2.0 |
+| Hilt Android | `com.google.dagger:hilt-android` | 2.60.1 | Apache-2.0 |
+| Hilt Core | `com.google.dagger:hilt-core` | 2.60.1 | Apache-2.0 |
+| Guava ListenableFuture only | `com.google.guava:listenablefuture` | 1.0 | Apache-2.0 |
+| okio | `com.squareup.okio:okio` | 3.18.1 | Apache-2.0 |
+| okio | `com.squareup.okio:okio-jvm` | 3.18.1 | Apache-2.0 |
+| Jakarta Dependency Injection | `jakarta.inject:jakarta.inject-api` | 2.0.1 | Apache-2.0 |
+| javax.inject | `javax.inject:javax.inject` | 1 | Apache-2.0 |
+| Kotlin Stdlib | `org.jetbrains.kotlin:kotlin-stdlib` | 2.4.20 | Apache-2.0 |
+| kotlinx-coroutines-android | `org.jetbrains.kotlinx:kotlinx-coroutines-android` | 1.11.0 | Apache-2.0 |
+| kotlinx-coroutines-core | `org.jetbrains.kotlinx:kotlinx-coroutines-core` | 1.11.0 | Apache-2.0 |
+| kotlinx-coroutines-core | `org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm` | 1.11.0 | Apache-2.0 |
+| kotlinx-serialization-core | `org.jetbrains.kotlinx:kotlinx-serialization-core` | 1.11.0 | Apache-2.0 |
+| kotlinx-serialization-core | `org.jetbrains.kotlinx:kotlinx-serialization-core-jvm` | 1.11.0 | Apache-2.0 |
+| kotlinx-serialization-json | `org.jetbrains.kotlinx:kotlinx-serialization-json` | 1.11.0 | Apache-2.0 |
+| kotlinx-serialization-json | `org.jetbrains.kotlinx:kotlinx-serialization-json-jvm` | 1.11.0 | Apache-2.0 |
+| JetBrains Java Annotations | `org.jetbrains:annotations` | 23.0.0 | Apache-2.0 |
+| JSpecify annotations | `org.jspecify:jspecify` | 1.0.0 | Apache-2.0 |
+
+### 7.3 Fonts and icons
+
+### 7.4 Build tools
+
+Used to build and test the app; none of them is compiled into the APK or distributed with it.
+
+| Tool | Version | Licence | Use |
+|---|---|---|---|
+| Gradle (wrapper) | 9.8.0 | Apache-2.0 | the build |
+| Android Gradle Plugin, Android Lint | 9.4.1 | Apache-2.0 | the Android build, lint, R8 |
+| Kotlin compiler, Compose compiler and serialization plugins | 2.4.20 | Apache-2.0 | compilation |
+| KSP | 2.3.12 | Apache-2.0 | annotation processing |
+| Hilt and Dagger compilers, Hilt Gradle plugin | 2.60.1 | Apache-2.0 | dependency injection code generation |
+| AndroidX Hilt compiler | 1.4.0 | Apache-2.0 | `@HiltWorker` code generation |
+| Room compiler and Gradle plugin | 2.8.5 | Apache-2.0 | database code generation and schemas |
+| AboutLibraries Gradle plugin (with Apache Ivy and Maven Model Builder) | 15.2.0 | Apache-2.0 | the licence report of 7.1 |
+| AndroidX Baseline Profile Gradle plugin | 1.5.0 | Apache-2.0 | the startup profile |
+| Foojay toolchain resolver | 1.0.0 | Apache-2.0 | provisions the JDK when missing |
+| JUnit 4 | 4.13.2 | EPL-1.0 | tests only |
+| Truth | 1.4.5 | Apache-2.0 | tests only |
+| Turbine | 1.2.1 | Apache-2.0 | tests only |
+| Robolectric | 4.17 | MIT | tests only |
+| AndroidX Test (core, runner, ext-junit, Espresso, UiAutomator), Compose UI Test | 1.7.0, 1.7.0, 1.3.0, 3.7.0, 2.4.0, BOM 2026.09.00 | Apache-2.0 | tests only |
+| Hilt testing, Room testing, WorkManager testing, Media3 test utilities | 2.60.1, 2.8.5, 2.12.0, 1.11.1 | Apache-2.0 | tests only |
+| kotlinx-coroutines-test | 1.11.0 | Apache-2.0 | tests only |
+| OkHttp MockWebServer | 5.5.0 | Apache-2.0 | the fake computer of the tests |
+| AndroidX Benchmark (Macrobenchmark) | 1.5.0 | Apache-2.0 | startup measurements |
+
+JUnit 4's EPL-1.0 is not compatible with the GPL for a combined work, but JUnit only runs the tests on a build machine:
+it is never linked into the app or distributed, so it imposes nothing. The scripts under `android/scripts/` and
+`android/tools/` use the Python standard library, Node.js's built-in modules and this repository's own server code;
+the device-QA kit also uses Pillow (MIT-CMU) for screenshots when it is installed. None of them ships in the APK.

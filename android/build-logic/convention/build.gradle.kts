@@ -24,9 +24,18 @@ dependencies {
   compileOnly(libs.android.gradlePlugin)
   compileOnly(libs.kotlin.gradlePlugin)
   compileOnly(libs.room.gradlePlugin)
+  compileOnly(libs.aboutlibraries.gradlePlugin)
+
+  // The licence check's own tests (architecture 20.6): every planted fault of work-plan WP-19's proof fails it.
+  testImplementation(libs.junit)
+  testImplementation(libs.truth)
 }
 
 tasks {
+  test {
+    useJUnit()
+    maxHeapSize = "512m"
+  }
   validatePlugins {
     enableStricterValidation = true
     failOnWarning = true
