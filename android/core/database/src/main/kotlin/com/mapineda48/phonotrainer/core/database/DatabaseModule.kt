@@ -26,7 +26,8 @@ import javax.inject.Singleton
 /**
  * The two databases (architecture 4.1). Its name is frozen at B1: the end-to-end test set replaces it with
  * `TestDatabaseModule` (in-memory databases, architecture 21.5), and the DAOs of [DaoModule] then come from those.
- * No destructive fallback, ever (4.4).
+ * No destructive fallback, ever (4.4). `learning.db` writes its `learning_id` through
+ * [LearningDatabase.LEARNING_ID_CALLBACK] (CR-01-A1), which the in-memory builder of the end-to-end set adds too.
  */
 @Module
 @InstallIn(SingletonComponent::class)
@@ -43,6 +44,7 @@ object DatabaseModule {
   fun learningDatabase(@ApplicationContext context: Context): LearningDatabase =
     Room.databaseBuilder(context, LearningDatabase::class.java, LearningDatabase.FILE_NAME)
       .setJournalMode(RoomDatabase.JournalMode.TRUNCATE)
+      .addCallback(LearningDatabase.LEARNING_ID_CALLBACK)
       .build()
 }
 

@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "01ae67ce5bcf008f53412af7b2deb8a2",
+    "identityHash": "721ab8fed87d2f6cb2e9d1905a51bf12",
     "entities": [
       {
         "tableName": "short_seen",
@@ -466,11 +466,34 @@
             "id"
           ]
         }
+      },
+      {
+        "tableName": "learning_meta",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`key` TEXT NOT NULL, `value` TEXT, PRIMARY KEY(`key`))",
+        "fields": [
+          {
+            "fieldPath": "key",
+            "columnName": "key",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "value",
+            "columnName": "value",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "key"
+          ]
+        }
       }
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '01ae67ce5bcf008f53412af7b2deb8a2')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '721ab8fed87d2f6cb2e9d1905a51bf12')"
     ]
   }
 }

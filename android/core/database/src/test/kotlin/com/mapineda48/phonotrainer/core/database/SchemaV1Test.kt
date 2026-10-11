@@ -50,6 +50,7 @@ class SchemaV1Test {
         "study_set",
         "study_set_item",
         "practice_session",
+        "learning_meta",
       )
     }
     learning.runMigrationsAndValidate(LEARNING_TEST_DB, 1, true).close()

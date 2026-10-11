@@ -134,3 +134,15 @@ data class PracticeSessionEntity(
   @ColumnInfo(name = "created_at") val createdAt: Long? = null,
   @ColumnInfo(name = "finished_at") val finishedAt: Long? = null,
 )
+
+/**
+ * `learning_meta` (CR-01-A1, architecture 4.3): facts about this learning history, by key. One row in v1:
+ * `learning_id`, a random UUID written when the database is created (`LearningDatabase.LEARNING_ID_CALLBACK`) and never
+ * changed. It is backed up with the progress it names; in v1-complete it names this history on every computer it is
+ * shared with (architecture 7.8). No DAO reads it in v1-core.
+ */
+@Entity(tableName = "learning_meta")
+data class LearningMetaEntity(
+  @PrimaryKey @ColumnInfo(name = "key") val key: String,
+  @ColumnInfo(name = "value") val value: String? = null,
+)
