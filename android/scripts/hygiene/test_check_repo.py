@@ -266,6 +266,104 @@ class ContentRules(RepoTestCase):
         self.assertClean()
 
 
+class TokenRule(RepoTestCase):
+    """Tokens only outside :core:designsystem: no `Color(0x` and no `.sp` (design 12.5, architecture 17)."""
+
+    SCREEN = "android/feature/home/src/main/kotlin/com/example/home/HomeScreen.kt"
+
+    def findings_for(self, text: str, path: str = SCREEN) -> list:
+        self.repo.write(path, text)
+        return [f for f in self.findings() if f.rule == "tokens" and f.path == path]
+
+    def token_lines(self, text: str, path: str = SCREEN) -> list[int]:
+        return [f.line for f in self.findings_for(text, path)]
+
+    def test_a_colour_literal_in_a_screen_fails(self):
+        text = ("val a = Color(0xFF1B2A3C)\n"
+                "val b = androidx.compose.ui.graphics.Color (0x80FFFFFF)\n"
+                "val c = Color(color = 0XFF000000)\n"
+                "val d = Color(\n    0xFF102030,\n)\n")
+        self.assertEqual([1, 2, 3, 4], self.token_lines(text))
+
+    def test_text_sizes_in_a_screen_fail(self):
+        text = ("Text(\"Hi\", fontSize = 14.sp)\n"
+                "val a = 14.5.sp\n"
+                "val b = 12f.sp\n"
+                "val c = (base + 2).sp\n"
+                "val d = size.sp\n"
+                "val e = TextUnit(14f, TextUnitType.Sp)\n"
+                "val f = style.copy(lineHeight = 1_0.sp)\n")
+        self.assertEqual([1, 2, 3, 4, 5, 6, 7], self.token_lines(text))
+
+    def test_one_finding_per_line_and_kind(self):
+        found = self.findings_for("val s = TextStyle(fontSize = 14.sp, lineHeight = 20.sp, color = Color(0xFF00))\n")
+        self.assertEqual(2, len(found), [str(f) for f in found])
+        self.assertTrue(any("Color(0x" in f.message for f in found))
+        self.assertTrue(any(".sp" in f.message for f in found))
+
+    def test_tokens_and_other_names_pass(self):
+        text = ("import androidx.compose.ui.unit.sp\n"
+                "import androidx.compose.ui.unit.*\n"
+                "val a = MaterialTheme.colorScheme.primary\n"
+                "val b = PhonoTheme.colors.markInk.copy(alpha = 0.5f)\n"
+                "val c = Modifier.padding(PhonoTheme.spacing.md)\n"
+                "val d = MarkColor(0xFF000000)\n"
+                "val e = style.fontSize * 1.2f\n"
+                "val f = insets.spaced(2).spread\n"
+                "@Preview(backgroundColor = 0xFFF5EFE0)\n"
+                "val g = 12.dp\n")
+        self.assertEqual([], self.token_lines(text))
+
+    def test_comments_strings_and_characters_are_not_code(self):
+        text = ("// Never Color(0xFF000000) or 14.sp here.\n"
+                "/* Not 12.sp /* nested Color(0x00) */ still 12.sp */\n"
+                "/**\n * KDoc: `fontSize = 14.sp` is wrong.\n */\n"
+                "val a = \"Color(0xFF000000) and 14.sp\"\n"
+                "val b = \"\"\"\n  Color(0xFF000000)\n  12.sp \"quoted\"\n\"\"\"\n"
+                "val c = '\"'; val d = Color(0xFF000000)\n"
+                "val e = \"escaped \\\" Color(0x1)\"; val f = 14.sp\n"
+                "val g = \"${12.sp}\"\n"
+                "val h = \"\"\"raw ${if (x) \"a\" else \"b\"} 9.sp\"\"\" + Color(0xFF000000)\n"
+                "val i = \"url http://example.invalid/12.sp\" // 13.sp\n")
+        self.assertEqual([11, 12, 13, 14], self.token_lines(text))
+
+    def test_an_unterminated_string_ends_at_its_line(self):
+        self.assertEqual([2], self.token_lines('val a = "open\nval b = 14.sp\n'))
+
+    def test_line_numbers_are_the_other_rules_line_numbers(self):
+        # Every rule numbers lines as str.splitlines() does; masking a comment keeps its other line breaks.
+        text = "// one\u2028Color(0x1)\fthree\nval b = 14.sp\n"
+        self.assertEqual([len(text.splitlines())], self.token_lines(text))
+
+    def test_the_design_system_is_exempt_in_every_source_set(self):
+        for path in ("android/core/designsystem/src/main/kotlin/x/Palette.kt",
+                     "android/core/designsystem/src/test/kotlin/x/PaletteTest.kt",
+                     "android/core/designsystem/src/androidTest/kotlin/x/ThemeTest.kt"):
+            with self.subTest(path=path):
+                self.assertEqual([], self.token_lines("val ink = Color(0xFF1B2A3C)\nval s = 14.sp\n", path))
+
+    def test_every_other_module_and_source_set_is_checked(self):
+        for path in ("android/core/ui/src/main/kotlin/x/IpaText.kt",
+                     "android/app/src/main/kotlin/x/shell/PhonoShell.kt",
+                     "android/feature/watch/src/test/kotlin/x/WatchScreenTest.kt",
+                     "android/core/testing/src/main/kotlin/x/ScreenTest.kt",
+                     "android/core/designsystemx/src/main/kotlin/x/A.kt"):
+            with self.subTest(path=path):
+                self.assertEqual([1], self.token_lines("val ink = Color(0xFF1B2A3C)\n", path))
+
+    def test_only_kotlin_code_under_android_is_checked(self):
+        line = "val ink = Color(0xFF1B2A3C) and 14.sp\n"
+        for path in ("android/design-src/convert/convert.py", "android/docs/design.md",
+                     "android/core/ui/src/main/res/values/colors.xml", "phonotrainer/web.kt"):
+            with self.subTest(path=path):
+                self.assertEqual([], self.token_lines(line, path))
+
+    def test_staged_mode_and_the_rule_subset(self):
+        self.repo.write(self.SCREEN, "val s = 14.sp\n")
+        self.repo.git("add", self.SCREEN)
+        self.assertEqual([1], [f.line for f in self.findings(mode="staged", rules={"tokens"})])
+
+
 class Denylist(RepoTestCase):
     def synthetic_denylist(self):
         with mock.patch.object(socket, "gethostname", return_value="studydesk-7f3a"), \

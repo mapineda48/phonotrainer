@@ -20,6 +20,7 @@ scan. Neither marker exempts the local denylist, private keys or keystores.
 from __future__ import annotations
 
 import argparse
+import bisect
 import fnmatch
 import os
 import re
@@ -50,6 +51,7 @@ RULES = {
     "android-log": "android.util.Log only inside the PhonoLog facade (20.4)",
     "okhttp": "OkHttpClient constructed only in :core:network (5.2)",
     "loopback-policy": "no AddressPolicy that allows loopback outside test sources (security review L-13)",
+    "tokens": "no Color(0x…) or .sp literal in Kotlin outside :core:designsystem (design 12.5, architecture 17)",
     "manifest": "the merged release manifest's exported components and permissions equal android/SECURITY.md (20.1)",
     "denylist": "none of this computer's identifiers (host, user, home, git e-mail, serials, addresses, MACs)",
     "qa-report-url": "android/docs/qa-report.md holds no URL with a video or post id",
@@ -508,6 +510,118 @@ def content_findings(item: Item, rules: set[str], denylist: list[sensitive.DenyE
                 add("okhttp", "OkHttpClient constructed outside :core:network")
             if policy_file and LOOPBACK_HINT_RE.search(line) and not _refuses(line):
                 add("loopback-policy", "an AddressPolicy that allows loopback belongs in test sources only")
+    if "tokens" in rules and code and not path.startswith(DESIGN_SYSTEM_PREFIX):
+        found.extend(token_findings(path, text))
+    return found
+
+
+# Tokens only in screens (design 12.5, architecture 17): the colour and text-size literals belong to :core:designsystem,
+# in every one of its source sets; every other Kotlin file under android/ (tests too) uses its tokens.
+DESIGN_SYSTEM_PREFIX = "android/core/designsystem/"
+COLOUR_LITERAL_RE = re.compile(r"\bColor\s*\(\s*(?:color\s*=\s*)?0[xX]")
+TEXT_SIZE_RE = re.compile(r"\.sp\b(?!\s*\()|\bTextUnitType\s*\.\s*Sp\b")
+DECLARATION_RE = re.compile(r"[ \t]*(?:import|package)\s")
+TOKEN_CHECKS = (
+    (COLOUR_LITERAL_RE, "Color(0x…) colour literal outside :core:designsystem; use a theme colour (design 12.5)"),
+    (TEXT_SIZE_RE, ".sp text size outside :core:designsystem; use the type scale (design 12.5)"),
+)
+LINE_BREAKS = frozenset("\n\r\x0b\x0c\x1c\x1d\x1e\x85\u2028\u2029")  # the ones str.splitlines() splits on
+CHAR_LITERAL_RE = re.compile(r"'(?:\\(?:u[0-9A-Fa-f]{4}|.)|[^'\\\n\r])'")
+
+
+def kotlin_code(text: str) -> str:
+    """`text` with Kotlin's (or Java's) comments and string and character literals replaced by spaces. Every line
+    break stays where it was, so offsets and line numbers still match the text; a string template's `${…}` stays code.
+    A regular string ends at its line even when its closing quote is missing."""
+    out = list(text)
+    n = len(text)
+
+    def blank(start: int, end: int) -> None:
+        for k in range(start, min(end, n)):
+            if out[k] not in LINE_BREAKS:
+                out[k] = " "
+
+    # Open contexts, innermost last: ["code", open braces] for the file and each template, ["str", delimiter].
+    stack: list[list] = [["code", 0]]
+    i = 0
+    while i < n:
+        top, c = stack[-1], text[i]
+        if top[0] == "code":
+            if text.startswith("//", i):
+                end = i
+                while end < n and text[end] not in "\n\r":
+                    end += 1
+                blank(i, end)
+                i = end
+            elif text.startswith("/*", i):  # Kotlin block comments nest
+                depth, end = 1, i + 2
+                while end < n and depth:
+                    if text.startswith("/*", end):
+                        depth, end = depth + 1, end + 2
+                    elif text.startswith("*/", end):
+                        depth, end = depth - 1, end + 2
+                    else:
+                        end += 1
+                blank(i, end)
+                i = end
+            elif text.startswith('"""', i):
+                stack.append(["str", '"""'])
+                blank(i, i + 3)
+                i += 3
+            elif c == '"':
+                stack.append(["str", '"'])
+                blank(i, i + 1)
+                i += 1
+            elif c == "'" and (char := CHAR_LITERAL_RE.match(text, i)):
+                blank(i, char.end())
+                i = char.end()
+            elif c == "}" and top[1] == 0 and len(stack) > 1:  # the end of a template: back into its string
+                stack.pop()
+                blank(i, i + 1)
+                i += 1
+            else:
+                if c == "{":
+                    top[1] += 1
+                elif c == "}":
+                    top[1] = max(0, top[1] - 1)
+                i += 1
+        elif text.startswith("${", i):
+            stack.append(["code", 0])
+            blank(i, i + 2)
+            i += 2
+        elif top[1] == '"' and c == "\\":
+            blank(i, i + 2)
+            i += 2
+        elif top[1] == '"' and (c == '"' or c in LINE_BREAKS):
+            stack.pop()
+            blank(i, i + 1)
+            i += 1
+        elif top[1] == '"""' and text.startswith('"""', i):
+            end = i
+            while end < n and text[end] == '"':  # the closing delimiter is the last three quotes of a run
+                end += 1
+            stack.pop()
+            blank(i, end)
+            i = end
+        else:
+            blank(i, i + 1)
+            i += 1
+    return "".join(out)
+
+
+def token_findings(path: str, text: str) -> list[Finding]:
+    """Colour and text-size literals in the code of a Kotlin file (comments, strings and imports do not count)."""
+    code = kotlin_code(text)
+    starts, offset = [], 0
+    for line in text.splitlines(keepends=True):
+        starts.append(offset)
+        offset += len(line)
+    found = []
+    for pattern, message in TOKEN_CHECKS:
+        for match in pattern.finditer(code):
+            number = bisect.bisect_right(starts, match.start())
+            if not DECLARATION_RE.match(code, starts[number - 1]):
+                found.append(Finding(path, number, "tokens", message))
     return found
 
 
