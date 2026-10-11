@@ -130,7 +130,13 @@ internal class BodyWatch(
   @Volatile var complete = false
 
   /** Dispatched, interrupted or aborted: the body no longer holds the device's upload slot. */
-  var ended = false
+  @Volatile var ended = false
+
+  /**
+   * Set when the computer ended the body with an answer (the 30 s idle abort, a newer body, "Remove"): the
+   * connection writes it, if the phone still reads, then closes (server-contract 6.6).
+   */
+  @Volatile var answer: Refusal? = null
 
   /** v1-complete: the bytes go straight into the session's part as they arrive (they stay "on disk"). */
   var streamsToPart = false
@@ -283,6 +289,7 @@ private class ObservedInputStream(private val raw: Socket, private val connectio
     FakeNetwork.current.set(connection)
     if (len == 0) return 0
     while (true) {
+      watch?.takeIf { it.ended }?.answer?.let(::answerAndClose)
       if (connection.aborted) {
         interrupted()
         throw SocketException("closed by the fake computer")
@@ -299,16 +306,14 @@ private class ObservedInputStream(private val raw: Socket, private val connectio
         if (currentWatch != null && stallAt != null) allowed = minOf(allowed, stallAt - currentWatch.receivedBytes)
       }
       if (allowed <= 0L) {
-        // Stalled: the phone's body "stops arriving" until a newer body replaces it or idleness aborts it.
-        if (currentWatch != null && host.abortIfIdle(currentWatch)) throw SocketException("idle upload aborted")
-        pause()
+        // Stalled: the phone's body "stops arriving" until a newer body replaces it or idleness aborts it (the
+        // answer is then written at the top of the loop).
+        if (currentWatch == null || !host.abortIfIdle(currentWatch)) pause()
         continue
       }
       if (start == end) {
         if (eof) return endOfStream()
-        if (!fill() && state == State.BODY && currentWatch != null && host.abortIfIdle(currentWatch)) {
-          throw SocketException("idle upload aborted")
-        }
+        if (!fill() && state == State.BODY && currentWatch != null) host.abortIfIdle(currentWatch)
         continue
       }
       val n = deliver(b, off, minOf(allowed, (end - start).toLong()).toInt())
@@ -331,6 +336,47 @@ private class ObservedInputStream(private val raw: Socket, private val connectio
   } catch (e: IOException) {
     interrupted()
     throw e
+  }
+
+  /**
+   * The computer answered the body it ended (6.6): the answer goes out with `Connection: close`, what the phone still
+   * sends of the body is read and dropped (so its write completes and it reads the answer instead of a reset), and
+   * the connection closes. Nothing goes out while the computer is unreachable.
+   */
+  private fun answerAndClose(answer: Refusal): Nothing {
+    val unread = bodyRemaining - (end - start)
+    watch = null
+    start = end
+    if (!host.unreachable && !raw.isClosed) {
+      try {
+        raw.getOutputStream().apply {
+          write(answer.wireBytes())
+          flush()
+        }
+        raw.shutdownOutput()
+        drain(unread)
+      } catch (_: IOException) {
+        // the phone is gone: nothing more to say
+      }
+    }
+    connection.closeRaw()
+    throw SocketException("upload body ended by the fake computer")
+  }
+
+  /** Reads and drops up to [bytes] more of the body, for at most [DRAIN_MILLIS] without progress. */
+  private fun drain(bytes: Long) {
+    var left = bytes
+    var lastProgress = System.nanoTime()
+    while (left > 0 && System.nanoTime() - lastProgress < DRAIN_MILLIS * NANOS_PER_MILLI) {
+      val n = try {
+        source.read(buffer, 0, minOf(buffer.size.toLong(), left).toInt())
+      } catch (_: SocketTimeoutException) {
+        continue
+      }
+      if (n < 0) return
+      left -= n
+      lastProgress = System.nanoTime()
+    }
   }
 
   private fun endOfStream(): Int {
@@ -438,6 +484,8 @@ private class ObservedInputStream(private val raw: Socket, private val connectio
     const val BUFFER_SIZE = 16 * 1024
     const val MAX_HEAD_BYTES = 64 * 1024
     const val BLANK_LINE = 0x0d0a0d0a // "\r\n\r\n"
+    const val DRAIN_MILLIS = 5_000L
+    const val NANOS_PER_MILLI = 1_000_000L
 
     fun parseHead(bytes: ByteArray): RequestHead? {
       val lines = String(bytes, Charsets.ISO_8859_1).split("\r\n")

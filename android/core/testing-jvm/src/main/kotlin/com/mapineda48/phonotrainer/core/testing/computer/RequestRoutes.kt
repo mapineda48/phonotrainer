@@ -31,7 +31,8 @@ internal fun ComputerCore.createLink(call: Call): MockResponse {
     }
     throw keyConflict()
   }
-  if (sessions.containsKey(device.id to key)) throw keyConflict()
+  // A key that opened an upload session, of this phone or (a UUID clash) another one, is taken (6.1).
+  if (sessions.containsKey(key)) throw keyConflict()
   if (url == null) throw Refusal(HTTP_BAD_REQUEST, "invalid_url", "This is not a link PhonoTrainer can open.")
   checkLink(url)
   val job = newJob(SourceKind.LINK, url, null, audioOnly, separate, device.id, key, rerunOf = null)
@@ -119,7 +120,8 @@ internal fun ComputerCore.rerun(call: Call): MockResponse {
     if (created.rerunOf == oldId) return replaced(HTTP_OK, created, oldId, device.id)
     throw keyConflict()
   }
-  if (sessions.containsKey(device.id to key)) throw keyConflict()
+  // A key that opened an upload session, of this phone or (a UUID clash) another one, is taken (6.1).
+  if (sessions.containsKey(key)) throw keyConflict()
   val old = ownJob(call)
   if (old.status != JobStatus.ERROR && old.status != JobStatus.CANCELLED) {
     throw Refusal(HTTP_CONFLICT, "not_rerunnable", "Only a failed or cancelled job can run again.")

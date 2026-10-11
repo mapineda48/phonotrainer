@@ -154,6 +154,40 @@ class AccessAndSignaturesTest {
   }
 
   @Test
+  fun aTransferEncodingIsLengthRequiredEvenWithALength() {
+    val host = "Host: ${computer.address.host}:${computer.address.port}"
+    for (encoding in listOf("chunked", "gzip")) {
+      val head = "POST /api/phone/pair HTTP/1.1\r\n$host\r\nContent-Type: application/json\r\n" +
+        "Content-Length: 2\r\nTransfer-Encoding: $encoding\r\nConnection: close\r\n\r\n{}"
+      assertThat(TestPhone.rawStatus(computer, head)).isEqualTo(411)
+    }
+    assertThat(computer.requests.map { it.status }).containsExactly(411, 411)
+  }
+
+  @Test
+  fun refusalsBeforeTheRouteCloseTheConnectionOfARequestWithABody() {
+    val chunked = phone.send("POST", "/api/phone/jobs/link", TestPhone.chunked("{}"))
+    val big = phone.post("/api/phone/jobs/link", """{"pad": "${"x".repeat(16 * 1024)}"}""")
+    val badHost = phone.post("/api/phone/jobs/link", "{}", mapOf("Host" to "attacker.example"))
+    val unknownRoute = phone.post("/api/phone/nowhere", "{}")
+    computer.phoneAccessOff()
+    val offWithBody = phone.post("/api/phone/jobs/link", "{}")
+    val offWithout = phone.get("/api/phone/library")
+    computer.phoneAccessOn()
+    computer.lanForbidden()
+    val forbiddenWithBody = phone.post("/api/phone/jobs/link", "{}")
+
+    for (refused in listOf(chunked, big, badHost, offWithBody, forbiddenWithBody)) {
+      assertThat(refused.headers["Connection"]).isEqualTo("close")
+    }
+    assertThat(offWithBody.errorCode).isEqualTo("phone_access_off")
+    assertThat(forbiddenWithBody.errorCode).isEqualTo("lan_forbidden")
+    // No body to skip: the connection stays. A route's own refusal is not the middleware's.
+    assertThat(offWithout.code to offWithout.headers["Connection"]).isEqualTo(403 to null)
+    assertThat(unknownRoute.code to unknownRoute.headers["Connection"]).isEqualTo(404 to null)
+  }
+
+  @Test
   fun lanForbiddenAnswersEveryPhoneRouteHelloIncluded() {
     computer.lanForbidden()
     val unsigned = TestPhone(computer)

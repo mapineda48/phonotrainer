@@ -197,7 +197,11 @@ data class RecordedCall(
   val headers: Map<String, String>,
   val bodySize: Long,
   val atEpochMillis: Long,
-  /** The answer's status; null when no answer was sent (dropped, aborted or interrupted). */
+  /**
+   * The answer's status; null when no answer was sent (an answer dropped by `applyThenDrop`, a lost connection, a
+   * restart). An upload body the computer ended itself is recorded with its answer: `400 length_mismatch` after 30 s
+   * without a byte, `409 upload_busy` when a newer body or "Remove" replaced it (server-contract 6.6).
+   */
   val status: Int?,
   /** The device whose valid signature the request carried, if any. */
   val signedBy: DeviceId?,
