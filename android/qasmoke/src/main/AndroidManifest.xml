@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- The test APK instruments itself and reaches the app only from outside (architecture 21.6); on API 30+ it must
+         declare the one package it looks up, or package visibility hides it. -->
+    <queries>
+        <package android:name="com.mapineda48.phonotrainer" />
+    </queries>
+
+</manifest>
