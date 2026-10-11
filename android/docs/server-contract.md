@@ -1349,7 +1349,7 @@ an over-long video, an unknown-size video that grows past the limit, and a refus
 |---|---|
 | `isolated_config` (autouse) | `PHONOTRAINER_CONFIG_DIR` → a temporary directory |
 | `fake_clock` | a settable clock used by every phone component |
-| `fake_resolver` | a name → addresses table: public names map to 203.0.113.0/24, hostile names to loopback, private, link-local, CGNAT, multicast, IPv6 unique-local, NAT64 (`64:ff9b::` with an embedded private IPv4), 6to4 and Teredo addresses; a name whose answer changes between two calls (re-resolution); unknown names raise (resolution failure). The private test vectors in `tests/` carry the marker comment `hygiene: test-vector` that the secret scan honours (work-plan WP-06) |
+| `fake_resolver` | a name → addresses table: public names map to global unicast test vectors (marked `hygiene: test-vector`; 203.0.113.0/24 is a documentation range the guard refuses, 4.5 rule 3), hostile names to loopback, private, link-local, CGNAT, multicast, IPv6 unique-local, NAT64 (`64:ff9b::` with an embedded private IPv4), 6to4 and Teredo addresses; a name whose answer changes between two calls (re-resolution); unknown names raise (resolution failure). The private test vectors in `tests/` carry the marker comment `hygiene: test-vector` that the secret scan honours (work-plan WP-06) |
 | `fake_netinfo` | interfaces with documentation-range addresses (`wlan0` 192.0.2.10/24 with a gateway MAC from the documentation range, a `docker0` bridge, loopback), switchable per test (another network, no network) |
 | `fake_probe` | media facts per file name (codec, size, rotation, start times) |
 | `phone_settings` | `PhoneSettings` wired with the fakes above |
