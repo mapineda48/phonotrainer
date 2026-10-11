@@ -91,7 +91,7 @@ fun PhonoMarkImage(modifier: Modifier = Modifier, size: Dp = 48.dp, color: Color
 
 @PreviewLightDark
 @Composable
-private fun PhonoMarkPreview() {
+internal fun PhonoMarkPreview() {
   PhonoPreviewSurface {
     Row {
       PhonoMarkImage(size = 64.dp)

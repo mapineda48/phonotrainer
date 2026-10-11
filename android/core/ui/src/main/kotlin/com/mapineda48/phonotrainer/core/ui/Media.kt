@@ -287,7 +287,7 @@ internal fun decodePoster(file: File, maxPx: Int = 1080): ImageBitmap? {
 
 @PreviewLightDark
 @Composable
-private fun MediaPreview() {
+internal fun MediaPreview() {
   PhonoPreviewSurface {
     ShortProgress(
       progress = 0.62f,

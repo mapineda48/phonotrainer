@@ -52,7 +52,7 @@ fun CoachMarkHost(
 
 @PreviewLightDark
 @Composable
-private fun CoachMarkHostPreview() {
+internal fun CoachMarkHostPreview() {
   PhonoPreviewSurface {
     CoachMarkHost(
       mark = CoachMark("Tap any word for its lesson.", "Every marked word opens its lesson.", PhonoIcons.Hold),

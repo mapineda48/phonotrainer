@@ -117,7 +117,7 @@ fun PhonoSheet(
 
 @PreviewLightDark
 @Composable
-private fun ControlsPreview() {
+internal fun ControlsPreview() {
   PhonoPreviewSurface {
     PhonoCard {
       PhonoText("Today's set", style = MaterialTheme.typography.titleLarge)

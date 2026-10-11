@@ -117,7 +117,7 @@ fun PhonoTextField(
 
 @PreviewLightDark
 @Composable
-private fun TextFieldPreview() {
+internal fun TextFieldPreview() {
   PhonoPreviewSurface {
     PhonoTextField("", {}, label = "Link", placeholder = "Paste a YouTube or X link", leadingIcon = PhonoIcons.Link)
     PhonoTextField("https://example.org/watch", {}, label = "Link", leadingIcon = PhonoIcons.Link)

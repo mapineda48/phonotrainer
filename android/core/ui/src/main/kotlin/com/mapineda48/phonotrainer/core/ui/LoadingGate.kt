@@ -89,7 +89,7 @@ internal fun LoadingPlaceholder(stage: Int, label: String, modifier: Modifier = 
 
 @PreviewLightDark
 @Composable
-private fun LoadingGatePreview() {
+internal fun LoadingGatePreview() {
   PhonoPreviewSurface {
     LoadingPlaceholder(stage = 1, label = "Loading your clips…")
     LoadingPlaceholder(stage = 2, label = "Loading your clips…")

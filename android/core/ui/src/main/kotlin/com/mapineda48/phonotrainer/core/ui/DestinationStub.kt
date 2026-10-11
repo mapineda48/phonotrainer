@@ -1,6 +1,8 @@
 package com.mapineda48.phonotrainer.core.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
@@ -60,6 +62,11 @@ fun DestinationStub(
 
 @PreviewLightDark
 @Composable
-private fun DestinationStubPreview() {
-  PhonoTheme { DestinationStub(title = "Library", lede = "Every clip on this phone and on your computer.") }
+internal fun DestinationStubPreview() {
+  // A destination draws on the page the shell paints behind every destination.
+  PhonoTheme {
+    Box(Modifier.background(PhonoTheme.colors.page)) {
+      DestinationStub(title = "Library", lede = "Every clip on this phone and on your computer.")
+    }
+  }
 }

@@ -174,7 +174,7 @@ private fun annotate(parts: List<IpaSegments.Part>, whole: Boolean, inline: Span
 
 @PreviewLightDark
 @Composable
-private fun IpaTextPreview() {
+internal fun IpaTextPreview() {
   PhonoPreviewSurface {
     IpaText("/ˈwɔtɚ/ → [ˈwɔɾɚ]", style = PhonoTheme.type.ipaSlip)
     IpaText("The schwa /ə/ is the most common sound of English.")
