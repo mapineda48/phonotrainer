@@ -74,6 +74,9 @@ dependencies {
 
   testImplementation(project(":core:testing"))
   testImplementation(libs.androidx.compose.ui.test.junit4)
+  // The R8 of this AGP, for StartupOrderR8Test (decisions I-15): the builder jar alone, which holds R8 unshaded under
+  // com.android.tools.r8 and nothing else on the test classpath's packages.
+  testImplementation(libs.android.builder) { isTransitive = false }
   debugImplementation(libs.androidx.compose.ui.test.manifest)
 
   androidTestImplementation(project(":core:testing-jvm"))
@@ -97,4 +100,13 @@ dependencies {
     // needs, not the older one DataStore brings (decisions I-07).
     implementation(libs.okio)
   }
+}
+
+// StartupOrderR8Test runs R8 with the release build type's own configuration files (decisions I-15). AGP extracts its
+// default file into build/ with `extractProguardFiles`.
+val releaseR8Rules: List<File> = android.buildTypes.getByName("release").proguardFiles.toList()
+tasks.withType<Test>().configureEach {
+  dependsOn("extractProguardFiles")
+  inputs.files(releaseR8Rules).withPropertyName("releaseR8Rules").withPathSensitivity(PathSensitivity.NONE)
+  systemProperty("phonotrainer.r8.releaseRules", releaseR8Rules.joinToString(File.pathSeparator) { it.absolutePath })
 }

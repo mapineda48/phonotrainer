@@ -123,6 +123,8 @@ turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 
 # Gradle plugins on the compile classpath of build-logic (the convention plugins configure their extensions)
 android-gradlePlugin = { module = "com.android.tools.build:gradle", version.ref = "androidGradlePlugin" }
+# AGP's builder carries the R8 that builds the release; one unit test of :app runs it (decisions I-15). Test only.
+android-builder = { module = "com.android.tools.build:builder", version.ref = "androidGradlePlugin" }
 kotlin-gradlePlugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
 room-gradlePlugin = { module = "androidx.room:room-gradle-plugin", version.ref = "androidxRoom" }
 aboutlibraries-gradlePlugin = { module = "com.mikepenz.aboutlibraries.plugin:aboutlibraries-plugin", version.ref = "aboutLibraries" }

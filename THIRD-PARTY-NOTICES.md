@@ -580,7 +580,7 @@ Used to build and test the app; none of them is compiled into the APK or distrib
 | Tool | Version | Licence | Use |
 |---|---|---|---|
 | Gradle (wrapper) | 9.8.0 | Apache-2.0 | the build |
-| Android Gradle Plugin, Android Lint | 9.4.1 | Apache-2.0 | the Android build, lint, R8 |
+| Android Gradle Plugin, Android Lint | 9.4.1 | Apache-2.0 | the Android build, lint, R8 (AGP's `builder` artifact, which carries R8, also runs in one unit test) |
 | Kotlin compiler, Compose compiler and serialization plugins | 2.4.20 | Apache-2.0 | compilation |
 | KSP | 2.3.12 | Apache-2.0 | annotation processing |
 | Hilt and Dagger compilers, Hilt Gradle plugin | 2.60.1 | Apache-2.0 | dependency injection code generation |
