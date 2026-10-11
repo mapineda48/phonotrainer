@@ -27,7 +27,8 @@ import org.gradle.kotlin.dsl.register
  *    only through `:core:domain` interfaces and SPIs (work-plan 4.2). A cycle between modules cannot build at all:
  *    Gradle refuses the circular task graph before any task runs, so the modules always form a DAG;
  * 3. `:core:testing` and `:core:testing-jvm` are only test dependencies, and depend only on `:core:domain`,
- *    `:core:network-api`, `:core:common`, `:core:designsystem` (and each other);
+ *    `:core:network-api`, `:core:common`, `:core:designsystem`, `:core:ui` (the app root of the screen-test harness,
+ *    decisions I-13; it is no implementation module) and each other;
  * 4. `:core:domain`, `:core:common`, `:core:analysis`, `:core:network-api` and `:core:testing-jvm` stay JVM modules;
  * 5. a JVM module gains no Android dependency: no Android module, no AAR and no Android-only group on its classpaths.
  */
@@ -38,7 +39,7 @@ internal object ModuleRules {
     ":core:domain", ":core:common", ":core:navigation", ":core:designsystem", ":core:ui", ":core:content",
     ":core:player",
   )
-  val TESTING_MAY_USE = setOf(":core:domain", ":core:network-api", ":core:common", ":core:designsystem") +
+  val TESTING_MAY_USE = setOf(":core:domain", ":core:network-api", ":core:common", ":core:designsystem", ":core:ui") +
     TESTING_MODULES
   val SYNC_THROUGH_SPI_ONLY = setOf(
     ":core:connectivity", ":core:corpus", ":core:content", ":core:study", ":core:requests",

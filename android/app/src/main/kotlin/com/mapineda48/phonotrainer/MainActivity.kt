@@ -6,7 +6,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.annotation.VisibleForTesting
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
@@ -17,8 +16,6 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.mapineda48.phonotrainer.core.designsystem.theme.NightMode
-import com.mapineda48.phonotrainer.core.designsystem.theme.PhonoTheme
-import com.mapineda48.phonotrainer.core.designsystem.theme.isDark
 import com.mapineda48.phonotrainer.core.domain.api.ComputerStatusRepository
 import com.mapineda48.phonotrainer.core.domain.api.SettingsRepository
 import com.mapineda48.phonotrainer.core.domain.api.UserMessages
@@ -26,11 +23,7 @@ import com.mapineda48.phonotrainer.core.navigation.EntryInstaller
 import com.mapineda48.phonotrainer.core.navigation.InternalEntry
 import com.mapineda48.phonotrainer.core.navigation.NavTarget
 import com.mapineda48.phonotrainer.core.navigation.WelcomeKey
-import com.mapineda48.phonotrainer.core.ui.a11y.LocalReducedMotion
-import com.mapineda48.phonotrainer.core.ui.a11y.LocalTalkBackOn
-import com.mapineda48.phonotrainer.core.ui.a11y.rememberReducedMotion
-import com.mapineda48.phonotrainer.core.ui.a11y.rememberTalkBackOn
-import com.mapineda48.phonotrainer.core.ui.ipa.LocalIpaReading
+import com.mapineda48.phonotrainer.core.ui.extension.PhonoAppRoot
 import com.mapineda48.phonotrainer.shell.AppNavigator
 import com.mapineda48.phonotrainer.shell.PhonoShell
 import com.mapineda48.phonotrainer.shell.ShellAnnouncer
@@ -45,11 +38,12 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 
 /**
- * The single activity (architecture 16.5): the splash until the settings are read, edge to edge, the theme from
- * `UserSettings.appearance`, how IPA is read aloud (A-05), and the shell. Internal targets are honoured only through
- * the `.InternalEntry` alias, in [onCreate] only when there is no saved state, and in [onNewIntent]; once applied, the
- * target is removed from the activity's intent, so a rotation or a process-death restore never navigates again
- * (architecture 16.4).
+ * The single activity (architecture 16.5): the splash until the settings are read, edge to edge, the app root
+ * (`PhonoAppRoot`: the theme from the learner's settings, the accessibility locals and how IPA is read aloud, A-05;
+ * the share sheet and the screen tests use the same root, decision I-13), and the shell. Internal targets are
+ * honoured only through the `.InternalEntry` alias, in [onCreate] only when there is no saved state, and in
+ * [onNewIntent]; once applied, the target is removed from the activity's intent, so a rotation or a process-death
+ * restore never navigates again (architecture 16.4).
  */
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -111,19 +105,8 @@ class MainActivity : ComponentActivity() {
         settings.awaitLoaded()
         NightMode.apply(this@MainActivity, current.appearance)
       }
-      CompositionLocalProvider(
-        LocalReducedMotion provides rememberReducedMotion(current.motion),
-        LocalTalkBackOn provides rememberTalkBackOn(),
-        LocalIpaReading provides reading,
-      ) {
-        PhonoTheme(
-          darkTheme = current.appearance.isDark(),
-          colors = current.colors,
-          patterns = current.patterns,
-          reducedMotion = LocalReducedMotion.current,
-        ) {
-          PhonoShell(inputs, navigator, Modifier.semantics { testTagsAsResourceId = true })
-        }
+      PhonoAppRoot(settings = current, ipaReading = reading) {
+        PhonoShell(inputs, navigator, Modifier.semantics { testTagsAsResourceId = true })
       }
     }
   }
