@@ -21,6 +21,12 @@ object FileLayout {
   /** `filesDir/datastore/` (DataStore's own directory, architecture 4.5). */
   const val DATASTORE = "datastore"
 
+  /**
+   * `filesDir/reference/reference.json`: the computer's reference body last fetched by sync, so a restart serves it
+   * instead of the bundled snapshot (`:core:content`'s `ReferenceStore`, architecture 15.4).
+   */
+  const val REFERENCE = "reference"
+
   /** `cacheDir/takes/` (v1-complete recordings). */
   const val TAKES = "takes"
 
