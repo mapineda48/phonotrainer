@@ -1,30 +1,83 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Strings of the :core:ui primitives (placeholder copy at the contract freeze; WP-03 owns this file). Shared
-     components keep theirs in strings_<component>.xml (work-plan 3.2). -->
+<!-- Strings of the :core:ui primitives (WP-03). Shared components keep theirs in strings_<component>.xml (work-plan 3.2).
+     Glyph rule (design 4.1): no "▾", "✓", "✕", soft hyphen, micro sign or thin space, and no trailing " →": controls
+     draw those as icons. -->
 <resources>
     <string name="ui_stub_note">This screen is a placeholder of the app\'s skeleton. Its feature replaces it.</string>
     <string name="ui_loading">Loading…</string>
-    <string name="ui_explain_label">What\'s this: %1$s?</string>
-    <string name="ui_explain_symbol">\?</string>
+    <string name="ui_explain_label">What\'s this: %1$s</string>
     <string name="ui_explain_learn_more">Learn more</string>
     <string name="ui_explain_close">Close</string>
     <string name="ui_advice_produce">Safe to produce</string>
     <string name="ui_advice_understand">Recognize only</string>
+    <string name="ui_advice_with_register">%1$s · %2$s</string>
+
+    <!-- The mark vocabulary of spec section 9 (identical to the web). -->
     <string name="ui_family_reduction">Reduction</string>
-    <string name="ui_family_td">t and d</string>
+    <string name="ui_family_td">t/d processes</string>
     <string name="ui_family_assimilation">Assimilation</string>
-    <string name="ui_family_boundary">Boundary</string>
-    <string name="ui_family_lexical">Whole word</string>
-    <string name="ui_family_other">Other</string>
+    <string name="ui_family_boundary">Word boundary</string>
+    <string name="ui_family_lexical">Lexical contraction</string>
+    <string name="ui_family_other">Other change</string>
+    <string name="ui_line_reduction">solid line</string>
+    <string name="ui_line_td">dashed line</string>
+    <string name="ui_line_assimilation">double line</string>
+    <string name="ui_line_boundary">wavy line</string>
+    <string name="ui_line_lexical">dotted line</string>
+    <string name="ui_line_other">dash-dot line</string>
+    <string name="ui_meaning_reduction">the sound weakens</string>
+    <string name="ui_meaning_td">the stop is clipped</string>
+    <string name="ui_meaning_assimilation">two sounds blend</string>
+    <string name="ui_meaning_boundary">words run together</string>
+    <string name="ui_meaning_lexical">a reduced form with its own spelling</string>
+    <string name="ui_meaning_other">a change outside the four families</string>
+    <string name="ui_family_mark_description">%1$s, %2$s</string>
+    <string name="ui_change_chip_description">%1$s, %2$s</string>
+    <string name="ui_mark_low_confidence">Low confidence</string>
+    <string name="ui_mark_low_confidence_line">dashed outline: the recognizer was not sure</string>
+    <string name="ui_mark_stressed">Stressed word</string>
+    <string name="ui_mark_stressed_line">bold: the most prominent word of the phrase</string>
+
+    <!-- The legend of the More sheet and Settings > Help (design 9.12), with the web's sample words. -->
+    <string name="ui_marks_legend">What the marks mean</string>
+    <string name="ui_marks_legend_lede">Each change is marked by its family: a line style, an icon and a name. Colour is only the third cue.</string>
+    <string name="ui_sample_reduction">does</string>
+    <string name="ui_sample_td">water</string>
+    <string name="ui_sample_assimilation">did you</string>
+    <string name="ui_sample_boundary">pick it up</string>
+    <string name="ui_sample_lexical">going to</string>
+    <string name="ui_sample_other">and them</string>
+    <string name="ui_sample_low_confidence">probably</string>
+    <string name="ui_sample_stressed">really</string>
+
+    <!-- Availability, one line per domain state (design 9.18). -->
     <string name="ui_availability_on_phone">On this phone</string>
-    <string name="ui_availability_bringing">Bringing to this phone · %1$d %%</string>
+    <string name="ui_availability_bringing">Bringing to this phone %1$d %%</string>
     <string name="ui_availability_not_on_phone">Not on this phone</string>
     <string name="ui_availability_getting_ready">Getting ready on your computer</string>
     <string name="ui_availability_paused">Download paused</string>
+    <string name="ui_availability_paused_budget">Download paused: storage budget reached</string>
+    <string name="ui_availability_paused_space">Download paused: your phone is almost full</string>
+    <string name="ui_availability_paused_offline">Download paused. Downloads continue the next time this phone reaches your computer.</string>
     <string name="ui_availability_again">Needs downloading again</string>
+    <string name="ui_video_on_phone">Video on this phone</string>
+    <string name="ui_video_downloading">Video downloading %1$d %%</string>
+    <string name="ui_video_not_on_phone">Video not on this phone</string>
+    <string name="ui_video_getting_ready">Video getting ready on your computer</string>
+    <string name="ui_video_not_available">Video not available from your computer</string>
+    <string name="ui_video_cannot_play">This video can\'t play on this phone</string>
+    <string name="ui_video_audio_only">Audio only</string>
+
     <string name="ui_coach_got_it">Got it</string>
-    <string name="ui_poster_audio">Audio clip</string>
-    <string name="ui_poster_video">Video clip</string>
-    <string name="ui_marks_legend">Each change is marked by its family: a line style, an icon and a name.</string>
+
+    <!-- The short's progress (design 9.7). -->
     <string name="ui_short_progress">Short progress</string>
+    <string name="ui_short_position">Position %1$s of %2$s</string>
+    <string name="ui_short_back">Back 2 s</string>
+    <string name="ui_short_forward">Forward 2 s</string>
+
+    <!-- IPA read aloud (A-05). -->
+    <string name="ui_ipa_symbols">%1$s: %2$s</string>
+    <string name="ui_ipa_to">to</string>
+    <string name="ui_ipa_play">Play this sound</string>
 </resources>
