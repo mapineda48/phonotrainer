@@ -5,9 +5,11 @@ import com.mapineda48.phonotrainer.core.datastore.pairing.DeviceKeyResult
 import com.mapineda48.phonotrainer.core.datastore.pairing.PairingRecord
 import com.mapineda48.phonotrainer.core.datastore.pairing.PairingStore
 import com.mapineda48.phonotrainer.core.domain.api.Clock
+import com.mapineda48.phonotrainer.core.domain.model.DeviceId
 import com.mapineda48.phonotrainer.core.domain.model.HostPort
 import com.mapineda48.phonotrainer.core.domain.model.LibraryId
 import com.mapineda48.phonotrainer.core.domain.model.ProbeOutcome
+import com.mapineda48.phonotrainer.core.domain.model.ServerId
 import com.mapineda48.phonotrainer.core.domain.model.remote.Capabilities
 import com.mapineda48.phonotrainer.core.domain.model.remote.PairGrant
 import com.mapineda48.phonotrainer.core.network.api.AddressPolicy
@@ -46,6 +48,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
 import okhttp3.Dns
 import okhttp3.Interceptor
 
@@ -92,7 +95,7 @@ internal class CountingDns : Dns {
 
 /**
  * [PairingStore] in memory: the token kept as characters, the key derived for each use and wiped after it, as
- * `DataStorePairingStore` does (architecture 20.3).
+ * `DataStorePairingStore` does (architecture 20.3). Updates are atomic, as DataStore's transactions are.
  */
 internal class InMemoryPairingStore : PairingStore {
   private val record = MutableStateFlow<PairingRecord?>(null)
@@ -130,13 +133,13 @@ internal class InMemoryPairingStore : PairingStore {
   override suspend fun recordSeen(at: Instant, apiVersion: Int, capabilities: Capabilities?) = Unit
 
   override suspend fun updateAddress(address: HostPort, at: Instant) {
-    record.value = record.value?.copy(address = address)
+    record.update { it?.copy(address = address) }
   }
 
   override suspend fun updateLibraryId(libraryId: LibraryId) = Unit
 
   override suspend fun updateClockOffset(offsetS: Long) {
-    record.value = record.value?.copy(clockOffsetS = offsetS)
+    record.update { it?.copy(clockOffsetS = offsetS) }
   }
 
   override suspend fun recordProbe(outcome: ProbeOutcome, at: Instant) = Unit
@@ -204,6 +207,20 @@ internal class TestStack(
     val proof = client.hello(at, deviceId)
     check(proof is ApiResult.Ok && proof.value.proofValid == true) { "the first proof answered $proof" }
     return PairGrantResult(deviceId.value)
+  }
+
+  /**
+   * Trusts [at] without a computer behind it, for tests that serve crafted answers: a synthetic pairing in the store,
+   * [at] made current and marked verified.
+   */
+  suspend fun trust(at: HostPort) {
+    val grant = PairGrant(
+      DeviceId("dev_test"), "pt1-test-token".toCharArray(), ServerId("srv_test"), "Test computer",
+      LibraryId("lib_test"), 6, 1, clock.now().epochSecond,
+    )
+    store.save(grant, at, "Test phone", clock.now(), 0)
+    peers.setCurrent(at)
+    verified.markVerified(at, ServerId("srv_test"))
   }
 
   override fun close() {
