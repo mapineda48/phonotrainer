@@ -73,6 +73,16 @@ def forbidden_download(url, dest_dir, audio_only=False, progress=lambda m: None,
     raise DownloadError("unable to download video data: HTTP Error 403: Forbidden")
 
 
+def settled(signing, job_id: str) -> dict | None:
+    """The PhoneJob once the file warmer is done with it (every checksum and the
+    media facts), else None. A finished job's revision and `media` change when
+    the warmer finishes, which may be after "done" was sent (server-contract 7)."""
+    job = signing.get(f"/api/phone/jobs/{job_id}").json()
+    if job["media"] is None or any(a["status"] == "preparing" for a in job["artifacts"]):
+        return None
+    return job
+
+
 # --- the upgrade (7, 4.3, 4.4) -------------------------------------------------------------
 
 def test_an_upgrade_without_a_valid_signature_is_refused(phone_app, paired, fake_clock):
@@ -124,6 +134,7 @@ def test_hello_then_a_lean_snapshot_of_every_job(phone_app, paired, phone_store,
     browser = phone_store.create(write_silent_wav(tmp_path / "browser.wav"))
     for job in (mine, browser):
         wait_until(lambda job=job: phone_store.get(job.id).status == "done")
+        wait_until(lambda job=job: settled(signing, job.id))     # nothing changes after the snapshot
 
     with signing.websocket_connect(EVENTS_URL) as ws:
         hello, snapshot = opened(ws)
@@ -153,13 +164,17 @@ def test_job_events_follow_a_lifecycle_and_never_go_backwards(phone_app, paired,
         job_id = link(signing).json()["job"]["id"]
         frames = receive_until(ws, lambda f: f["type"] == "job" and f["job"]["id"] == job_id
                                and f["job"]["status"] == "done")
+        revision = wait_until(lambda: settled(signing, job_id))["revision"]
+        if frames[-1]["job"]["revision"] != revision:        # "done" came before the checksums
+            frames += receive_until(ws, lambda f: f["type"] == "job" and f["job"]["id"] == job_id
+                                    and f["job"]["revision"] == revision)
     events = [f["job"] for f in frames if f["type"] == "job" and f["job"]["id"] == job_id]
     statuses = [event["status"] for event in events]
     assert statuses[-1] == "done"
     assert [ORDER[s] for s in statuses] == sorted(ORDER[s] for s in statuses)
     assert all("artifacts" not in event for event in events)
     assert events[-1]["own"] is True and events[-1]["client_request_id"] == KEY1
-    assert events[-1]["revision"] == signing.get(f"/api/phone/jobs/{job_id}").json()["revision"]
+    assert events[-1]["revision"] == revision
 
 
 def test_a_re_run_and_a_delete_send_deleted_events(phone_server, tmp_path):
