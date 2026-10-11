@@ -29,7 +29,10 @@ internal class Refusal(
   val detail: String,
   val extra: Map<String, JsonElement> = emptyMap(),
   val headers: Map<String, String> = emptyMap(),
-) : RuntimeException(code ?: detail)
+) : RuntimeException(code ?: detail) {
+  /** The same refusal, answered before the request body was read: the connection closes after it (4.7, 6.6). */
+  fun closing(): Refusal = Refusal(status, code, detail, extra, headers + ("Connection" to "close"))
+}
 
 /**
  * One request being dispatched, from the network layer or from the in-memory exchange; [watch] is its upload body
@@ -48,6 +51,11 @@ internal class Call(val request: RecordedRequest, val peer: Peer?, val watch: Bo
   fun query(name: String): String? = request.url.queryParameter(name)
 
   val wantsWebSocket: Boolean get() = header("Upgrade")?.equals("websocket", ignoreCase = true) == true
+
+  /** A `Transfer-Encoding` or a non-zero `Content-Length`: a body the server reads only if the request is admitted. */
+  val announcesBody: Boolean
+    get() = header("Transfer-Encoding") != null ||
+      request.headers.values("Content-Length").any { it.trim() != "" && it.trim() != "0" }
 
   /** The source address for the rate limits. */
   val source: String get() = peer?.remoteAddress ?: "unknown"
@@ -156,13 +164,32 @@ internal class ComputerCore(
   /**
    * The order of the server's middleware and routing (server-contract 4.2 to 4.4, 4.7; WP-01's
    * `PhoneAccessMiddleware`): suspension, Host, non-phone paths, unsafe paths, phone access, body framing, the route,
-   * the signature, the handler.
+   * the signature, the handler. A middleware refusal never reads the body: when the request announces one, the
+   * connection closes after the answer (4.7).
    */
   private fun handle(call: Call): MockResponse {
     sweepIdleBodies()
     expireUploads()
     takeRule(faults, call.method, call.rawPath)?.let { return faultResponse(it) }
     if (apiVersion < API_VERSION_CORE) return oldServer(call)
+    val route = try {
+      admit(call)
+    } catch (refusal: Refusal) {
+      throw if (call.announcesBody) refusal.closing() else refusal
+    }
+    if (route == null || !route.available(capabilities)) {
+      throw Refusal(HTTP_NOT_FOUND, "unknown_route", "There is no such phone route.")
+    }
+    if (route.signed) authenticate(call)
+    val response = route.handler(this, call)
+    takeRule(drops, call.method, call.rawPath)?.let {
+      return response.newBuilder().onResponseStart(SocketEffect.CloseSocket()).build()
+    }
+    return response
+  }
+
+  /** The middleware's rules (4.2 to 4.4, 4.7); returns the route the request names, if any. */
+  private fun admit(call: Call): Route? {
     if (lanForbidden) throw lanForbiddenRefusal()
     checkHost(call)
     val raw = call.rawPath.split('/').filter { it.isNotEmpty() }
@@ -174,15 +201,7 @@ internal class ComputerCore(
     }
     val route = Route.match(call.method, call.segments.drop(2))
     checkBodyFraming(call, route)
-    if (route == null || !route.available(capabilities)) {
-      throw Refusal(HTTP_NOT_FOUND, "unknown_route", "There is no such phone route.")
-    }
-    if (route.signed) authenticate(call)
-    val response = route.handler(this, call)
-    takeRule(drops, call.method, call.rawPath)?.let {
-      return response.newBuilder().onResponseStart(SocketEffect.CloseSocket()).build()
-    }
-    return response
+    return route
   }
 
   /** A server older than API 6 has no phone routes: `/api/health` answers with its version (6.2). */
@@ -229,23 +248,24 @@ internal class ComputerCore(
     Refusal(HTTP_FORBIDDEN, "lan_forbidden", "This part of PhonoTrainer is only available on the computer itself.")
 
   /**
-   * Body framing before any route runs (4.7): a JSON route needs `Content-Length`, a chunked body needs one too,
-   * and only the file routes (upload bodies, compare) may exceed 16 KiB.
+   * Body framing before any route runs (4.7): a `Transfer-Encoding` (even beside a `Content-Length`) is refused on
+   * every route that does not stream a file, a JSON route needs `Content-Length`, and only the file routes (upload
+   * bodies, compare) may exceed 16 KiB.
    */
   private fun checkBodyFraming(call: Call, route: Route?) {
     if (route != null && route.fileBody) return
-    val length = call.header("Content-Length")
-    val chunked = call.header("Transfer-Encoding")?.contains("chunked", ignoreCase = true) == true
-    if (length == null) {
-      if (route?.jsonBody == true || chunked) {
-        throw Refusal(HTTP_LENGTH_REQUIRED, "length_required", "The request must declare its length.")
-      }
+    if (call.header("Transfer-Encoding") != null) throw lengthRequired()
+    val lengths = call.request.headers.values("Content-Length")
+    if (lengths.isEmpty()) {
+      if (route?.jsonBody == true) throw lengthRequired()
       return
     }
-    val bytes = length.trim().takeIf { it.isNotEmpty() && it.all(Char::isDigit) }?.toLongOrNull()
+    val bytes = lengths.singleOrNull()?.trim()?.takeIf { it.isNotEmpty() && it.all(Char::isDigit) }?.toLongOrNull()
       ?: throw invalidRequest("Content-Length is not valid.")
     if (bytes > MAX_JSON_BYTES) throw Refusal(HTTP_TOO_LARGE, "too_large", "The request body is too large.")
   }
+
+  fun lengthRequired() = Refusal(HTTP_LENGTH_REQUIRED, "length_required", "The request must declare its length.")
 
   // ---------------------------------------------------------------------------------------------------------------
   // Signatures (4.3)
