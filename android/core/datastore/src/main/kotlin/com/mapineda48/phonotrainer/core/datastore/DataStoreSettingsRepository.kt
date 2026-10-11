@@ -25,7 +25,8 @@ import kotlinx.coroutines.launch
 
 /**
  * Every F-22 setting in `settings.preferences_pb` (architecture 4.5). Keys are private; enums are stored by name, and
- * a value this version does not know reads as the default, so a newer build's file never breaks an older one.
+ * a value this version does not know reads as the default, so a newer build's file never breaks an older one. A file
+ * that is damaged or cannot be read reads as the defaults ([DataStoreModule]); [awaitLoaded] returns in every case.
  */
 @Singleton
 class DataStoreSettingsRepository @Inject constructor(
@@ -39,8 +40,13 @@ class DataStoreSettingsRepository @Inject constructor(
 
   init {
     scope.launch {
-      store.data.collect { preferences ->
-        state.value = preferences.toSettings()
+      try {
+        store.dataOrEmpty().collect { preferences ->
+          state.value = preferences.toSettings()
+          loaded.complete(Unit)
+        }
+      } finally {
+        // A read that fails or is cancelled never holds the splash (architecture 16.5): the defaults stand.
         loaded.complete(Unit)
       }
     }
