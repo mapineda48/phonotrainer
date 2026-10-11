@@ -520,8 +520,8 @@ Dagger libraries are by The Android Open Source Project and Google; Kotlin and k
 | Hilt Android | `com.google.dagger:hilt-android` | 2.60.1 | Apache-2.0 |
 | Hilt Core | `com.google.dagger:hilt-core` | 2.60.1 | Apache-2.0 |
 | Guava ListenableFuture only | `com.google.guava:listenablefuture` | 1.0 | Apache-2.0 |
-| okio | `com.squareup.okio:okio` | 3.9.1 | Apache-2.0 |
-| okio | `com.squareup.okio:okio-jvm` | 3.9.1 | Apache-2.0 |
+| okio | `com.squareup.okio:okio` | 3.18.1 | Apache-2.0 |
+| okio | `com.squareup.okio:okio-jvm` | 3.18.1 | Apache-2.0 |
 | Jakarta Dependency Injection | `jakarta.inject:jakarta.inject-api` | 2.0.1 | Apache-2.0 |
 | javax.inject | `javax.inject:javax.inject` | 1 | Apache-2.0 |
 | Kotlin Stdlib | `org.jetbrains.kotlin:kotlin-stdlib` | 2.4.20 | Apache-2.0 |

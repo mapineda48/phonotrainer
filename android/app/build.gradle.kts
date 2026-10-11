@@ -89,4 +89,13 @@ dependencies {
   androidTestImplementation(libs.hilt.android.testing)
   androidTestImplementation(libs.truth)
   kspAndroidTest(libs.hilt.compiler)
+  // `@HiltWorker` test workers (e2e/smoke/GlobalTestSetTest) need the AndroidX Hilt processor too.
+  kspAndroidTest(libs.androidx.hilt.compiler)
+
+  constraints {
+    // The app's runtime classpath decides the version of every library the test APK shares with it, and the
+    // end-to-end fake computer (OkHttp's MockWebServer) runs in the app's process: okio must be the version OkHttp
+    // needs, not the older one DataStore brings (decisions I-07).
+    implementation(libs.okio)
+  }
 }
