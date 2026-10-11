@@ -13,6 +13,8 @@ dependencies {
   api(project(":core:designsystem"))
   api(project(":core:domain"))
   api(project(":core:navigation"))
+  // IpaText reads IPA with the one tokenizer of the project (architecture 2.2: why ipa/ lives in :core:common).
+  implementation(project(":core:common"))
 
   testImplementation(project(":core:testing"))
   debugImplementation(libs.androidx.compose.ui.test.manifest)
