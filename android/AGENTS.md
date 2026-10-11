@@ -64,6 +64,10 @@ and stop your own Gradle daemons when you finish (`./gradlew --stop`, or a priva
   `TestTime`, release scheduled work with `WorkDriver`, and inject `FakeComputer` to turn its failure knobs.
 - Each area has a robot in `e2e/<area>/`; find nodes by test tag or string resource, never by hard-coded text; every
   action returns after its effect is visible; wait with timeouts, never `Thread.sleep`.
+- **Screen tests** (Robolectric, `@RunWith(RobolectricTestRunner::class)`) use `:core:testing`'s `PhonoScreenRule`
+  (decisions I-13): it sets the content inside the app's root, `PhonoAppRoot`, and `checkEach` walks
+  `ScreenVariant.REQUIRED` (font scale 2.0, light and dark) or the full `ScreenVariant.MATRIX` (design 11), running
+  `A11yAudit` at every variant. Do not write another theme or font-scale wrapper.
 - Every bug fix gets a regression test that fails without the fix.
 - New interactive elements get a test tag (`<feature>.<screen>.<element>`, exposed as resource ids), an accessible
   label and 48 dp targets. Existing tags and content descriptions are part of the test contract: keep them.
@@ -79,6 +83,16 @@ and stop your own Gradle daemons when you finish (`./gradlew --stop`, or a priva
 - Strings in the module's own `res/values/strings.xml` (or the owner's `strings_<name>.xml`); colours, type and sizes
   from the design system's tokens, never hard-coded in screens.
 - Logging only through the `PhonoLog` facade, never `android.util.Log`; HTTP only through `:core:network`'s client.
+- **Insets** (decisions I-12): the shell never pads a destination at the top, so every destination applies
+  `statusBarsPadding()` (or draws its top bar or title behind the status bar with it), and the feed is full bleed. The
+  bottom bar's height, navigation bar included, is consumed for you: do not pad the navigation bar; `imePadding()`
+  counts from the top of the bar.
+- **The app root**: an activity's content goes inside `PhonoAppRoot(settings, …)` (`:core:ui`), never a bare
+  `PhonoTheme`, so it gets the learner's appearance, palette, motion, TalkBack and IPA reading (decisions I-13).
+- **One-shot messages**: post with `UserMessages.post(kind, args)`, which takes a fresh id from the one allocator;
+  never make up an id (decisions I-16).
+- **SPI sets**: `:app` declares `Set<StartupTask>` and `Set<ClipRemovalHook>`; contribute with `@Binds @IntoSet`
+  only, and give every `StartupTask` its `@StartupOrder` (`:app`'s R8 rules keep it, decisions I-15).
 - Two-space indentation in Kotlin and Gradle scripts (`.editorconfig`).
 
 ## 7. Devices

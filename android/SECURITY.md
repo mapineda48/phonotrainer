@@ -20,6 +20,39 @@ out for this reason.
 - Requests made while the computer is out of reach wait on the phone (the device queue) and are sent when it is
   reachable again.
 
+## Links you share: what the computer downloads
+
+The app never opens a shared link itself: it sends the link's text to your computer, which downloads the video with
+yt-dlp. Unchecked, a link from a phone could make the computer fetch a page or an address on your own network
+(server-side request forgery). So a phone's link is confined twice (server contract 4.5 and 9, point 7; root README,
+"Links from phones"):
+
+- **The link's host is checked three times**: when the phone sends it (before any job exists), at every re-run, and
+  again immediately before the download starts, because DNS answers can change in between. Every address the host
+  resolves to must be global unicast: loopback, private, link-local, carrier-grade NAT, reserved, documentation and
+  multicast addresses are refused, and so are NAT64, 6to4 and Teredo addresses, which can carry a private IPv4
+  address inside. A refused link gets "This link points to a private or local address." (`refused_address`). A host
+  that cannot be looked up is never accepted unchecked: the phone tries again later, and before a download the job
+  fails as a network error.
+- **The download itself is confined**, because a public page can still point elsewhere (a short link, a post that
+  embeds a video from another site, a service or media address written in the page, a redirect). Only yt-dlp's
+  site-specific extractors run, never its generic one nor the few whose links may name any host (`allowed_extractors =
+  ["default", "-generic", "-mediasite.*"]`, with a test over the remaining ones), and every connection the download
+  opens is checked at connect time against the address it actually reaches, after every redirect and every DNS
+  answer. yt-dlp keeps only its own HTTP and WebSocket handlers, with no proxy, no outside download program and one
+  fragment at a time. A refused connection fails the job as `refused_address`.
+- **Bounds**: live, upcoming and post-live streams are refused before any media byte is fetched, and so are videos
+  longer than the computer's `max_link_duration_s` (one whose site gives no duration is measured once downloaded),
+  files larger than its `max_upload_bytes`, and downloads that would not fit in its free space; a refused download
+  deletes what it wrote.
+
+**Residual risk (accepted).** The link's host names are looked up through the computer's usual DNS resolver, and
+yt-dlp's JavaScript runtime (Deno or Node, when installed) runs code from YouTube's own player to answer its
+challenges. Only phones you paired can send links, and each of their requests is signed. Fetching yt-dlp's challenge
+components from the internet stays off unless you turn it on (`PHONOTRAINER_YTDLP_REMOTE_COMPONENTS`, root README).
+Links typed into the browser interface or the command line on the computer itself are not phone links and keep the
+downloader's usual options.
+
 ## Transport risk (accepted for version 1)
 
 Plain HTTP on the home network (the server has no TLS): someone on the same Wi-Fi could read clips, links and requests
