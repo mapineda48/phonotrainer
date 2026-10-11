@@ -425,6 +425,18 @@ def receiving(app, device_id):
     return app.state.phone.uploads._attempts.get(device_id)
 
 
+async def received(app, device_id, body, chunk, clock):
+    """Feed `chunk` to a started body one fake second after the server admitted
+    it, and return once the server has read it: its attempt's last byte then
+    moves to that second. A part on disk and an admitted attempt do not mean
+    the bytes were read, and a clock moved before they are would date them
+    later than the test means."""
+    await until(lambda: parts(app) and receiving(app, device_id) is not None)
+    clock.advance(1)
+    body.feed(chunk)
+    await until(lambda: getattr(receiving(app, device_id), "last_byte_at", None) == clock())
+
+
 def test_a_silent_body_is_aborted_after_30_seconds(paired, phone_app, fake_clock):
     signing, device_id, key = paired
     assert declare(signing).status_code == 201
@@ -432,8 +444,8 @@ def test_a_silent_body_is_aborted_after_30_seconds(paired, phone_app, fake_clock
     async def scenario():
         stalled = RawPut(phone_app, device_id, key, fake_clock)
         task = asyncio.ensure_future(stalled.run())
-        stalled.feed(DATA[:100])                    # some bytes, then the Wi-Fi drops
-        await until(lambda: parts(phone_app) and receiving(phone_app, device_id) is not None)
+        # Some bytes, then the Wi-Fi drops.
+        await received(phone_app, device_id, stalled, DATA[:100], fake_clock)
         fake_clock.advance(29)
         await asyncio.sleep(0.1)
         assert not task.done()
@@ -457,8 +469,7 @@ def test_newest_wins_after_10_quiet_seconds(paired, phone_app, fake_clock):
     async def scenario():
         old = RawPut(phone_app, device_id, key, fake_clock)
         old_task = asyncio.ensure_future(old.run())
-        old.feed(DATA[:100])
-        await until(lambda: receiving(phone_app, device_id) is not None and parts(phone_app))
+        await received(phone_app, device_id, old, DATA[:100], fake_clock)
         early = await RawPut(phone_app, device_id, key, fake_clock).run()
         assert early.status == 409 and early.json()["code"] == "upload_busy"
         fake_clock.advance(10)
