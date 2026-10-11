@@ -1,19 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- The three frozen themes of work-plan 4.1 (design 12.4). Compose draws everything; these only colour the window,
-     the splash and the translucent share sheet. -->
+     the splash and the translucent share sheet. Light and dark come from values-night (the window) and the colours of
+     values/ and values-night/ colors.xml, which NightMode.apply aligns with the in-app appearance on API 31+. -->
 <resources>
     <style name="Theme.Phono" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowBackground">@color/phono_window_background</item>
     </style>
 
+    <!-- The splash (core-splashscreen): the page colour and the stylus P, then Theme.Phono. Below API 31 the compat
+         library shows the icon still, so it gets the static mark; values-v31 gives the platform the animated one. -->
     <style name="Theme.Phono.Starting" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">@color/phono_window_background</item>
+        <item name="windowSplashScreenBackground">@color/phono_page</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/splash_mark</item>
         <item name="postSplashScreenTheme">@style/Theme.Phono</item>
     </style>
 
-    <!-- The share confirmation (architecture 12): the sharing app stays visible behind the sheet, which Compose
-         draws with its own scrim and insets. -->
+    <!-- The share confirmation (architecture 12, design 9.22): the sharing app stays visible behind the sheet, which
+         Compose draws with its own scrim and insets. -->
     <style name="Theme.Phono.ShareSheet" parent="Theme.Phono">
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowBackground">@android:color/transparent</item>
