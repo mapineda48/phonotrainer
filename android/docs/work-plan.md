@@ -1,6 +1,76 @@
 # PhonoTrainer for Android: work plan
 
-Status: v1 work plan, revision 3, 2026-10-10 (revisions 1 and 2: the same day). Owner: software architect.
+Status: v1 work plan, revision 4, 2026-10-11 (revisions 1 to 3: 2026-10-10). Owner: software architect.
+
+**Revision 4 notes (change request CR-01, 2026-10-11; the plan's change log for it).** The owner answered Q-1 to Q-7
+on 2026-10-10 while wave 1 was in flight. State on 2026-10-11 (integration log and progress files): B1 published;
+WP-04, WP-05a-1, WP-06-1, WP-06-2 and WP-01 milestone A merged into `android-client`; WP-01 milestone B (the rest of
+the v1-core server, API 6) finished on its branch and in review, not merged; WP-02 M3, WP-03 and WP-19's first week
+running; no wave-2 WP branched yet. Spec revision 4
+(D-53 to D-57) adds two v1-complete features (deleting a finished analysis from the phone, S-25; shared practice
+accuracy and Saved list, S-24) and a version-2 design (architecture 26). The plan changes so that **nothing in flight
+is disturbed and v1-core is unchanged**:
+1. **No v1-core WP gains behaviour.** Two tiny v1-core items: the integrator (WP-19) applies change request
+   **CR-01-A1** (Room `learning_meta` with `learning_id`, folded into version 1 before any install, 4.7) and publishes
+   it in the next baseline; WP-16 words the existing "Remove from this phone?" confirmation (spec F-05-AC11, copy only).
+2. **Server: WP-27 gains milestone A** (S-25 and S-24, API 7) before its original scope (now milestone B). It may start
+   now in the Python lane, on its own branch, and merges after the v1-core gate like every v1-complete server change
+   (1.4). WP-01 and its milestone B are not reopened (architecture 25.5 C-37 says why not "WP-01-C").
+3. **Android v1-complete**: **WP-28 gains milestone A** (the deletion operation and the shared-progress engine in the
+   core modules) before its original scope (renditions and resumable uploads, now milestone B); the new **WP-34**
+   builds the screens (Clip page block, Requests rows, Library and shelf words, Practice and Saved lines, the
+   confirmations); **WP-05a milestone 3** and **WP-06 milestone 3** extend the two fake computers; **CR-01-A2** (the
+   v1-complete amendment of the frozen contract and Room version 2) is applied by the integrator of wave 5 (WP-26)
+   before any wave-5 Android WP branches (4.7).
+4. **Order of v1-complete**: CR-01 first, deletion before shared progress (spec 14.2 step 7), then the rest as before
+   (1.4); the v1-complete gate gains the new ACs, QT-15 to QT-20 and D-57 (WP-33). The v1-core gate is unchanged but
+   for F-05-AC11 (WP-16's copy) and CR-01-A1's test.
+5. New and changed rows: ownership (3.2), dependencies (9.1), risks (9.2), traceability (10); WP-25 refers to the owner
+   in neutral words.
+6. **Who does what next**: the orchestrator commits these documents on `wp/CR-01`; the integrator merges them into
+   `android-client` like any docs change and applies CR-01-A1 in its next round, publishing it with the next baseline;
+   WP-27 milestone A may be assigned as soon as WP-01 milestone B is merged; nothing else starts before the v1-core
+   gate. The browser's adoption is outside this plan (`web-progress-sync.md`) and gates nothing.
+7. **Merge note for the integrator**: WP-01 milestone B's hand-off carries six additive change requests to
+   `server-contract.md` (sections 3.2, 5.1, 6.1, 6.6, 6.7, 9, 10.1, 10.2, 11.2), and revision 4 of that document adds
+   lines in some of the same sections (3.2, 6.1, 6.7, 10.1, 10.2). Both are additive: whichever lands second keeps
+   both texts.
+
+**Revision 4 review fixes (2026-10-11, fix round 1; architecture 25.6 lists each item and its reason).** Nothing in
+flight changes: WP-01 milestone B and WP-02 M3 are untouched, and every change lands in work that has not started.
+1. **CR-01-A2 grows and becomes its own item** (2.2, 4.7; WP-26 L 7 d, of which A2 is 2 d): two pairing-store keys for
+   the capability flags in `:core:datastore` (WP-02's store saves capabilities field by field),
+   `SyncController.exclusive` and its call in `forget()`, `ComputerDeletion.actions`, a new `DeletionWait` member
+   (`COMPUTER_CANNOT` in fix round 1, `DIFFERENT_COMPUTER` since round 2), `own_stat` and `request_op.maybe_sent` in
+   Room version 2.
+2. **WP-27 milestone A** (7 d): `body_sha256` on the three routes, `not_before` in the authenticator, refusals per item
+   instead of `store_full`, bounded Saved positions, stores that fail closed, the deletion rate limit, the visible
+   audit line, the banner line, the browser routes' body rules.
+3. **WP-28 milestone A** (8 d): `maybe_sent` and answers matched by code, `exclusive` with QT-18's in-flight variant,
+   `own_stat`, refused items and `400` pages marked handled, `body_sha256` in `:core:network`.
+4. **WP-34** (7 d): Home's attention action for a refused deletion (new phase-complete rows), the reach strip and the
+   place mark of design 9.23, no "Undo" when `actions` lacks it (round 2 replaced round 1's `COMPUTER_CANNOT` words
+   by spec D-62's refusal).
+5. **WP-24** covers the words of Storage's "Remove from this phone?" (F-05-AC11), WP-16 consumes design 9.23 and 9.26's
+   v1-core part, WP-05a-3 and WP-06-3 follow the server, and the wave-5 lanes are restated (1.4: about 24 days).
+
+**Revision 4 review fixes, round 2 (2026-10-11; architecture 25.7).** The product track answered the architecture's
+requests (spec D-58 to D-65); the plan follows. Nothing in flight changes: every item lands in CR-01-A2 (not applied
+yet) or in a WP that has not started.
+1. **A computer without the route refuses a deletion** (spec D-62): `DeletionWait.COMPUTER_CANNOT` becomes
+   `DIFFERENT_COMPUTER` in CR-01-A2 (4.7); WP-28 A maps `404 unknown_route` (and a `health` without `delete_finished`)
+   to a refusal and `409 different_computer` to a wait with its reason; WP-05a-3's knobs already cover both.
+2. **WP-34 covers the answered words**: D-58's imported forms, D-59, D-61's reason order, D-62's refusal sentences,
+   D-65's line, and the quoted title in every CR-01 `{title}` with the right-to-left-override screenshot test.
+3. **`QuotedTitle`** (architecture 19; design 9.26) is made by the integrator in CR-01-A2 with its unit test, and the
+   shell's host passes the three messages' titles through it (2.2, 3.2, 4.7, WP-26).
+4. **v1-core, copy only, in WPs that have not started**: WP-22 owns `WaitingReasonCopy`, D-61's one list of waiting
+   reasons, which WP-34's `DeletionCopy` reuses; WP-24 words "Forget this computer?" (D-60); WP-25 counts the practice
+   answers QA gives on the test phone (D-57 (3)).
+5. **The first share of the test phone** (spec D-57 (3); architecture 21.7): WP-06-3 adds `ui.py`'s
+   `practice_totals()` and logs the simulated devices' answers and resets; WP-33 runs the check before the test phone
+   can first share with the owner's computer, clears a history that is all QA's and logs it, or reports what the first
+   share will send.
 
 **Revision 3 notes (pre-implementation closure).** Spec revision 3 (D-37 to D-52) and the cross-track consistency
 review are mirrored here; architecture 25.4 lists each item. In short: the change counts carry two units (A.3,
@@ -41,7 +111,8 @@ It changes no behaviour (the spec does) and no design decision (the architecture
 
 Conventions
 - `WP-nn` is a work package: one engineer (or agent) in one copy of the project. Ids are stable; the architecture
-  cites them with these meanings. WP-05 became WP-05a and WP-05b in revision 2.
+  cites them with these meanings. WP-05 became WP-05a and WP-05b in revision 2. Revision 4 adds WP-34 and milestones
+  named `WP-nn A`/`B` or `WP-nn-3` (a WP's milestone keeps its WP's ownership rows of the matching phase).
 - Sizes are in engineer-days of focused work, including tests: **S** ≤ 2, **M** 3–5, **L** 6–10, **XL** 11–15. They
   are planning estimates, not commitments.
 - **Baseline** `B<n>`: the integrated commit a WP starts from. `B0` is WP-02's M1 (the toolchain proof, day 2), `B1`
@@ -64,7 +135,7 @@ Conventions
 | 2 Cores and features | B1 (day 6), in lanes (1.2) | cores **WP-05b** network client · **WP-07** connectivity · **WP-08** sync · **WP-09** device queue · **WP-10** corpus · **WP-11** player · **WP-14** study; features **WP-13** onboarding and connect · **WP-15** home · **WP-16** library and clip page · **WP-17** watch · **WP-18** lesson · **WP-20** learn · **WP-21** practice and saved · **WP-22** requests and add · **WP-23** share target · **WP-24** settings | every wave-2 WP merged |
 | 1–3 Integration (continuous) | B1 | **WP-19** integrator and integration v1-core: merges, change requests, the global test seams, the black-box R8 smoke, then the cross-area flows and measurements | v1-core release candidate |
 | 4 QA v1-core | WP-19 done; the owner's phone attached | **WP-25** QA: emulator, test phone, link gate | **v1-core gate** (spec 14.3) |
-| 5 v1-complete | the v1-core gate (WP-27 may start earlier, 1.4) | **WP-27** server v1-complete · **WP-28** renditions and resumable uploads (phone) · **WP-29** articulator · **WP-30** record yourself · **WP-31** phrase details and transcript · **WP-32** insights | every wave-5 WP merged |
+| 5 v1-complete | the v1-core gate (WP-27 may start earlier, 1.4); CR-01-A2 applied by WP-26 first (4.7) | **WP-27** server v1-complete (A: deletion from phones and shared progress, CR-01; B: renditions, resumable uploads, record yourself) · **WP-05a-3** fake computer for CR-01 · **WP-06-3** QA kit for CR-01 · **WP-28** sync, queue and study v1-complete (A: deletion operation and shared-progress engine, CR-01; B: renditions and resumable uploads) · **WP-34** deletion and shared-progress screens (CR-01) · **WP-29** articulator · **WP-30** record yourself · **WP-31** phrase details and transcript · **WP-32** insights | every wave-5 WP merged |
 | 6 Integration and QA v1-complete | wave 5 merged | **WP-26** integration v1-complete · **WP-33** QA v1-complete | **v1-complete gate** |
 
 ### 1.2 Capacity, lanes and the critical path (v1-core)
@@ -105,20 +176,43 @@ that this computer cannot run.
 | Tier | WPs | Sum (engineer-days, midpoint) |
 |---|---|---|
 | v1-core | 01 XL 15, 02 L 10, 03 L 8, 04 M 5, 05a L 7, 05b L 7, 06 L 6, 07 L 7, 08 XL 12, 09 XL 12, 10 M 4, 11 L 10, 12 L 8, 13 L 6, 14 L 8, 15 M 4, 16 L 6, 17 XL 12, 18 L 8, 19 integrator role + L 10, 20 L 6, 21 M 5, 22 L 7, 23 M 5, 24 L 6, 25 L 6 | about 200, plus the integrator role |
-| v1-complete | 26 M 4, 27 L 9, 28 M 5, 29 XL 15, 30 L 8, 31 L 8, 32 M 5, 33 M 4 | about 58 |
+| v1-complete | 26 L 7 (CR-01-A2 2, then 5), 27 XL 16 (A 7, B 9; one day over the class, from the CR-01 review fixes), 28 XL 13 (A 8, B 5), 29 XL 15, 30 L 8, 31 L 8, 32 M 5, 33 M 5, 34 L 7, 05a-3 S 2, 06-3 S 1 | about 87 (revision 3: 58; CR-01 adds 29) |
+| v1-core, CR-01 | WP-19 applies CR-01-A1 (about half a day), WP-16 words one confirmation (minutes) | no change to the v1-core critical path |
 
 ### 1.4 Rules for v1-complete
 
 v1-complete work never blocks v1-core (spec D-30). Its priority follows spec 14.2 step 7 (the cut order of 14.4 read
-backwards: what is cut last is built first): renditions and resumable uploads (WP-27, WP-28), Insights (WP-32), the
-Transcript tab (WP-31, first half), record yourself (WP-30), phrase details (WP-31, second half), the articulator
-(WP-29, the first item the spec cuts). WP-27 is server-only and the highest priority, so it may start as soon as WP-01
-is merged, on its own branch; it is **merged only after the v1-core gate**, after rebasing onto the post-gate server
-(which may carry WP-19's server fixes from QA) and re-running the whole pytest suite, so v1-core QA tests v1-core
-alone (an early v1-complete WP runs `check_ownership.py` with `--phase complete`). Every other v1-complete WP starts
-after the gate. If the schedule forces a cut, WPs are dropped in the cut order and each feature keeps its v1-core
-fallback, which already ships behind the extension points of section 4.4. Lean channel events (cut item 8) ship in
-v1-core (server-contract 7; spec D-44 withdrew the cut item).
+backwards: what is cut last is built first): **deletion from the phone (S-25) and then shared progress (S-24), the
+owner's answers of CR-01** (WP-27 milestone A, WP-05a-3, WP-28 milestone A, WP-34, WP-06-3), renditions and resumable
+uploads (WP-27 and WP-28, milestones B), Insights (WP-32), the Transcript tab (WP-31, first half), record yourself
+(WP-30), phrase details (WP-31, second half), the articulator (WP-29, the first item the spec cuts). WP-27 is
+server-only and the highest priority, so it may start as soon as WP-01 is merged, on its own branch, beginning with
+milestone A; it is **merged only after the v1-core gate**, after rebasing onto the post-gate server (which may carry
+WP-19's server fixes from QA) and re-running the whole pytest suite, so v1-core QA tests v1-core alone (an early
+v1-complete WP runs `check_ownership.py` with `--phase complete`). Its milestones may merge separately, A first.
+Every other v1-complete WP starts after the gate. If the schedule forces a cut, WPs are dropped in the cut order and
+each feature keeps its v1-core fallback, which already ships behind the extension points of section 4.4 (for CR-01:
+no "On your computer" block, and progress kept on each device, spec 14.4 items 10 and 11). Lean channel events (cut
+item 8) ship in v1-core (server-contract 7; spec D-44 withdrew the cut item).
+
+**Wave-5 lanes with CR-01** (three builder lanes plus the integrator, 1.2; days from the v1-core gate). The
+integrator WP-26 applies **CR-01-A2 on days 0 to 2** (its own 2-day item: about 25 types, both Room version 2
+migrations with their tests, the pairing-store keys, the fakes' new members, the icon conversion with notices and
+`bundled.json`, three messages); every Android WP that uses A2 branches after it.
+- Lane A: WP-05a-3 (days 2–4) → WP-28 A (4–12) → WP-28 B (12–17).
+- Lane B: WP-34 (2–9; on the settable fakes of CR-01-A2; its screens follow the design track's CR-01 states, design.md
+  revision 3, renders 28 to 34; its seeded happy paths over WP-28 A run in WP-26's cross-area flows) → WP-29 (9–24).
+- Lane C: WP-32 (0–5; it uses nothing of A2, so it branches from the gate commit and merges A2's baseline when told)
+  → WP-31 (5–13) → WP-30 (13–21).
+- Outside the lanes: WP-27 (Python; milestone A can run during waves 2 to 4 on its branch), WP-06-3 (Python, after
+  WP-27 A is merged), and WP-26's cross-area flows once the lanes merge.
+
+Wave 5 therefore takes **about 24 days** with three lanes (lane B is the longest), about 21 if WP-29, the first item the
+spec cuts and the last on its lane, is dropped. Without CR-01 the same three lanes would need about 15 days (WP-29 alone
+on one lane; WP-28 B, WP-30, WP-31 and WP-32 on the other two), so CR-01 lengthens wave 5 by about 9 days, which the cut
+order of spec 14.4 says is right: the owner's items are built first and cut last. (Revision 4 ran WP-32 → WP-31 →
+WP-29 on lane C, which made that lane, at 28 days, the critical path and its "about 9 days" figure wrong; WP-29 moved
+to lane B and WP-30 to lane C; architecture 25.6 C-69.)
 
 ---------------------------------------------------------------------------------------------------------------
 
@@ -158,6 +252,28 @@ it keeps coding against its own temporary local type in the meantime and swaps t
 every frozen type has its fields in Appendix A, change requests are corrections, not the main design channel. Until
 the first build is installed on the test phone, Room entity requests are folded into schema version 1 (architecture
 4.4).
+
+**Change request CR-01 (formal, from the architect; 4.7 has the exact code).** The owner's answers of 2026-10-10 need
+two additive amendments of the frozen contract, published by the integrator of the moment:
+- **CR-01-A1** (v1-core baseline; integrator **WP-19**, in the first merge round after the CR-01 documents are merged,
+  published with the next baseline `B<n>`): `LearningDatabase` version 1 gains `learning_meta`, and `DatabaseModule`
+  writes `learning_id` when the database is created. Folded into version 1 because no build is installed yet (AD-10)
+  and because every backup of every release must carry the id (architecture 4.4). No DAO, repository or screen uses it
+  in v1-core; WPs that branched earlier merge the baseline when told and change nothing.
+- **CR-01-A2** (v1-complete; integrator **WP-26**, as the first commit after the v1-core gate commit, before any
+  wave-5 Android WP that uses it branches; its own 2-day item, 1.4): the domain, SPI and `:core:network-api` additions,
+  `Capabilities`' two flags **and the two pairing-store keys that keep them** (`:core:datastore`: WP-02's
+  `DataStorePairingStore` saves capabilities field by field, so a flag it does not name reads back `false`), the
+  `SyncController.exclusive` call around `PairingRepository.forget()`'s body (`:core:connectivity`; architecture 6.3),
+  the three `UserMessageKind` members with their strings in the shell's message host, which passes each title through
+  `QuotedTitle` (`:core:ui` `component/`, made in the same commit with its unit test; architecture 19, design 9.26),
+  settable members for the new methods in the existing fakes, and Room **version 2** of both databases with its
+  `AutoMigration` and migration tests.
+  `:core:datastore` and `:core:connectivity` have no v1-complete owner, so both changes are the integrator's (3.2);
+  nothing changes in WP-02 M3 or WP-07 before then.
+Both are additive in this section's sense (new types, methods with default bodies, fields with defaults, new tables
+and nullable columns); none renames or removes anything, and no exhaustive `when` outside the shell's message host
+needs a new branch (architecture 3.4, 25.5 C-35).
 
 ### 2.3 Stubs, fakes and the freeze
 
@@ -268,7 +384,7 @@ Each WP below adds its own proof list ("Proof") and acceptance ("Done when").
 | `requirements.txt` | WP-01 | core | only if server-contract 9 point 4 applies |
 | `phonotrainer/server.py` | WP-27 | complete | |
 | `phonotrainer/jobs.py` | WP-27 | complete | |
-| `phonotrainer/phone/**` | WP-27 | complete | renditions, resumable uploads, record yourself |
+| `phonotrainer/phone/**` | WP-27 | complete | milestone A: deletion from phones and shared progress (CR-01); milestone B: renditions, resumable uploads, record yourself |
 | `tests/**` | WP-27 | complete | |
 | `README.md` | NONE | all | |
 | `README.md#Phone access (Android client)` | WP-01 | core | new section |
@@ -286,6 +402,7 @@ Each WP below adds its own proof list ("Proof") and acceptance ("Done when").
 | `android/docs/architecture.md` | ARCHITECT | all | |
 | `android/docs/server-contract.md` | ARCHITECT | all | |
 | `android/docs/work-plan.md` | ARCHITECT | all | |
+| `android/docs/web-progress-sync.md` | ARCHITECT | all | the browser client's hand-off for shared progress (CR-01); nothing under `web/` is changed by this project |
 | `android/docs/design.md` | DESIGN | all | |
 | `android/docs/design/**` | DESIGN | all | the design track's supporting pages (delivery review D-26) |
 | `android/docs/brand-assets.md` | DESIGN | all | |
@@ -297,6 +414,7 @@ Each WP below adds its own proof list ("Proof") and acceptance ("Done when").
 | `android/tools/didactic/**` | WP-04 | core | |
 | `android/tools/reference/**` | WP-04 | core | |
 | `android/scripts/**` | WP-06 | core | hygiene checks, hooks, device-QA kit, host-side fake computer, GMD lock |
+| `android/scripts/**` | WP-06 | complete | milestone 3 (CR-01): the host-side fake computer's seeds and self-check, the D-57 guard of the destructive UI helpers, the QT-15 to QT-20 steps |
 | `android/core/domain/**` | INTEGRATOR | all | frozen at B1 (section 4) |
 | `android/core/network-api/**` | INTEGRATOR | all | frozen at B1 (4.3) |
 | `android/core/navigation/**` | INTEGRATOR | all | frozen at B1 |
@@ -304,6 +422,7 @@ Each WP below adds its own proof list ("Proof") and acceptance ("Done when").
 | `android/core/common/src/*/kotlin/**/common/ipa/**` | WP-12 | core | `IpaTokenizer` (architecture 2.2) |
 | `android/core/common/src/*/kotlin/**/common/shadowing/**` | WP-12 | core | `ShadowingPlan` |
 | `android/core/datastore/**` | WP-02 | core | |
+| `android/core/datastore/**` | INTEGRATOR | complete | CR-01-A2: the pairing store's two capability keys (4.7) |
 | `android/core/notifications/**` | WP-02 | core | |
 | `android/core/database/**` | INTEGRATOR | all | entities, databases, migrations, exported schemas, `DatabaseModule` |
 | `android/core/database/src/*/kotlin/**/library/dao/ClipDao*.kt` | WP-08 | core | DAO and its test |
@@ -314,6 +433,7 @@ Each WP below adds its own proof list ("Proof") and acceptance ("Done when").
 | `android/core/database/src/*/kotlin/**/library/dao/RequestDao*.kt` | WP-09 | core | |
 | `android/core/database/src/*/kotlin/**/library/dao/RequestOpDao*.kt` | WP-09 | core | |
 | `android/core/database/src/*/kotlin/**/learning/dao/**` | WP-14 | core | every learning DAO |
+| `android/core/database/src/*/kotlin/**/dao/**` | WP-28 | complete | every DAO in v1-complete: the outbox and clip queries of the deletion, the learning DAOs of shared progress (CR-01), the artifact queries of renditions |
 | `android/core/designsystem/**` | WP-03 | core | |
 | `android/core/ui/**` | WP-03 | core | visual primitives (architecture 17) |
 | `android/core/ui/src/*/kotlin/**/ui/extension/**` | INTEGRATOR | all | extension-point interfaces, frozen at B1 |
@@ -321,6 +441,7 @@ Each WP below adds its own proof list ("Proof") and acceptance ("Done when").
 | `android/core/ui/src/*/kotlin/**/ui/component/ClipRow*.kt` | WP-16 | core | |
 | `android/core/ui/src/*/kotlin/**/ui/component/RequestRow*.kt` | WP-22 | core | |
 | `android/core/ui/src/*/kotlin/**/ui/component/RequestFailureCopy*.kt` | WP-22 | core | the one failure-copy mapping (architecture 19) |
+| `android/core/ui/src/*/kotlin/**/ui/component/WaitingReasonCopy*.kt` | WP-22 | core | the one list of waiting reasons of spec D-61, for requests and (in v1-complete, through `DeletionCopy`) deletions (architecture 19) |
 | `android/core/ui/src/*/kotlin/**/ui/component/QuestionCard*.kt` | WP-21 | core | |
 | `android/core/ui/src/*/kotlin/**/ui/component/AnswerFeedback*.kt` | WP-21 | core | |
 | `android/core/ui/src/*/kotlin/**/ui/component/ShadowingPanel*.kt` | WP-18 | core | |
@@ -335,17 +456,30 @@ Each WP below adds its own proof list ("Proof") and acceptance ("Done when").
 | `android/core/ui/src/main/res/values/strings_occurrence.xml` | WP-20 | core | |
 | `android/core/ui/src/main/res/values/strings_connection.xml` | WP-15 | core | strings of `ConnectionStatusCard` |
 | `android/core/ui/src/main/res/values/strings_bridge.xml` | WP-23 | core | strings of `ShareBridge` |
+| `android/core/ui/src/*/kotlin/**/ui/component/ClipCard*.kt` | WP-34 | complete | the "Waiting to be deleted from your computer" and "Deleting from your computer…" words (CR-01) |
+| `android/core/ui/src/*/kotlin/**/ui/component/ClipRow*.kt` | WP-34 | complete | |
+| `android/core/ui/src/main/res/values/strings_clip.xml` | WP-34 | complete | |
+| `android/core/ui/src/*/kotlin/**/ui/component/ConnectionStatusCard*.kt` | WP-34 | complete | the attention row's inline action when it is a refused deletion's "Try again" (CR-01) |
+| `android/core/ui/src/main/res/values/strings_connection.xml` | WP-34 | complete | |
+| `android/core/ui/src/*/kotlin/**/ui/component/DeletionCopy*.kt` | WP-34 | complete | the one mapping of deletion states to words, shared by the Requests rows and the Clip page (architecture 19) |
+| `android/core/ui/src/main/res/values/strings_deletion.xml` | WP-34 | complete | strings of `DeletionCopy` |
+| `android/core/ui/src/*/kotlin/**/ui/component/QuotedTitle*.kt` | INTEGRATOR | complete | CR-01-A2: the quoted title of design 9.26 and its unit test (architecture 19) |
+| `android/core/ui/src/*/kotlin/**/ui/place/**` | WP-34 | complete | the visual pieces of design 9.26 (`PlaceHead`, `ReachStrip`, `DeletionRoute`, `SyncLine`, the danger confirmation) |
+| `android/core/ui/src/main/res/values/strings_place.xml` | WP-34 | complete | strings of `ui/place/` |
 | `android/core/content/**` | WP-04 | core | |
 | `android/core/network/**` | WP-05b | core | |
+| `android/core/network/**` | WP-28 | complete | the three CR-01 methods of `ComputerClient` (server-contract 6.11, 6.12) |
 | `android/core/analysis/**` | WP-12 | core | |
 | `android/core/connectivity/**` | WP-07 | core | |
+| `android/core/connectivity/**` | INTEGRATOR | complete | CR-01-A2: `forget()` inside `SyncController.exclusive` (architecture 6.3) |
 | `android/core/sync/**` | WP-08 | core | including its `src/androidTest` |
-| `android/core/sync/**` | WP-28 | complete | renditions and phone video in the sync |
+| `android/core/sync/**` | WP-28 | complete | milestone A: deletion paths and the shared-progress exchange (CR-01); milestone B: renditions and phone video in the sync |
 | `android/core/requests/**` | WP-09 | core | including its `src/androidTest` |
-| `android/core/requests/**` | WP-28 | complete | resumable uploads |
+| `android/core/requests/**` | WP-28 | complete | milestone A: the `DELETE_FINISHED` operation (CR-01); milestone B: resumable uploads |
 | `android/core/corpus/**` | WP-10 | core | |
 | `android/core/player/**` | WP-11 | core | including its `src/androidTest` |
 | `android/core/study/**` | WP-14 | core | |
+| `android/core/study/**` | WP-28 | complete | the shared-progress ledger, set exclusions of waiting deletions (CR-01) |
 | `android/core/articulator/**` | NONE | core | stub from WP-02 stays untouched in v1-core |
 | `android/core/articulator/**` | WP-29 | complete | |
 | `android/core/recorder/**` | NONE | core | stub from WP-02 |
@@ -353,24 +487,32 @@ Each WP below adds its own proof list ("Proof") and acceptance ("Done when").
 | `android/core/testing-jvm/**` | INTEGRATOR | all | base fakes, `TestClock`, `MainDispatcherRule` |
 | `android/core/testing-jvm/src/main/kotlin/**/testing/computer/**` | WP-05a | core | `FakeComputer`; `FakeComputerClient` from B1 |
 | `android/core/testing-jvm/src/test/kotlin/**/testing/computer/**` | WP-05a | core | the fake computer's own JVM tests |
+| `android/core/testing-jvm/src/main/kotlin/**/testing/computer/**` | WP-05a | complete | milestone 3 (CR-01): deletion and shared-progress routes, knobs, a second device |
+| `android/core/testing-jvm/src/test/kotlin/**/testing/computer/**` | WP-05a | complete | |
 | `android/core/testing-jvm/src/main/kotlin/**/testing/fixtures/**` | WP-12 | core | `AnalysisFixtures` (delivery review D-17) |
 | `android/core/testing-jvm/src/main/kotlin/**/testing/fake/content/**` | WP-04 | core | |
 | `android/core/testing-jvm/src/main/kotlin/**/testing/fake/network/**` | WP-05b | core | fakes of `AllowedPeers`, `VerifiedPeers`, `ArtifactTransfer`, `JobChannel` |
+| `android/core/testing-jvm/src/main/kotlin/**/testing/fake/network/**` | WP-28 | complete | |
 | `android/core/testing-jvm/src/main/kotlin/**/testing/fake/connectivity/**` | WP-07 | core | |
 | `android/core/testing-jvm/src/main/kotlin/**/testing/fake/sync/**` | WP-08 | core | |
+| `android/core/testing-jvm/src/main/kotlin/**/testing/fake/sync/**` | WP-28 | complete | |
 | `android/core/testing-jvm/src/main/kotlin/**/testing/fake/requests/**` | WP-09 | core | |
+| `android/core/testing-jvm/src/main/kotlin/**/testing/fake/requests/**` | WP-28 | complete | |
 | `android/core/testing-jvm/src/main/kotlin/**/testing/fake/corpus/**` | WP-10 | core | |
 | `android/core/testing-jvm/src/main/kotlin/**/testing/fake/player/**` | WP-11 | core | |
 | `android/core/testing-jvm/src/main/kotlin/**/testing/fake/study/**` | WP-14 | core | |
+| `android/core/testing-jvm/src/main/kotlin/**/testing/fake/study/**` | WP-28 | complete | |
 | `android/core/testing/**` | INTEGRATOR | all | Android test rules, `A11yAudit` |
 | `android/core/testing/src/main/kotlin/**/testing/synthetic/**` | WP-11 | core | `SyntheticMedia` (delivery review D-06) |
 | `android/feature/onboarding/**` | WP-13 | core | |
 | `android/feature/connect/**` | WP-13 | core | |
 | `android/feature/home/**` | WP-15 | core | |
+| `android/feature/home/**` | WP-34 | complete | the attention row's inline action for a refused deletion (CR-01; design 9.17) |
 | `android/feature/library/**` | WP-16 | core | |
 | `android/feature/library/src/*/kotlin/**/library/transcript/**` | NONE | core | reserved for WP-31 |
 | `android/feature/library/src/*/kotlin/**/library/transcript/**` | WP-31 | complete | |
 | `android/feature/library/src/main/res/values/strings_transcript.xml` | WP-31 | complete | |
+| `android/feature/library/**` | WP-34 | complete | the Clip page's "On your computer" block (CR-01); `transcript/` stays WP-31's |
 | `android/feature/watch/**` | WP-17 | core | |
 | `android/feature/lesson/**` | WP-18 | core | |
 | `android/feature/lesson/src/*/kotlin/**/lesson/record/**` | NONE | core | reserved for WP-30 |
@@ -381,21 +523,29 @@ Each WP below adds its own proof list ("Proof") and acceptance ("Done when").
 | `android/feature/lesson/src/main/res/values/strings_phrase.xml` | WP-31 | complete | |
 | `android/feature/learn/**` | WP-20 | core | |
 | `android/feature/practice/**` | WP-21 | core | |
+| `android/feature/practice/**` | WP-34 | complete | the shared-progress lines and both reset confirmations (CR-01) |
 | `android/feature/requests/**` | WP-22 | core | |
+| `android/feature/requests/**` | WP-34 | complete | the deletion rows (CR-01) |
 | `android/feature/share/**` | WP-23 | core | |
 | `android/feature/settings/**` | WP-24 | core | |
+| `android/feature/settings/**` | WP-34 | complete | the two CR-01 sentences of "Forget this computer…" |
 | `android/feature/insights/**` | NONE | core | stub from WP-02 |
 | `android/feature/insights/**` | WP-32 | complete | |
 | `android/app/src/androidTest/kotlin/**/e2e/connect/**` | WP-13 | core | area robot and tests |
 | `android/app/src/androidTest/kotlin/**/e2e/home/**` | WP-15 | core | |
+| `android/app/src/androidTest/kotlin/**/e2e/home/**` | WP-34 | complete | |
 | `android/app/src/androidTest/kotlin/**/e2e/library/**` | WP-16 | core | |
+| `android/app/src/androidTest/kotlin/**/e2e/library/**` | WP-34 | complete | |
 | `android/app/src/androidTest/kotlin/**/e2e/watch/**` | WP-17 | core | |
 | `android/app/src/androidTest/kotlin/**/e2e/lesson/**` | WP-18 | core | |
 | `android/app/src/androidTest/kotlin/**/e2e/learn/**` | WP-20 | core | |
 | `android/app/src/androidTest/kotlin/**/e2e/practice/**` | WP-21 | core | |
+| `android/app/src/androidTest/kotlin/**/e2e/practice/**` | WP-34 | complete | |
 | `android/app/src/androidTest/kotlin/**/e2e/requests/**` | WP-22 | core | |
+| `android/app/src/androidTest/kotlin/**/e2e/requests/**` | WP-34 | complete | |
 | `android/app/src/androidTest/kotlin/**/e2e/share/**` | WP-23 | core | |
 | `android/app/src/androidTest/kotlin/**/e2e/settings/**` | WP-24 | core | |
+| `android/app/src/androidTest/kotlin/**/e2e/settings/**` | WP-34 | complete | |
 | `android/app/src/androidTest/kotlin/**/e2e/mouth/**` | WP-29 | complete | |
 | `android/app/src/androidTest/kotlin/**/e2e/record/**` | WP-30 | complete | |
 | `android/app/src/androidTest/kotlin/**/e2e/phrase/**` | WP-31 | complete | |
@@ -691,6 +841,167 @@ In `:core:testing` (Android): `A11yAudit` (architecture 18), Robolectric and Com
 In `:app/src/androidTest` (integrator): the global test set of 2.4 (`e2e/di/`), `HiltTestRunner`, `TestSeeder`
 (`e2e/support/`) and the façade `PhonoRobot`. There is no `FakeDomainModule`.
 
+### 4.7 Change request CR-01: additive amendments of the frozen contract (revision 4)
+
+The exact changes of 2.2's CR-01, normative like 4.2 and 4.3. Why each is shaped this way: architecture 3.4, 4.3, 4.4,
+7.8, 8.8 and 25.5.
+
+**CR-01-A1** (v1-core baseline, WP-19; `:core:database`, integrator-owned):
+
+```kotlin
+// learning/entity/LearningEntities.kt — LearningDatabase version 1 gains one entity (schema 1.json regenerated)
+@Entity(tableName = "learning_meta")
+data class LearningMetaEntity(@PrimaryKey @ColumnInfo(name = "key") val key: String,
+  @ColumnInfo(name = "value") val value: String? = null)
+// learning/LearningDatabase.kt — companion: val LEARNING_ID_CALLBACK: RoomDatabase.Callback, whose onCreate inserts
+// ("learning_id", UUID.randomUUID().toString()) and whose onOpen runs the same insert with INSERT OR IGNORE.
+// DatabaseModule's LearningDatabase builder and the end-to-end set's in-memory builder (app/src/androidTest
+// e2e/di/TestModules.kt, integrator-owned) both add it. No DAO in v1-core; module DAO tests need not add it.
+```
+Proof (WP-19): a Room test that a new database has exactly one `learning_id`, unchanged after reopening; the exported
+schema 1 regenerated and every DAO test re-run (architecture 4.4); the backup-rules test unchanged. Why now and not
+with A2: a backup taken by a v1-core build and restored after v1-complete must name its first-share baseline with the
+id the original phone used, or the computer would count that history twice (spec F-17-AC11); folding into version 1
+is allowed only until the first install on the test phone (WP-25), so later would mean a migration for one row. WPs
+that branched before it merge the baseline when told and change nothing (no B1 type changes).
+
+**CR-01-A2** (first commit of wave 5, WP-26; every addition has a default, so B1-era implementations and fakes compile):
+
+```kotlin
+// :core:domain, model.remote — the two flags (server-contract 3.4); the pairing store keeps them (below)
+data class Capabilities(/* …B1 fields… */, val deleteFinished: Boolean = false, val sharedProgress: Boolean = false)
+
+// :core:domain, model — deletion from your computer (architecture 8.8)
+enum class DeletionState { WAITING, SENDING, REFUSED }
+// NOT_CONNECTED takes its words from ComputerStatus (7.5); DIFFERENT_COMPUTER: the last answer was 409
+// different_computer, "A different computer answered" (spec D-62). A computer without the route refuses (REFUSED).
+enum class DeletionWait { NOT_CONNECTED, DIFFERENT_LIBRARY, DIFFERENT_COMPUTER }
+enum class DeletionAction { UNDO, TRY_AGAIN, KEEP_CLIP }
+data class ComputerDeletion(val jobId: JobId, val title: String, val imported: Boolean, val state: DeletionState,
+  val wait: DeletionWait?, val error: RequestError?, val createdAt: Instant,
+  val waiting: WaitingInfo? = null,   // attempts and next attempt: the waiting words of a request (architecture 19)
+  val actions: Set<DeletionAction> = emptySet())   // the one authority (architecture 8.8): no UNDO once maybe_sent
+enum class NotOfferedReason { FORGOTTEN_COMPUTER, OTHER_LIBRARY, COMPUTER_CANNOT }
+sealed interface DeletionOffer {
+  data class Available(val imported: Boolean, val savedItems: Int, val connected: Boolean) : DeletionOffer
+  data class InProgress(val deletion: ComputerDeletion) : DeletionOffer
+  data class NotOffered(val reason: NotOfferedReason) : DeletionOffer
+}
+sealed interface DeleteResult { data object Stored : DeleteResult; data object NotOffered : DeleteResult
+  data object OutOfSpace : DeleteResult }
+// ClipSummary(…B1 fields…, val deletion: DeletionState? = null)        WAITING or SENDING: Library rows, Home shelf
+// SendReport(…B1 fields…, val deletedOnComputer: Set<JobId> = emptySet())
+// UserMessageKind gains CLIP_DELETED_FROM_COMPUTER, CLIP_REMOVED_FROM_COMPUTER_LIST, DELETION_UNDONE (args: the title);
+// the integrator adds their strings to the shell's message host in the same commit (spec F-05 item 6), each title
+// passed through QuotedTitle.of (below)
+
+// :core:domain, model — shared progress (architecture 7.8, 10)
+sealed interface SharingState {
+  data object NotShared : SharingState                          // "Kept only on this phone."
+  data class Shared(val lastSyncedAt: Instant?) : SharingState  // "Shared through your computer · last synced {time}"
+  data object ResetWaiting : SharingState                       // "Reset on this phone. It reaches your computer …"
+}
+
+// :core:domain, model.share — the exchange bodies (server-contract 6.12, field by field; `at` = computer clock, unix s;
+// ids = canonical UUID strings)
+data class PracticeTally(val seen: Int, val correct: Int)
+data class PracticeBaseline(val id: String, val at: Long, val stats: Map<ChangeLabel, PracticeTally>)
+data class PracticeReset(val id: String, val at: Long)
+data class PracticeAnswer(val id: String, val change: ChangeLabel, val correct: Boolean, val at: Long)
+data class PracticeOutbox(val baseline: PracticeBaseline?, val reset: PracticeReset?, val answers: List<PracticeAnswer>)
+// syncPractice sends `reset` in the signed query (reset_id, reset_at) and the rest as the body (server-contract 6.12)
+data class PracticeShareAnswer(val serverTime: Long, val reset: PracticeReset?, val totals: Map<ChangeLabel, PracticeTally>)
+data class SavedEntry(val kind: SavedKind, val jobId: JobId, val segment: Int, val word: Int?, val shortFirstSegment: Int,
+  val change: ChangeLabel?, val saved: Boolean, val at: Long)
+data class SavedOutbox(val cursor: String?, val changes: List<SavedEntry>)   // cursor: opaque, as last received
+data class SavedShareAnswer(val libraryId: LibraryId, val cursor: String, val full: Boolean, val items: List<SavedEntry>,
+  val dropped: List<SavedEntry>, val notShared: List<SavedEntry> = emptyList())
+
+// :core:domain, api — methods with default bodies
+interface RequestRepository {                         // + B1 members
+  fun deletions(): Flow<List<ComputerDeletion>> = flowOf(emptyList())
+  fun deletionOffer(id: JobId): Flow<DeletionOffer> = flowOf(DeletionOffer.NotOffered(NotOfferedReason.COMPUTER_CANNOT))
+  suspend fun deleteFromComputer(id: JobId): DeleteResult = DeleteResult.NotOffered
+  suspend fun performDeletion(id: JobId, action: DeletionAction) {}
+}
+interface PracticeRepository { fun sharing(): Flow<SharingState> = flowOf(SharingState.NotShared) }   // + B1 members
+interface SavedRepository { fun sharing(): Flow<SharingState> = flowOf(SharingState.NotShared) }      // + B1 members
+interface SyncController {                            // + B1 members; WP-28 A implements it (architecture 6.3)
+  // Stops the running pass at its next step, waits for an outbox call on the wire and applies its answer, then runs
+  // block while holding the orchestrator's mutex. PairingRepository.forget() runs its whole body inside it.
+  suspend fun <T> exclusive(block: suspend () -> T): T = block()
+}
+
+// :core:domain, spi
+interface PendingDeletions { val jobIds: StateFlow<Set<JobId>> }   // :core:requests → :core:sync, :core:study (8.8)
+interface SharedProgressLedger {                                   // :core:study → :core:sync (architecture 7.8)
+  val changed: Flow<Unit>
+  suspend fun practiceOutbox(serverId: ServerId, offsetS: Long, limit: Int): PracticeOutbox
+  suspend fun practiceApplied(serverId: ServerId, sent: PracticeOutbox, answer: PracticeShareAnswer)
+  suspend fun savedOutbox(serverId: ServerId, libraryId: LibraryId, offsetS: Long, limit: Int): SavedOutbox
+  suspend fun savedApplied(serverId: ServerId, libraryId: LibraryId, sent: SavedOutbox, answer: SavedShareAnswer)
+  suspend fun practiceRefused(serverId: ServerId, sent: PracticeOutbox)    // a 400 or 413 marks the page handled
+  suspend fun savedRefused(serverId: ServerId, libraryId: LibraryId, sent: SavedOutbox)   // (architecture 7.8)
+}
+
+// :core:network-api — ComputerClient gains three methods whose defaults answer like a server without the route;
+// the implementation (WP-28 A) adds body_sha256 to each query before signing (architecture 5.4)
+data class FinishedDeletion(val jobId: JobId, val alreadyGone: Boolean, val imported: Boolean?)
+interface ComputerClient {                            // + B1 members
+  suspend fun deleteFinished(id: JobId, serverId: ServerId, libraryId: LibraryId, key: RequestId): ApiResult<FinishedDeletion> =
+    ApiResult.Refused(404, "unknown_route", "")
+  suspend fun syncPractice(body: PracticeOutbox): ApiResult<PracticeShareAnswer> = ApiResult.Refused(404, "unknown_route", "")
+  suspend fun syncSaved(libraryId: LibraryId, body: SavedOutbox): ApiResult<SavedShareAnswer> =
+    ApiResult.Refused(404, "unknown_route", "")
+}
+```
+
+`:core:ui` (integrator, in the same commit; architecture 19, design 9.26): the one function that makes the quoted
+title, so the shell's host can use it here and WP-34 finds it when it branches:
+
+```kotlin
+// ui/component/QuotedTitle.kt
+object QuotedTitle {
+  // (1) Cf removed; Cc, Zl, Zp become a space; runs of white space become one; trimmed. (2) At most 60 grapheme
+  // clusters (android.icu.text.BreakIterator.getCharacterInstance()); longer: the first 59, trimmed, + "…".
+  // (3) androidx.core.text.BidiFormatter.getInstance(false).unicodeWrap(…), last. :core:ui's build file gains
+  // implementation(libs.androidx.core.ktx): already an app library (:app, :core:notifications), so no new library.
+  fun of(title: String): String
+}
+```
+
+Room **version 2** (`:core:database`, integrator): `LibraryDatabase` and `LearningDatabase` declare
+`autoMigrations = [AutoMigration(from = 1, to = 2)]` and export schema 2:
+- `RequestOpEntity` gains nullable `server_id`, `library_id`, `device_id`, `title` (TEXT), `imported` and
+  `maybe_sent` (INTEGER); the documented values gain kind `DELETE_FINISHED` and state `SENDING` (architecture 4.2);
+- new entities `PracticeAnswerEntity` (`practice_answer`), `OwnStatEntity` (`own_stat`: `change` primary key, `seen`,
+  `correct`), `ShareStateEntity` (`share_state`), `SavedChangeEntity` (`saved_change`) with the columns and index of
+  architecture 4.3.
+
+The pairing store (`:core:datastore`, `DataStorePairingStore`, WP-02 M3's file; the integrator's in phase complete):
+
+```kotlin
+val CAPS_DELETE_FINISHED = booleanPreferencesKey("caps_delete_finished")
+val CAPS_SHARED_PROGRESS = booleanPreferencesKey("caps_shared_progress")
+// readCapabilities(): deleteFinished = this[CAPS_DELETE_FINISHED] ?: false,
+//   sharedProgress = this[CAPS_SHARED_PROGRESS] ?: false
+// writeCapabilities(): this[CAPS_DELETE_FINISHED] = capabilities.deleteFinished; the same for sharedProgress
+```
+A value written by a v1-core build has neither key and reads both as `false` until the next `health` (architecture
+4.5).
+
+Also in A2: no Hilt binding is needed for the new SPIs until WP-28 binds them (nothing injects them before); the
+settable fakes in `testing/fake/requests/`, `fake/study/`, `fake/sync/` and `fake/network/` gain members for the new
+methods (a deletion list, an offer per clip, a sharing state, recorded calls), so WP-34 starts on its first day; the
+`MigrationTestHelper` tests 1 → 2 with data for both databases. Proof: `./gradlew check` and the whole GMD suite at the
+merge (2.1 point 5); the migration tests; the shell's message host shows the three new messages with quoted titles (a
+screen test); `QuotedTitle` against design 9.26's three fixtures (a Robolectric unit test: the unclosed U+202E title
+of more than 60 characters gives "Coffee shop small talk ylno enohp siht morf with the barist…"; the U+2028 and
+line-feed title gives "Coffee shop small talk with the barista"; the right-to-left letters and digits keep their text
+inside the wrapper `unicodeWrap` adds); a
+pairing-store round trip with both flags true and both false, and a store written without the keys reading `false`;
+`forget()` calls `SyncController.exclusive` exactly once around its body (a fake controller records it).
+
 ---------------------------------------------------------------------------------------------------------------
 
 ## 5. Wave 1: foundation
@@ -906,6 +1217,19 @@ In `:app/src/androidTest` (integrator): the global test set of 2.4 (`e2e/di/`), 
   `hello` included, and stays silent to discovery (F-02-AC12); `stallUpload` plus a second PUT after 10 s succeeds.
 - **Done when**: 2.5 items 1, 2, 6, 7; WP-05b, WP-07, WP-08 and WP-09 confirm the fake covers their flows (their
   hand-off lists any gap).
+- **Milestone 3 (v1-complete, CR-01; Size S, 2 d; lane A, first in wave 5; needs CR-01-A2)**: server-contract 6.11 and
+  6.12 in `FakeComputer` (the same codes, `already_gone` (no memory of keys), the signed query, a phone's reset read
+  only from the query, `body_sha256` checked on the three routes, the merge rules, tombstones, the opaque cursor and
+  `full`, `dropped`, `not_shared`, the bounds of server-contract 4.7 refused per item, the deletion rate limit, and a
+  knob that recreates the Saved list), `not_before` after `restart()` (server-contract 4.3) and the two flags at API 7;
+  `FakeComputerClient` implements the three new `ComputerClient` methods; the knobs of architecture 21.3
+  (`capabilities(…)`, `refuseDeletion` including `429`, `different_computer` and `unknown_route`, `applyThenDrop` on the
+  deletion route, `importedJob`, `otherDevice(…)`, `practiceTotals()`, `savedEntries()`, `deletedJobs()`);
+  `deleteJob(id)` and `changeLibraryId()` also drop the job's Saved entries and keep the practice history. **Proof**:
+  JVM tests per route and code as for milestone 1, and the server-side merge cases of server-contract 11.3
+  `test_progress.py` repeated on the fake (two devices add up, a resend counts once, a reset clears only earlier
+  answers, the tie keeps the unsave, a deleted job's entries are never accepted again). **Done when**: 2.5 items 1, 2,
+  6, 7 on `--phase complete`; WP-28 confirms the fake covers its flows.
 
 ### WP-06 Repository tooling: hygiene, hooks, CI, device-QA kit, host-side fake computer
 
@@ -950,6 +1274,26 @@ In `:app/src/androidTest` (integrator): the global test set of 2.4 (`e2e/di/`), 
   `contents: read` and that the paths filters equal architecture 22.
 - **Done when**: the scripts pass their tests; `check_repo.py` is clean on B1; `check_ownership.py --self-check`
   passes on this document.
+- **Milestone 3 (v1-complete, CR-01; Size S, 1 d; Python, no lane; after WP-27 milestone A is merged)**:
+  `host_computer.py` seeds, beside its clip created by path, a second finished clip created the same way and an imported
+  one (`JobStore.import_dir` on a synthetic result folder in its temporary directory, outside the workspace;
+  server-contract 12), can pair a second signer to act as another device, and its `--self-check` adds a deletion of the
+  second clip and of the imported one (6.11; the imported folder stays), a practice exchange from two signers and a
+  Saved change (6.12); `host_computer.py` and `computer.py` record the server id they created in the session's QA log;
+  `ui.py` gains `delete_from_computer` and `reset_everywhere`, which read the paired server id from Connection details
+  and stop before any tap unless it is one of those (spec D-57, architecture 21.7), and its generic tap applies the same
+  check to the destructive labels of 21.7 (with or without the trailing "…", and "Forget it" only on the everywhere
+  dialog); `torture.py` gains the [emulator] steps of QT-15 (reboot with two waiting deletions and a link) and QT-17
+  (the host fake computer restarted on another workspace); `qa_log.py` records, per change, the practice answers QA
+  gave on the test phone (from WP-25's logged sessions on) and each answer and reset the simulated device sends, with
+  its server id; `ui.py` gains `practice_totals()`, which reads the Practice screen's per-change "x of y" lines and
+  fails instead of guessing when one cannot be read, for the first-share check of architecture 21.7 (spec D-57 (3)).
+  **Proof**: the scripts' `unittest` suites with the new cases (each helper refuses with a foreign server id and acts
+  with the session's own, on `fakedevice.py`; the generic tap refuses "Delete from your computer", "Delete from your
+  computer…", "Remove from your computer's list…" and "Forget it" on the everywhere dialog with a foreign one, and
+  taps "Forget it" on the phone-only dialog; `practice_totals()` on a recorded layout tree, and an error on a tree with
+  an unreadable line); `test_host_fake_computer.py` green on the merged tree. **Done when**:
+  as above, on `--phase complete`.
 
 ### WP-12 Analysis core (pure JVM)
 
@@ -1260,15 +1604,21 @@ the GMD lock, filtered to the area. State-by-state coverage is in the Robolectri
 
 - **Tier** core · **Size** L (6 d) · **Lane** B (lane D when a fourth lane runs).
 - **Covers**: F-04-AC1 to AC6; F-05 v1-core (header, Shorts tab, Summary counts, On this phone block; F-05-AC1, AC4,
-  AC5) and every F-05 state; the Summary meters slot (`ClipReductionMeters`) and the Transcript tab slot.
+  AC5, and AC11: the "Remove “{title}” from this phone?" confirmation with the words of spec F-05 item 5, on the Clip
+  page and in the Library's menu, both in `:feature:library`; Storage's copy of the same words is WP-24's, because
+  features never depend on each other; spec revision 4, copy only) and every F-05 state; the Summary meters slot
+  (`ClipReductionMeters`) and the Transcript tab slot. The "On your computer" block is v1-complete (WP-34): v1-core has
+  no such block, and nothing here prepares one.
 - **Owns**: `android/feature/library/**` (except `transcript/`), `ClipCard`, `ClipRow`, `strings_clip.xml`,
   `e2e/library/**`.
 - **Consumes**: `ClipRepository`, `RequestRepository`, `ShortRepository`, `ProgressRepository`, `StorageRepository`;
   `PosterArt` (WP-03: poster, poster fallback or audio art in cards, rows and the Clip page hero); `ClipTranscriptTab`,
-  `ClipReductionMeters` (optional).
+  `ClipReductionMeters` (optional); design 9.23 and 9.26, v1-core part (the "On this phone" block: place head, size
+  rows, the "Keep on this phone" switch row, the secondary buttons; the confirmation's layout).
 - **Provides**: `LibraryKey`, `ClipKey` installers; `ClipCard`, `ClipRow`; `LibraryTags`.
 - **Proof**: screen tests (search with live count, filters, stable order for equal seconds, "In progress" group,
-  "started on your computer" line, every availability word, older-rules chip, forgotten and other-library tags);
+  "started on your computer" line, every availability word, older-rules chip, forgotten and other-library tags, the
+  "Remove from this phone?" confirmation's title, body and buttons, F-05-AC11);
   GMD area test: Watch on row k opens In order at the resume short and Back restores scroll, search and filter
   (F-04-AC5), and the same after switching to another tab and back (the per-stack decoration of architecture 16.2).
 - **Done when**: 2.5 including GMD.
@@ -1361,9 +1711,11 @@ the GMD lock, filtered to the area. State-by-state coverage is in the Robolectri
   `FailureContext`: the `live_stream` and `too_long` copy with the computer's link limit (D-40), the phone-side copy
   codes of 7.7, `no_space` by kind (D-49), the F-23 notification line (F-23-AC4), and the `processing_failed`
   fallback for unknown codes only; the D-41 waiting line, the D-46 held reason, the D-47 "Cancel undone" snackbar
-  and "Starting again on your computer".
-- **Owns**: `android/feature/requests/**`, `RequestRow`, `RequestFailureCopy`, `strings_request.xml`,
-  `e2e/requests/**`.
+  and "Starting again on your computer"; which reason a waiting row shows, by state (spec F-20 item 1, D-61; copy
+  only, revision 4 round 2): `WaitingReasonCopy` (architecture 19), the one list `RequestRow` uses and WP-34's
+  `DeletionCopy` reuses in v1-complete.
+- **Owns**: `android/feature/requests/**`, `RequestRow`, `RequestFailureCopy`, `WaitingReasonCopy`,
+  `strings_request.xml`, `e2e/requests/**`.
 - **Consumes**: `RequestRepository` (`Request.actions`, `waiting`, `rerunPending`), `ComputerStatusRepository`
   (`paired.capabilities.maxLinkDurationS`), `LinkParser`, `NotificationPermissionAsker`, `UserMessages`
   (`CANCEL_UNDONE`); `ShareBridge` (Add a clip).
@@ -1375,7 +1727,11 @@ the GMD lock, filtered to the area. State-by-state coverage is in the Robolectri
   `FailureContext.available`, maps an unknown code to `processing_failed`'s copy, writes the link limit as "1 hour",
   "2 hours" or "90 minutes" and the unknown-limit body (SH-AC18), and gives the notification line of F-23 for
   `download_forbidden` and for `too_long` (F-23-AC4); rows with `needsAppOpen` (F-20-AC10), held (F-20-AC11) and the
-  "Cancel undone" snackbar (F-20-AC12); `copy_no_space` with and without `TRY_AUDIO_ONLY` available (D-49).
+  "Cancel undone" snackbar (F-20-AC12); `copy_no_space` with and without `TRY_AUDIO_ONLY` available (D-49);
+  `WaitingReasonCopy` over every `ComputerStatus` and `WaitingInfo` case (a table test, spec D-61: the four pauses,
+  `Offline` and `NotOnWifi` "Not on Wi-Fi", `Looking`, `Checking` and `NotReachable` "Your computer isn't
+  reachable", `Connected` with 0, 1 and 3 attempts, `NotConnected` with no line), and a held row and a large file
+  keeping their own lines.
 - **Done when**: 2.5 including GMD.
 
 ### WP-23 Share target
@@ -1409,7 +1765,11 @@ the GMD lock, filtered to the area. State-by-state coverage is in the Robolectri
 
 - **Tier** core · **Size** L (6 d) · **Lane** A (lane D when a fourth lane runs).
 - **Covers**: F-22-AC1 to AC3 and every item of F-22; F-21's Storage screen (budget, "Download videos automatically",
-  per-clip list, "Remove all videos"); Your computer page; Notifications page (F-23 permission state); Help ("Restart
+  per-clip list, "Remove all videos"), and F-05-AC11 for Storage's per-clip "Remove from this phone": the "Remove
+  “{title}” from this phone?" confirmation with the words of spec F-05 item 5 and design 9.23 (copy only, the same words
+  as WP-16's; revision 4 review fixes); the "Forget this computer…" confirmation's title "Forget this computer?" and
+  buttons "Cancel" (the default, focused first) and "Forget this computer" (spec D-60, F-22's body unchanged; copy
+  only, revision 4 round 2); Your computer page; Notifications page (F-23 permission state); Help ("Restart
   the tour", F-01-AC5; "What do the marks mean?"; "How PhonoTrainer works"); About and licences (F-24-AC1, AC2:
   libraries, fonts and the vendored icon set, D-50).
 - **Owns**: `android/feature/settings/**`, `e2e/settings/**`.
@@ -1419,7 +1779,9 @@ the GMD lock, filtered to the area. State-by-state coverage is in the Robolectri
   `MarksLegend` (Help).
 - **Provides**: `SettingsKey`, `StorageKey`, `YourComputerKey`, `NotificationSettingsKey`, `AboutKey`, `LicencesKey`,
   `HelpKey` installers; `SettingsTags`.
-- **Proof**: screen tests of every group; "Forget this computer…" confirmation copy and default button; licences
+- **Proof**: screen tests of every group; "Forget this computer…" confirmation copy (spec D-60's title and confirm
+  label) and default button with the initial focus on "Cancel"; Storage's
+  "Remove “{title}” from this phone?" title, body, buttons and initial focus (F-05-AC11); licences
   readable offline; F-24-AC2 compares the rendered list with the generated report and with `bundled.json` (every
   library, the three font families and the Lucide set, each with its licence text).
 - **Done when**: 2.5 including GMD.
@@ -1464,6 +1826,9 @@ the GMD lock, filtered to the area. State-by-state coverage is in the Robolectri
   - **Continuously**: merges (2.1), change requests within a day of a request, B2, B3… baselines, the whole GMD suite at
     each merge, schema folding into version 1 until the first phone install (architecture 4.4), server fixes from
     QA with a failing test first.
+  - **CR-01-A1** (2.2, 4.7), in the first merge round after the CR-01 documents are merged: `learning_meta` and the
+    `learning_id` callback, its Room test, the regenerated schema 1, published with the next baseline; the hand-off
+    of each wave-2 WP that merges it needs no change.
   - **Closing integration** (about 5 days after the last wave-2 merge, prepared during wave 2): the cross-area flows,
     the automated torture suite in `e2e/queue/`, the a11y sweep over every destination, the extension-point fallback
     assertions (4.4), the R8 smoke and the smoke against the host-side fake computer, the Baseline Profile, the
@@ -1491,23 +1856,27 @@ the GMD lock, filtered to the area. State-by-state coverage is in the Robolectri
 - **Before the first install on the phone** (delivery review D-20): the release key exists outside the repository
   (created by the owner, or by WP-25 with the owner's approval) and the ignored `keystore.properties` points to it;
   **only release-signed builds are installed on the phone**; debug and `qa` builds stay on emulators.
-- **Covers**: the [emulator] ACs (QT-1 reboot, QT-4 Wi-Fi drop, QT-13 process kill, F-06-AC3 airplane mode,
-  F-08-AC4 midnight, F-19-AC4, SH-AC6), all run **against the host-side fake computer** (server-contract 12; delivery
-  review D-10), on the `google_apis` API 36 image WP-06 provisioned (or its recorded fallback); the platform stop paths
+- **Covers**: the [emulator] ACs (QT-1 reboot, QT-4 Wi-Fi drop, QT-13 process kill, F-06-AC3 airplane mode, F-08-AC4
+  midnight, F-19-AC4, SH-AC6), all run **against the host-side fake computer** (server-contract 12; delivery review
+  D-10), on the `google_apis` API 36 image WP-06 provisioned (or its recorded fallback); the platform stop paths
   (data-sync timeout and standby buckets, Android review M12); one emulator run under `capture.py` (`-tcpdump`) for
   X-AC1 (Android review L9); the release APK installed and started on the 16 KB page-size image (2.5); on the test
   phone: SC-01, SC-03, SC-06, SC-07, SC-08 (p90 over 50 swipes), SC-09, SC-10 (server stopped and phone access off
   only), SC-12 (`a11y.py`), SC-13 (TalkBack turned on through adb and restored), A-13 (an `adb shell input keyevent`
-  walk over three screens), NFR-02 on the phone (`am start -W` for cold start, `dumpsys gfxinfo` for frames on time,
-  the instrumented timers of the lesson and set), the player pool's memory and decoder count while swiping
-  (`dumpsys meminfo`, Android review M2), NFR-14 (decoders with hardware or software, presence of the YouTube and X
-  apps), SH-AC1 on the device, F-25-AC1 screenshots in light and dark (from the fake computer with synthetic data),
-  F-25-AC2 with the design track's sign-off, X-AC7 (version N then N+1 over it, on the emulator and the phone), X-AC8,
-  X-AC10; the torture test once with the real computer using local files only (`computer.py`, throwaway workspace,
-  configuration and working directories); **S-20 the link gate**: the owner himself shares one YouTube video, one
-  YouTube Shorts link and one X post from the phone; each is followed end to end and its outcome recorded as it is
-  (spec 8.7), **as "YouTube video / Shorts / X post: outcome, error code, downloader version"**, never the URL, the
-  title or an account name (security review M-8).
+  walk over three screens), NFR-02 on the phone (`am start -W` for cold start, `dumpsys gfxinfo` for frames on time, the
+  instrumented timers of the lesson and set), the player pool's memory and decoder count while swiping (`dumpsys
+  meminfo`, Android review M2), NFR-14 (decoders with hardware or software, presence of the YouTube and X apps), SH-AC1
+  on the device, F-25-AC1 screenshots in light and dark (from the fake computer with synthetic data), F-25-AC2 with the
+  design track's sign-off, X-AC7 (version N then N+1 over it, on the emulator and the phone), X-AC8, X-AC10; the torture
+  test once with the real computer using local files only (`computer.py`, throwaway workspace, configuration and working
+  directories); **S-20 the link gate**: the owner shares one YouTube video, one YouTube Shorts link and one X post from
+  the phone at the end of QA (spec Q-4, confirmed); each is followed end to end and its outcome recorded as it is (spec
+  8.7), **as "YouTube video / Shorts / X post: outcome, error code, downloader version"**, never the URL, the title or
+  an account name (security review M-8). **Practice answers on the test phone are counted** (spec D-57 (3), NFR-14;
+  architecture 21.7; revision 4 round 2): QA answers practice questions on the phone only in logged sessions, and the
+  QA log records, per change, the Practice screen's "x of y" line before and after each session (read from the layout
+  tree with `ui.py`) and so the answers QA gave and got right; WP-33 needs these counts before the phone can first
+  share progress with the owner's computer.
 - **Owns**: `android/docs/qa-report.md`; local evidence only under the ignored `android/artifacts/`.
 - **Must not touch**: source code (defects go to the owning WP or the integrator with a failing test); the phone's
   radios, clock or reboot state; any app other than PhonoTrainer; never sends a link to the real computer.
@@ -1517,40 +1886,117 @@ the GMD lock, filtered to the area. State-by-state coverage is in the Robolectri
 - **Provides**: the QA report and the gate decision; the site notes for the share sheet decided from the link gate
   (spec 8.7), delivered as a change request to WP-23's strings.
 - **Done when**: every v1-core AC is green or has a recorded, accepted deviation; the settings-restore table of the QA
-  log is complete; the report contains no address, serial, URL of a watched video or other personal data (the
-  hygiene check passes on it).
+  log is complete, and so are its per-change counts of QA's practice answers on the test phone; the report contains
+  no address, serial, URL of a watched video or other personal data (the hygiene check passes on it).
 
 ---------------------------------------------------------------------------------------------------------------
 
 ## 8. Waves 5 and 6: v1-complete
 
-Build priority when capacity is short: as 1.4 (WP-27 and WP-28, WP-32, WP-31's transcript, WP-30, WP-31's phrase
-details, WP-29).
+Build priority when capacity is short: as 1.4 (CR-01 first: WP-27 A, WP-05a-3, WP-28 A, WP-34, WP-06-3, deletion
+before shared progress; then WP-27 B and WP-28 B, WP-32, WP-31's transcript, WP-30, WP-31's phrase details, WP-29).
 
 ### WP-27 Server v1-complete
 
-- **Tier** complete · **Size** L (9 d) · **Starts** after WP-01 is merged, on its own branch · **Merged** after the
-  v1-core gate, once rebased onto the post-gate server (with WP-19's QA fixes) and the whole suite re-run (1.4, 2.1).
-- **Covers**: S-10 (resumable uploads), S-12 (renditions and phone video on request, back-fill, low priority), S-16
-  (record yourself for phones); `API_VERSION = 7` and the capability flags.
+- **Tier** complete · **Size** XL (16 d; revision 3: L 9 d): milestone A 7 d, milestone B 9 d · **Lane** none
+  (Python) · **Starts** after WP-01 is merged, on its own branch; milestone A may run at once, during waves 2 to 4,
+  ideally by the engineer who built WP-01 (revision 4) · **Merged** after the v1-core gate, once rebased onto the
+  post-gate server (with WP-19's QA fixes) and the whole suite re-run (1.4, 2.1); milestone A may merge before B.
+- **Milestone A (CR-01; first)**: S-25 (server-contract 6.11: the signed `delete-finished` route, its binding, the
+  `already_gone` answer, the audit line), S-24 (6.12 and 6.13: `phone/progress.py` with `progress.sqlite3` and
+  `saved.json`, the merge rules, the job-deletion listener and start-up sweep, the phone routes (a phone's reset only
+  from the signed query; the opaque Saved cursor; `not_shared`), the loopback browser routes with the Origin rule,
+  `SharedProgressSettings` in `create_app`, `serve` and `app_from_env`), the flags `delete_finished` and
+  `shared_progress`, `API_VERSION = 7` (server-contract 1.2 rule 7), the README notes of server-contract 10.3. Review
+  fixes (architecture 25.6): `body_sha256` on the three phone routes and the three in `access.JSON_ROUTES`, `not_before`
+  in the authenticator (4.3); refusals per item instead of `store_full`, Saved positions bounded by the job, the
+  10,000-entry bound with early pruning, totals clamped (4.7, 6.12); stores that fail closed with `503
+  store_unavailable` (3.2); the deletion rate limit (4.7, 6.11); the `phonotrainer.audit` logger and its lines for
+  deletions and applied resets (`phone/audit.py`, 6.11, 6.12); the banner's API 7 line (2.1); the browser routes' body
+  rules (6.13). WP-01's v1-core routes, including `DELETE /api/phone/jobs/{id}` and its `409 not_deletable`, are not
+  changed.
+- **Milestone B**: S-10 (resumable uploads), S-12 (renditions and phone video on request, back-fill, low priority),
+  S-16 (record yourself for phones); their capability flags, within API 7.
 - **Owns**: server rows of phase complete (section 3).
-- **Proof**: `test_phone_uploads.py` complete cases, `test_phone_renditions.py`, `test_phone_record.py`
+- **Proof**: A: `test_phone_delete_finished.py`, `test_progress.py`, the `test_phone_compat.py` additions (the
+  `STATS_KEY` drift guard), the `test_phone_access.py` addition (`not_before`), the `test_phone_cli.py` banner line, the
+  complete half of `test_host_fake_computer.py` once WP-06 milestone 3 is merged (until then its in-process session
+  covers 6.11 and 6.12); B: `test_phone_uploads.py` complete cases, `test_phone_renditions.py`, `test_phone_record.py`
   (server-contract 11.3).
-- **Done when**: server-contract 11.4 (on the rebased branch), and `check_ownership.py --wp WP-27 --phase complete`
-  clean.
+- **Done when**: server-contract 11.4 for each milestone (on the rebased branch; the web suite green and `web/`
+  untouched), and `check_ownership.py --wp WP-27 --phase complete` clean.
 
-### WP-28 Renditions and resumable uploads on the phone
+### WP-28 Sync, device queue and study, v1-complete (Android core)
 
-- **Tier** complete · **Size** M (5 d) · **Needs** WP-27's contract (the fake computer already implements it).
-- **Covers**: spec 7.10 renditions in the sync (compact clip data and Opus preferred when ready, posters, the phone
-  video requested when the original cannot play, "Video getting ready on your computer"), F-21-AC6, NFR-03 (≤ 3 MB per
-  4-minute clip without video), QT-4 complete (resume from ≥ 60 % with a verified checksum).
-- **Owns**: `android/core/sync/**`, `android/core/requests/**` (phase complete).
-- **Proof**: `FakeComputer` with `capabilities.renditions` and `resumable_uploads`: rendition choice and fallback when
-  `failed` or `preparing`; revision switch keeps positions; PATCH resume after `truncate`; `offset_mismatch` recovery
-  (from `ApiResult.Refused.offset`); background runs continue large uploads where the last one stopped (the size rule
-  of architecture 8.5 lifted).
-- **Done when**: 2.5 including GMD.
+- **Tier** complete · **Size** XL (13 d): milestone A 8 d, milestone B 5 d · **Lane** A (after WP-05a-3) · **Needs**
+  CR-01-A2 (4.7) and WP-05a milestone 3 for A; WP-27's contract for B (the fake computer already implements it).
+- **Owns** (phase complete): `android/core/sync/**`, `android/core/requests/**`, `android/core/study/**`,
+  `android/core/network/**`, every DAO (`core/database/.../dao/**`), the fakes
+  `testing/fake/{requests,sync,study,network}/**`.
+- **Milestone A (CR-01; first)**:
+  - **Deletion from your computer** (architecture 8.8; spec F-05 item 6, 7.7, 7.9, S-25): `RequestRepository`'s four
+    new methods, the `DELETE_FINISHED` operation with its binding to server id, library id and device id, its place in
+    `sendOperations()` (oldest first, before links and files), the answer table of 8.8, `SendReport.deletedOnComputer`,
+    the dropping of other device ids (on `paired` changes, at start, in the sender), the `StartupTask` that returns
+    `SENDING` rows to `PENDING`, `PendingDeletions` (bound in `:core:requests`), `counts()` with deletions,
+    `RequestReconciler.onJobDeleted` fulfilling a waiting deletion; in `:core:sync` the removal of
+    `deletedOnComputer` clips with their own message instead of the batch notice, downloads skipped for pending
+    deletions (7.4), the mass-deletion guard ignoring them (7.7), `ClipSummary.deletion`; in `:core:study` the set
+    builder's exclusion of pending deletions; `ComputerClient.deleteFinished` in `:core:network` (DTOs, validation).
+    Review fixes (architecture 25.6, 25.7): `maybe_sent` and `ComputerDeletion.actions` (no "Undo" once an attempt
+    may have arrived), answers matched by status and code (`unknown_route` refused as `FAILED` with that code, and the
+    same refusal recorded without a request when the connected computer's `health` no longer announces
+    `delete_finished`, spec D-62; `different_computer` waits as `DeletionWait.DIFFERENT_COMPUTER` with an event code,
+    "Undo" kept; `429` waits for `Retry-After`), a refused deletion holding its clip like a waiting one (spec D-59),
+    and `SyncController.exclusive` in `:core:sync` (6.3).
+  - **Shared progress** (architecture 7.8, 10; spec 7.13, S-24): `SharedProgressLedger` and both `sharing()` flows in
+    `:core:study` (the answer log written with `practice_stat`, first share with the `learning_id` baseline, the mirror,
+    the shared and the phone-only reset, the Saved outbox and its application, the library cursor, pruning); step 4a
+    and the debounced foreground trigger in `:core:sync`; `syncPractice` and `syncSaved` in `:core:network` (the 1 MiB
+    cap of the Saved answer, the mappers' checks of architecture 5.4). Review fixes: `own_stat` (written with each
+    answer, cleared by a reset, rebuilt when another device's reset arrives) as the baseline of a first share with
+    another computer; refused items and `400` pages marked handled; `body_sha256` on the three calls (5.4).
+  - **Covers**: S-24 and S-25 (phone side); F-05-AC7, AC8, AC12 (data), F-09-AC4, AC5, AC6, F-17-AC6, AC7, AC8 (data),
+    AC9, AC11 (logic; the [emulator] run is WP-33's), F-20-AC13, AC14 (counts), F-23 (never notifies for these), QT-15
+    to QT-20 (logic), spec 7.6, 7.7, 7.8 (pending deletions download nothing), 7.9, 7.13, 11.1 (backup bookkeeping).
+  - **Proof**: JVM and Robolectric tests against `FakeComputer` (milestone 3 knobs) and in-memory Room: the 8.8 answer
+    table row by row; QT-15 (two deletions and a link stored offline, sent deletions first, exactly two jobs deleted, no
+    mass-deletion prompt); QT-16 (a lost answer, then `already_gone`; a browser deletion first, one message, never
+    failed); QT-17 (`library_changed` waits, sent after the library comes back); QT-18 (forget, then pair again with the
+    same and with another computer: never sent) and its in-flight variant (a deletion on the wire when "Forget" is
+    confirmed: its answer is applied before the unpair, and the unpair waits for it); the answer table by code (a `404
+    unknown_route` never removes the clip and leaves the row `REFUSED` with `TRY_AGAIN` and `KEEP_CLIP`, no automatic
+    retry; a connected computer whose `capabilities(…)` drop `delete_finished` gets the same refusal and no request;
+    `different_computer` never shows a refusal: `WAITING` with `DIFFERENT_COMPUTER` and `UNDO`, retried; `429` not
+    retried before `Retry-After`); a refused deletion's clip stays out of new sets with its downloads paused until
+    `TRY_AGAIN` or `KEEP_CLIP`, and `ClipSummary.deletion` stays null for it (spec D-59); `maybe_sent` (a timeout after
+    the request left, or a process death while `SENDING`: no `UNDO` in `actions` afterwards, and an attempted undo
+    changes nothing); QT-19 (revoked: kept, sent after "Connect again");
+    QT-20 (an impersonator never receives it); "Undo" never races a send; a pending deletion's clip leaves new sets but
+    not the current one, and downloads nothing; F-17-AC6 (3 of 4 elsewhere + 1 of 2 here offline → 4 of 6 on both
+    sides), AC7 (a lost answer, each answer counted once), AC8 (an offline shared reset, then one earlier and one later
+    answer from the other device), AC9 (no capability → phone-only reset; the capability appears → the whole history
+    added once), AC11 logic (a copy of `learning.db` taken before the first share, restored, paired again: nothing
+    counted twice; the backup taken after an unsave: the item does not come back); F-09-AC4 to AC6 with `otherDevice`;
+    `accuracy()` equals totals plus unsent answers at every step; `own_stat` (share with A while `otherDevice` adds
+    answers there, forget, pair with B: B's baseline is this phone's answers only; a reset from another device rebuilds
+    it from the kept rows; a phone-only reset clears it); a page answered `400`, and a baseline or answers counted in
+    `ignored`, never block the next page; every request body hashes to its `body_sha256`; the `SharingState` table; the
+    1 → 2 migration keeps v1-core data (with the integrator's tests); the Saved cursor (a `list_id` change from the fake
+    → a full list, local waiting and `not_shared` items kept); the security rows of architecture 20.8 (a reset recorded
+    only in the signed query, never in the body; each malformed field rejected by the mappers and nothing changed
+    locally; the source-scan test of `DELETE_FINISHED` inserts). GMD in `:core:requests` and `:core:sync` for the worker
+    paths that changed.
+- **Milestone B** (revision 3's scope, renditions and resumable uploads on the phone):
+  - **Covers**: spec 7.10 renditions in the sync (compact clip data and Opus preferred when ready, posters, the
+    phone video requested when the original cannot play, "Video getting ready on your computer"), F-21-AC6, NFR-03
+    (≤ 3 MB per 4-minute clip without video), QT-4 complete (resume from ≥ 60 % with a verified checksum).
+  - **Proof**: `FakeComputer` with `capabilities.renditions` and `resumable_uploads`: rendition choice and fallback
+    when `failed` or `preparing`; revision switch keeps positions; PATCH resume after `truncate`; `offset_mismatch`
+    recovery (from `ApiResult.Refused.offset`); background runs continue large uploads where the last one stopped (the
+    size rule of architecture 8.5 lifted).
+- **Done when**: 2.5 including GMD, for each milestone (`--phase complete`); WP-34 confirms the repositories give its
+  screens every state they need (its hand-off lists any gap).
 
 ### WP-29 Articulator
 
@@ -1600,23 +2046,118 @@ details, WP-29).
 - **Proof**: pooling exactness (F-18-AC1: 40 of 60, 67 %), every chart's table view, older-clip and mixed-rule notes.
 - **Done when**: 2.5 including GMD.
 
+### WP-34 Deletion and shared-progress screens (CR-01)
+
+- **Tier** complete · **Wave** 5 · **Size** L (7 d; revision 4: 6 d) · **Lane** B (first in wave 5) · **Starts** when
+  CR-01-A2 is published (day 2 of wave 5, 1.4), on its settable fakes (4.7); **Consumes** the design track's CR-01
+  additions (design.md revision 3 with its fix rounds: 9.18, 9.19, 9.23, 9.26, 9.27; renders 28 to 34, light and dark; the two icons
+  converted by WP-26 in CR-01-A2); **Needs** nothing else: it runs on the fakes, and the seeded happy paths over WP-28
+  A's real repositories are WP-26's cross-area flows, so the lane's copy moves on to WP-29 when WP-34 is done (1.4).
+- **Goal**: every screen of spec revision 4's v1-complete items, on the repositories' new methods only (no feature
+  depends on a core implementation, 2.2 rule 1).
+- **Covers**: F-05 item 6 and its States row, F-05-AC6, AC8 (UI), AC9, AC10, AC12 (UI); F-04's waiting-deletion words
+  and F-04-AC7 (no "Delete from your computer…" in the Library's "More" menu); F-03's shelf words (through
+  `ClipCard`); F-20's deletion rows, actions and F-20-AC13, AC14 (UI); F-17 item 6, its States row, F-17-AC8 (UI),
+  AC9 (UI), AC10; F-09 item 5 and its line; F-22's two "Forget this computer…" sentences (shown only when waiting
+  deletions exist, and when progress is shared); the three new messages through the shell's host. Review fixes
+  (architecture 25.6): Home's attention row whose inline action is a refused deletion's "Try again" when no failed
+  request needs attention (design 9.17, spec F-03 item 2; C-68); in v1-complete the two-node reach strip on
+  "Remove “{title}” from this phone?" (Clip page, Library and Storage) and the smartphone place mark on the phone-only
+  "Forget your practice history?" (design 9.23, 9.26; C-71); a waiting deletion without "Undo" when
+  `ComputerDeletion.actions` lacks it. The product track's answers (spec 15.7; architecture 19, 25.7): an imported
+  clip's words wherever the deletion is named (D-58: the block's sentence, "Remove from your computer's list…", the
+  confirmation, "Removing from your computer's list…", "Waiting to be removed from your computer's list", "Couldn't
+  remove “{title}” from your computer's list.", the Requests title "Remove “{title}” from your computer's list"; on
+  Library rows and shelf cards from `ClipSummary.source.kind`); a refused deletion shows nothing on rows, shelf cards
+  or the header (D-59); the waiting reason in D-61's order through WP-22's `WaitingReasonCopy` plus the two deletion
+  steps ("A different computer answered" for `DIFFERENT_COMPUTER`, the different-library sentence); D-62's refusal
+  sentences (`not_finished`, `unknown_route` with F-05 item 6's "not offered" sentence, any other code); D-65's line
+  "It may have reached your computer already, so it can't be undone." on a waiting deletion without "Undo"; every
+  CR-01 `{title}` as `QuotedTitle.of(title)` (design 9.26, security review F-14): `DeletionCopy`, "Delete “{title}”
+  from your computer?", "Remove “{title}” from your computer's list?" and, in v1-complete, "Remove “{title}” from this
+  phone?" (Clip page, Library, Storage).
+- **Owns** (phase complete): `android/feature/library/**` (not `transcript/`), `android/feature/requests/**`,
+  `android/feature/practice/**`, `android/feature/settings/**`, `ClipCard`, `ClipRow`, `strings_clip.xml`,
+  `DeletionCopy` and `strings_deletion.xml` (architecture 19), the `:core:ui` sub-package `ui/place/` and
+  `strings_place.xml` (design 9.26), `DeletionRow` in `:feature:requests`, `android/feature/home/**`,
+  `ConnectionStatusCard` and `strings_connection.xml` (the attention row's deletion action), `e2e/library/**`,
+  `e2e/requests/**`, `e2e/practice/**`, `e2e/settings/**`, `e2e/home/**`.
+- **Consumes**: `QuotedTitle` (CR-01-A2) and `WaitingReasonCopy` (WP-22, v1-core; architecture 19);
+  `RequestRepository.deletionOffer`, `deleteFromComputer`, `deletions`, `performDeletion`;
+  `PracticeRepository.sharing`, `SavedRepository.sharing`, `reset`; `ClipRepository.clip` and `ClipSummary.deletion`;
+  `ComputerStatusRepository.status` (the 7.5 words of a waiting deletion); `RequestRepository.counts` (Home);
+  `UserMessages`.
+- **Proof**: Robolectric screen tests of every state of the "On your computer" block (available with the sentence and
+  the action, sending, waiting with each reason and "Undo", waiting on another library, refused with "Try again" and
+  "Keep the clip" and each of the three refusal sentences of spec D-62, each "not offered" sentence), the block
+  placed after "On this phone" and never in the same block; the same states for an imported clip with D-58's words
+  (sentence, button, confirmation, sending, waiting, refused) and an imported waiting row in the Library and on a
+  shelf card (F-05-AC9); a waiting row per reason of D-61 in order (each queue pause, `DIFFERENT_COMPUTER`,
+  `DIFFERENT_LIBRARY`, `Offline`, `Looking`, `Connected` after 1 and after 3 attempts); a refused deletion with no
+  line on its Library row, shelf card or header (D-59); the confirmation of F-05 item 6 (title, body, the
+  saved-items and offline sentences when they apply, focus on
+  "Cancel" first, not dismissed by an outside tap) and its imported variant; the page closing with the message after
+  the deletion; the Library's "More" menu without the deletion (F-04-AC7) and a waiting row's words; Requests'
+  deletion rows in "Waiting on this phone", "Sending" and "Needs your attention", each opening the Clip page; the
+  three Practice and Saved line variants (with "last synced 5 min ago", F-17-AC10), both reset confirmations chosen by
+  `SharingState`, a waiting reset showing no accuracy; the "Forget this computer…" sentences; Home's attention row
+  with only a refused deletion ("1 needs your attention" + "Try again", which calls `performDeletion(id, TRY_AGAIN)`)
+  and with a failed request and a refused deletion (the request's action, as in v1-core); the reach strip on
+  "Remove “{title}” from this phone?" in the Library and Storage and the place mark on the phone-only reset dialog,
+  each collapsing above font scale 1.3; a `maybe_sent` waiting deletion with no "Undo" and D-65's line, on the Clip
+  page and in Requests; the screenshot test of the "Delete from your computer" dialog with design 9.26's
+  right-to-left-override title, light and dark, at font scale 1.0 and 2.0, against render 31, specimen 5 (no U+202E
+  left, "from your computer?" after the closing quote in reading order); the a11y audit and font scale 2.0 on each;
+  previews of every new state in light and dark, checked against renders 28 to 34 (design request
+  A-10; WP-33 compares screenshots with them). GMD area tests (library, requests, practice, settings, home) on the
+  global test set: the destinations open with the new blocks and their states as the fakes give them.
+- **Done when**: 2.5 including GMD, on `--phase complete`; the design track signs off the CR-01 states.
+
 ### WP-26 Integration v1-complete
 
-- **Tier** complete · **Wave** 6 (the role from the gate) · **Size** M (4 d) · **Role** integrator of waves 5 and 6,
-  taking over from WP-19 at the v1-core gate commit.
-- **Goal**: as WP-19 for the complete tier: merge wave 5, extend the cross-area flows (record in a lesson, phrase
-  details from the feed, Insights from Home, renditions in the first sync), re-run the real-server smoke against an
-  API 7 server, release candidate 2.
+- **Tier** complete · **Wave** 6 (the role from the gate) · **Size** L (7 d: CR-01-A2 2 d on days 0 to 2 of wave 5,
+  then 5 d) · **Role** integrator of waves 5 and 6, taking over from WP-19 at the v1-core gate commit.
+- **Goal**: as WP-19 for the complete tier: apply **CR-01-A2** as the first commit after the gate (2.2, 4.7: the
+  contract additions, the pairing store's two capability keys with their round-trip test, `forget()` inside
+  `SyncController.exclusive`, the three messages in the shell's host with their titles passed through `QuotedTitle`
+  (`:core:ui`, made here with its unit test; architecture 19), the fakes' new members, Room version 2 with its
+  `AutoMigration` and migration tests, and the two icons the design track staged in `design-src/cr01/` converted with
+  WP-03's script into `:core:designsystem` with their `PhonoIcons` entries, `bundled.json` and notices 7.3 updated so
+  `verifyLicences` stays green; WP-03's frozen 173-file inventory is not touched, design 9.26), then merge wave
+  5, extend the cross-area flows (record in a lesson, phrase details from the feed, Insights from Home, renditions in
+  the first sync; CR-01: a deletion confirmed offline, kept through a process death and applied at the next connection
+  before a shared link; a deletion of a clip open in the feed; two phones sharing accuracy and the Saved list through
+  `FakeComputer`'s second device; WP-34's screens over WP-28 A's real repositories, seeded through `TestSeeder`:
+  confirm offline → "Undo", confirm connected → the page closes and the message shows once, a shared reset
+  confirmation; the update from the v1-core build to the v1-complete build keeping progress, with `learning_id`
+  unchanged), re-run the real-server smoke against an API 7 server (with WP-06 milestone 3's self-check),
+  release candidate 2.
 - **Done when**: as WP-19.
 
 ### WP-33 QA v1-complete
 
-- **Tier** complete · **Wave** 6 · **Size** M (4 d).
+- **Tier** complete · **Wave** 6 · **Size** M (5 d; revision 4 adds 1 d for CR-01).
 - **Covers**: the complete-tier ACs (F-10-AC4 [emulator], F-11, F-13 on the phone with the real computer and a
   synthetic clip, F-18, QT-4 complete [emulator]), NFR-03 sizes on the phone, the phone video of a clip the phone
-  cannot decode, the release gate of spec 14.3 again (including X-AC7 update from the v1-core build).
+  cannot decode, the release gate of spec 14.3 again (including X-AC7 update from the v1-core build). CR-01: F-04-AC7,
+  F-05-AC6 to AC10 and AC12, F-09-AC4 to AC6, F-17-AC6 to AC10, F-17-AC11 [emulator] (a backup restored on the
+  emulator against the host-side fake computer), F-20-AC13, AC14, QT-15 to QT-20 (the [emulator] steps against the
+  host-side fake computer), all deletions and resets against computers the kit started; **D-57** (spec 15.7, NFR-14,
+  X-AC10; architecture 21.7): on the real computer QA deletes only a clip it created itself in the same session from a
+  local test file and never resets the owner's shared history; **the first share of the test phone** (D-57 (3)):
+  before a v1-complete build on the test phone can first share progress with the owner's own computer, and at the
+  latest before the phone is handed back, QA compares the phone's per-change totals (`practice_totals()`) with the QA
+  log's counts since the last logged reset (QA's own answers from WP-25 on, plus the simulated devices' on a computer
+  the phone shared with); equal: QA clears them with "Reset" (phone-only while the line reads "Kept only on this
+  phone.", or `reset_everywhere` while it shares with a computer the kit started) and logs the totals cleared; not
+  equal: QA resets nothing and the QA report states, per change, the totals that first share will send and how many
+  are QA's; while the phone shares with the owner's own computer the report says how many answers QA gave there
+  (D-57 (4)).
+- **Proof**: the QA log's entry for the first-share check (the totals read, the counts compared, the outcome and, when
+  cleared, the Practice screen showing no accuracy afterwards); the report's first-share paragraph; no deletion or
+  reset in the log against a server id the kit did not start.
 - **Owns**: `android/docs/qa-report.md` (phase complete).
-- **Done when**: as WP-25 for the complete tier.
+- **Done when**: as WP-25 for the complete tier, and the first-share check is logged before the phone is handed back.
 
 ---------------------------------------------------------------------------------------------------------------
 
@@ -1643,8 +2184,11 @@ details, WP-29).
 | 13, 15, 16, 17, 18, 20, 21, 22, 23, 24 | none for screen tests (fakes); their GMD area tests run on the global test set with whatever repositories their baseline has, and their seeded happy paths need the cores they read (2.4) | yes |
 | 19 | B1 to start (role); every wave-2 WP to finish | — |
 | 25 | 19; the phone attached; the release key (20.5 of the architecture) | — |
-| 27 | 01 to start; the v1-core gate to merge (rebased) | — |
-| 28 | 27 contract (fake ready since WP-05a) | yes |
+| 27 | 01 to start (milestone A may start at once, on its branch); the v1-core gate to merge (rebased) | — |
+| 28 | A: CR-01-A2 and 05a-3; B: 27's contract (the fake implements it since WP-05a) | yes |
+| 05a-3 | CR-01-A2 | — |
+| 06-3 | 27 milestone A merged | — |
+| 34 | CR-01-A2 (with `QuotedTitle`); WP-22's `WaitingReasonCopy` (v1-core, merged by the gate); the design track's CR-01 states for sign-off (its seeded happy paths over 28 A are WP-26's flows) | yes (the settable fakes of CR-01-A2) |
 | 29 | 04, 12 (both long merged by then) | — |
 | 30, 31, 32 | the v1-core gate | yes |
 
@@ -1663,6 +2207,9 @@ details, WP-29).
 | The link path fails on the real computer (403) | S-23 in WP-01; designed failure states (WP-09, WP-22); the gate reports the outcome as it is |
 | An emulator image cannot toggle Wi-Fi or take screenshots | WP-06's day-0 spike on a `google_apis` image, with a recorded fallback image (architecture 21.7) |
 | The owner's phone is not attached when WP-25 starts | every [emulator] AC and the automated suite run first; device steps wait (spec 15.4) |
+| CR-01 lands while wave 1 and 2 are in flight | v1-core gains only CR-01-A1 (one table, one callback) and one confirmation's words; everything else is v1-complete, additive (2.2, 4.7) and in new milestones (WP-27 A, WP-28 A, WP-05a-3, WP-06-3) or a new WP (WP-34); WP-01 is not reopened |
+| A deletion or a reset touches the owner's real data during QA | D-57: the kit's destructive helpers refuse to act unless the phone is paired with a computer the kit started in the session (`host_computer.py`, or `computer.py`'s throwaway directories, whose clips the session created), never the owner's own (WP-06-3, WP-33); before the test phone first shares with the owner's computer, its practice totals are compared with QA's logged answers and cleared only when all are QA's, otherwise reported (D-57 (3); WP-25, WP-33) |
+| The browser client does not adopt shared progress | nothing waits for it: the phone ↔ computer path is complete without it; the hand-off (`web-progress-sync.md`) is self-contained, and the server's routes are inert until called |
 
 ---------------------------------------------------------------------------------------------------------------
 
@@ -1672,32 +2219,36 @@ details, WP-29).
 |---|---|
 | S-01 to S-09, S-11, S-13 to S-15, S-17, S-21 to S-23 | WP-01 |
 | S-10, S-12, S-16 | WP-27 (server), WP-28 (phone, S-10/S-12), WP-30 (phone, S-16) |
+| S-24, S-25 (CR-01) | WP-27 milestone A (server), WP-28 milestone A (phone core), WP-34 (screens), WP-05a-3 and WP-06-3 (fake computers), WP-26 (flows), WP-33 (QA) |
 | S-18 | WP-04 |
 | S-20 | WP-25 |
 | F-01 | WP-13 (UI), WP-02 (stores), WP-23 (AC6) |
 | F-02 | WP-07 (logic), WP-13 (UI), WP-01 (server), WP-06 (F-02-AC9 scan) |
-| F-03 | WP-15 (UI), WP-14 (today's set data), WP-10 (short counts) |
-| F-04, F-05 (core) | WP-16 |
+| F-03 | WP-15 (UI), WP-14 (today's set data), WP-10 (short counts); v1-complete: WP-34 (the attention row's action for a refused deletion, item 2) |
+| F-04, F-05 (core) | WP-16 (F-05-AC11 included; Storage's copy of its words: WP-24) |
+| F-04, F-05 "On your computer" (complete) | WP-34 (UI), WP-28 (data) |
 | F-05 Transcript | WP-31 |
 | F-06, F-07 | WP-12 (rules), WP-10 (queries), WP-11 (playback), WP-14 (seen, positions), WP-17 (UI) |
 | F-08 | WP-14 (logic), WP-17 (feed), WP-21 (question component) |
-| F-09 | WP-14 (logic), WP-21 (Saved screen), WP-17 (save) |
+| F-09 | WP-14 (logic), WP-21 (Saved screen), WP-17 (save); the shared list (complete): WP-28 (logic), WP-34 (line) |
 | F-10 | WP-12 (compare rows), WP-10 (rows through `ClipContentRepository`), WP-18 (UI), WP-29 (step 4 drawing) |
 | F-11 | WP-31 |
 | F-12 | WP-12 (plan), WP-11 (runner), WP-18 (panel) |
 | F-13 | WP-30, WP-27 (S-16) |
 | F-14 | WP-04 (content), WP-03 (explain sheet), WP-18, WP-20 (index page, AC4) |
 | F-15, F-16 | WP-20, WP-04, WP-10 (the two count units), WP-29 (mouths) |
-| F-17 | WP-14 (logic), WP-21 (UI) |
+| F-17 | WP-14 (logic), WP-21 (UI); shared accuracy (complete): WP-28 (logic), WP-34 (line, confirmations) |
 | F-18 | WP-32 |
 | F-19 | WP-09 (data), WP-22 (UI) |
-| F-20 | WP-09 (data), WP-22 (UI) |
+| F-20 | WP-09 (data), WP-22 (UI); deletion rows (complete): WP-28 (data), WP-34 (UI) |
 | F-21 | WP-08 (engine), WP-24 (Storage UI), WP-28 (renditions) |
-| F-22 | WP-02 (store), WP-24 (UI), WP-13 (Connection details, AC4), WP-07 (this phone's address) |
+| F-22 | WP-02 (store), WP-24 (UI), WP-13 (Connection details, AC4), WP-07 (this phone's address); the CR-01 sentences of "Forget this computer…": WP-34 |
 | F-23 | WP-02 (channels), WP-09 (own-request notices), WP-22 (the notification line of `RequestFailureCopy`), WP-22 and WP-23 (asking) |
 | F-24 | WP-19 (report and licence check), WP-03 (bundled licence texts and `bundled.json`), WP-24 (screen) |
 | F-25 | WP-03 (assets), WP-25 (screenshots, sign-off) |
-| Spec 7.12 torture test | WP-08, WP-09 (logic), WP-19 (automated), WP-25 ([emulator] and real computer) |
+| Spec 7.12 torture test | WP-08, WP-09 (logic), WP-19 (automated), WP-25 ([emulator] and real computer); QT-15 to QT-20 (complete): WP-28 (logic), WP-26 (automated), WP-06-3 and WP-33 ([emulator], D-57) |
+| Spec 7.13 shared progress (complete) | WP-27 (server), WP-28 (engine), WP-34 (lines), the web owner (browser, outside the plan: `web-progress-sync.md`) |
+| Spec 14.6 version 2 (encrypted transport) | not in the v1 plan; designed in architecture 26 and server-contract 13 |
 | Spec 8 share target | WP-23, WP-09, WP-22 (the failures opened from Requests: SH-AC9, SH-AC16 to SH-AC18) |
 | Spec 10 accessibility | WP-03 (primitives, focus indicator), every feature WP (screens), WP-19 (sweep, A-13 keyboard traversal), WP-25 (device, A-13 key-event walk) |
 | Spec 11 privacy and security | WP-01 (server), WP-02 (manifest, backup, logging), WP-05b (cleartext, signing, proofs), WP-06 (scans, hooks), WP-09 and WP-23 (untrusted shared input) |
@@ -1731,15 +2282,44 @@ named test in the WPs' Proof lists.
 SH-AC17 and SH-AC18 are opened from Requests after the share sheet has closed, so they are WP-22's and WP-09's, not
 WP-23's.
 
+**Acceptance criteria added by spec revision 4** (CR-01, spec 15.7, D-53 to D-57; architecture 25.5). Each has a named
+test in the WPs' Proof lists.
+
+| AC | Decision | WPs (what each proves) |
+|---|---|---|
+| F-04-AC7 | D-54 | WP-34 (no deletion in the "More" menu; the waiting row's words) |
+| F-05-AC6 | D-54 | WP-34 (the block apart from "On this phone", the confirmation's title, focus and dismissal) |
+| F-05-AC7 | D-54 | WP-28 (exactly one job deleted, files, saved items and positions gone, practice stats kept, one message), WP-34 (the page closes) |
+| F-05-AC8 | D-54 | WP-28 (nothing removed offline, out of new sets, "Undo" sends nothing, applied later), WP-34 (the states) |
+| F-05-AC9 | D-54, D-58 | WP-34 (the imported confirmation and D-58's words in every state, row and shelf card), WP-28 (`imported` from `source.kind`), WP-27 (list-only deletion) |
+| F-05-AC10 | D-54 | WP-34 (the three sentences), WP-28 (`DeletionOffer.NotOffered`) |
+| F-05-AC11 (v1-core) | D-54 | WP-16 (the words of the "Remove from this phone?" confirmation on the Clip page and in the Library; nothing sent), WP-24 (the same words in Storage) |
+| F-05-AC12 | D-54, D-59, D-62 | WP-28 (refused: kept on both sides; "Keep the clip" clears it; `unknown_route` and a computer without the flag refused, never "already gone"), WP-34 (the rows and D-62's sentences), WP-05a-3 (`refuseDeletion`) |
+| F-09-AC4, AC5, AC6 | D-55 | WP-28 (two devices through `otherDevice`; the tie and the later save; a deleted job's items never come back), WP-27 (the same rules on the server), WP-05a-3 |
+| F-17-AC6, AC7 | D-55 | WP-28 (4 of 6 on both sides; each answer counted once), WP-27 |
+| F-17-AC8 | D-55 | WP-34 (the confirmation and the waiting line), WP-28 (the offline reset; earlier answer cleared, later kept), WP-27 |
+| F-17-AC9 | D-55 | WP-34 (the line and the phone-only confirmation), WP-28 (the whole history added once at the first share) |
+| F-17-AC10 | D-55 | WP-34 ("last synced 5 min ago") |
+| F-17-AC11 [emulator] | D-55 | WP-28 (the restore logic on the JVM), WP-33 (the [emulator] restore), WP-19 (CR-01-A1: `learning_id` in every backup) |
+| F-20-AC13, AC14 | D-54 | WP-28 (counts; no notification), WP-34 (rows and actions) |
+| QT-15 to QT-20 | D-54 | WP-28 (logic), WP-26 (automated flows), WP-06-3 and WP-33 ([emulator] against the host-side fake computer) |
+| NFR-14, X-AC10 (D-57) | D-57 | WP-25 (QA's practice answers on the test phone counted per change), WP-06-3 (the destructive helpers' server-id guard; `qa_log.py` records the kit's server ids, QA's answers and the simulated devices' answers and resets; `practice_totals()`), WP-33 (the first-share check of D-57 (3), architecture 21.7) |
+
+The product track's answers of fix round 2 (spec 15.7, D-58 to D-65) add no acceptance criterion; they fix copy and
+two mappings, and each has an owner: D-58 WP-34; D-59 WP-28 A (the hold) and WP-34 (no row line); D-60 WP-24 (copy
+only); D-61 WP-22 (`WaitingReasonCopy`, copy only) and WP-34; D-62 WP-28 A (the code mapping) and WP-34 (the
+sentences); D-63 WP-28 A (the device-id binding drops the row); D-64 WP-27 A (stores fail closed, the README); D-65
+WP-28 A (`maybe_sent`) and WP-34 (the line).
+
 ---------------------------------------------------------------------------------------------------------------
 
 ## Appendix A. Shapes of the frozen types (delivery review D-02)
 
 Fields only, in Kotlin. Every type that architecture 3.4 or section 4 names without a shape is here, so WP-02
-transcribes B1 instead of designing it. WP-02 may add fields with defaults; owners correct a shape through a change
-request (2.2). Packages: `…core.domain.model` unless noted; `Instant`, `LocalDate`, `Duration` are `java.time`. A
-`…Id` value class, `HostPort`, `ShortId`, `WordRef`, the enums `Family`, `Advice`, `Site`, `Track` and the sealed
-types listed with members in architecture 3.4 are not repeated.
+transcribes B1 instead of designing it. The CR-01 additions (revision 4) are in 4.7, not repeated here. WP-02 may add
+fields with defaults; owners correct a shape through a change request (2.2). Packages: `…core.domain.model` unless
+noted; `Instant`, `LocalDate`, `Duration` are `java.time`. A `…Id` value class, `HostPort`, `ShortId`, `WordRef`, the
+enums `Family`, `Advice`, `Site`, `Track` and the sealed types listed with members in architecture 3.4 are not repeated.
 
 ### A.1 Computer, connection and pairing (WP-07, WP-13)
 

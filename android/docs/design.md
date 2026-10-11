@@ -1,6 +1,24 @@
 # PhonoTrainer for Android: design system ("Phonautograph")
 
-Status: v1 design system, revision 2 (2026-10-10: closes the design items of the cross-track review, mirrors spec revision 3). Owner: design lead.
+Status: v1 design system, revision 3.2 (2026-10-11). Revision 3 (2026-10-10, change request CR-01) mirrors spec
+revision 4. Revision 2 closed the design items of the cross-track review and mirrored spec revision 3. Revision 3
+designs what the owner's answers to Q-1..Q-3 add, all v1-complete: deleting a finished analysis from your computer and
+its pending state (9.26), the shared-progress line (9.27), and the version-2 transport notes (9.28, not v1). v1-core
+behaviour, components and renders are unchanged; v1-core only gains the look of the "Remove “{title}” from this
+phone?" dialog, whose copy spec revision 4 added (9.23), and an explicit anatomy, from existing components, for the
+Clip page's existing "On this phone" block (9.26). Revision 3.1 (the CR-01 review's fix round 1) changes no layout,
+colour or component of revision 3. It does three things. It cites the names and owners the architecture gave to
+design's requests (architecture 3.4, 19 and 25.5 C-42; work-plan 4.7, WP-26 and WP-34) and drops the answered
+requests. It keeps the requests still open with product under one unambiguous label, "CR-01 design request P-n", which
+cannot be mistaken for this document's accessibility rules A-01..A-16 or destinations P-01..P-13. It also adds the
+quoted-title rule for clip titles inside CR-01 sentences (9.26; finding 14 of the CR-01 security review). Revision
+3.2 (2026-10-11, fix round 2) mirrors the spec's answers D-58 to D-65 (spec 15.7) and closes CR-01 design requests
+P-1 to P-4. It adds no component, colour, icon or render: an imported clip's deletion uses D-58's words wherever it is
+named (9.18, 9.19, 9.26); a waiting deletion that may have reached the computer drops "Undo" and gains D-65's line,
+drawn with the existing second reason line (9.19, 9.26); refused deletions follow D-59 (9.17, 9.18); waiting reasons
+follow D-61's order, for requests and deletions alike (9.19); refusal sentences are D-62's (9.19, 9.26, 14); "Forget
+this computer?" takes D-60's title and buttons (9.23, 14). Renders 28-34 are unchanged: they draw the non-imported
+variant, and their words are the spec's. Owner: design lead.
 
 Inputs: `android/docs/product-spec.md` (the authority on content, hierarchy, states and interactions; this document
 never changes behaviour, it decides how things look and move), `android/docs/architecture.md` section 17 (the
@@ -19,6 +37,7 @@ What lives where:
 | `android/design-src/mockups/` | HTML sources of the mockups, the mockup kit (`kit/`) and `render.sh` |
 | `android/design-src/tools/` | `check_palette.py`, `svg2vd.py`, `vd2svg.py`, `roundtrip.py`, `lucide_icons.py`, `brand_export.py` (section 13) |
 | `android/design-src/export/` | staging for generated Android resources (`res/…`, `assets/licenses/`); nothing in the build references it (architecture 17) |
+| `android/design-src/cr01/` | the icons change request CR-01 adds (`icons.json`, `svg/icons/`, `export/res/drawable/`), staged apart so the frozen v1 export (173 files) does not change (6.1) |
 
 Conventions: sizes are dp (layout) and sp (text). Colour names in `code` are tokens of `palette.json`. "Ink" is
 the text colour of the theme (near-black on paper, bone on soot), never a hue. Copy in double quotes is the spec's
@@ -488,6 +507,39 @@ The full inventory (resource name, Lucide name, stroke, meaning, where used) is 
 
 Brand glyphs (not Lucide): the stylus P (`ic_launcher_*`, `ic_notification`, `splash_mark*`), section 7.1.
 
+### 6.1 Icons added by change request CR-01 (v1-complete)
+
+Two new glyphs, from the same Lucide 1.51.0 and through the same tools; everything else CR-01 shows reuses a v1
+resource. They are staged in `design-src/cr01/` (inventory `cr01/icons.json`, masters `cr01/svg/icons/`, vectors
+`cr01/export/res/drawable/`), not in the v1 export: WP-03's conversion test freezes that export at 173 files and 122
+icons (work-plan WP-03), and CR-01 must not move a number WP-03 is built against. The integrator of wave 5, WP-26,
+converts them in change request CR-01-A2, the first commit after the v1-core gate (work-plan 4.7 and WP-26;
+architecture 25.5 C-42). It uses WP-03's conversion script to put them into `:core:designsystem`, adds their
+`PhonoIcons` entries, and updates `bundled.json` and notices 7.3. WP-34's screens then use them.
+
+| Resource | Lucide | Stroke | Meaning | Where |
+|---|---|---|---|---|
+| `ic_undo` | undo-2 | 2 | Withdraw a deletion from your computer: the clip stays as it was | "Undo" on a waiting deletion and "Keep the clip" after a refused one (one effect, one glyph: both drop the deletion) |
+| `ic_browser` | app-window | 2 | The browser client on your computer | the "Browser" node of the reach strip (9.26) |
+
+Reused v1 resources and their new uses are listed in `cr01/icons.json` → `reuses`: `ic_remove` (trash-2) is the
+deletion's glyph everywhere (its button, its badge, its Requests title); `ic_avail_on_phone` / `ic_avail_on_computer`
+(smartphone / monitor) are the two place heads and place marks; `ic_pairing` (monitor-smartphone) is the shared-progress
+line; `ic_status_waiting`, `ic_status_sending`, `ic_status_attention`, `ic_save`, `ic_info` and `ic_step_done` keep
+their v1 meaning in the new lines.
+
+Why "Delete from your computer…" keeps the trash glyph and not a monitor: the trash is the danger button's anatomy
+(9.1) and the glyph the browser uses for the same act (`Trash2`, "Delete…", `web/src/features/library/LibraryPage.tsx`),
+so one act looks the same in both clients; the only monitor-with-a-cross in Lucide, monitor-x, already means "A different
+computer answered" (`ic_conn_different`), which is one of the reasons a deletion can be waiting, so the two would meet on
+one screen with two meanings. The place is told by the block head, the words and the dialog's reach strip instead.
+
+Verified: `lucide_icons.py --inventory cr01/icons.json` writes both masters from the web's `lucide-react` 1.51.0;
+`svg2vd.py` (precision 3, byte-identical to `export_vectors.py`'s icon output, checked on `ic_remove`) converts them;
+`lint_vectors.py cr01/export/res` passes (2 paths, longest 144); `roundtrip.py` passes (RMSE 0.0001 and 0.0016). The
+mockups' icon table (`kit/icons.js`) gains `undo-2` and `app-window` as extras; the other 129 entries are unchanged.
+Licence: the same Lucide ISC/MIT text already in `assets/licenses/lucide-LICENSE.txt`.
+
 ---------------------------------------------------------------------------------------------------------------
 
 ## 7. Brand art, illustrations and generated visuals
@@ -604,6 +656,7 @@ infinite decorative loops anywhere (A-07; also battery and test determinism).
 | Step opens or closes | Height 220 ms, chevron rotates 90° | Instant |
 | Request advances | The route nib slides to the next node 360 ms; stage change announced politely | Jump |
 | Share bridge, connected | The nib travels from the phone to the computer once (700 ms) when the request is stored | Static solid line |
+| Deletion sent (v1-complete, 9.26) | The mini route turns solid and its nib travels from the phone to the computer once (700 ms) | Static solid line, nib at the middle |
 | Sync, pull to refresh | The status card's trace wiggles while working (finite: stops when the work stops) | Static "Syncing…" |
 | Analyzing icon | `loader-circle` rotates (1 turn / 1 s) while the state lasts | Static icon |
 | Splash | The P is drawn once (700 ms) | Static mark |
@@ -939,11 +992,18 @@ Rows: "2 waiting on this phone" (clock), "1 analyzing · 40 % · Hear the phones
 "1 needs your attention" (circle-alert in `critical` + its primary action, e.g. "Try again"), "Bringing 2 clips to
 this phone · 34 MB of 61 MB" (download + bar), "Storage almost full: videos of older clips will be removed first."
 (hard-drive → Storage), "Android is limiting PhonoTrainer in the background: clips arrive when you open the app." +
-"Battery settings" (battery-warning). Browser-started jobs are never counted.
+"Battery settings" (battery-warning). Browser-started jobs are never counted. In v1-complete, deletions from your
+computer count in "waiting on this phone" while they wait and in "needs your attention" when refused (spec F-03 item
+2, F-20-AC13, AC14, D-59); the rows look and read exactly as above, and the attention row's inline action is the
+deletion's "Try again" (D-59) unless a failed request also needs attention, whose own action then stays (architecture
+8.8). Shared progress never appears on this card (spec 7.13: it is not a request).
 
 Sources of the rows (one owner: `ConnectionStatusCard`, work-plan 4.5): the waiting, analyzing, in-line and attention
 counts and the inline action come from this phone's own requests (`RequestRepository.counts()`: `waiting`,
-`analyzing`, `inLine`, `needsAttention`; the progress and the action from the request in question); "Bringing … · 34 MB of 61 MB" from `SyncState.Active(bringing, percent, sending, doneBytes, totalBytes)`;
+`analyzing`, `inLine`, `needsAttention`; the progress and the action from the request in question; in v1-complete
+`counts()` also counts waiting deletions in `waiting` and refused ones in `needsAttention`, and a refused deletion's
+inline "Try again" is `DeletionAction.TRY_AGAIN` through `RequestRepository.performDeletion`, read from `deletions()`,
+architecture 8.8); "Bringing … · 34 MB of 61 MB" from `SyncState.Active(bringing, percent, sending, doneBytes, totalBytes)`;
 the storage line from `StorageRepository.usage` (`budgetReached`, `belowFloor`); the background line from
 `ComputerStatusRepository.backgroundRestricted`. The status icons are the `ic_conn_*` set of section 6.
 
@@ -959,7 +1019,27 @@ recognizes this phone. Connect again to keep syncing." + "Connect again".
   word, availability icon + word, "Kept" pin), "You've seen 12 of 15 shorts", "Older rules: re-analyze on your
   computer to update" muted chip when relevant, "From a computer you forgot" / "From another library"; "More actions"
   (ellipsis-vertical) opens a menu with "Watch", "Open clip page", "Keep on this phone" / "Stop keeping", "Download to
-  this phone" / "Remove from this phone…", "Remove the video only".
+  this phone" / "Remove from this phone…", "Remove the video only". The menu never holds "Delete from your computer…"
+  (v1-complete; spec F-04, D-54): that action lives only on the Clip page (9.26), so the two removals are never next
+  to each other in a short menu.
+- **Deletion line** (v1-complete, spec F-04, 7.11): a clip with a deletion from your computer keeps its row and its
+  availability, and gains one more line under the tags, in the same style as an availability line (14 sp, weight 700,
+  16 dp icon, wraps, never cut): trash + "Waiting to be deleted from your computer", then trash + "Deleting from your
+  computer…" once sent. An imported clip (`ClipSummary.source.kind = SourceKind.IMPORT`) reads "Waiting to be removed
+  from your computer's list" and "Removing from your computer's list…" instead (spec D-58), with the same icon and
+  rings: only the words follow the import mark. The Home shelf card shows the same line under its availability line
+  (it wraps to two or three lines in 176 dp). The Clip page header shows it as a pill next to the availability pills, the only header pill with
+  a ring: a 1.5 dp **dashed** `outline` ring while it waits on this phone (the trace grammar's "not yet"), a solid one
+  once sent (renders `29`, `34`). The feed shows nothing (spec F-06 gives the short card no marker; the clip line opens
+  the Clip page, where the state is). The line and the header pill read `ClipSummary.deletion` (`DeletionState.WAITING`
+  or `SENDING`; null shows nothing; the Clip page reads it through `ClipDetail.summary`; architecture 3.4 and 8.8), so
+  `ClipRow` and `ClipCard` need no other input (the imported words come from `ClipSummary.source`). D-65's line ("It
+  may have reached your computer already, so it can't be undone.") is not on rows, shelf cards or the header pill: it
+  explains a missing "Undo", and only the Clip page block and Requests carry "Undo" (spec F-04, D-65). A refused
+  deletion (`REFUSED`) is never in that field. Library rows, shelf cards and the Clip page header show nothing for it,
+  and its paused downloads never show "Download paused: …" on the row; Home's status card counts it in "needs your
+  attention", Requests lists it, and the Clip page block shows it with its two actions (spec D-59; architecture 25.5
+  C-46).
 - **Availability** (icon + words, never colour), one row per domain state (`AvailabilityChip`, architecture 3.4):
 
   | Words | Icon | Domain state |
@@ -977,6 +1057,8 @@ recognizes this phone. Connect again to keep syncing." + "Connect again".
   | Video not available from your computer | film, ink2 | `VideoAvailability.NotAvailableFromComputer` |
   | This video can't play on this phone | film, ink2 | `VideoAvailability.CannotPlayOnThisPhone` |
   | Audio only | headphones (`ic_audio_only`) | `VideoAvailability.AudioOnlyClip` |
+  | Waiting to be deleted from your computer (v1-complete; an extra line, the availability above stays); imported: Waiting to be removed from your computer's list (D-58) | trash (`ic_remove`); header pill with a dashed ring | `ClipSummary.deletion = DeletionState.WAITING` |
+  | Deleting from your computer… (v1-complete; an extra line); imported: Removing from your computer's list… (D-58) | trash; header pill with a solid ring | `ClipSummary.deletion = DeletionState.SENDING` |
 
 ### 9.19 Request card, stepper and every request state (F-20; renders `17`, `18`)
 
@@ -1013,7 +1095,7 @@ Open the link and Remove.
 | Preparing the file 40 % (hourglass + bar) | `PREPARING` · `CANCEL_PREPARING` | Preparing | Cancel |
 | Couldn't keep the file (circle-alert) | `COPY_FAILED` with `lastError.code` `copy_no_space`, `copy_unreadable` or `copy_interrupted` (architecture 8.3) · `REMOVE`, `TRY_AUDIO_ONLY` (only for a video's `copy_no_space` while the source can still be read, D-49) | Needs your attention | Reason lines from spec 7.7: `copy_no_space` with Try audio only available (a file picked in the app, or a shared one while its sheet is still open) "Not enough space on this phone to keep this video until your computer is reachable. Free {N} MB or choose Audio only." + Try audio only, Remove; without it (a shared file whose sheet has closed) "Not enough space on this phone to keep this video. Free {N} MB, then share it again and choose Audio only." + Remove only ({N} from `RequestError.neededBytes`); `copy_unreadable` "PhonoTrainer couldn't read this file. Open it once in the app that has it, then share it again." + Remove; `copy_interrupted` "Couldn't keep the file: the copy didn't finish. Share it again." + Remove. Try audio only returns the same request to "Preparing the file" for the audio track (no second request) |
 | The copy kept on this phone is missing (circle-alert) | `COPY_MISSING` · `REMOVE` | Needs your attention | Remove ("Share the file again to analyze it.") |
-| Waiting on this phone (clock) · reason: "Your computer isn't reachable" / "Not on Wi-Fi" / "Will try again in 2 min" / "Couldn't send yet: will try again" | `WAITING` (reason from `ComputerStatus` and `Request.waiting`: `nextAttemptAt`, `attempts` ≥ 3) · `SEND_NOW`, `REMOVE` | Waiting on this phone | Send now (only when connected), Remove |
+| Waiting on this phone (clock) · reason: the first that applies of "Which reason a waiting row shows" below (spec D-61) | `WAITING` (reason from `ComputerStatus` and `Request.waiting`: `nextAttemptAt`, `attempts` ≥ 3) · `SEND_NOW`, `REMOVE` | Waiting on this phone | Send now (only when connected), Remove |
 | Waiting on this phone, a file too large for one background run (clock) | `WAITING` with `waiting.needsAppOpen` (spec D-41), whatever the connection state | Waiting on this phone | as above; a second reason line under the first (bodyMedium, ink2, `ic_info` 16 dp): "Open PhonoTrainer on your home Wi-Fi to send this file: large files are sent while the app is open." Links in the queue are not held by it |
 | Waiting on this phone, stopped by the learner (clock) | `WAITING` with `waiting.held` · `SEND_NOW`, `REMOVE` | Waiting on this phone | Send now (only when connected; it clears the hold), Remove; reason line "Stopped by you: it waits here until you tap Send now." (D-46) |
 | Sending 40 % · 125 of 312 MB (send + bar) | `SENDING` · `STOP_SENDING`, `REMOVE` | Sending | Stop sending, Remove |
@@ -1040,6 +1122,51 @@ Open the link and Remove.
 
 The request detail's milestone timeline reads `Request.createdAt` ("Added on this phone") and `Request.timeline`
 (`sentAt`, `inLineAt`, `analyzingAt`, `readyAt`, `onPhoneAt`).
+
+**Which reason a waiting row shows** (spec D-61; v1-core copy for requests, WP-22; the same list for deletions in
+v1-complete). One reason line (clock, 16 dp, bodyMedium ink2): the first row below that applies, so a request and a
+deletion waiting side by side never give two reasons for one state. No word is new; the words are spec 7.5's and
+F-20's.
+
+| Order | When | Domain state (architecture 3.4) | Reason line |
+|---|---|---|---|
+| 1 | the queue is paused | `ComputerStatus` `ConnectAgain` / `ComputerTooOld` / `AppTooOld` / `DifferentComputer` | "Your computer no longer recognizes this phone" / "Update PhonoTrainer on your computer" / "Update this app" / "A different computer answered" |
+| 1 | a deletion whose last answer was "made for a different computer" (not a refusal, spec D-62) | the deletion's last error code `different_computer` (architecture 8.8) | "A different computer answered" |
+| 2 | a deletion, while the computer uses another library | `DeletionWait.DIFFERENT_LIBRARY` | "Your computer is using a different library: this waits until it uses this clip's library again." |
+| 3 | not connected, and the phone has no Wi-Fi | `Offline`, `NotOnWifi` | "Not on Wi-Fi" |
+| 3 | not connected, otherwise | `Looking`, `Checking`, `NotReachable` | "Your computer isn't reachable" |
+| 4 | connected, after a failed attempt | `Connected` + `waiting.attempts` 1 or 2 (`nextAttemptAt` gives {n}) / `attempts` ≥ 3 | "Will try again in {n} min" / "Couldn't send yet: will try again" |
+
+A request held by "Stop sending" shows "Stopped by you: it waits here until you tap Send now." instead of this line,
+and a file too large for one background run adds its own second line (rows above). A deletion that may have reached
+the computer adds D-65's line under the reason (deletion rows below).
+
+**Deletion rows** (v1-complete, spec F-20 item 1, render `32`). A deletion from your computer is not a `Request`. It
+is a `ComputerDeletion` from `RequestRepository.deletions()`, and its row is `DeletionRow` in `:feature:requests` (WP-34,
+architecture 19). The row sits in the same groups and is built from the same `:core:ui` primitives as `RequestRow`.
+Its actions are `DeletionAction` values through `RequestRepository.performDeletion`, never `RequestAction`s
+(architecture 3.4 and 8.8). The title line is trash + "Delete “{title}” from your computer" (titleLarge 800, with the
+quoted title of 9.26); an imported clip's row (`ComputerDeletion.imported`) is titled "Remove “{title}” from your
+computer's list" (spec D-58), with the same icon and layout. There is no source line, because the title names the clip.
+Under it come a reason line (16 dp icon, bodyMedium ink2), the **mini route** of 9.26 (Phone → Computer, with no
+"Ready" node because nothing comes back) and the actions. There is no stepper and no request detail: tapping the card
+opens the clip's Clip page (`ClipKey`), and TalkBack's click label says so ("Open the clip page"). Every word of these
+rows comes from `DeletionCopy` (`:core:ui` `component/`, WP-34, architecture 19), the one mapping the Clip page block
+shares. A row shows only what `ComputerDeletion.actions` holds (architecture 8.8, the one authority), as a request row
+shows only `Request.actions`.
+
+| State (icon + words) | Domain state · actions | Group | Reason line | Route | Actions |
+|---|---|---|---|---|---|
+| Waiting to be deleted (trash title) | `DeletionState.WAITING` · `UNDO` | Waiting on this phone | clock + the first reason that applies of "Which reason a waiting row shows" above (spec D-61): a queue pause or "A different computer answered", "Your computer is using a different library: this waits until it uses this clip's library again." (`DeletionWait.DIFFERENT_LIBRARY`), "Not on Wi-Fi" / "Your computer isn't reachable", "Will try again in {n} min" / "Couldn't send yet: will try again" | dotted, the phone node ink-filled with a trash badge | Undo (secondary, `ic_undo`) |
+| Waiting, may have reached the computer (spec D-65) | `DeletionState.WAITING` whose `actions` lack `UNDO` (an attempt with an unknown outcome, `maybe_sent`, architecture 8.8) · none | Waiting on this phone | the reason line as above, then a second line, drawn like the large-file line (bodyMedium ink2, `ic_info` 16 dp): "It may have reached your computer already, so it can't be undone." | as above: the phone still holds it and sends it again | none; no button drawn disabled |
+| Deleting (trash title) | `DeletionState.SENDING` · none | Sending | send + "Deleting from your computer…" (imported: "Removing from your computer's list…", D-58) | solid, nib travelling (8) | none |
+| Couldn't delete | `DeletionState.REFUSED` (`ComputerDeletion.error`) · `TRY_AGAIN`, `KEEP_CLIP` | Needs your attention, **alert card** (4 dp ink bar) | the title is circle-alert in `critical` + "Couldn't delete “{title}” from your computer." (imported: "Couldn't remove “{title}” from your computer's list.", D-58); the body is the refusal sentence of spec D-62 for the computer's answer (9.26 lists the three), never the computer's raw text | none | Try again (primary, rotate-ccw), Keep the clip (secondary, `ic_undo`) |
+
+A queue-wide pause (Connect again, Update needed, A different computer answered) is the header notice above, as for
+every row, and a waiting deletion then shows that pause's words as its reason (order 1 of the list above). An answer
+that the deletion was made for a different computer is not a refusal: the row stays in "Waiting on this phone" with
+"A different computer answered" and "Undo" (spec D-62), unless an earlier attempt may have reached the computer (D-65).
+A deletion that succeeded leaves no row.
 
 Group heads: kicker + italic count + rule, with the group's icon ("Needs your attention" uses circle-alert in
 `critical`). Stage changes are announced politely ("Now: Transcribe the words."), never percent ticks.
@@ -1102,12 +1229,33 @@ primary.
 
 - **Dialog**: sheet, 28 dp radius, float shadow / ring, title headlineLarge (Newsreader 24), body bodyLarge, buttons
   right-aligned (quiet / primary); destructive ones are not dismissible by an outside tap and focus "Cancel" first
-  ("Stop analyzing “{title}” on your computer?", "Forget this computer…" with the spec's sentence, "Forget your
-  practice history?", "Remove all videos", the mass-deletion question "Your computer no longer lists 9 of 10 clips.
+  ("Stop analyzing “{title}” on your computer?", "Forget this computer?" (spec D-60: F-22's body, buttons "Cancel"
+  (quiet; initial focus) and "Forget this computer" (primary, as render `31` specimen 4 draws it: it does not reach
+  every device, CR-01 rule (1) below),
+  "Forget your practice history?", "Remove all videos", the mass-deletion question "Your computer no longer lists 9 of 10 clips.
   Remove them from this phone?" (`ClipRepository.pendingMassDeletion`, spec 7.9) and, in the share sheet during a
-  copy, "Stop adding this video?"). The notification question (spec F-23) is a non-destructive dialog: "Get a
-  notification when your clip is ready?", buttons "Not now" (quiet) and "Notify me" (primary, then the system
-  prompt); it is dismissible and dismissing it counts as "Not now".
+  copy, "Stop adding this video?"; "Remove “{title}” from this phone?" with the copy of spec F-05 item 5, buttons
+  "Cancel" (quiet) and "Remove from this phone" (primary), used by the Clip page, the Library menu and Storage). The
+  notification question (spec F-23) is a non-destructive dialog: "Get a notification when your clip is ready?",
+  buttons "Not now" (quiet) and "Notify me" (primary, then the system prompt); it is dismissible and dismissing it
+  counts as "Not now".
+- **CR-01 dialogs** (v1-complete; renders `30`, `31`; anatomy in 9.26): "Delete “{title}” from your computer?", its
+  imported variant "Remove “{title}” from your computer's list?" (opened by "Remove from your computer's list…", spec
+  D-58), and "Forget your practice history everywhere?" are
+  destructive dialogs as above, with three additions. (1) **Danger confirm**: an action that reaches every device is
+  the danger button (sheet, 1.5 dp `critical` ring, ink label, trash), never the ink-filled primary, so the most
+  inviting button on screen is never the one that cannot be undone everywhere; local or recoverable confirmations keep
+  the primary. (2) **Stacked buttons**: when the two buttons do not fit on one line (the computer-wide ones never do
+  at 412 dp), they stack full width, the confirming one on top and "Cancel" under it, nearest the thumb; "Cancel" still
+  takes the initial focus. (3) **Consequence lines**: each conditional sentence the spec adds ("Your {N} saved items
+  from this clip go too.", "Your computer isn't reachable now: …", and the two new sentences of "Forget this
+  computer…") is its own line under the body, a hairline above, a 18 dp ink icon and bodyMedium ink2, shown only when
+  it applies, read after the body. (4) **Quoted titles**: a clip title inside a dialog title is the quoted title of
+  9.26 (cleaned, one line, at most 60 characters, isolated), and no place word, consequence or button label is ever
+  built from the title. In v1-complete, "Remove “{title}” from this phone?" gains its two-node reach strip
+  (9.26) at the same time as the computer one appears, and the phone-only "Forget your practice history?" gains a
+  smartphone place mark, so each pair reads apart at a glance. These pieces (the strip, the mark, the danger confirm,
+  the stacked buttons and the consequence line) live in `:core:ui` `ui/place/`, owned by WP-34 (architecture 19).
 - **Snackbar**: inverse surface (ink / bone), 12 dp radius, 56 dp, text + one underlined action ("Undo"), above the
   bottom bar; polite announcement; no timer shorter than 10 s; with TalkBack it waits.
 - **Banner**: a full-width caution card under the top bar for persistent conditions (credential revoked, the clip was
@@ -1118,7 +1266,12 @@ primary.
   computer was removed from this phone." (in the feed, 9.8's wording); `LIBRARY_CHANGED` "Your computer is using a
   different library. Clips from the other one stay on this phone until you remove them."; `TOO_LATE_TO_CANCEL` "Too
   late to cancel: “{title}” is ready. Remove it from this phone if you don't want it."; `CANCEL_UNDONE` "Cancel
-  undone: “{title}” won't be cancelled." (D-47; the title is the message's argument).
+  undone: “{title}” won't be cancelled." (D-47; the title is the message's argument). v1-complete adds three, with no
+  action (nothing can be undone once the computer deleted it): `CLIP_DELETED_FROM_COMPUTER` "“{title}” was deleted
+  from your computer.", `CLIP_REMOVED_FROM_COMPUTER_LIST` "“{title}” was removed from your computer's list."
+  (imported) and `DELETION_UNDONE` "Deletion undone: “{title}” stays on your computer." (architecture 3.4; WP-26 adds
+  them to the shell's host in CR-01-A2, work-plan 4.7; render `34`). Their argument is the quoted title of 9.26, so the
+  place words that end each message are never pushed out or reordered by the title.
 - **Coach mark**: an inverse slip (ink fill, onInk text, 12 dp radius, a 14 dp pointer toward its anchor), icon +
   bold tip + one sentence + "Got it" (underlined, 48 dp); one at a time, never pausing, never on a timer; TalkBack
   announces it as a dialog with "Got it".
@@ -1157,6 +1310,178 @@ primary.
   Off" (spec F-22: follows Colors / on / off); the sub-page rows (Your computer, Storage, Notifications, Help, About
   and licences) as 56 dp rows with a 40 dp icon well, an optional status line and a chevron.
 
+### 9.26 The two removals: "On this phone" and "On your computer" (spec F-05 items 5-6, F-20, 7.9; renders `28`-`32`, `34`)
+
+The spec asks that removing a clip from this phone and deleting it from your computer are never confused (F-05 user
+story, D-54). The design answers with **places**: each removal sits in a block headed by its place, says its reach in
+words, and its confirmation draws where the clip goes. Everything here is v1-complete except the "On this phone"
+block, which is v1-core and only made explicit (existing components, no new behaviour).
+
+**Place blocks.** At the end of the Clip page's Summary tab (10.2 P-02), two sheet cards 20 dp apart, "On this phone"
+first. Each opens with a place head (`PlaceHead` in `ui/place/`): the group head of 9.1 (labelSmall caps, 1 dp `lineStrong` rule) led by the
+place's 18 dp icon, smartphone or monitor; the head is a TalkBack heading.
+
+- **On this phone** (v1-core): size rows (label left, size right, bold, tabular: "Clip data and audio · 2.1 MB",
+  "Video · 17 MB"); "Keep on this phone" as a switch row (the Library menu's "Keep on this phone" / "Stop keeping" pair as one switch); then full-width
+  secondary buttons, left-aligned: "Download the video" (download) or "Remove the video" (film), and "Remove from this
+  phone…" (trash). Secondary, not danger: the clip can be downloaded again.
+- **On your computer** (v1-complete; absent in v1-core, if the feature is cut, and when the spec offers nothing).
+  It reads `RequestRepository.deletionOffer(id)` (architecture 3.4 and 8.8). `DeletionOffer.Available(imported,
+  savedItems, connected)` gives the available state and chooses the dialog's variant and consequence lines.
+  `InProgress(deletion)` gives the sending, waiting and refused states by `deletion.state`. `NotOffered(reason)` gives
+  the not-offered sentence by `NotOfferedReason` (`FORGOTTEN_COMPUTER`, `OTHER_LIBRARY`, `COMPUTER_CANNOT`). Its words
+  come from `DeletionCopy`, and its actions are `deleteFromComputer(id)` and `performDeletion(id, DeletionAction.…)`.
+  An imported clip (`Available.imported`, `ComputerDeletion.imported`) uses the words of spec D-58 in every state; the
+  layout, icons and rings do not change, because the place and the reach are the same (only the list changes).
+
+| State (spec F-05 item 6) | Rendering |
+|---|---|
+| Available | the sentence "Deleting it here deletes it on your computer and on every device that uses it, including the browser." (bodyMedium ink2), then **"Delete from your computer…"**: the danger button (9.1: 1.5 dp `critical` ring, ink label, trash), full width, alone in its block. Imported (spec D-58): the sentence "Removing it here takes it off your computer's list and off every device that uses it, including the browser. The imported folder stays on your computer." and the button **"Remove from your computer's list…"**, same danger anatomy (it still reaches every device) |
+| Sending ("Deleting from your computer…"; imported "Removing from your computer's list…") | status line: trash + the words (titleLarge 800, as a request card's state line); the mini route, solid, the nib travelling (8); no action |
+| Waiting (not connected, or not sent yet) | status line: trash + "Waiting to be deleted from your computer" (imported: "Waiting to be removed from your computer's list"); reason line: clock + the first reason that applies of 9.19's "Which reason a waiting row shows" (spec D-61), including "A different computer answered" when the computer said the deletion was made for another one (D-62, not a refusal); the mini route, dotted, the deletion parked on the phone; **Undo** (secondary, `ic_undo`). The rest of the page keeps working (Watch, tabs) |
+| Waiting, another library | as above, reason "Your computer is using a different library: this waits until it uses this clip's library again." |
+| Waiting, may have reached the computer (spec D-65) | as Waiting, with no "Undo" (`ComputerDeletion.actions` lacks `UNDO`, architecture 8.8) and no button drawn disabled; under the reason line a second line, drawn like 9.19's large-file line (bodyMedium ink2, `ic_info` 16 dp): "It may have reached your computer already, so it can't be undone." The mini route stays as in Waiting: the phone still holds the deletion and sends it again with the same key |
+| Refused | the card's alert variant (4 dp ink bar at the start); status line: circle-alert in `critical` + "Couldn't delete “{title}” from your computer." (imported: "Couldn't remove “{title}” from your computer's list."); the reason sentence (bodyMedium ink2) of spec D-62, chosen by the computer's answer, never its raw text: `not_finished` "Your computer says this analysis isn't finished, so it can't be deleted from here."; a computer that no longer offers the deletion (the route is unknown to it) "To delete this clip everywhere, delete it on your computer, or update PhonoTrainer there to do it from this phone."; any other refusal code "Your computer answered that it can't delete this clip right now."; **Try again** (primary, rotate-ccw) and **Keep the clip** (secondary, `ic_undo`). The header shows no pill for it (D-59) |
+| Done | the page closes back to where the learner came from; the one-shot message of 9.23 |
+| Not offered | one sentence of spec F-05 item 6 (forgotten computer, another library, a computer that cannot delete for phones) with a 18 dp info icon, ink2; no action, no button drawn disabled |
+
+**Mini route** (`DeletionRoute` in `ui/place/`, a visual with plain inputs; decorative, cleared from semantics). Two 44 dp nodes,
+"This phone" and "Your computer" (14 sp labels, the node where the deletion is in bold), joined by a trace in 9.7's
+grammar: a dotted pencil hairline while it waits on this phone, a solid ribbon with the nib once sent. While it waits,
+the phone node is ink-filled and carries a 20 dp trash badge (ink disc, onInk glyph; inverted on the ink node); once
+sent, the badge moves to the computer node. It is the request route of 9.19 cut to two places, because a deletion
+brings nothing back. The route shows where the phone holds the deletion, not what the computer did: after an attempt
+with an unknown outcome (D-65) it is drawn as waiting, because the phone still holds it and will send it again, and
+the D-65 line says in words that it may have arrived. Drawing a half-travelled route instead would claim something
+nobody knows.
+
+**Reach strip** (`ReachStrip` in `ui/place/`; dialogs only; decorative, cleared from semantics; the body says the same in words). It
+sits above the title, in the slot Material gives a dialog icon, left-aligned with the title.
+- *Delete from your computer*: four evenly spaced 44 dp nodes with 14 sp labels, "Your computer" (bold, 2 dp `critical`
+  ring: where the deletion happens), "This phone" (ink-filled: here), "Other phones", "Browser" (`ic_browser`), each
+  with a trash badge, joined by a 1.5 dp ink2 wire through their centres. The imported variant labels the first node
+  "Your computer's list".
+- *Remove from this phone*: two nodes, "This phone" (ink-filled, trash badge) and "Your computer" (outline ring, check
+  badge: it stays), joined by a **dotted** wire: nothing travels to the computer.
+- At a font scale above 1.3 only the first node is kept, as a place mark: four labelled columns no longer fit, and the
+  body carries the meaning.
+- **Place mark**, for a dialog without a strip: one 44 dp node; "Forget your practice history everywhere?" uses
+  monitor-smartphone (`ic_pairing`) with the 2 dp `critical` ring, the phone-only "Forget your practice history?"
+  smartphone with the `outline` ring.
+
+**The confirmations** (9.23 rules; copy exactly spec F-05 items 5-6 and F-17 item 6):
+
+| Dialog | Strip or mark | Consequence lines | Buttons |
+|---|---|---|---|
+| "Delete “{title}” from your computer?" | four nodes | bookmark + "Your {N} saved items from this clip go too." (N > 0); clock + "Your computer isn't reachable now: the clip is deleted there the next time this phone connects, and you can undo it until then." (not connected) | stacked: danger "Delete from your computer", then "Cancel" (secondary; initial focus) |
+| "Remove “{title}” from your computer's list?" (imported) | four nodes, "Your computer's list" | as above | stacked: danger "Remove from your computer's list", then "Cancel" |
+| "Remove “{title}” from this phone?" | two nodes, dotted (v1-complete; v1-core shows none) | — | one line: "Cancel" (quiet; initial focus), "Remove from this phone" (primary) |
+| "Forget your practice history everywhere?" | mark: monitor-smartphone, critical ring | — | one line: "Cancel" (quiet), "Forget it" (danger) |
+| "Forget your practice history?" (nothing shared) | mark: smartphone (v1-complete) | — | one line: "Cancel" (quiet), "Forget it" (primary) |
+
+What tells the two removals apart, so no single cue carries it (A-01): the block and its place head; the sentence; the
+button (secondary with the phone's words, danger ring with the computer's); in the dialog, the strip (two places and a
+dotted wire against four places and a solid wire from a critical-ringed computer), the title's place words, the verb
+("Remove" / "Delete"), the confirm button (ink fill against danger ring) and the layout (one line against stacked).
+An imported clip's removal shares the verb "Remove" with the phone's (spec D-58), so for it the verb is no cue; every
+other cue above still differs ("from your computer's list" against "from this phone", four places against two, danger
+against primary, stacked against one line), which is why no single cue is ever relied on. Render `31` sets them side
+by side.
+
+**Quoted titles** (v1-complete; finding 14 of the CR-01 security review). A clip title is untrusted text. The person who uploaded a video
+chooses a link's title, and the computer's `clean_title` removes only the media extension and a trailing id
+(server-contract 6.3). A crafted title could otherwise reorder the place words of "Delete “{title}” from your
+computer?" or push them away, for example with a right-to-left override, so that the destructive question reads like a
+phone-only removal. So every `{title}` in the CR-01 copy is the **quoted title**, made in three steps in this order:
+1. **Cleaned.** The same Unicode categories as device names (server-contract 2.3) are taken out. Format characters
+   (`Cf`: bidirectional overrides, embeddings and isolates, zero-width characters) are removed. Control characters and
+   line and paragraph separators (`Cc`, `Zl`, `Zp`) become a space, so two words never run together. Runs of white
+   space become one space, and the result is trimmed.
+2. **One line, at most 60 characters.** After step 1 no line break is left. The title is counted in user-perceived
+   characters (grapheme clusters, `android.icu.text.BreakIterator.getCharacterInstance()`), so an emoji or an accented
+   letter is never split. A longer title keeps its first 59, trimmed, and ends with "…" (U+2026). Why 60: this was
+   measured with the bundled Newsreader at headlineLarge in the dialog's 320 dp content width. An ordinary 60-character
+   title makes "Delete “{title}” from your computer?" three lines at font scale 1.0 (four for the imported title) and
+   eight or nine at 2.0. Even 60 of the widest letters take ten lines at 2.0, about 580 dp. So the place words always
+   end on the dialog's first screen, above the body and the fixed buttons. The full title stays where it stands alone:
+   the Clip page header and the Library row.
+3. **Isolated.** The title is wrapped with `BidiFormatter.unicodeWrap` (`androidx.core.text`, left-to-right context,
+   because the app is English only). A right-to-left title keeps its own order inside the quotes and never reorders
+   the quotes or the words around them. This step runs last, so step 1 never removes the marks it adds and step 2
+   never counts them.
+
+It applies to the dialog titles "Delete “{title}” from your computer?" and "Remove “{title}” from your computer's
+list?", and in v1-complete to "Remove “{title}” from this phone?". It also applies to "Couldn't delete “{title}” from
+your computer." and its imported form "Couldn't remove “{title}” from your computer's list." (the Clip page block and
+the Requests title), to the Requests title lines "Delete “{title}” from your computer" and "Remove “{title}” from your
+computer's list", and to the three one-shot messages (9.23). TalkBack reads the same text, the dialog's pane title included;
+the bidi marks are not spoken. Nothing else changes. The strip, the body, the consequence lines and the buttons
+already say the place without the title, no place word or consequence is ever built from it, and no copy is added.
+One function makes the quoted title. `DeletionCopy` (WP-34) and the shell's message host (WP-26) both call it; the
+architecture names it and decides its module (architecture 19). Tests:
+- A unit test of the three steps:
+  - `"Coffee shop small talk \u202Eylno enohp siht morf with the barista at the morning rush"` (an override that is
+    never closed, and too long) gives `Coffee shop small talk ylno enohp siht morf with the barist…`;
+  - `"Coffee shop\u2028small talk\nwith the barista"` gives `Coffee shop small talk with the barista`;
+  - `"\u05D0\u05D1\u05D2 123"` (right-to-left letters, then digits) keeps its text inside the wrapper that `unicodeWrap`
+    adds for a right-to-left string.
+- A screenshot test of the "Delete from your computer" dialog with the first title, light and dark, at font scale
+  1.0 and 2.0. Its reference is render `31`, specimen 5: no U+202E is left, and "from your computer?" follows the
+  closing quote in reading order.
+
+**TalkBack**: place heads are headings; "Delete from your computer…" reads its words ("…" is not spoken; the dialog
+that follows is announced by its pane title); the status line is a polite live region that announces only transitions
+("Waiting to be deleted from your computer", "Deleting from your computer", "Couldn't delete …"; for an imported clip
+D-58's words), never the route; D-65's line is read after the reason line and is part of the announcement when a
+deletion returns to waiting without "Undo"; if "Undo" had the accessibility focus when it goes, the focus moves to the
+status line, never to the top of the page; "Undo" has the accessible name "Undo the deletion from your computer"
+(imported: "Undo the removal from your computer's list"; it starts with the visible word); the dialogs are alert
+dialogs whose title is the pane title, the strip and the mark are not read, the body and then each consequence
+line are, and the initial focus is "Cancel". Library rows and shelf cards read the deletion line inside their one
+sentence ("Coffee shop small talk, 4 min 21 s, on this phone, waiting to be deleted from your computer").
+
+**Contrast** (section 3 values): `critical` ring on sheet 5.42 / 6.16; dashed `outline` ring on galley 3.70 / 3.93
+(the words carry the state; the ring is the second cue); ink2 wire on sheet 9.72 / 10.73; badge glyph onInk on ink
+17.11 / 16.56, badge disc ink on sheet 17.11 / 15.11; labels ink2 on sheet 9.72 / 10.73. Nothing new enters
+`palette.json`, so the gates are unchanged (499 checks pass).
+
+**Large text** (A-06): the status lines, reasons, labels and the header pill wrap and are never cut; the mini route
+keeps its nodes and lets its labels wrap; dialog content scrolls under fixed buttons; the strip collapses as above.
+
+### 9.27 The shared-progress line (spec F-17 item 6, F-09 item 5, 7.13; renders `33`, `34`)
+
+`SyncLine` (the `StatusLine` of 9.17 at bodySmall: a 16 dp ink icon and 14 sp ink2 words, wrapping) sits under the
+heading "Your accuracy so far" in Practice and under the lede of Saved (P-11). Exactly one variant shows. It reads
+`SharingState` from `PracticeRepository.sharing()` in Practice and `SavedRepository.sharing()` in Saved (architecture
+3.4 and 7.8). `SyncLine` lives in `ui/place/`, and the Practice and Saved screens are WP-34's (`:feature:practice`):
+
+| Variant | Domain state | Icon | Words (spec) |
+|---|---|---|---|
+| Nothing shared (not paired, forgotten, or a computer without the capability) | `SharingState.NotShared` | smartphone | "Kept only on this phone." |
+| Shared | `SharingState.Shared(lastSyncedAt)` | monitor-smartphone (`ic_pairing`: this phone and your computer) | "Shared through your computer · last synced {time}" ({time} relative, the same formatter as the Library's "Last synced") |
+| A reset waiting on this phone | `SharingState.ResetWaiting` | clock | "Reset on this phone. It reaches your computer the next time this phone connects." |
+
+In v1-core the line stays the short "Kept only on this phone" beside the heading (render `14`). In v1-complete it moves
+under the heading, because the shared variant does not fit beside it, and the heading's end holds "Reset" (quiet
+button), which opens the matching reset dialog of 9.26. While a reset waits, the accuracy rows look as they do after a
+phone-only reset. Every place that shows accuracy (the progress rows, "Worth reviewing", the Home practice card) shows
+the shared totals with no extra mark: the line under the heading is the one place that says where the numbers come
+from. Nothing about shared progress appears on Home's status card, in Requests or in a notification (spec 7.13).
+TalkBack reads the line as text after the heading ("min" is spoken as "minutes"); it is not a live region.
+
+### 9.28 Version 2 notes (spec 14.6; not v1, nothing drawn or exported now)
+
+Recorded so version 2 starts from the system, not from scratch; none of it is v1 work and no mockup is made until it is
+scheduled.
+- **Connection details** (P-07) gains one fact row, icon + words: Lucide `lock` + "Encrypted connection" (a future
+  `ic_conn_encrypted`), or, with a version-1 computer, Lucide `lock-open` + "Not encrypted: update PhonoTrainer on your
+  computer to encrypt this connection." (a future `ic_conn_not_encrypted`). Ink only, never red, no badge on Home: the
+  spec asks for "visible, but quiet" (item 7).
+- **Identity changed** (item 4): the status card uses the "A different computer answered" look (monitor-x,
+  `ic_conn_different`), because the spec treats it as that state; Connection details shows the spec's sentence in a
+  caution notice with "Connect again" (primary). No new colour, no new illustration.
+- Pairing screens (P-06) are unchanged: the spec allows no new step.
+
 ---------------------------------------------------------------------------------------------------------------
 
 ## 10. Screens: layout notes per destination
@@ -1172,7 +1497,7 @@ are vertical only; nothing scrolls sideways except the Home clip shelf (which al
 | T1 | **Home** | Masthead + double rule + dateline + lede; the ten blocks of 9.16 in spec order, 20 dp apart; pull to refresh | `01-home`, `02-home-full`, `03-home-first-run` |
 | T2 | **Watch** | Vertical pager of short cards (9.8), one card per screen height minus the bottom bar; question cards and end cards are pages of the same pager. Landscape (rotation): the media takes the left 56 %, slip/captions/rail the right column; state is kept | `04`, `05`, `06`, `07`, `08`, `27` |
 | T3 | **Learn** | Title "Learn" + double rule + lede (web); "How to study a change" card (three numbered steps); three entry tiles (IPA chart, Words we use, Insights); one section per family (icon + name in its line style + "dashed line · scissors: the stop is clipped") with change cards; "Whole-word changes" last | `12-learn` |
-| T4 | **Practice** | Title "Practice" + the ear spot + double rule + lede (web); the start card (stacked): the three kinds with icons and one-line explanations, the focus chip "Only: flapping ✕" + "Practice everything instead", the "Focus on my weak spots" switch, "Start practicing"; "Your accuracy so far" with "Kept only on this phone" and per-change rows (icon + name, "4 of 9 · 44 %", a 10 dp ink2 meter), weakest first, "Reset"; tiles "Saved 12" and "Changes you have met 11 of 16" | `14-practice` |
+| T4 | **Practice** | Title "Practice" + the ear spot + double rule + lede (web); the start card (stacked): the three kinds with icons and one-line explanations, the focus chip "Only: flapping ✕" + "Practice everything instead", the "Focus on my weak spots" switch, "Start practicing"; "Your accuracy so far" with "Kept only on this phone" and per-change rows (icon + name, "4 of 9 · 44 %", a 10 dp ink2 meter), weakest first, "Reset"; tiles "Saved 12" and "Changes you have met 11 of 16". v1-complete: the shared-progress line under the heading and "Reset" at its end (9.27) | `14-practice`; v1-complete `33-practice-shared` |
 
 Practice session (inside T4): the quiz card of 9.14 full screen with "Question 3 of 10" and a 10-bead row; results:
 "7 of 10 right" (displayLarge), "Worth reviewing" change chips, "Practice again", "Practice my weak spots". Empty:
@@ -1183,17 +1508,17 @@ Practice session (inside T4): the quiz card of 9.14 full screen with "Question 3
 | Id | Destination | Layout | Mockup |
 |---|---|---|---|
 | P-01 | **Library** | Top bar "All clips" + Add; lede; "IN PROGRESS 3" group (request mini-rows with inline primary action) + "2 more started on your computer"; search field ("Search your clips…"); filter chips "On this phone" / "Not on this phone"; a row "8 of 10 clips" (live count, announced) + sort menu "Newest first ▾"; clip rows (9.18). Offline banner: "Showing what this phone knows. Last synced {time}." | `15-library` |
-| P-02 | **Clip page** | Hero poster (200 dp, back button on an overlay plate) or the drum for audio clips; title (headlineLarge), meta, availability badges, "Watch · short 4" (primary) + "From the start"; tabs Shorts / Transcript / Summary (selected = bold + 3 dp ink bar); Shorts: numbered rows (italic numeral, spotlight chip + word in its mark, time range · marked words, "✓ Seen" / "Next"); Transcript: phrases with play buttons and marked words, filter chips, mini player; Summary: "Changes in this clip" rows, "How reduced is this speech?" meters, "About this clip"; "On this phone" block with sizes and actions | `16-clip-page` |
-| P-03 | **Requests** | Top bar; lede; the connection line; groups in the spec order, each with a kicker head (icon + name + italic count + rule) and request cards (9.19); empty: `ill_requests_empty` + "Nothing in progress. …" + "Add a clip" | `17-requests` |
+| P-02 | **Clip page** | Hero poster (200 dp, back button on an overlay plate) or the drum for audio clips; title (headlineLarge), meta, availability badges, "Watch · short 4" (primary) + "From the start"; tabs Shorts / Transcript / Summary (selected = bold + 3 dp ink bar); Shorts: numbered rows (italic numeral, spotlight chip + word in its mark, time range · marked words, "✓ Seen" / "Next"); Transcript: phrases with play buttons and marked words, filter chips, mini player; Summary: "Changes in this clip" rows, "How reduced is this speech?" meters, "About this clip"; "On this phone" block with sizes and actions, then (v1-complete) the "On your computer" block (9.26); a deletion from your computer adds its pill to the header (9.18) | `16-clip-page`; v1-complete `28-clip-computer`, `29-clip-delete-waiting`, `30-delete-dialog` |
+| P-03 | **Requests** | Top bar; lede; the connection line; groups in the spec order, each with a kicker head (icon + name + italic count + rule) and request cards (9.19); empty: `ill_requests_empty` + "Nothing in progress. …" + "Add a clip". v1-complete: deletion rows in Needs your attention, Waiting on this phone and Sending (9.19) | `17-requests`; v1-complete `32-requests-deletions` |
 | P-04 | **Request detail** | Top bar "Request" + menu; lede; source card with the milestone timeline (dots on a 2 dp ink spine: done = ink disc + check, current = ring + loader, next = outline with the place icon, each with its time); "What your computer is doing" (headlineMedium) + estimate; the six stage rows with status words and teaching lines; "Show the log", "Cancel"; for failures the alert card on top with "Show details" | `18-request-detail` |
 | P-05 | **Add a clip** | Top bar; lede (web); "Paste a link" field with "Paste" (clipboard read only on tap) and the recognised site label ("YouTube", "YouTube Shorts", "X", "Other website: downloads may not work."); "Choose a file" (picker; then a list of chosen files with name, duration, size); options (Audio only, Separate the dialogue) as switch rows with their sentences; the legal line; the bridge and the connection line of 9.22; primary "Analyze" / "Add to queue" | (share sheet `19`, `20`) |
 | P-06 | **Connect to your computer** | Top bar; lede (spec); the three-step instruction card for the computer side (numbered; the command shown in a galley code well, Atkinson 15 sp, selectable, with "Copy"); "Looking for your computer…" (radar) then found computers as radio rows (name, "PhonoTrainer {version}", status word; exactly one found is preselected); **conflict** (`SearchState.Found.conflict`: two answers share a name, or one server id answers from two addresses; spec D-39, F-02-AC10): every answer is its own row, none is preselected, and a caution notice sits above the list (triangle-alert + "Two computers answered with the same name. If you aren't sure which one is yours, enter the address shown on your computer instead." + "Enter the address instead" as a secondary button inside the notice); "Enter the address instead" (field "Computer address and port", placeholder "As shown on your computer", "Check"); code entry: six 48 dp digit cells (ink ring on focus, numeric keypad), optional phone-name field, "Connect"; success: "Connected to {name}" + the sentence. Empty: `ill_no_computer` + "No computer answered." + the numbered checklist (first item "Is PhonoTrainer running with phone access on? If your computer joined a new network, run phonotrainer phone on there.", D-42; `phonotrainer phone on` set in the code style of the instruction card) + "Search again" + "Enter the address instead". Offline: wifi-off notice + "Open Wi-Fi settings". Errors under the code cells as critical-icon lines (wrong code, expired, too many tries; focus stays in the cells); a typed address without phone access or a too-old computer (`CheckResult.PhoneAccessOff` / `TooOld`) reads as a caution line under the field ("That address answered, but phone access isn't on there for this network. On your computer, run phonotrainer phone on, then try again." / "Needs a newer PhonoTrainer on your computer"), the too-old row is not selectable. Modes (`ConnectKey.mode`): `FIRST_RUN` adds "Not now" (quiet) with "You can connect later from Home."; `FROM_HOME` as described; `CONNECT_AGAIN` offers only the paired computer, any other found computer is a muted row "This phone is connected to {name}. Forget it first in Settings to connect to another computer."; `NEW_ADDRESS` opens on the address field and accepts only the paired computer | `21-connect-none` |
-| P-07 | **Connection details** | Top bar; the status card (9.17); the "Why?" checklist (numbered, not checkboxes; the phone-access item as in P-06); last probe result in words, from `ProbeOutcomeCopy` (WP-15, next to `ConnectionStatusCard`) ("No answer after 3 s"; for `ProbeOutcome.PhoneAccessOff`, phone access off or not approved, "Your computer answered, but phone access is off there or not approved for this network.", D-42); facts as label/value rows: the computer's address, "This phone on this Wi-Fi: {address}" (D-39, F-22-AC4; `ConnectionDiagnostics.phoneAddress`, tabular, selectable), short server id, API version, pending counts, background restriction, decoder capability ("AV1 up to …"); "Copy diagnostics" (its text carries no address and no id); `ill_no_computer` at the top when not reachable | — |
+| P-07 | **Connection details** | Top bar; the status card (9.17); the "Why?" checklist (numbered, not checkboxes; the phone-access item as in P-06); last probe result in words, from `ProbeOutcomeCopy` (WP-15, next to `ConnectionStatusCard`) ("No answer after 3 s"; for `ProbeOutcome.PhoneAccessOff`, phone access off or not approved, "Your computer answered, but phone access is off there or not approved for this network.", D-42); facts as label/value rows: the computer's address, "This phone on this Wi-Fi: {address}" (D-39, F-22-AC4; `ConnectionDiagnostics.phoneAddress`, tabular, selectable), short server id, API version, pending counts, background restriction, decoder capability ("AV1 up to …"); "Copy diagnostics" (its text carries no address and no id); `ill_no_computer` at the top when not reachable. Version 2 only: the encryption row and the identity-changed notice (9.28) | — |
 | P-08 | **Phenomenon page** | Top bar with the change name in its line style + "What's this?"; chips; description; "How to hear it"; the Spanish-speaker tip (where the content has one); caveat; "Can you copy it?"; "The mouth" demo; "Watch examples" + "Practice this"; the occurrence line "12 times in your clips" (9.25, D-48); "Examples from your clips" (up to 8). Empty examples: `ill_no_examples` + web copy + "Add a clip" | `13-phenomenon` |
 | P-09 | **IPA chart + symbol sheet** | Top bar; lede; sections (Consonants by manner, "Sounds that replace t and d", Syllabic consonants, Vowels, Diphthongs, Vowels with r) as wrapping grids of 56 dp symbol buttons; nothing selected: "Choose a symbol — Each symbol is one sound. Start with [ɾ], [t̚] or [ə]"; the symbol sheet: symbol (Charis 40), name, the mouth with "Play the movement", glossary text, "As in …", the change it signals, "In your clips" (up to 6 playable rows) | — |
 | P-10 | **Insights** (v1-complete) | Top bar; overview line ("10 clips on this phone · 4,321 words · 42 min of speech"); metric meters (9.25) each with "What's this?" and "Show as a table"; "What this means for your listening" takeaways; "Changes across your clips" rows (icon + name + count + a family-hatched bar on sheet; tap → change mode). Empty: "Your clips are counted here — …" | — |
-| P-11 | **Saved** | Top bar; lede; "Watch saved" (primary); rows: word (in its mark), change chip, clip, "Play", "Last watched {time}", unsave (bookmark-check toggle). Empty: `ill_saved_empty` + "Nothing saved yet" + the spec sentence + "Go to Watch" | `24-saved-empty` |
-| P-12 | **Settings** and sub-pages | Groups (Display, Playback and captions, Learning, Your computer, Storage, Notifications, Help, About and licences) as rows with icons. Display, Playback and captions and Learning are groups on the Settings page itself; the sub-pages are exactly the navigation keys (architecture 16.1): Your computer (`YourComputerKey`: the status card 9.17, actions, "Forget this computer…" danger), Storage (`StorageKey`, 9.20), Notifications (`NotificationSettingsKey`: "Notifications are off for PhonoTrainer" + "Open settings" when denied), Help (`HelpKey`: "Restart the tour", "What do the marks mean?" opening the same legend sheet as the short's More sheet, "How PhonoTrainer works"), About (`AboutKey`: version, licence line, the source location, the privacy statement) and its "Open-source licences" list (`LicencesKey`: every component, font and the Lucide icons with their licence texts, readable offline). The page (`SettingsKey`): top bar "Settings" + back, the lede "All settings apply at once and are remembered on this phone.", the three groups (kicker with icon and rule: Display palette, Playback and captions captions, Learning graduation-cap), then the five sub-page rows (9.25). Display: Appearance segmented with icons, Colors radio cards with previews, "Show patterns as well as colors" three-way segmented "Follow Colors / On / Off", Motion segmented, the text-size note | `22-settings-display` (the Settings page as it opens: top bar, lede, the Display group), `22-settings-full` (the whole page) |
+| P-11 | **Saved** | Top bar; lede; v1-complete: the shared-progress line under the lede (9.27); "Watch saved" (primary); rows: word (in its mark), change chip, clip, "Play", "Last watched {time}", unsave (bookmark-check toggle); an item saved on another phone whose clip is not here reads "Download the clip to watch it." (spec F-09) as for any item whose clip is not on this phone. Empty: `ill_saved_empty` + "Nothing saved yet" + the spec sentence + "Go to Watch" | `24-saved-empty`; the v1-complete line in `34-deletion-states` |
+| P-12 | **Settings** and sub-pages | Groups (Display, Playback and captions, Learning, Your computer, Storage, Notifications, Help, About and licences) as rows with icons. Display, Playback and captions and Learning are groups on the Settings page itself; the sub-pages are exactly the navigation keys (architecture 16.1): Your computer (`YourComputerKey`: the status card 9.17, actions, "Forget this computer…" danger, whose dialog gains in v1-complete the two consequence lines of 9.23 when they apply, render `31`), Storage (`StorageKey`, 9.20), Notifications (`NotificationSettingsKey`: "Notifications are off for PhonoTrainer" + "Open settings" when denied), Help (`HelpKey`: "Restart the tour", "What do the marks mean?" opening the same legend sheet as the short's More sheet, "How PhonoTrainer works"), About (`AboutKey`: version, licence line, the source location, the privacy statement) and its "Open-source licences" list (`LicencesKey`: every component, font and the Lucide icons with their licence texts, readable offline). The page (`SettingsKey`): top bar "Settings" + back, the lede "All settings apply at once and are remembered on this phone.", the three groups (kicker with icon and rule: Display palette, Playback and captions captions, Learning graduation-cap), then the five sub-page rows (9.25). Display: Appearance segmented with icons, Colors radio cards with previews, "Show patterns as well as colors" three-way segmented "Follow Colors / On / Off", Motion segmented, the text-size note | `22-settings-display` (the Settings page as it opens: top bar, lede, the Display group), `22-settings-full` (the whole page) |
 | F-14 | **Words we use** (`GlossaryIndexKey`, from Learn's entry tile) | Top bar "Words we use"; lede "Plain-English explanations of the terms and measures PhonoTrainer uses. Each one also opens from the “?” next to it."; a search field "Search the words we use…" with the live count "{n} of {total} terms" under it (announced, as the Library's); two kicker groups "Terms" and "Measures", as 56 dp rows (term in titleMedium + the first sentence of its explanation in bodyMedium ink2 + chevron); a row opens the "What's this?" sheet (9.13); no match: "No term matches “{text}”." + "Clear the search" (quiet), no illustration (9.21) | — |
 | P-13 | **Welcome** | Wordmark + "Skip" (quiet); a stacked, crop-marked stage with the page's illustration and, on page 1, a sample slip ("Flapping · Safe to produce · “water” /ˈwɔtɚ/ → [ˈwɔɾɚ]"); kicker "1 of 3"; title (displayMedium); one sentence (18 sp ink2); page indicator (current = 28 dp ink capsule) + "Next" / "Get started" (primary lg) | `23-welcome` |
 
@@ -1209,7 +1534,7 @@ Practice session (inside T4): the quiz card of 9.14 full screen with "Question 3
 | Marks legend "What do the marks mean?" | 9.12; one `MarksLegend` (`:core:ui`, 12.2) opened from the More sheet and from Settings > Help | — |
 | Share confirmation | 9.22, over the sharing app | `19`, `20` |
 | Coach marks | 9.23 | `06` |
-| Confirmation dialogs | 9.23 | — |
+| Confirmation dialogs | 9.23; the CR-01 removals and resets 9.26 | `30-delete-dialog`, `31-removal-dialogs` |
 
 ---------------------------------------------------------------------------------------------------------------
 
@@ -1217,10 +1542,10 @@ Practice session (inside T4): the quiz card of 9.14 full screen with "Question 3
 
 | Id | How this design meets it |
 |---|---|
-| A-01 Never colour alone | Family = line style + icon + name (+ colour); status = icon + word; answers = icon + words + ring weight; selection = ink fill, ring or check; chart series = pattern/dash + direct label. Grayscale proofs: `04-watch-video-light-grayscale.png`, `05-watch-audio-offline-dark-grayscale.png`, `10-lesson-compare-light-grayscale.png` |
+| A-01 Never colour alone | Family = line style + icon + name (+ colour); status = icon + word; answers = icon + words + ring weight; selection = ink fill, ring or check; chart series = pattern/dash + direct label; the two removals (v1-complete) = place head + words + button style + reach strip, the critical ring only a third cue (9.26). Grayscale proofs: `04-watch-video-light-grayscale.png`, `05-watch-audio-offline-dark-grayscale.png`, `10-lesson-compare-light-grayscale.png` |
 | A-02 Hue reserved | Gate G8: every non-family token ≤ 0.05 chroma; illustrations and brand use ink, paper and kraft; anatomy uses the tract palette |
 | A-03 Targets | 48 dp minimum everywhere: caption words (hit areas into the line gap), "?" controls (20 dp glyph in a 48 dp box), IPA symbols (56 dp), sorts (80 × 140 dp), rail (64 × 60), chips in lists (48 dp tall), digit cells; quiz answers ≥ 56 dp |
-| A-04 TalkBack | Every control labelled (icon buttons require a label in the API); the short is one node with summary + custom actions; words read "word, changes, advice[, listen for]"; sheets have pane titles; headings marked (titles, section heads, kickers); illustrations, textures, the trace, the halftone and the tether are invisible to accessibility; polite announcements only for stage changes, answers, shadowing phases, recording hints, connection transitions |
+| A-04 TalkBack | Every control labelled (icon buttons require a label in the API); the short is one node with summary + custom actions; words read "word, changes, advice[, listen for]"; sheets have pane titles; headings marked (titles, section heads, kickers); illustrations, textures, the trace, the halftone and the tether are invisible to accessibility (so are the CR-01 reach strip, place marks and mini route, whose meaning is in the words beside them, 9.26); polite announcements only for stage changes, answers, shadowing phases, recording hints, connection transitions and deletion-state transitions |
 | A-05 IPA speakable | `IpaText` exposes symbol names ("[ɾ]: voiced alveolar tap") and a play action |
 | A-06 Font scaling to 200 % | All text in sp, no fixed heights on text containers, display sizes scale non-linearly, the rail becomes the action bar (9.6), captions follow the playhead line by line, top-bar titles wrap, tables reflow to stacked rows, the IPA chart wraps. Render `27-watch-large-text` |
 | A-07 Reduced motion | Section 8 column 3; content motion (trace, mouth) follows playback only; no infinite loops at any setting |
@@ -1272,6 +1597,7 @@ review of Home, Watch, Lesson and Requests.
 | `:feature:lesson` | Lesson frame and header (9.9), `ComparePanel` (forms, legend, type sorts, word headers, gap box) and `SoundCard` (9.10), steps 1, 3, 4, 5 (9.11) |
 | `:feature:home` | Masthead, Today's set with the stations thread, Keep watching, Add a clip slots, New on this phone, Watch by change, Practice card, Insights teaser (9.16) |
 | Other features | Learn (9.25, 10.1), Practice (10.1), Library and Clip page (10.2), Requests and Add a clip (9.19, 10.2), Connect (10.2), Settings and Storage (9.20, 9.25), Welcome (10.2), share (9.22) |
+| CR-01, v1-complete (owner WP-34, architecture 19; work-plan WP-34 and 3.2) | Visual pieces with plain inputs in the new `:core:ui` sub-package `ui/place/` (strings in `strings_place.xml`): `PlaceHead` (the 9.1 group head with a place icon), `ReachStrip` (computer, imported, phone; the single-node place mark), `DeletionRoute` (the mini route), `SyncLine` (`StatusLine` at bodySmall), and the danger confirm, the stacked buttons and the consequence line of the dialog of 9.1 / 9.23. `DeletionCopy` in `:core:ui` `component/` (`strings_deletion.xml`): every deletion word for the Requests rows and the Clip page block, with the quoted title of 9.26. Domain-aware: the "On your computer" block (`:feature:library`, on `deletionOffer`), the deletion line in `ClipRow` / `ClipCard` (on `ClipSummary.deletion`), `DeletionRow` in `:feature:requests` (on `deletions()` and `DeletionAction`; not a `RequestRow` kind), and the line and "Reset" in Practice and Saved (`:feature:practice`, on `SharingState`) (9.18, 9.19, 9.26, 9.27). Outside WP-34: the three one-shot messages in the shell's host, the two icons and the contract additions are WP-26's, in CR-01-A2 (work-plan 4.7) |
 
 Feature modules hold no colour, font or text size of their own: they compose these pieces with `PhonoTheme` tokens.
 
@@ -1286,6 +1612,7 @@ belong to WP-03 in `android/design-src/convert/`; the design tools of section 13
 | Fonts | `res/font/*.ttf` | `:core:designsystem` `res/font/` |
 | Font and icon licences | `assets/licenses/*.txt` | `:core:designsystem` `assets/licenses/` (merged into the APK; About reads them) |
 | Icons `ic_*.xml` | `res/drawable/` | `:core:designsystem` `res/drawable/` |
+| CR-01 icons `ic_undo.xml`, `ic_browser.xml` (v1-complete) | `android/design-src/cr01/export/res/drawable/` (a separate staging tree, not part of the 173 files) | `:core:designsystem` `res/drawable/`, converted by the integrator WP-26 in CR-01-A2 with their `PhonoIcons` entries, `bundled.json` and notices 7.3 (6.1; work-plan 4.7, WP-26) |
 | Illustrations `ill_*.xml` | `res/drawable/` + `res/drawable-night/` | `:core:designsystem` |
 | Launcher layers and monochrome | `res/drawable/ic_launcher_background.xml`, `ic_launcher_foreground.xml`, `ic_launcher_monochrome.xml`; `res/mipmap-anydpi/ic_launcher.xml`, `ic_launcher_round.xml` | `:core:designsystem`, same paths. The adaptive-icon XMLs are staged in `mipmap-anydpi/` (no `-v26` qualifier: with minSdk 29 lint, run with `warningsAsErrors`, would report `ObsoleteSdkInt`). No legacy raster mipmaps: every supported device (API 29+) draws the adaptive icon, which is what spec F-25's "legacy icons" would otherwise cover (D-50) |
 | Splash `splash_mark.xml`, `splash_mark_animated.xml` (+ night) | `res/drawable/`, `res/drawable-night/` | `:core:designsystem` |
@@ -1346,14 +1673,14 @@ and CVD palettes.
 | Tool | What it does | Verified |
 |---|---|---|
 | `check_palette.py [palette.json] [--report] [--verbose]` | Runs gates G1-G11 (section 3); exit 1 on any failure, 2 on a malformed file | 499 checks pass; a deliberately broken palette fails with 10 named failures |
-| `svg2vd.py in.svg [-o out.xml] [--size 24] [--precision 3] [--palette palette.json --theme dark] [--strict-palette] [--tint ?attr/x] [--color name=#hex] [--lenient] [--no-merge] [--max-path 3000]` | SVG subset → VectorDrawable: path, circle, ellipse, rect (rx/ry), line, polyline, polygon, g, transforms (flattened exactly; elliptical radial gradients via nested groups), fill/stroke/opacity, linear and radial gradients (objectBoundingBox and userSpaceOnUse, gradientTransform, spreadMethod, href), clipPath, `var(--token)` and theme swaps; merges paths that share a paint, never past lint's `VectorPath` limit, and splits a longer path at subpath boundaries when no pixel can change; warns when the intrinsic size is over 200 dp; refuses `stroke-dasharray`, `<pattern>`, text, images and filters with a clear message | Fixtures + brand masters + all 122 icons |
+| `svg2vd.py in.svg [-o out.xml] [--size 24] [--precision 3] [--palette palette.json --theme dark] [--strict-palette] [--tint ?attr/x] [--color name=#hex] [--lenient] [--no-merge] [--max-path 3000]` | SVG subset → VectorDrawable: path, circle, ellipse, rect (rx/ry), line, polyline, polygon, g, transforms (flattened exactly; elliptical radial gradients via nested groups), fill/stroke/opacity, linear and radial gradients (objectBoundingBox and userSpaceOnUse, gradientTransform, spreadMethod, href), clipPath, `var(--token)` and theme swaps; merges paths that share a paint, never past lint's `VectorPath` limit, and splits a longer path at subpath boundaries when no pixel can change; warns when the intrinsic size is over 200 dp; refuses `stroke-dasharray`, `<pattern>`, text, images and filters with a clear message | Fixtures + brand masters + all 122 icons + the 2 CR-01 icons |
 | `vd2svg.py drawable.xml [-o out.svg] [--scale 4] [--background #hex] [--attr name=#hex] [--trim-end 1]` | VectorDrawable (or the drawable inside an AnimatedVectorDrawable) → SVG for review: group transforms in Android's order, clip-paths, trim paths, aapt gradients, tint | Round trip |
-| `roundtrip.py [svgs…] --out DIR [--palette palette.json]` | SVG → VD → SVG, renders both with headless Chrome, compares with ImageMagick (normalized RMSE), writes side-by-side PNGs; exit 1 above the threshold (0.02), except the masters listed in `RENDERER_TOLERANCE` with their evidence | Every fixture, brand master, illustration (light and dark) and all 122 icons pass. `ic_site_x` (Lucide "at-sign", a 307° arc) is the one listed: against its source it measures 0.0129 / 0.0204 / 0.0117 at 2× / 4× / 8×, against an independently written exact-cubic version of the same arc 0.0013 / 0.0009 / 0.0005, and the source against that cubic version 0.0128 / 0.0203 / 0.0116. The residue is Chrome drawing a native arc differently from cubics (Android draws only cubics), not the converter, and it does not grow with scale; its tolerance is 0.025 for that file only |
-| `lint_vectors.py [res…]` | Applies lint's `VectorPath` (≥ 3,000, whitespace runs count once) and `VectorRaster` (> 200 dp) rules to every staged vector, also inside animated vectors; exit 1 on any hit (12.3) | 158 vectors, 1,037 paths, longest 2,976; agrees with `lintDebug` (AGP 9.4.1) on the old and the new export |
+| `roundtrip.py [svgs…] --out DIR [--palette palette.json]` | SVG → VD → SVG, renders both with headless Chrome, compares with ImageMagick (normalized RMSE), writes side-by-side PNGs; exit 1 above the threshold (0.02), except the masters listed in `RENDERER_TOLERANCE` with their evidence | Every fixture, brand master, illustration (light and dark), all 122 icons and the 2 CR-01 icons pass. `ic_site_x` (Lucide "at-sign", a 307° arc) is the one listed: against its source it measures 0.0129 / 0.0204 / 0.0117 at 2× / 4× / 8×, against an independently written exact-cubic version of the same arc 0.0013 / 0.0009 / 0.0005, and the source against that cubic version 0.0128 / 0.0203 / 0.0116. The residue is Chrome drawing a native arc differently from cubics (Android draws only cubics), not the converter, and it does not grow with scale; its tolerance is 0.025 for that file only |
+| `lint_vectors.py [res…]` | Applies lint's `VectorPath` (≥ 3,000, whitespace runs count once) and `VectorRaster` (> 200 dp) rules to every staged vector, also inside animated vectors; exit 1 on any hit (12.3) | 158 vectors, 1,037 paths, longest 2,976; agrees with `lintDebug` (AGP 9.4.1) on the old and the new export; `cr01/export/res`: 2 vectors, 2 paths, longest 144 |
 | `export_vectors.py [--out DIR] [--only icons\|illustrations\|brand]` | Regenerates every staged vector from its master: icons (precision 3), illustrations light and night (precision 2, strict palette, intrinsic size halved above 200 dp), then `brand_export.py` | Its output is the staged tree byte for byte |
-| `lucide_icons.py --lucide DIR [--svg-dir DIR] [--js FILE]` | Extracts the `icons.json` inventory from a Lucide install (lucide-static SVGs or lucide-react ESM), read-only; writes SVG sources and the mockups' icon table | 122 icons |
+| `lucide_icons.py --lucide DIR [--inventory FILE] [--svg-dir DIR] [--js FILE] [--extra NAME…]` | Extracts the `icons.json` inventory (or another, e.g. `cr01/icons.json`) from a Lucide install (lucide-static SVGs or lucide-react ESM), read-only; writes SVG sources and the mockups' icon table | 122 icons; the 2 of `cr01/icons.json`; it regenerates `kit/icons.js` and `svg/icons/` byte for byte |
 | `brand_export.py [--out DIR]` | Writes the brand resources into the staging tree: launcher layers, the two adaptive-icon XMLs (`mipmap-anydpi/`), notification icon, static and animated splash (light and night; 144 dp intrinsic), `colors.xml` (light and night) from `palette.json` | Its outputs match `svg2vd.py` run on each brand master |
-| `../mockups/render.sh [page…]` | Renders the mockups to `docs/design/` at 2× with Chrome and quantizes them; fonts are the staged TTFs (offline, the exact bytes the app bundles) | 28 renders × 2 themes |
+| `../mockups/render.sh [page…]` | Renders the mockups to `docs/design/` at 2× with Chrome and quantizes them; fonts are the staged TTFs (offline, the exact bytes the app bundles) | 35 renders × 2 themes (28 v1, 7 CR-01) |
 
 Workflow for an illustration: draw in the light illustration tokens (no dashes, no patterns: expand hatching into
 clipped line paths and dots into zero-length round-capped strokes or circles) → `export_vectors.py --only
@@ -1393,8 +1720,21 @@ from the masters (icons and brand layers at the default precision, 3; illustrati
 | `26-brand` | Launcher icon (masks, sizes, themed), layers with the safe zone, share sheets light and dark, notifications, splash frames |
 | `27-watch-large-text` | Watch at font scale 2.0: compact slip, full-width captions, the two-row action bar |
 | `*-grayscale.png` | Grayscale proofs (A-01) |
+| `28-clip-computer` (v1-complete) | Clip page, Summary tab to its end: "On this phone" (sizes, keep switch, secondary removals) and "On your computer" (the sentence and the danger "Delete from your computer…"), connected |
+| `29-clip-delete-waiting` (v1-complete) | The same page after the deletion was confirmed while the computer is not reachable (on Wi-Fi, so the reason is "Your computer isn't reachable", spec D-61): the dashed header pill, the block waiting with its reason, the dotted mini route and "Undo" |
+| `30-delete-dialog` (v1-complete) | "Delete “{title}” from your computer?" over the Clip page, offline with saved items: the four-place reach strip, both consequence lines, stacked danger confirm, "Cancel" focused |
+| `31-removal-dialogs` (v1-complete) | Specimen: "Remove from this phone?" (two places, dotted wire, primary), the imported variant, the two practice resets (shared: critical place mark and danger; phone-only: smartphone mark and primary), "Forget this computer?" with its two new lines (title and confirm label as spec D-60 confirms them), and specimen 5, "Delete from your computer?" with a crafted title as the quoted title of 9.26 shows it (the reference of its screenshot test) |
+| `32-requests-deletions` (v1-complete) | Requests with deletion rows: refused (alert card, Try again, Keep the clip), waiting on another library (Undo) next to an ordinary waiting file, sending |
+| `33-practice-shared` (v1-complete) | Practice, full scroll, with "Shared through your computer · last synced 5 min ago" under the heading and "Reset" |
+| `34-deletion-states` (v1-complete) | Specimen: header pills (dashed / solid), Library rows and a shelf card with the deletion line, every other state of the "On your computer" block, the three one-shot messages, the three shared-progress lines and the Saved lede |
 
 Copy shortened in the mockups (meaning kept, as the spec allows): the slip cue is one line; the sound card buttons
 read "Play it", "See the mouth", "IPA chart" (for "Play this sound", "See it in the mouth", "Open in the IPA chart");
 the word buttons read "‹ Word" / "Word ›" with full accessible names; the hint line reads "Tap any word for its
-lesson." Names of clips and computers in the mockups are invented examples.
+lesson." Names of clips and computers in the mockups are invented examples. The refusal sentence in renders `32` and
+`34` ("Your computer answered that it can't delete this clip right now.") is spec D-62's sentence for any refusal code
+other than `not_finished` and a computer that no longer offers the deletion; 9.26 lists all three (`different_computer`
+is not a refusal: the deletion waits). Renders `28`-`34` draw the non-imported words; an imported clip's words (D-58,
+9.18, 9.19, 9.26) and the waiting state without "Undo" (D-65, 9.19, 9.26) are not drawn, because they reuse drawn
+anatomy unchanged: other words in the same slots, and the waiting block or row of renders `29` and `32` without its
+button, plus one more line in the style of the reason line drawn there (`ic_info` instead of the clock).

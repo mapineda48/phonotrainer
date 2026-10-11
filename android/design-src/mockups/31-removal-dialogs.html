@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=412">
+<title>Removal and reset confirmations</title>
+<link rel="stylesheet" href="kit/theme.css"><link rel="stylesheet" href="kit/places.css">
+<script src="kit/icons.js"></script><script src="kit/art.js"></script><script src="kit/kit.js"></script><script src="kit/places.js"></script>
+<style>
+  .band { background: var(--scrim); border-radius: 16px; padding: 14px 0; }
+  .dialog.dlg-static { position: relative; left: auto; right: auto; margin: 0 8px; }
+  .dialog h2 { font-size: 24px; }
+  .dialog .acts .btn.quiet { padding: 0 14px; }
+</style></head>
+<body>
+<div class="phone tall grain">
+  <div class="board">
+    <div class="kicker">Confirmations · change request CR-01</div>
+    <h1 class="display" style="font-size:30px;line-height:1.1;margin-top:4px">Two removals that never look alike</h1>
+    <p class="lede" style="margin-top:6px">A removal names its place in the title, draws where the clip goes, and an action that reaches every device is the outlined danger button, never the ink one. Cancel always has the first focus.</p>
+
+    <div class="spec">
+      <span class="kicker">1 · Remove from this phone (F-05 item 5)</span>
+      <div class="band"><section class="dialog dlg-static" role="alertdialog">
+        <div data-reach="phone"></div>
+        <h2>Remove “Coffee shop small talk” from this phone?</h2>
+        <p class="body">Its clip data, audio and video are deleted from this phone only. It stays on your computer, and you can download it again at any time. Your saved items and progress stay.</p>
+        <div class="acts"><span class="btn quiet focusring">Cancel</span><span class="btn primary">Remove from this phone</span></div>
+      </section></div>
+      <p class="note">Two places, a dotted wire: nothing travels to the computer. Its check badge says the clip stays there. v1-core shows the same dialog without the strip.</p>
+    </div>
+
+    <div class="spec">
+      <span class="kicker">2 · Imported clip (F-05 item 6)</span>
+      <div class="band"><section class="dialog dlg-static" role="alertdialog">
+        <div data-reach="list"></div>
+        <h2>Remove “Morning radio interview” from your computer's list?</h2>
+        <p class="body">It was imported on your computer from a folder. This takes it off the list on your computer, on this phone, on every other phone and in the browser. The imported folder stays on your computer, untouched.</p>
+        <div class="acts stack"><span class="btn danger"><span data-icon="trash-2" data-size="18"></span>Remove from your computer's list</span><span class="btn focusring">Cancel</span></div>
+      </section></div>
+    </div>
+
+    <div class="spec">
+      <span class="kicker">3 · Shared practice history (F-17 item 6)</span>
+      <div class="band"><section class="dialog dlg-static" role="alertdialog">
+        <div class="mark"><span class="pnode hub" aria-hidden="true"><span data-icon="monitor-smartphone" data-size="22"></span></span></div>
+        <h2>Forget your practice history everywhere?</h2>
+        <p class="body">Your accuracy per change is shared through your computer. This clears every answer given until now, on this phone, on your computer and on every device that shares it. Your clips and saved items are not touched.</p>
+        <div class="acts"><span class="btn quiet focusring">Cancel</span><span class="btn danger"><span data-icon="trash-2" data-size="18"></span>Forget it</span></div>
+      </section></div>
+      <p class="note">When nothing is shared, the phone-only question keeps its place mark on the phone and the ink button:</p>
+      <div class="band" style="margin-top:8px"><section class="dialog dlg-static" role="alertdialog">
+        <div class="mark"><span class="pnode" aria-hidden="true"><span data-icon="smartphone" data-size="22"></span></span></div>
+        <h2>Forget your practice history?</h2>
+        <p class="body">Your accuracy per change is kept only on this phone. This clears it; your clips are not touched.</p>
+        <div class="acts"><span class="btn quiet focusring">Cancel</span><span class="btn primary">Forget it</span></div>
+      </section></div>
+    </div>
+
+    <div class="spec">
+      <span class="kicker">4 · Forget this computer (F-22, two new lines)</span>
+      <div class="band"><section class="dialog dlg-static" role="alertdialog">
+        <h2>Forget this computer?</h2>
+        <p class="body">This phone stops talking to Desk PC. Your clips stay on this phone; requests waiting here stay too. Requests Desk PC already accepted will no longer be followed here.</p>
+        <div class="conseq"><span data-icon="trash-2" data-size="18"></span><span>Clips waiting to be deleted from Desk PC won't be deleted.</span></div>
+        <div class="conseq"><span data-icon="smartphone" data-size="18"></span><span>Your practice accuracy and saved items stay on this phone and stop being shared.</span></div>
+        <div class="acts"><span class="btn quiet focusring">Cancel</span><span class="btn primary">Forget this computer</span></div>
+      </section></div>
+      <p class="note">Each line shows only when it applies.</p>
+    </div>
+
+    <div class="spec">
+      <span class="kicker">5 · A title the uploader chose (design 9.26)</span>
+      <div class="band"><section class="dialog dlg-static" role="alertdialog">
+        <div data-reach="computer"></div>
+        <h2 id="qt">Delete “<bdi>Coffee shop small talk ylno enohp siht morf with the barist…</bdi>” from your computer?</h2>
+        <p class="body">This deletes its analysis on your computer: transcript, phones and report. It disappears from this phone, from every other phone connected to your computer and from the browser. Your original video or audio file is not touched. This can't be undone.</p>
+        <div class="acts stack"><span class="btn danger"><span data-icon="trash-2" data-size="18"></span>Delete from your computer</span><span class="btn focusring">Cancel</span></div>
+      </section></div>
+      <p class="note">The link's title holds a right-to-left override (U+202E) before “ylno enohp siht morf”, which would display as “from this phone only” and turn the rest of the line around. Shown: the quoted title, with the override removed, cut to 60 characters with “…” and isolated, so “from your computer?” keeps its place.</p>
+    </div>
+  </div>
+</div>
+</body></html>

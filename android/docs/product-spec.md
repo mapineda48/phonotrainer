@@ -1,10 +1,19 @@
 # PhonoTrainer for Android: product specification
 
-Status: v1 specification, revision 3, 2026-10-10. Owner: product owner. Revision 1 consolidated three independent
-drafts (learner-first, reliability-first, feed-first) into one set of decisions. Revision 2 answers two reviews
-(requirements coverage, evidence and over-reach): every blocker and high finding is either fixed in place or
-answered with evidence in 15.5. Revision 3 closes, before implementation, every request the architecture and design
-tracks addressed to the product track (decisions D-37 to D-52, 15.6).
+Status: v1 specification, revision 4, 2026-10-10 (review fixes 2026-10-11). Owner: product owner. Revision 1
+consolidated three independent drafts (learner-first, reliability-first, feed-first) into one set of decisions.
+Revision 2 answers two reviews (requirements coverage, evidence and over-reach): every blocker and high finding is
+either fixed in place or answered with evidence in 15.5. Revision 3 closes, before implementation, every request the
+architecture and design tracks addressed to the product track (decisions D-37 to D-52, 15.6). Revision 4 (change
+request CR-01) records the owner's answers to Q-1 to Q-7 (15.3) and what they change (decisions D-53 to D-57, 15.7):
+the phone may delete a finished analysis on the computer (F-05, 7.9, S-25), practice accuracy and the Saved list are
+shared through the computer (7.13, S-24), both in v1-complete; encrypted transport is specified for version 2
+(14.6). No v1-core behaviour changes; the only v1-core text added is the copy of the existing "Remove from this
+phone…" confirmation, which had none and must now read clearly apart from the new deletion (F-05 item 5, F-05-AC11).
+The review fixes of 2026-10-11 answer the requests the design and architecture tracks sent to the product track
+after revision 4 and the product side of the CR-01 reviews (decisions D-58 to D-65, 15.7), and correct the security
+wording of 11.5 and 11.6, D-57 and the cut list; in v1-core they add copy only: the title and confirm label of
+"Forget this computer…" (D-60) and which of F-20's existing reason words each connection state uses (D-61).
 
 Audience: the design agent (content, hierarchy, states and interactions are fixed here; visuals are not), the
 architect, the engineers and QA.
@@ -39,7 +48,7 @@ Conventions
   - On the **test phone**, QA simulates "computer unreachable" only by stopping the server or turning phone access
     off. It never reboots the phone, toggles its radios (airplane mode, Wi-Fi, mobile data) or changes its clock.
     System settings that the brief allows (font scale, animation scale, TalkBack) are changed only through adb,
-    logged, and restored. A reboot happens only if the owner does it himself (Q-7).
+    logged, and restored. A reboot happens only if the owner chooses to do it (Q-7).
   - No link is ever sent to the real computer except by the owner's own share from the test phone (8.7). Tests
     that inject share intents run against the fake computer.
 - **Test phone**: the owner's phone named in the brief, a mid-range Samsung phone with One UI on Android 16 / API
@@ -121,7 +130,8 @@ listens, slows down, repeats and practises, at home or away, with everything alr
 - Not an analyzer: transcription and phone recognition stay on the computer [BE 1].
 - Not a pronunciation grader, and not a points or streak game.
 - Not a remote control for the computer's disk: no file browser, no import of folders, no Review mode, no
-  report.html [WF 9.3].
+  report.html [WF 9.3]. The one thing it may change in the computer's library is to delete a finished clip, one at a
+  time, as the browser client can (v1-complete, D-54).
 - Not reachable from the internet, not commercial ("an entirely local, non-commercial project" [Brief]), not on
   any store, and English-only.
 
@@ -207,7 +217,9 @@ listens, slows down, repeats and practises, at home or away, with everything alr
   F-20, section 8). Local files and the queue work regardless of the downloader; whether link analysis succeeds
   depends on the computer's downloader, which v1 hardens (S-23) and proves on the owner's own shares (S-20, 8.7).
 - G5. Automatic sync: what the computer has and the phone lacks is downloaded, within a storage budget the
-  learner controls [Brief] (F-21, section 7).
+  learner controls [Brief] (F-21, section 7). In v1-complete, at the owner's request (15.3), sync also carries the
+  deletions the learner makes on the phone (F-05, 7.9) and shares practice accuracy and the Saved list through the
+  computer (7.13).
 - G6. Every web didactic device that makes sense on a phone (section 9), in v1-core or v1-complete (14.1).
 - G7. Safe connection: phone access is an opt-in on the computer, phones are paired and authenticated, nothing
   sensitive is committed [Brief] (sections 7, 11, 12).
@@ -218,10 +230,15 @@ listens, slows down, repeats and practises, at home or away, with everything alr
 ### 3.2 Non-goals (v1)
 
 - Analysis on the phone; access to the computer from outside the home network; any cloud or relay.
-- Syncing learner progress (practice stats, saved items, seen shorts, settings) with the web client (Q-3).
-- Deleting finished analyses on the computer from the phone (Q-2); editing analyses; Review mode; report.html;
-  the computer's file browser; folder import; engine and speech-model choices.
-- Any change under `web/`, including a browser page for pairing (D-35).
+- Sharing settings, seen shorts, positions, sets or the Practice session in progress between devices: only practice
+  accuracy and the Saved list are shared (7.13, D-55). Several learners per computer: every device paired with one
+  computer shares one practice history and one Saved list.
+- Deleting several clips on the computer at once (no list selection mode exists; one clip at a time from its Clip
+  page, D-54); editing analyses; Review mode; report.html; the computer's file browser; folder import; engine and
+  speech-model choices.
+- Any change under `web/`, including a browser page for pairing (D-35). The browser client's adoption of shared
+  progress is specified for the web owner as requirements (7.13) and is not Android work.
+- Encrypted transport between phone and computer: version 2 (14.6, D-56).
 - Several paired computers at once; switching computers other than by "Forget this computer"; several learners
   per phone.
 - Streaming media from the computer into the feed (the feed plays only files on the phone, D-12).
@@ -245,12 +262,13 @@ listens, slows down, repeats and practises, at home or away, with everything alr
 | SC-11 | A partial or corrupt download shown as "On this phone" | 0 |
 | SC-12 | Unlabelled interactive elements and targets under 48 x 48 dp | 0 on every screen (automated a11y script) |
 | SC-13 | TalkBack can complete: share → wait → sync → watch → lesson → quiz | yes, scripted (fake computer on the emulator; on the test phone with TalkBack turned on through adb and restored) |
-| SC-14 | Failure states of this phone's own requests that leave the learner without an action | 0 (every one offers at least one of Try again / Try audio only / Remove / Connect again). Jobs created from the browser client are read-only on the phone and excluded (F-20) |
+| SC-14 | Failure states of this phone's own requests that leave the learner without an action | 0 (every one offers at least one of Try again / Try audio only / Remove / Connect again / Keep the clip). Jobs created from the browser client are read-only on the phone and excluded (F-20) |
 | SC-15 | Sensitive values in committed files (addresses, tokens, codes, serials, home paths, keystores, personal data) | 0 (checks in 11.7, X-AC4) |
 | SC-16 | Product requirements of the brief without at least one passing AC id | 0 (section 16). Process directives of the brief ("analyze", "make a work plan", "delegate", "design agent") have no product AC; the orchestrator verifies them and section 16 says so |
 
-Learning indicators are shown to the learner on the phone only (no telemetry): per-change listening accuracy (web),
-changes met, and saved shorts (F-17).
+Learning indicators are shown to the learner only (no telemetry; in v1-complete accuracy and saved shorts are shared
+with the learner's own computer and nothing else, 7.13): per-change listening accuracy (web), changes met, and
+saved shorts (F-17).
 
 ---------------------------------------------------------------------------------------------------------------
 
@@ -270,7 +288,7 @@ changes met, and saved shorts (F-17).
 | Spotlight | "Listen for" | The one change, on one word, that a short asks the learner to notice. | rule in F-07 |
 | Mode | "Mix", "In order", change name, "Saved" | Which shorts the feed shows and in what order. | on the phone |
 | Set | "Today's set", "set" | A finite block of the Mix: shorts, then questions, then a summary card. | on the phone |
-| Saved item | "Saved" | A short or a word the learner chose to save; saved shorts come back in later sets (F-09). | on the phone |
+| Saved item | "Saved" | A short or a word the learner chose to save; saved shorts come back in later sets (F-09). | on the phone; shared through the computer in v1-complete (7.13, NEW S-24) |
 | Lesson | "lesson" | The five-step word lesson. | web `WordLesson` |
 | Your computer | "your computer" | The PhonoTrainer server (`phonotrainer ui`) on the owner's computer. | |
 | Phone access | "phone access" | The opt-in server mode that accepts paired phones from the home network. | NEW S-01 |
@@ -280,7 +298,9 @@ changes met, and saved shorts (F-17).
 | Request | "request" | Something the learner asked the computer to process: a link or a file. | on the phone, then a job |
 | Device queue | "Waiting on this phone" | Requests stored on the phone and not yet accepted by the computer. | on the phone |
 | Line | "Waiting in line" | Requests accepted by the computer and not started (one analysis at a time). | job `queued` |
-| Sync | "Syncing" | Bringing the phone's catalogue and downloads in line with the computer and sending waiting requests. | section 7 |
+| Sync | "Syncing" | Bringing the phone's catalogue and downloads in line with the computer and sending waiting requests (in v1-complete also deletions made on the phone and shared progress). | section 7 |
+| Deletion from your computer | "Delete from your computer" (an imported clip: "Remove from your computer's list", D-58) | A finished clip deleted on the computer at this phone's request, for every device and the browser; it waits on the phone while the computer is not reachable and can be undone until an attempt to send it may have reached the computer (D-65) (v1-complete). | NEW S-25 |
+| Shared progress | "Shared through your computer" | Practice accuracy per change and the Saved list, kept on the computer and shared by every device that syncs with it (v1-complete). | NEW S-24 |
 | Catalogue | (Library) | Metadata of every clip the computer has, mirrored on the phone. | NEW S-11 listing |
 | Study pack | "On this phone" | What must be on the phone to study a clip offline: clip data + the audio of the chosen track (compressed when the computer provides it, otherwise the WAV). | existing artifacts; NEW S-12 renditions when available |
 | Video layer | "Video on this phone" | The optional video of a clip, downloaded after the study pack: the original when this phone can play it, otherwise a phone video the computer makes on request. | `/media` (exists); NEW S-12 |
@@ -606,7 +626,9 @@ today, and the way into every clip and every feed.
      offline", "Not connected to a computer" + "Connect";
    - when non-zero, counts of this phone's own requests with icon + word: "2 waiting on this phone", "1 analyzing
      · 40 % · Hear the phones", "1 in line", "1 needs your attention" (failed items show their primary action
-     inline, e.g. "Try again"); jobs started from the browser client are never counted here; tap → Requests;
+     inline, e.g. "Try again"); jobs started from the browser client are never counted here; deletions from your
+     computer (v1-complete) count as waiting while they wait and as needing attention when refused (F-20); tap →
+     Requests;
    - while downloading: "Bringing 2 clips to this phone · 34 MB of 61 MB";
    - "Why?" when not reachable (→ Connection details); "Sync now" when connected.
 3. **Today's set card** (F-08): "Today · about 5 minutes" + "8 shorts, 5 questions · 2 saved shorts back" +
@@ -708,8 +730,12 @@ phenomena_counts}, created, finished, error`), local queue, local progress, Insi
   phone no longer syncs with carry "From a computer you forgot" or "From another library" (7.9) and are never
   deleted by a listing.
 - Row actions, through an explicit "More" button (long-press is only a shortcut): "Watch", "Open clip page",
-  "Keep on this phone" / "Stop keeping", "Download to this phone" / "Remove from this phone…", "Remove the video
-  only".
+  "Keep on this phone" / "Stop keeping", "Download to this phone" / "Remove from this phone…" (the confirmation of
+  F-05 item 5), "Remove the video only". "Delete from your computer…" (v1-complete) is deliberately not in this menu:
+  it lives only on the Clip page (F-05 item 6, D-54), so the two removals are never next to each other in a short menu.
+- A clip waiting to be deleted from your computer (v1-complete) keeps its row, whose availability line adds "Waiting
+  to be deleted from your computer" (or, once sent, "Deleting from your computer…"; an imported clip uses the words of
+  D-58); "Undo" is on its Clip page and in Requests. A refused deletion adds nothing to the row (D-59).
 
 **States**
 | State | Behaviour |
@@ -734,12 +760,15 @@ phenomena_counts}, created, finished, error`), local queue, local progress, Insi
   at its resume short; When Back is pressed, Then the Library shows at the same scroll position, search and filter.
 - **F-04-AC6** Given a failed job created from the browser client, When the Library shows, Then it is not a row of
   "In progress" and only the "started on your computer" line mentions it.
+- **F-04-AC7** (v1-complete) Given a paired computer that allows deletion from the phone, When a row's "More" menu
+  opens, Then it holds no "Delete from your computer…" item; and Given a clip waiting to be deleted from your computer,
+  When the Library shows, Then its row is still listed and reads "Waiting to be deleted from your computer".
 
 **Data.** Catalogue (NEW S-11), local availability, device queue. **Priority:** v1-core.
 
 ---
 
-### F-05 Clip page (v1-core; Transcript tab v1-complete)
+### F-05 Clip page (v1-core; Transcript tab and "Delete from your computer" v1-complete)
 
 **Purpose.** Depth for one clip and the bridge between the dashboard and the feed. Replaces the web's two-pane
 workspace with one thing at a time [WF 9.2].
@@ -748,6 +777,8 @@ workspace with one thing at a time [WF 9.2].
 - As a learner, I want to read the whole dialogue with every change marked and jump into any part.
 - As a learner, I want to see only what I may copy ("Safe to produce") or only what I should recognize.
 - As a learner, I want to know which changes this clip is rich in and what is stored on my phone.
+- As a learner, I want to delete a clip I no longer want from my computer without walking to it, and to be sure I
+  never confuse that with removing it from my phone only (v1-complete; owner's answer to Q-2).
 
 **Behaviour**
 1. **Header**: title; "4 min 21 s · 87 phrases · 691 words"; kind ("Video" / "Audio only"); added date;
@@ -768,8 +799,70 @@ workspace with one thing at a time [WF 9.2].
    (engine, speech model, dialogue separation, rules version, source link shown as text that opens the browser
    only on an explicit tap).
 5. **On this phone** block: what is stored and its size ("Clip data and audio · 2.1 MB", "Video · 17 MB"),
-   "Keep on this phone", "Download the video" / "Remove the video", "Remove from this phone…". There is no
-   "delete from your computer" in v1 (D-07, Q-2).
+   "Keep on this phone", "Download the video" / "Remove the video", "Remove from this phone…". Its confirmation (also
+   used by the Library and Storage, F-04, F-21; revision 4 gives it words, so it can be told apart from item 6):
+   title "Remove “{title}” from this phone?"; body "Its clip data, audio and video are deleted from this phone only.
+   It stays on your computer, and you can download it again at any time. Your saved items and progress stay.";
+   buttons "Cancel" and "Remove from this phone".
+6. **On your computer** block (v1-complete, D-54; v1-core has no such block, exactly as revision 3, and neither has
+   the fallback if the feature is cut, 14.4), a separate block after "On this phone", so the two removals never
+   share a block:
+   - When this phone is paired, the clip belongs to the paired computer's current library, and the computer's last
+     known capabilities allow it (S-25): one sentence "Deleting it here deletes it on your computer and on every
+     device that uses it, including the browser." and one destructive action **"Delete from your computer…"**. It is
+     offered whether or not the clip is on this phone, and whatever device created the clip (phone, browser or
+     command line): the computer is the learner's own library, and the browser can already delete any clip.
+   - **Confirmation** (destructive: not dismissed by an outside tap, "Cancel" has the focus first): title "Delete
+     “{title}” from your computer?"; body "This deletes its analysis on your computer: transcript, phones and report.
+     It disappears from this phone, from every other phone connected to your computer and from the browser. Your
+     original video or audio file is not touched. This can't be undone." (adapted from the web's delete copy,
+     `web/src/features/library/LibraryPage.tsx`); plus "Your {N} saved items from this clip go too." when N > 0;
+     plus, when the computer is not connected, "Your computer isn't reachable now: the clip is deleted there the next
+     time this phone connects, and you can undo it until then."; buttons "Cancel" and "Delete from your computer".
+   - **Imported clip** (the listing says the analysis was imported on the computer from a folder, S-25): the computer
+     only takes it off its list and leaves the folder alone (`JobStore.delete` in `phonotrainer/jobs.py`), so every
+     word that names the deletion says so (web precedent: "Remove from the list…"; D-58). The block's sentence:
+     "Removing it here takes it off your computer's list and off every device that uses it, including the browser.
+     The imported folder stays on your computer."; its button: **"Remove from your computer's list…"**; the
+     confirmation: title "Remove “{title}” from your computer's list?"; body "It was imported on your computer from a
+     folder. This takes it off the list on your computer, on this phone, on every other phone and in the browser. The
+     imported folder stays on your computer, untouched."; buttons "Cancel" and "Remove from your computer's list".
+     Its states read "Removing from your computer's list…", "Waiting to be removed from your computer's list" and
+     "Couldn't remove “{title}” from your computer's list."; its row in Requests is titled "Remove “{title}” from
+     your computer's list"; when the computer is not connected the confirmation adds "Your computer isn't reachable now:
+     the clip is taken off its list the next time this phone connects, and you can undo it until then.". Everything
+     else is as for any clip, including the reasons and "Deletion undone: “{title}” stays on your computer.".
+   - **Connected**: the deletion is stored on the phone first (7.7), then sent at once; the block reads "Deleting from
+     your computer…" with no action (if the send fails for a moment, the deletion waits as in the next case and is
+     retried on the 7.7 schedule, without "Undo" when the attempt may have reached the computer, D-65); when the
+     computer confirms (or answers that the clip is already gone), the phone removes the clip as for any deletion on
+     the computer (7.9: files, saved items and positions; per-change practice stats are kept), the page closes back
+     to where the learner came from, and one message shows:
+     "“{title}” was deleted from your computer." (imported: "“{title}” was removed from your computer's list.").
+   - **Not connected** (offline, not on Wi-Fi, not reachable, checking, a different computer answering, "Connect
+     again", an update needed): the deletion **waits on the phone** and nothing is removed yet. The clip stays
+     studiable from this page and the Library (its files stay, so "Undo" restores it at once), new sets leave it out
+     (as "Leave this clip out of the Mix" does, F-06), and its downloads pause. The block, the Library row and the
+     Requests screen read "Waiting to be deleted from your computer" with its reason (the list of D-61) and
+     **"Undo"**. "Undo" drops the deletion and shows "Deletion undone: “{title}” stays on your computer." It is
+     offered only while no attempt to send the deletion may have reached the computer: after an attempt whose outcome
+     is unknown (no answer, a timeout, a dropped connection, an error on the computer), the clip may already be gone
+     there, so the deletion keeps waiting without "Undo", with the line "It may have reached your computer already, so
+     it can't be undone." (D-65). It is applied, without any action, the next time the computer is connected
+     (ordering in 7.7), with the message of the connected case.
+   - **Refused by the computer** (a stable refusal code, S-25; never a transient failure, which only retries): the
+     clip stays on the computer and on this phone and the deletion stops; the block and Requests ("Needs your
+     attention") read "Couldn't delete “{title}” from your computer." + the reason in one sentence (D-62), with "Try
+     again" and **"Keep the clip"** (which clears the failed deletion). Until the learner chooses one, the clip stays
+     out of new sets and its downloads stay paused, and Library rows, Home shelf cards and the page's header show
+     nothing for it; Home's status card counts it in "needs your attention" (D-59). No notification (F-23).
+   - **Not offered**, each with one sentence and no action: a clip "From a computer you forgot" ("This clip came from
+     a computer you forgot. You can remove it from this phone; to delete it there, use that computer."); a clip
+     "From another library" ("This clip is from another library on your computer. You can remove it from this phone;
+     to delete it there, switch your computer back to that library."); a computer whose PhonoTrainer cannot delete
+     clips for phones ("To delete this clip everywhere, delete it on your computer, or update PhonoTrainer there to
+     do it from this phone.").
+   - There is no bulk deletion: the Library has no selection mode, and one confirmation names one clip.
 
 **States**
 | State | Behaviour |
@@ -781,6 +874,7 @@ workspace with one thing at a time [WF 9.2].
 | Partial | audio still downloading: transcript readable, play disabled with "Getting the audio… 40 %"; no video: "Video not on this phone"; the computer cannot provide a video (original missing, or a phone video failed): "Video not available from your computer. Listening and study work."; imported without audio: "This clip came without its audio: you can read it, but not listen to it." (web) and it is excluded from the feed; older rules: "Analyzed with older rules. Re-analyze it on your computer to update."; espeak analysis: Compare shows "Expected by the aligner" (web), never crashes |
 | Clip still processing | the page shows the request detail (F-20) and turns into the Clip page by itself when ready (web behaviour) |
 | Deleted on the computer while open | banner "This clip was deleted on your computer. It stays until you leave this page." then it is removed |
+| Deletion from your computer (v1-complete), each state of item 6 | available: the sentence + "Delete from your computer…"; sending: "Deleting from your computer…", no action; waiting: "Waiting to be deleted from your computer" + reason (D-61) + "Undo" (everything else on the page keeps working); waiting while the computer uses another library: "Waiting to be deleted from your computer" + "Your computer is using a different library: this waits until it uses this clip's library again." (the same reason as in Requests, F-20) + "Undo"; waiting after an attempt with an unknown outcome: "Waiting to be deleted from your computer" + reason + "It may have reached your computer already, so it can't be undone." and no "Undo" (D-65); refused: "Couldn't delete “{title}” from your computer." + reason (D-62) + "Try again" + "Keep the clip", and nothing in the header (D-59); done: the page closes with the message of item 6; not offered: the sentences of item 6. An imported clip uses the words of item 6's imported case (D-58) |
 
 **Acceptance criteria**
 - **F-05-AC1** Given a clip with flapping ×12 on the phone, When the learner taps that row in Summary, Then the feed
@@ -793,10 +887,42 @@ workspace with one thing at a time [WF 9.2].
   connected", Then the clip is marked wanted and downloads at the next sync even if automatic video download is off.
 - **F-05-AC5** Given a short tapped in the Shorts tab, When the feed opens, Then it is "In order" at that short and
   Back returns to the Clip page.
+- **F-05-AC6** (v1-complete) Given the fake computer connected and allowing deletion from phones, and a finished clip
+  created from the browser client, When its Clip page opens, Then "Delete from your computer…" is in the "On your
+  computer" block, separate from "Remove from this phone…" in "On this phone"; When it is tapped, Then the
+  confirmation is titled "Delete “{title}” from your computer?", says it disappears from every other phone and from
+  the browser, has the focus on "Cancel", and is not dismissed by a tap outside it.
+- **F-05-AC7** (v1-complete) Given that confirmation accepted while connected, When the computer confirms, Then the
+  computer deleted exactly that job once, the clip's files, saved items and positions are gone from the phone, its
+  per-change practice stats are unchanged, the page has closed, and "“{title}” was deleted from your computer." showed
+  once.
+- **F-05-AC8** (v1-complete) Given the fake computer unreachable, When the learner confirms a deletion, Then nothing is
+  removed from the phone, the clip still plays from its Clip page, the block and Requests read "Waiting to be deleted
+  from your computer" with "Undo", and the next set does not use the clip; When "Undo" is tapped, Then "Deletion undone:
+  “{title}” stays on your computer." shows once and, at the next connection, nothing reaches the computer; and Given
+  the deletion was not undone, When the computer becomes reachable, Then it is sent and applied with no action.
+- **F-05-AC9** (v1-complete) Given a clip the listing marks as imported, When its Clip page opens, Then the "On your
+  computer" block offers "Remove from your computer's list…" (not "Delete from your computer…"); When it is tapped,
+  Then the confirmation is titled "Remove “{title}” from your computer's list?" and says the imported folder stays on
+  the computer; When confirmed while connected, Then the computer takes it off its list and the phone removes the clip;
+  and Given the same confirmation accepted while the computer is unreachable, Then the block reads "Waiting to be
+  removed from your computer's list" (D-58).
+- **F-05-AC10** (v1-complete) Given a clip tagged "From a computer you forgot" or "From another library", or a paired
+  computer whose capabilities do not allow deletion from phones, When the Clip page opens, Then the "On your computer"
+  block offers no deletion and shows the matching sentence of item 6.
+- **F-05-AC11** Given "Remove from this phone…" on any clip, When it is tapped, Then the confirmation is titled
+  "Remove “{title}” from this phone?" and says the clip stays on your computer; When it is confirmed, Then nothing is
+  sent to the computer.
+- **F-05-AC12** (v1-complete) Given the fake computer refuses a deletion with a refusal code, When the answer arrives,
+  Then the clip is still on the phone and on the computer, and the block and Requests read "Couldn't delete “{title}”
+  from your computer." with "Try again" and "Keep the clip"; When "Keep the clip" is tapped, Then the clip is as before
+  the deletion and no deletion is sent later.
 
 **Data.** `analysis.json` (`segments`, `words`, `intonation_units`, `prominence`, `word_classes`, `f0_track`,
 `f0_stats`, `summary.metrics`, `summary.phenomena_counts`, `meta`), `reference.metrics_reference`,
-`metric_labels`, audio renditions (NEW S-12). **Priority:** v1-core; Transcript tab v1-complete.
+`metric_labels`, audio renditions (NEW S-12); deletion from the phone and the listing's "imported" mark (NEW S-25).
+**Priority:** v1-core; Transcript tab and "Delete from your computer" v1-complete (fallback for the deletion: no "On
+your computer" block, as in revision 3; 14.4).
 
 ---
 
@@ -884,6 +1010,7 @@ the lesson one tap away, and an end to every session.
 | Error: corrupt or missing local file | "This short couldn't be played." The clip is marked "Needs downloading again" and re-queued; a one-time notice; swiping moves on |
 | Partial | video not on the phone → audio with poster and the chip above; clip data present but chosen track missing → the other track is used and a quiet line under the clip line says which (D-47): "Playing the original mix: the dialogue track isn't on this phone yet." / "Playing the dialogue only: the original mix isn't on this phone yet." / (a clip analysed without a dialogue track while "Dialogue only" is chosen) "Playing the original mix: this clip has no dialogue-only track." |
 | Clip deleted on the computer while watching | the current short finishes; at the next swipe the clip's shorts are gone with "A clip was deleted on your computer and removed from this phone." |
+| Clip waiting to be deleted from your computer (v1-complete, F-05 item 6), or whose deletion was refused and is not yet tried again or kept (D-59) | treated like a clip left out of the Mix: new sets do not use it; it still plays "In order" from its Clip page or the Library, and in a set generated before the deletion was asked for; its shorts go when the deletion is applied (the row above) |
 | TalkBack on | nothing plays until "Play" is activated (F-07) |
 
 **Acceptance criteria**
@@ -1098,7 +1225,8 @@ answer to "how a feed teaches instead of inviting endless scrolling" [L, F].
 - **F-08-AC6** Given a wrong answer, When the explanation shows, Then "Save" is offered and nothing is added to Saved
   unless it is tapped.
 
-**Data.** On the phone only: clip data, seen state, practice stats, saved shorts. Question logic ported from
+**Data.** On the phone: clip data, seen state, practice stats, saved shorts (in v1-complete practice stats and saved
+shorts are also shared through the computer, 7.13; sets and seen state never are). Question logic ported from
 `web/src/features/practice/quiz.ts` (seeded, no reused occurrence). **Priority:** v1-core.
 
 ---
@@ -1121,13 +1249,21 @@ Later: it has no web precedent and needs its own data model and prompts; Q-6.)
 3. **Saved screen** (Practice > "Saved"): one list, most recently saved first; each row: word, change, clip,
    "Play", "Last watched {time}"; "Watch saved" opens the Saved mode; unsave from the row, the short or the lesson.
 4. Saved items of a clip deleted on the computer disappear with it, counted in the deletion notice.
+5. **Shared Saved list** (v1-complete, 7.13, D-55): the Saved list (saved shorts and saved words) is shared through
+   the computer by every phone paired with it, so a save or an unsave on one phone reaches the others at their next
+   sync, and a reinstalled phone gets its list back once paired again. Merge rules are those of 7.13: saves add up,
+   an unsave removes the item everywhere, and when one item was saved on one device and unsaved on another while they
+   were apart, the latest change wins. When a saved short was last watched is not shared (it comes from each phone's
+   seen state): a short saved on another phone and never watched here counts as not watched for 3 or more days
+   (item 2). Under the Saved screen's lede, the line of 7.13: "Shared through your computer · last synced {time}" (or
+   "Kept only on this phone." when nothing is shared). The browser client has no Saved feature and none is added.
 
 **States**
 | State | Behaviour |
 |---|---|
 | First run / Empty | "Nothing saved yet. Tap “Save” on a short or a word you want to hear again." |
-| Loading / Offline / Unreachable | local; always works |
-| Partial | an item whose clip is "Not on this phone" stays listed with "Download the clip to watch it." |
+| Loading / Offline / Unreachable | local; always works; saves and unsaves made offline are shared at the next sync (v1-complete) |
+| Partial | an item whose clip is "Not on this phone" stays listed with "Download the clip to watch it." (this includes items saved on another phone, v1-complete) |
 | Error | n/a |
 
 **Acceptance criteria**
@@ -1137,8 +1273,17 @@ Later: it has no web precedent and needs its own data model and prompts; Q-6.)
   it was last watched 3 days ago, Then it can be.
 - **F-09-AC3** Given a saved short and a later "shorts v2" rule, When the item opens, Then it opens the short
   containing its anchor phrase.
+- **F-09-AC4** (v1-complete) Given two phones paired with the fake computer, When one saves a short and syncs, Then the
+  other lists it first after its next sync, with "Download the clip to watch it." if that clip is not on it.
+- **F-09-AC5** (v1-complete) Given an item saved on two phones, When phone B unsaves it while apart and phone A does
+  nothing to it, Then after both sync it is unsaved on both; and Given phone A then saves it again later (by the
+  computer's clock) while apart from B, Then after both sync it is saved on both.
+- **F-09-AC6** (v1-complete) Given a saved item of a clip deleted on the computer (by the browser, another phone or
+  this one), When the phones sync, Then the item is gone on every phone and the computer no longer returns it, even
+  from a phone that saved it again while apart.
 
-**Data.** Local only. **Priority:** v1-core.
+**Data.** Local; shared through the computer in v1-complete (NEW S-24). **Priority:** v1-core; the shared list
+v1-complete (fallback: the Saved list stays on each phone and in its backup, as in revision 3; 14.4).
 
 ---
 
@@ -1477,15 +1622,34 @@ progress over weeks without grades or guilt.
    "7 of 10 · 70 %", weakest first; "Reset" with "Forget your practice history?"); "Saved: 12" (→ Saved);
    "Changes you have met: 11 of 16" (a change is met when a short with that spotlight was seen or a question on it
    was answered) with "Not met yet" ones linking to Learn. Trends over weeks and days practised are Later (9.7).
+6. **Shared accuracy** (v1-complete, 7.13, D-55): when the paired computer shares progress, the accuracy per change
+   is one history shared by every device that syncs with that computer (the browser client too, once it adopts it),
+   so answers given on the phone and in the browser add up. Every place that shows or uses accuracy uses the shared
+   totals (the progress rows, "Worth reviewing", the Home practice card, "Focus on my weak spots"), plus this phone's
+   answers not shared yet. A change counts as met when a short with it was seen on this phone or the shared history
+   has an answer on it (so the two never contradict each other).
+   - The line under "Your accuracy so far": "Kept only on this phone." when nothing is shared (not paired, after
+     "Forget this computer", or a computer that does not share progress); "Shared through your computer · last
+     synced {time}" when it is; "Reset on this phone. It reaches your computer the next time this phone connects."
+     while a reset waits.
+   - **"Reset" is everywhere** once accuracy is shared (one history cannot be reset on one device only). Its
+     confirmation: title "Forget your practice history everywhere?"; body "Your accuracy per change is shared through
+     your computer. This clears every answer given until now, on this phone, on your computer and on every device
+     that shares it. Your clips and saved items are not touched."; buttons "Cancel" and "Forget it" (web label).
+     Answers given after the reset count, on any device (7.13 rule 3). Offline, this phone shows no accuracy at once
+     and the reset waits. When nothing is shared, the confirmation is the phone-only one: title "Forget your practice
+     history?"; body "Your accuracy per change is kept only on this phone. This clears it; your clips are not
+     touched." (the web's sentence, adapted).
 
 **States**
 | State | Behaviour |
 |---|---|
 | First run / Empty | "Nothing to practice yet — Practice builds its questions from the changes found in your clips. Add a clip first — a minute of conversation already gives dozens of questions." (web, adapted) |
 | Loading | session generation ≤ 1 s; "Gathering words from your clips…" (web) after 300 ms |
-| Offline / Unreachable | fully works |
+| Offline / Unreachable | fully works; with shared accuracy (v1-complete) the totals shown are the last shared ones plus this phone's answers not shared yet, and the line keeps "last synced {time}" |
 | Error / Partial | pool exhausted early: "There were not enough clips to build questions this time." (web) |
 | Process death mid-session | resumes at the same question |
+| Shared accuracy (v1-complete) | not shared: "Kept only on this phone."; shared: "Shared through your computer · last synced {time}"; a reset waiting: "Reset on this phone. It reaches your computer the next time this phone connects." |
 
 **Acceptance criteria**
 - **F-17-AC1** Given clips on the phone and no network, When Practice starts, Then 10 questions are generated and
@@ -1498,9 +1662,28 @@ progress over weeks without grades or guilt.
   offered.
 - **F-17-AC5** Given no practice for a week, When Progress shows, Then nothing mentions streaks, missed days or time
   spent.
+- **F-17-AC6** (v1-complete) Given the fake computer sharing progress, a shared flapping history of 3 right of 4 given
+  on another device, and 2 flapping answers (1 right) given on this phone while offline, When the phone syncs, Then
+  the phone shows flapping "4 of 6" and the computer holds 4 right of 6.
+- **F-17-AC7** (v1-complete) Given a sync whose answer from the computer is lost, When the phone syncs again, Then each
+  answer is counted once on the computer.
+- **F-17-AC8** (v1-complete) Given shared accuracy, When the learner taps "Reset", Then the confirmation reads "Forget
+  your practice history everywhere?" with the body of item 6; When it is confirmed offline, Then this phone shows no
+  accuracy at once and the line reads "Reset on this phone. It reaches your computer the next time this phone
+  connects."; When the phone connects, Then the computer keeps only answers given after the reset was pressed (one
+  answer another device gave before it is cleared, one it gave after it still counts).
+- **F-17-AC9** (v1-complete) Given a paired computer that does not share progress (or no paired computer), When
+  Practice shows, Then the line reads "Kept only on this phone." and "Reset" uses the phone-only confirmation; and
+  When the computer starts sharing progress, Then this phone's whole history is added to the shared one at its first
+  sync, once.
+- **F-17-AC10** (v1-complete) Given shared accuracy last synced 5 minutes ago, When Practice shows, Then the line reads
+  "Shared through your computer · last synced 5 min ago".
+- **F-17-AC11** (v1-complete) [emulator] Given a phone restored from a backup taken before some of its answers were
+  shared, When it is paired again and syncs, Then no answer is counted twice on the computer.
 
 **Data.** Local occurrence index and variants (equivalents of `/api/corpus/occurrences` and `/variants`), clip
-audio, local stats. **Priority:** v1-core.
+audio, local stats; shared practice history in v1-complete (NEW S-24). **Priority:** v1-core; shared accuracy
+v1-complete (fallback: accuracy stays on each device, "Kept only on this phone.", as in revision 3; 14.4).
 
 ---
 
@@ -1601,6 +1784,23 @@ state, and the web's pipeline stepper with teaching lines so waiting also teache
    - "Started on your computer" (collapsed by default; jobs created from the browser client): read-only. Active
      ones are shown so the learner knows why their own request waits in line; failed ones carry only "Hide on
      this phone". This group is never counted on Home, never in "Needs your attention", and never notified.
+   - **Deletions from your computer** (v1-complete, F-05 item 6) appear in these groups as their own rows, titled
+     "Delete “{title}” from your computer" (imported clips: "Remove “{title}” from your computer's list", D-58): in
+     "Waiting on this phone" with the reason it waits (the list of D-61, which includes "Your computer is using a
+     different library: this waits until it uses this clip's library again.") and "Undo" (not after an attempt that
+     may have reached the computer, D-65); in "Sending" as "Deleting from your computer…"; in "Needs your attention"
+     when refused, as "Couldn't delete “{title}” from your computer." + reason (D-62), "Try again" and "Keep the
+     clip". Tapping such a row opens the clip's Clip page (there is no request detail for a deletion). A deletion that
+     succeeded leaves no row: the clip is gone and its message has shown.
+   - **Which reason a waiting row shows** (D-61; requests and deletions alike): the first that applies of (1) the
+     queue's pause, in the words of 7.5 ("Your computer no longer recognizes this phone", "Update PhonoTrainer on
+     your computer", "Update this app", "A different computer answered"), and for a deletion the computer said was
+     made for a different computer, "A different computer answered" (D-62); (2) for a deletion only, the
+     different-library sentence above; (3) not connected: "Not on Wi-Fi" while the phone has no Wi-Fi (the Offline
+     and Not on Wi-Fi states of 7.5), otherwise "Your computer isn't reachable" (Looking, Checking, Not reachable);
+     (4) connected, after a failed attempt: "Will try again in {n} min", and after 3 failed attempts "Couldn't send
+     yet: will try again". A request held by "Stop sending" shows "Stopped by you: it waits here until you tap Send
+     now." instead, and a file too large for one background run adds its line (7.7).
 2. **Request detail**: source (site + link, or file name + size + duration); a timeline with icon + word per
    milestone: "Added on this phone" → "Sent to your computer" → "Waiting in line" → "Analyzing" → "Ready on your
    computer" → "On this phone", each with its time; during analysis the **stepper** with the web stages and
@@ -1629,6 +1829,9 @@ state, and the web's pipeline stepper with teaching lines so waiting also teache
    | Interrupted (after the one automatic re-run, 7.7) | "Try again", "Remove" |
    | Cancelled | "Try again", "Remove" |
    | Queue paused: "Connect again" / "Update needed" | "Connect again" / "Why?" |
+   | Waiting to be deleted from your computer (v1-complete; imported: "Waiting to be removed from your computer's list", D-58) | "Undo"; none after an attempt that may have reached the computer, with "It may have reached your computer already, so it can't be undone." (D-65) |
+   | Deleting from your computer… (v1-complete) | none (it is on its way; the computer's answer decides) |
+   | Couldn't delete from your computer (v1-complete) | "Try again", "Keep the clip" |
 4. **"Try again" and "Try audio only"** ask the computer to **re-run** the request from what it already stored (the
    link, or the uploaded file) with the same options (or audio only, for links) (S-22). Nothing is uploaded
    again, so it works after the phone deleted its copy. The re-run carries its own idempotency key, linked to the
@@ -1680,12 +1883,19 @@ state, and the web's pipeline stepper with teaching lines so waiting also teache
 - **F-20-AC12** Given an accepted request that shows "Cancel waiting for your computer" while offline, When the learner
   taps "Undo", Then the request returns to its previous state, "Cancel undone: “{title}” won't be cancelled." shows
   once, and no cancel reaches the computer at the next connection.
+- **F-20-AC13** (v1-complete) Given 1 link waiting and 1 deletion from your computer waiting while offline, When Home
+  shows, Then it reads "2 waiting on this phone"; When Requests opens, Then the deletion is a row "Delete “{title}”
+  from your computer" in "Waiting on this phone" with its reason and "Undo", and tapping the row opens the clip's Clip
+  page.
+- **F-20-AC14** (v1-complete) Given a deletion refused by the (fake) computer, When Requests shows, Then the row is in
+  "Needs your attention" with "Try again" and "Keep the clip", Home counts it in "1 needs your attention", and no
+  notification is posted.
 
 **Data.** Local requests; `POST /api/jobs/youtube` `{url, options, audio_only}`, `POST /api/jobs/upload`
 (made idempotent by S-09; resumable by S-10 in v1-complete), `POST /api/jobs/{id}/cancel`, `DELETE /api/jobs/{id}`
 (own failed or cancelled jobs, S-06), `GET /api/jobs/{id}` (`progress`), `/ws/jobs` (authenticated, S-05); NEW
-S-09 idempotency, S-13 stage, queue position, error codes and submitting device, S-22 re-run. **Priority:**
-v1-core.
+S-09 idempotency, S-13 stage, queue position, error codes and submitting device, S-22 re-run; deletion of a finished
+analysis, NEW S-25 (v1-complete). **Priority:** v1-core; deletion rows v1-complete.
 
 ---
 
@@ -1699,13 +1909,14 @@ bounded by a budget. Full model in section 7; this is what the learner sees and 
 - As a learner with limited space, I want to control whether videos are kept and how much space the app uses.
 
 **Behaviour.** Sync runs on app start and resume, when the phone joins Wi-Fi, after a request finishes, from the
-background on Wi-Fi when Android allows it (7.5), and on "Sync now" / pull to refresh. It sends waiting requests,
-refreshes the catalogue, downloads every clip's study pack, then videos within the budget, and mirrors deletions
-with the safeguards of 7.9. The UI never promises when a background sync will happen; it says "Last synced
-{time}". Settings > Storage: total used of the budget; breakdown "Clips (text and audio)", "Videos", "Waiting to
-send", "Cache"; budget choice (1 GB, **2 GB default**, 5 GB, "No limit except free space"); "Download videos
-automatically" (on); per-clip list sorted by size with "Remove the video", "Remove from this phone", "Keep on this
-phone"; "Remove all videos" (confirm).
+background on Wi-Fi when Android allows it (7.5), and on "Sync now" / pull to refresh. It sends waiting requests
+(in v1-complete also the deletions made on this phone, 7.9), refreshes the catalogue, downloads every clip's study
+pack, then videos within the budget, and mirrors deletions with the safeguards of 7.9; in v1-complete it also shares
+practice accuracy and the Saved list (7.13). The UI never promises when a background sync will happen; it says
+"Last synced {time}". Settings > Storage: total used of the budget; breakdown "Clips (text and audio)", "Videos",
+"Waiting to send", "Cache"; budget choice (1 GB, **2 GB default**, 5 GB, "No limit except free space"); "Download
+videos automatically" (on); per-clip list sorted by size with "Remove the video", "Remove from this phone", "Keep on
+this phone"; "Remove all videos" (confirm).
 
 **States**
 | State | Behaviour |
@@ -1762,8 +1973,11 @@ All settings apply at once and are remembered on this phone. Groups and items (d
   the computer's terminal prints after pairing), short server id, API version, last probe result in words, pending
   counts, background restriction, "Copy diagnostics" without the credential, without any address (only whether it is
   a private or link-local one) and without ids), "Enter the new address", "Connect again", "Forget this computer…"
-  ("This phone stops talking to {name}. Your clips stay on this phone; requests waiting here stay too. Requests
-  {name} already accepted will no longer be followed here." default button "Cancel").
+  (title "Forget this computer?" (D-60); body "This phone stops talking to {name}. Your clips stay on this phone;
+  requests waiting here stay too. Requests {name} already accepted will no longer be followed here."; buttons
+  "Cancel" (the default, focused first) and "Forget this computer"; in v1-complete, when they
+  exist, two more sentences: "Clips waiting to be deleted from {name} won't be deleted." and "Your practice accuracy
+  and saved items stay on this phone and stop being shared.").
 - **Storage**: F-21.
 - **Notifications**: "When a clip is ready", "When a request needs attention" (both on), link to the system
   channel settings.
@@ -1805,8 +2019,10 @@ All settings apply at once and are remembered on this phone. Groups and items (d
   clip is ready?" with two buttons, "Notify me" (then the system prompt) and "Not now" (no system prompt; the
   question is not asked again, and Settings > Notifications keeps the way to turn them on); never at first launch. Denial is respected; Home and Requests carry the
   same information.
-- No notification for routine sync, percent ticks or missed days; no daily reminder in v1 (Later). Notifications
-  never contain the computer's address or links with tracking parameters.
+- No notification for routine sync, percent ticks or missed days; no daily reminder in v1 (Later). No notification
+  for deletions from your computer or for shared progress (v1-complete): the learner made the deletion on purpose and
+  a refused one changes nothing on either side; Home and Requests show it (F-20). Notifications never contain the
+  computer's address or links with tracking parameters.
 
 **States**
 | State | Behaviour |
@@ -1987,7 +2203,7 @@ audio-only visual cover a missing poster or video.
   another computer, the learner first uses "Forget this computer" (7.9). Clips keep a tag of the computer and
   library they came from, so nothing is lost and nothing is mixed up.
 - Transport is plain HTTP on the home Wi-Fi in v1 (the server has no TLS [BE 15.3]): an accepted, documented risk
-  (11.6, Q-1).
+  (11.6), confirmed by the owner for v1 (Q-1); encrypted and authenticated transport is version 2 (14.6, D-56).
 
 ### 7.5 What "online" means, and every connectivity state
 
@@ -2055,8 +2271,11 @@ the "Checking" state.
 | Phone → computer | Cancels of this phone's requests; removal of this phone's failed or cancelled jobs; re-runs (S-22) | when connected (they can wait on the phone) | v1-core |
 | Phone → computer | Record-yourself takes | live only; never queued; deleted by the computer after measuring | v1-complete |
 | Phone → computer | Pairing | at pairing | v1-core |
-| Phone ↔ computer | Practice stats, saved items, seen shorts, settings | never in v1 (phone only) | Later (Q-3) |
-| Phone → computer | Deleting finished analyses | not allowed in v1 | Later (Q-2) |
+| Phone ↔ computer | Practice accuracy per change (answers given and right, the browser's shape) | at every sync when connected; answers given offline wait on the phone; totals add up across devices (7.13) | v1-complete (Q-3, D-55) |
+| Phone ↔ computer | The Saved list (saved shorts and saved words) | at every sync when connected; changes made offline wait on the phone (7.13) | v1-complete (Q-3, D-55) |
+| Browser ↔ computer | Practice accuracy per change | once the browser client adopts it (requirements for the web owner, 7.13); not Android work | outside the Android plan |
+| Phone → computer | Deleting a finished analysis ("Delete from your computer", one clip at a time) | at once when connected; otherwise it waits on the phone, undoable, and is sent at the next connection (7.7, 7.9) | v1-complete (Q-2, D-54) |
+| Not synced (each device keeps its own) | Settings, seen shorts, positions and resume points, sets, the Practice session in progress, when a saved short was last watched | never (7.13 says why) | — |
 | Not synced | `report.html`, `review.json`, intermediate files, logs, the corpus database | never | — |
 
 The brief's rule holds literally for study packs: every finished analysis is downloaded unless the learner removed
@@ -2068,8 +2287,11 @@ phone cannot play it (a phone video replaces it); each case is visible on the cl
 
 **What can be queued**: (1) a link to analyze (options: audio only); (2) a local video or audio file (options:
 audio only, separate the dialogue); (3) a cancel of this phone's accepted request; (4) the removal of this phone's
-failed or cancelled job; (5) a re-run of this phone's failed, cancelled or interrupted job (S-22). Not queueable:
-deleting finished analyses, record-yourself takes, pairing.
+failed or cancelled job; (5) a re-run of this phone's failed, cancelled or interrupted job (S-22); (6) in
+v1-complete, the deletion of a finished analysis on the computer (F-05 item 6, S-25): it is bound to the paired
+computer's server id and to the library its clip belongs to, and is sent only to that computer while it uses that
+library. Not queueable: record-yourself takes, pairing. Shared progress (7.13) is not a request: it is exchanged at
+every sync and never shows in Requests.
 
 **Creation, always local first.** Every request is written durably on the phone with a unique client-generated id
 (also its idempotency key) before any network attempt. If that write itself fails (the phone is out of space),
@@ -2112,7 +2334,9 @@ same video; `x.com`, `twitter.com`, `mobile.twitter.com` forms of one post are t
 covers the whole video) are removed. Match: "You already added this link." + "Open it" / "Analyze again anyway".
 Files are compared by size and a content fingerprint against waiting files.
 
-**Ordering.** Cancels, removals and re-runs are sent first. Links (a few hundred bytes) are sent as soon as the
+**Ordering.** Cancels, removals, re-runs and (v1-complete) deletions of finished analyses are sent first, in the
+order they were made: they act on clips and jobs that already exist, they are small, and the learner expects them
+applied before anything new. Links (a few hundred bytes) are sent as soon as the
 computer is connected, even while a large upload is in progress. Files upload one at a time in creation order.
 The computer analyzes in arrival order, so a link added after a large file may start first; the request detail
 says so when it happens.
@@ -2153,6 +2377,11 @@ and refuses early ("Too large for your computer's limit (2 GB). Choose Audio onl
 | Computer low on space | blocking for uploads | pause uploads; links continue |
 | Job failed on the computer (download refused, private video, playlist, extraction error) | job failure | "Needs your attention" with reason and actions (8.6); no automatic retry (repeated 403s would only occupy the single worker [BE 9]) |
 | Job interrupted by a computer restart (`interrupted`, S-15), whether it was analyzing or waiting in line | transient job failure | one automatic re-run (S-22) for each own interrupted job, in the original acceptance order; the re-run replaces the failed job; a second interruption → "Needs your attention" |
+| Deletion of a finished analysis (v1-complete): the computer answers that the clip is already gone | done | treated as success: the clip is removed from the phone as for any deletion on the computer (7.9); no failure is shown |
+| Deletion of a finished analysis: the computer uses another library than the clip's | waits | not a failure: it waits with its reason (F-20) until the computer uses that library again, or until "Undo" |
+| Deletion of a finished analysis: the computer answers that the deletion was made for a different computer | waits | not a failure (7.9: a different computer means waiting): it waits with "A different computer answered" and retries on the schedule above, until "Undo" (D-62) |
+| Deletion of a finished analysis: an attempt whose outcome is unknown (no answer, timeout, connection reset, 5xx) | transient | retried as above with the same key; from then on "Undo" is no longer offered, because the clip may already be gone on the computer (D-65) |
+| Deletion of a finished analysis refused with a reason (S-25), including a computer that no longer offers the deletion | permanent for this deletion | "Needs your attention": "Couldn't delete “{title}” from your computer." + the reason sentence of D-62, "Try again", "Keep the clip"; no automatic retry; until one is chosen the clip stays out of new sets and its downloads stay paused (D-59) |
 
 **Cancellation.** Preparing → the copy stops and the record is deleted. Waiting → removed at once and its file
 copy deleted. Sending → upload stopped; "Stop sending" returns it to waiting, **held**: it is not sent again,
@@ -2174,9 +2403,13 @@ Getting it on this phone → On this phone`, with exits `→ Couldn't keep the f
 missing` (from Waiting), `→ Needs your attention` (refused, failed, interrupted after the automatic re-run), `→
 Cancel waiting → Cancelled`, `→ Paused` (queue-wide: connect again, update needed), and `→ Removed` from any
 non-final state. A re-run returns a request from "Needs your attention" or "Cancelled" to "Sent".
+A deletion of a finished analysis (v1-complete) has its own short path: `Waiting to be deleted → Deleting → Done`
+(the clip is removed from the phone, 7.9), with exits `→ Undone` (by "Undo", only while waiting and before any attempt
+that may have reached the computer, D-65), `→ Couldn't delete` (refused; "Try again" returns it to waiting, "Keep the
+clip" ends it), and `→ Dropped` ("Forget this computer", or a new pairing after the phone lost its own key, 7.9).
 
 **Survival.** Requests, their states and file copies survive app close, process death, reboot, low-memory kills and
-app updates (SC-04, NFR-07).
+app updates (SC-04, NFR-07); so do waiting deletions (v1-complete).
 
 ### 7.8 Downloads: verification, order and revisions
 
@@ -2197,6 +2430,9 @@ app updates (SC-04, NFR-07).
 - Order: study packs first (clips requested from this phone first, then wanted clips, then newest first), then
   videos (kept and recently watched clips first, then newest).
 - Downloads run only when connected (home Wi-Fi).
+- A clip waiting to be deleted from your computer (v1-complete, F-05 item 6) downloads nothing more (no video, no
+  revision) until the deletion is applied or undone; "Undo" lets its downloads continue. A refused deletion holds
+  them too, until "Try again" (it waits again) or "Keep the clip" (they continue) (D-59).
 - **Revisions**: when an artifact of a clip changes (for example a rendition becomes ready), its revision changes;
   the phone downloads the changed artifacts in the background and switches atomically; position, saved items and
   history stay (anchored to job + segment + word; if phrases changed, the position falls back to the nearest
@@ -2209,15 +2445,55 @@ app updates (SC-04, NFR-07).
 |---|---|---|---|
 | "Remove from this phone" | phone | deletes study pack and video; keeps the catalogue row, history and stats; marks "Not on this phone"; never downloaded again automatically until "Download to this phone" | none |
 | "Remove the video" | phone | deletes the video layer; the clip stays studiable | none |
-| Clip deleted on the computer (web or CLI) | a `deleted` event on the job channel from the paired server id, or the clip missing from two consecutive complete listings of the same server id and library id | removes the clip, its files, its saved items and its positions (after the learner leaves it if open); per-change practice stats are kept; one notice "1 clip deleted on your computer was removed from this phone." If more than half of the clips would disappear at once, the learner is asked first: "Your computer no longer lists 9 of 10 clips. Remove them from this phone?" | n/a |
+| Clip deleted on the computer (web, CLI or, in v1-complete, another phone) | a `deleted` event on the job channel from the paired server id, or the clip missing from two consecutive complete listings of the same server id and library id | removes the clip, its files, its saved items and its positions (after the learner leaves it if open); per-change practice stats are kept; one notice "1 clip deleted on your computer was removed from this phone." If more than half of the clips would disappear at once, the learner is asked first: "Your computer no longer lists 9 of 10 clips. Remove them from this phone?" Clips this phone itself asked to delete (next rows) are not counted in that question: the learner already confirmed each one | n/a |
 | The computer switches to another library (workspace) | the library id in the listing changed | nothing is deleted; clips of the previous library stay, tagged "From another library", and are never touched by the new library's listings; one notice "Your computer is using a different library. Clips from the other one stay on this phone until you remove them." | n/a |
 | A listing from a different server id, or from an address without a valid proof of identity | identity check | nothing is deleted and nothing is sent ("A different computer answered") | n/a |
 | "Remove" a failed or cancelled request | phone | removes the request and its file copy | deletes this phone's failed or cancelled job when connected (S-06) |
 | "Hide on this phone" (a failed job started from the browser client) | phone | hides it from "Started on your computer" | none |
-| Delete a finished analysis | — | not possible from the phone in v1: "Delete it on your computer." (Q-2) | — |
-| "Forget this computer" | phone | removes credential and computer record; keeps clips (tagged "From a computer you forgot") and waiting requests (they go to the next computer paired); requests that computer had accepted stop being followed and are removed from the phone, after the confirmation in F-22 | revokes the credential if connected; otherwise the phone stays in the computer's list until revoked there |
-| The computer revokes the phone | computer | "Connect again"; nothing deleted; queue paused | n/a |
-| Uninstall | phone | everything local is deleted (no backup of media, queue or credential) | none |
+| "Delete from your computer" (v1-complete, D-54), connected | phone, Clip page (F-05 item 6), after the confirmation | stored first, sent at once; when the computer confirms (or says the clip is already gone), removes the clip as in the "Clip deleted on the computer" row, at once (after the learner leaves it if open elsewhere); message "“{title}” was deleted from your computer." | deletes that one finished analysis of its current library, whatever device created it, exactly as the browser's "Delete" does (S-25): every other phone and the browser follow through their usual `deleted` handling; an imported analysis only leaves the list and its folder stays |
+| "Delete from your computer", not connected | phone | waits on the phone ("Waiting to be deleted from your computer", Requests and the Clip page, "Undo"); nothing removed yet; the clip stays studiable, new sets leave it out, its downloads pause; applied at the next connection, before new requests (7.7) | none until it is sent |
+| "Undo" on a waiting deletion | phone | the deletion is dropped; the clip is as before; "Deletion undone: “{title}” stays on your computer." | none (it was never sent) |
+| Delete a finished analysis in v1-core (or if the v1-complete feature is cut) | — | not possible from the phone: delete it on your computer (no "On your computer" block, F-05) | — |
+| "Forget this computer" | phone | removes credential and computer record; keeps clips (tagged "From a computer you forgot") and waiting requests (they go to the next computer paired); requests that computer had accepted stop being followed and are removed from the phone, after the confirmation in F-22. Waiting deletions (v1-complete) are dropped, never sent to the next computer paired (a deletion belongs to one computer and one library), and their clips stay; practice accuracy and the Saved list stay on the phone and stop being shared (7.13) | revokes the credential if connected; otherwise the phone stays in the computer's list until revoked there |
+| The computer revokes the phone | computer | "Connect again"; nothing deleted; queue paused (waiting deletions are kept and sent after "Connect again" with the same computer; dropped instead if the phone lost its own key and pairs as a new phone, D-63) | n/a |
+| Uninstall | phone | everything local is deleted (no backup of media, queue, waiting deletions or credential); shared progress stays on the computer (7.13) and comes back to a reinstalled phone once it is paired again | none |
+
+**A deletion from the phone against every case of this table** (v1-complete, D-54):
+- **The clip is already deleted on the computer** (by the browser, the command line or another phone) before this
+  phone's deletion arrives: the computer says it is gone and that counts as done (7.7, Retries); if the listing or a
+  `deleted` event removed the clip first, the waiting deletion is simply fulfilled and dropped. One message only,
+  never an error.
+- **A different library**: a deletion is sent only while the computer uses the clip's library (the computer also
+  checks it, S-25); while it uses another one, the deletion waits with that reason and "Undo", and clips "From
+  another library" are never offered for deletion (F-05 item 6).
+- **A forgotten computer**: waiting deletions are dropped with "Forget this computer" (row above); clips "From a
+  computer you forgot" are never offered for deletion.
+- **A different computer at the address** (no valid proof of identity, 7.4): nothing is sent, as for any request;
+  the deletion waits.
+- **A revoked phone**: the queue pauses; the deletion waits, kept, and is sent after "Connect again" with the same
+  computer. One rare exception fails safe (D-63): if this phone lost its own stored credential (its key store was
+  cleared), "Connect again" pairs it as a new phone, and its waiting deletions are dropped as after "Forget this
+  computer": never sent; each clip stays on both sides, without a waiting line, and "Delete from your computer…" is
+  offered again. No message is shown.
+- **An imported analysis**: allowed, with its own confirmation (F-05 item 6); the computer takes it off its list for
+  every device and the folder stays where it was.
+- **An analysis the browser is showing**: the computer deletes it exactly as the browser's own "Delete" does, so the
+  browser shows what it already shows for a clip deleted elsewhere ("This analysis no longer exists",
+  `web/src/features/analysis/index.tsx`); nothing in `web/` changes. The confirmation warns that it disappears from
+  the browser.
+- **A deletion refused by the computer**: the clip stays on both sides; "Needs your attention" with "Try again" and
+  "Keep the clip" (F-20) and the reason sentence of D-62; until one is chosen the clip stays out of new sets with its
+  downloads paused (D-59). A computer that no longer offers the deletion (its PhonoTrainer was replaced by one that
+  cannot delete for phones) refuses it with the "not offered" sentence of F-05 item 6, and the phone never reads that
+  answer as "already gone". A transient failure (no answer, timeout, 5xx) is not a refusal: the deletion keeps
+  waiting and retries on the 7.7 schedule, without "Undo" from then on (D-65). An answer that the deletion was made
+  for a different computer is not a refusal either: it waits, as for a different computer at the address (D-62).
+- **The clip is open** (the feed, a lesson) when the deletion is applied: the removal waits until the learner leaves
+  it, as for any deletion on the computer (QT-10).
+- **A kept clip** ("Keep on this phone") or one in today's set: an explicit deletion is not blocked; the set loses
+  its shorts as for any deleted clip (F-08).
+- **Another phone** paired with the same computer sees an ordinary deletion on the computer (the "Clip deleted on the
+  computer" row), with its mass-deletion question when more than half of its clips would go at once.
 
 ### 7.10 What gets downloaded, renditions and the storage budget
 
@@ -2247,9 +2523,13 @@ app updates (SC-04, NFR-07).
 - Home status card (always present, 7.5 states, request counts, transfer progress, "Sync now").
 - Library "Last synced {time}"; every clip row's availability: "On this phone", "Video on this phone", "Bringing
   to this phone 40 %", "Video not on this phone", "Video getting ready on your computer", "Video not available
-  from your computer", "Not on this phone", "Getting ready on your computer", "Download paused: {reason}".
-- Requests screen for phone → computer work; Connection details for diagnostics (including a background
-  restriction); Storage for sizes.
+  from your computer", "Not on this phone", "Getting ready on your computer", "Download paused: {reason}"; in
+  v1-complete also "Waiting to be deleted from your computer" and "Deleting from your computer…" (imported clips:
+  "Waiting to be removed from your computer's list", "Removing from your computer's list…", D-58).
+- Requests screen for phone → computer work (in v1-complete including deletions from your computer); Connection
+  details for diagnostics (including a background restriction); Storage for sizes.
+- Shared progress (v1-complete, 7.13): one line under "Your accuracy so far" in Practice and under the Saved screen's
+  lede: "Shared through your computer · last synced {time}" (or "Kept only on this phone." when nothing is shared).
 - One ongoing notification only for long transfers started from the foreground (F-23).
 - Wording always names a place: "on this phone", "on your computer", "waiting on this phone"; never "cloud";
   never "server" outside diagnostics.
@@ -2258,7 +2538,11 @@ app updates (SC-04, NFR-07).
 
 QA runs these on the API 36 emulator with the fake computer (unreachable, slow, 4xx, 5xx, lost responses, partial
 downloads), then once with the real computer **using local files only** (no link is ever sent to the real
-computer by QA, 8.7). Steps that reboot or cut the network are **[emulator]** only.
+computer by QA, 8.7). Steps that reboot or cut the network are **[emulator]** only. QT-15 to QT-20 (v1-complete)
+delete clips only on a computer the QA kit started in the same session: the fake computer, or, for the pass with the
+real computer, PhonoTrainer started by the kit with its own throwaway configuration and library, which hold only
+clips QA created there from local test files; never on the owner's own PhonoTrainer setup, never one of the owner's
+clips (D-57).
 - **QT-1** Given the computer unreachable, When the learner shares 3 links and 1 video, Then 4 requests are "Waiting
   on this phone" in creation order, and after force-stopping the app and rebooting the device [emulator] they are
   still there.
@@ -2289,6 +2573,111 @@ computer by QA, 8.7). Steps that reboot or cut the network are **[emulator]** on
   gone, and Storage does not count it.
 - **QT-14** Given the listing's library id changes, When sync runs, Then no clip is deleted and the library notice
   shows.
+- **QT-15** (v1-complete) Given the computer unreachable, When the learner confirms 2 deletions from your computer and
+  then shares 1 link, and the app is force-stopped and the device rebooted [emulator], Then both deletions and the link
+  are still waiting; and When the computer becomes reachable, Then both deletions are sent before the link, the
+  computer deleted exactly those 2 clips, and the phone asked no mass-deletion question about them.
+- **QT-16** (v1-complete) Given a deletion whose answer from the computer is lost, When the phone sends it again, Then
+  the computer's answer that the clip is already gone counts as done, the clip is removed from the phone once, and no
+  failure is shown; and Given a waiting deletion of a clip the browser client deletes first, When sync runs, Then the
+  clip is removed with one notice and the deletion is never reported as failed.
+- **QT-17** (v1-complete) Given a waiting deletion, When the listing's library id changes, Then the deletion is not
+  sent, Requests shows it waiting with the different-library reason and "Undo", and it is sent only once the computer
+  is back on the clip's library.
+- **QT-18** (v1-complete) Given a waiting deletion, When the learner forgets the computer and pairs again (with the same
+  computer, and in a second run with another fake computer), Then the deletion is never sent and the clip stays on the
+  phone tagged "From a computer you forgot".
+- **QT-19** (v1-complete) Given a waiting deletion and a revoked credential, When the computer answers with the
+  credential-rejected code, Then the queue pauses with "Connect again", the deletion is kept with "Undo", and after
+  "Connect again" with the same computer it is sent and applied.
+- **QT-20** (v1-complete) Given a fake computer with a different server id at the stored address, When a deletion
+  waits, Then nothing is sent there and nothing is deleted on the phone.
+
+### 7.13 Shared progress: practice accuracy and the Saved list (v1-complete, D-55)
+
+The owner's answer to Q-3 (2026-10-10): practice progress and saved shorts sync when the devices connect, phone ↔
+computer and with the browser client ("let's also try to make them sync when they connect"). It is read as: do it
+properly but minimally, sharing only what the clients already keep, and inventing no feature in order to share it.
+The browser client lives in `web/`, which this project does not edit (D-35): its part is stated below as
+requirements for the web owner, and everything on the phone and the computer works fully before the browser adopts
+it.
+
+**What is shared, and why exactly this**
+
+| What | Content | Shared by | Why |
+|---|---|---|---|
+| Practice accuracy per change | for each change, answers given and answers right (`seen`, `correct`): the shape the browser already keeps under `phonotrainer:practice-stats` (`web/src/features/practice/quiz.ts:98-105`) and the phone keeps (F-17) | every phone paired with the computer; the browser client once it adopts it | the one progress measure both clients already keep, in the same shape, so answers given on the phone and in the browser add up |
+| The Saved list (F-09) | each saved short or saved word: its anchor (clip + phrase, + word; a short also keeps its spotlight word), its change, when it was saved | every phone paired with the computer; the browser has no Saved feature and none is added (14.5) | the question named saved shorts; saved shorts and saved words are one list on one screen (F-09), so sharing only the shorts would split that list |
+
+**What is not shared**, and stays on each device:
+- **settings**: each device has its own display and playback, and the browser's settings are a different set;
+- **seen shorts, positions and resume points, "Keep watching", today's set and the other sets, the Practice session
+  in progress**: they are the viewing state of one device; moving the learner's place because another phone watched
+  something would surprise more than help, and the browser has no shorts, feed or sets to share them with;
+- **when a saved short was last watched**: it comes from each phone's seen state; a short saved on another phone and
+  never watched on this one counts as not watched for 3 or more days (F-08, F-09);
+- **"Changes you have met"** is not stored separately: on each phone a change is met when a short with it was seen
+  there or the shared history has an answer on it (F-17 item 6);
+- clips and requests are handled by the rest of section 7.
+
+**Merge rules** (practising on two devices while they are apart loses nothing):
+1. **Totals add up.** The shared accuracy is the sum of every answer given on every device. Each answer counts
+   exactly once, however often a lost or repeated sync sends it.
+2. **One clock.** Whenever two moments must be compared, they are compared on the computer's clock: each phone already
+   knows its offset to the computer (signed requests, 7.4, S-05), and the browser runs on the computer.
+3. **Reset is everywhere.** Once accuracy is shared, "Reset" clears every answer given before it was pressed, on
+   every device, and keeps every answer given after it, wherever it was given (F-17 item 6 has the copy). A reset
+   made offline clears this phone at once and reaches the computer at the next connection; answers another device
+   gave before the reset was pressed are cleared when they arrive, and answers given after it count.
+4. **The Saved list**: saves add up; an unsave removes the item from every device; when the same item was saved on
+   one device and unsaved on another while they were apart, the latest change wins.
+5. **Deleted clips**: the saved items of a clip deleted on the computer go from every device and never come back,
+   even if a device saved one while apart (its clip cannot play any more); practice accuracy is per change, so it
+   is kept (7.9).
+6. **Libraries and computers**: the Saved list follows the library of each item's clip; items of clips "From another
+   library" or "From a computer you forgot" stay on the phone, unshared and untouched (7.9), until that library comes
+   back. Practice accuracy belongs to the computer, not to a library, so a library switch does not change it (the
+   browser keeps one history per browser today).
+7. **A device's first share**: when a device starts sharing (a phone whose computer just gained the capability, a
+   phone paired again after "Forget this computer", the browser when it adopts it), the answers given on it are
+   added once, and an answer the computer already counted is never added again. A history kept before sharing has no
+   times (both clients keep only totals today), so it counts as given at that first share: a reset pressed earlier,
+   while that device was not sharing yet, does not clear it.
+8. **One learner per computer**: every device paired with a computer shares one practice history and one Saved
+   list (3.2).
+9. **The computer's copy is the shared history** (D-64). If the operator deletes it on the computer (the shared
+   practice history, or one library's Saved list), every device forgets what had been shared at its next sync and
+   keeps only what it had not shared yet; answers and saved items that were already shared come back only if the
+   computer's own files are restored from a copy. A store the computer cannot read is not a deletion: no device
+   changes anything, and sharing waits (the line keeps "last synced {time}") until the computer can read it again.
+   The README says this to the operator.
+
+**When it is shared**: at every sync while connected (F-21), both ways. Changes made while not connected wait on the
+phone; they are not requests and never show in Requests, on Home or in a notification. A computer that does not
+announce the capability (S-24) gets nothing, and the phone behaves exactly as in revision 3 ("Kept only on this
+phone.").
+
+**What the learner sees**: one line under "Your accuracy so far" (F-17 item 6) and under the Saved screen's lede
+(F-09 item 5): "Shared through your computer · last synced {time}", "Kept only on this phone." when nothing is
+shared, and "Reset on this phone. It reaches your computer the next time this phone connects." while a reset waits;
+the "Reset" confirmation names every device; "Forget this computer…" says that progress stops being shared (F-22).
+Settings > Your computer keeps its "last sync" (F-22).
+
+**Backup (11.1)**: the backed-up learning progress carries, in the same consistent copy, the record of what was
+already shared, so a phone restored from a backup never counts an answer twice and never brings back an item that was
+unsaved, or whose clip was deleted, after the backup (F-17-AC11).
+
+**Requirements for the browser client** (for the web owner; outside the Android plan; the architecture writes the
+technical hand-off). Until the browser adopts them nothing changes for it (S-21), its accuracy stays its own, and the
+phone never claims to share with it (its copy says "your computer").
+1. On adoption, the browser adds its existing `phonotrainer:practice-stats` history to the shared history once, and
+   never again (a reload or a second tab must not add it twice).
+2. Every answer given in the browser's Practice adds to the shared history, in the same per-change shape.
+3. The browser shows the shared totals; its line "Kept only in this browser." changes so that it no longer claims
+   the history is kept only there (the exact words are the web owner's).
+4. Its "Forget your practice history?" becomes the shared reset of rule 3, and its text says it clears the history on
+   every device.
+5. The browser does not read, change or delete the Saved list (it has no Saved feature; none is requested).
 
 ---------------------------------------------------------------------------------------------------------------
 
@@ -2452,10 +2841,10 @@ app, or the browser) only on tap. Failures of jobs started from the browser clie
   longest clip is about 10 minutes and the guidance asks for 30–60 s of dialogue, so the default refuses none of
   the material the app is designed for, while a multi-hour video or a never-ending stream cannot occupy the single
   analysis worker for hours.
-- During device QA, **the owner himself** shares one YouTube video link, one YouTube Shorts link and one X post
-  with video from the test phone (Q-4). Each is followed end to end on the development computer (share →
-  analysis → on the phone) and the outcome, including any 403 diagnosis, is recorded in the QA report as it is
-  (S-20).
+- During device QA, **the owner** shares one YouTube video link, one YouTube Shorts link and one X post with video
+  from the test phone, at the end of QA (Q-4, confirmed on 2026-10-10). Each is followed end to end on the
+  development computer (share → analysis → on the phone) and the outcome, including any 403 diagnosis, is recorded in
+  the QA report as it is (S-20).
 - **Only the owner's own manual share counts.** Agents never send a link to the real computer: no injected share
   intent (for example `adb shell am start -a android.intent.action.SEND` with a URL), no direct call to the link
   endpoint, no downloader run against a real site. Every automated link test uses the fake computer.
@@ -2604,6 +2993,7 @@ and web logic. Revision 2 removed the ones the review judged over-built (moved t
 | Generated audio-only visual | brief (feed) | 3 of 10 clips have no video; the feed must still look alive | `f0_track` |
 | "Leave this clip out of the Mix" | convenience | a clip the learner does not want to study should not fill sets | local setting |
 | Home dashboard, Library availability, Requests, notifications, Storage | brief | the dashboard, sync and queue the brief asks for | catalogue, queue |
+| Practice accuracy and the Saved list shared through the computer (v1-complete, 7.13) | owner request (Q-3, 2026-10-10) | the owner asked for progress and saved shorts to sync when the devices connect | the browser's per-change `{seen, correct}` shape; the phone's Saved list |
 
 ### 9.7 Dropped or deferred, and why
 
@@ -2697,11 +3087,16 @@ grayscale / largest-font screenshot review.
   diagnostics".
 - **Backup** (Auto Backup and device transfer) uses an allowlist [AR 8.3]: learning progress, saved items and
   settings only. Never the credential, the computer's address, the queue, file copies or media (re-downloadable).
+  In v1-complete the allowlist does not grow: the record of which answers and Saved changes were already shared
+  (7.13) lives with the learning progress and is backed up in the same consistent copy, so a restore never counts an
+  answer twice; waiting deletions belong to the queue and are never backed up.
 
 ### 11.2 What leaves the phone
 
 - Only to the paired computer: requests (links, files), cancels and removals of this phone's failed jobs,
-  record-yourself takes (live; measured and deleted by the computer [BE 10]), and the pairing exchange.
+  record-yourself takes (live; measured and deleted by the computer [BE 10]), and the pairing exchange; in
+  v1-complete also deletions of finished analyses (S-25) and shared progress (S-24): practice answers (which change,
+  right or not, and when) and the Saved list (clip, phrase, word, change, time saved), nothing else about the learner.
 - Nothing goes anywhere else: no analytics, no crash-reporting service, no advertising id, no cloud. The phone never
   contacts YouTube or X; "Open the link" hands a link to the system only when tapped.
 - Release logs contain no addresses, credentials, links or file names; notifications never contain the address or
@@ -2736,14 +3131,22 @@ never queued, never backed up.
 
 - Phone access is off by default and enabled only by an explicit operator action (S-01).
 - Every non-loopback request (API, artifacts, job channel) must be signed with a valid device credential (a
-  signature, never the credential itself; replays refused); pairing endpoints are rate-limited; loopback use by the
-  browser client keeps working without a credential.
+  signature, never the credential itself; replays refused, with the one v1-core window after a restart that 11.6
+  describes); pairing endpoints are rate-limited; loopback use by the browser client keeps working without a
+  credential.
 - Before authentication, health reveals only display name, server id, API version, whether phone access is on and
   the computer's clock, plus, to a paired phone's challenge, the proof of identity of 7.4.
 - Phone access answers only on the networks the operator approved (7.2); elsewhere it is suspended.
 - Unavailable to LAN clients: the disk browser (`/api/browse`), analysis from a server path (`POST /api/jobs` with
   `path`), folder import, review writes, deleting finished analyses; cancel, delete and re-run only for the
-  device's own requests (own failed or cancelled jobs for delete).
+  device's own requests (own failed or cancelled jobs for delete). v1-complete adds one exception (S-25, D-54): a
+  paired phone may delete one finished analysis at a time from the computer's current library, whatever device
+  created it, through a request signed with that phone's credential, content included, which cannot be forged or
+  altered without that credential and is refused when replayed, also after the computer restarts (S-05, S-25); a
+  deletion that names another library is refused. On the network, shared progress (S-24) is available to paired
+  phones only, through requests signed in the same way. On the computer itself it is available to any program on this
+  computer, like the browser client's other routes, which already let such a program delete any analysis: a local
+  program can read and add to the shared practice history and reset it everywhere.
 - No absolute path or user name in any response to LAN clients (`/api/health` `workspace`, job `result_dir`, corpus
   `result_dir`, path-revealing errors) [BE 15.1, AD 4.3].
 - Links from LAN clients: only http(s), refusing targets that resolve to loopback, private, link-local or multicast
@@ -2755,10 +3158,19 @@ never queued, never backed up.
 ### 11.6 Transport risk (accepted for v1, documented) and how cleartext is confined
 
 Plain HTTP on the home network (the server has no TLS [BE 15.3]): someone on the same Wi-Fi could read clips,
-links and requests in transit. A phone's credential could be captured only by someone recording the pairing exchange
-itself, the one moment it travels (the code that starts it is shown only in the computer's terminal, single use,
-valid 5 minutes). After pairing the credential never travels again: every request is signed with it, so a recorded
-request reveals no reusable secret and cannot be replayed (D-38). Mitigations: opt-in phone access on approved
+links and requests in transit (in v1-complete also practice accuracy and the Saved list), but could not forge a
+request without a phone's credential (so neither a deletion nor a reset, S-25, S-24), and could not replay a
+recorded one. One narrow window remains in v1-core: in the minutes after the computer restarts, a request recorded
+just before the restart could be accepted once more; that repeats nothing, because the v1-core requests that change
+something carry idempotency keys or have the same effect when repeated (S-09, S-22). From v1-complete the computer
+refuses such a request too, and the content of a deletion and of shared progress is signed along with the request
+(S-24, S-25). Someone who can also change traffic in flight (an active attacker, for example a rogue access point)
+could still hold back any request, which only delays it, and alter what the other requests carry, for example the
+link being sent; version 2's encryption makes such changes impossible (14.6).
+A phone's credential could be captured only by someone recording the pairing exchange itself, the one moment it
+travels (the code that starts it is shown only in the computer's terminal, single use, valid 5 minutes). After
+pairing the credential never travels again: every request is signed with it, so a recorded request reveals no
+reusable secret (D-38). Mitigations: opt-in phone access on approved
 networks only, per-device revocable credentials, signed requests, the computer's proof of identity before the phone
 sends anything (7.4), restricted routes for LAN clients.
 
@@ -2770,8 +3182,9 @@ and the computer's address is known only at runtime and must never be committed)
   pairing, an address in a private or link-local range being checked or paired; every other cleartext request
   fails before any byte is sent;
 - `android/SECURITY.md` and the README say exactly this (including that the platform setting alone would allow
-  cleartext), together with how to turn phone access off and revoke phones. TLS with a certificate pinned at
-  pairing is Later (Q-1).
+  cleartext), together with how to turn phone access off and revoke phones. The owner confirmed plain HTTP for v1
+  (Q-1, 2026-10-10) and asked for version 2 to encrypt the connection: the product requirements a version-2 design
+  must meet are in 14.6 (S-L3, D-56); its technical design belongs to the architecture.
 
 ### 11.7 Public-repository rules (definition-of-done checks)
 
@@ -2809,8 +3222,8 @@ touches `web/` (D-35). Discovery, renditions and pairing introduce no dependency
 | S-02 | **Identity and capabilities.** A persistent random server id per machine, kept with the paired devices in the operator's configuration directory (never in the repository or a workspace), so a workspace switch never breaks pairing (D-34); a library id per workspace; an editable display name, by default "PhonoTrainer computer" and never the host name (D-42); API version; minimum supported app version; capability flags (link downloads available, dialogue separation available, renditions available, maximum upload size, free space). Identity-only answer before authentication, with a **proof of identity** for a paired phone's random challenge, computed with that phone's credential, so the server id alone never proves who answers (D-37); no paths ever. Health answers without waiting on the analysis worker. | no instance id, health leaks the workspace [BE 16.4, AD 4.3]; CPU saturated during analysis (2.3) | v1-core |
 | S-03 | **Discovery**: while phone access is on, answer a phone's broadcast probe on one fixed UDP port in the unprivileged range with a unicast reply carrying server id, display name, HTTP port and API version only. No mDNS dependency. | some desktop firewalls block 5353 [AD 1.2] | v1-core (fallback if cut: manual address only) |
 | S-04 | **Pairing and device management, terminal only.** A CLI command shows an on-demand 6-digit code, single use, valid 5 minutes, invalidated after 5 wrong attempts; pairing calls rate-limited; exchange for a per-device credential; the CLI lists paired phones (name, paired date, last seen) and revokes one or all. No browser page (D-35). | no auth anywhere [BE 15.2, 16.6] | v1-core |
-| S-05 | **Authentication** of every non-loopback API call, artifact download and job-channel connection by **signed requests**: the credential is exchanged once at pairing and never sent again; each request carries a signature with a timestamp and a single-use nonce, so a recorded request cannot be replayed (D-38); a stable error code for a rejected credential. | [BE 15.2] | v1-core |
-| S-06 | **LAN restrictions**: 11.5 in full (no browse, path-create, import, review writes, deletion of finished analyses; cancel, delete and re-run only of the device's own requests; no absolute paths). | [BE 15.1, AD 4.3] | v1-core |
+| S-05 | **Authentication** of every non-loopback API call, artifact download and job-channel connection by **signed requests**: the credential is exchanged once at pairing and never sent again; each request carries a signature with a timestamp and a single-use nonce, so a recorded request cannot be replayed (D-38; v1-core leaves the narrow window after a restart that 11.6 describes, closed by S-24 and S-25's server work); a stable error code for a rejected credential. | [BE 15.2] | v1-core |
+| S-06 | **LAN restrictions**: 11.5 in full (no browse, path-create, import, review writes, deletion of finished analyses; cancel, delete and re-run only of the device's own requests; no absolute paths). Unchanged for v1-core; S-25 adds, in v1-complete and as new server work, the one exception of 11.5. | [BE 15.1, AD 4.3] | v1-core |
 | S-07 | **SSRF guard** for links from LAN clients, refused at creation with the `refused_address` code. | [BE 15.1] | v1-core |
 | S-08 | **Host validation** while phone access is on. | [BE 15.2] | v1-core |
 | S-09 | **Idempotent creation**: link creation, upload creation and re-run accept a client request id; a repeat returns the existing job; the key is kept with the job; the submitting device is recorded. | duplicates verified [BE 4, 16.7] | v1-core |
@@ -2828,9 +3241,11 @@ touches `web/` (D-35). Discovery, renditions and pairing introduce no dependency
 | S-21 | **Compatibility**: with phone access off, behaviour and API for the browser client are exactly as before; the SPA's version check keeps passing. | [AD 4.4] | v1-core |
 | S-22 | **Re-run**: re-run an own failed, cancelled or interrupted job from what the computer stored (its link, or its uploaded file), with the same options or audio only for links; idempotent (S-09); the new job replaces the old one; "unavailable" with a clear code when the stored file is gone. Used by "Try again", "Try audio only" and the automatic re-run after an interruption. | the phone deletes its copy after upload (8.3); no retry route exists and path creation is forbidden to phones (S-06) | v1-core (fallback if cut: the phone keeps each file copy until the clip is "Ready on your computer" and re-uploads; links are re-created) |
 | S-23 | **Link path hardening**: the video format selection prefers H.264 at 720p or less, then VP9, then other codecs (today AV1 is chosen even when H.264 is offered, `phonotrainer/download.py:21`); the downloader's JavaScript runtime is configured (Node, which the web build already requires; any new runtime is recorded in `THIRD-PARTY-NOTICES.md`) and documented in the README; the installed downloader version is reported in the QA report, and "update the downloader" is the README's first remedy for HTTP 403 (it stays unpinned on purpose: sites change and only new releases follow them); downloader errors map to the codes of 8.6. **Links from phones are confined** (8.7, D-43): site-specific extractors only (the generic one is off), the link re-checked against private addresses at creation, re-run and download; live and upcoming streams refused (`live_stream`); videos longer than `max_link_duration_s` (default 3600 s, editable on the computer) or larger than the upload limit refused (`too_long`); free space checked before the download (`no_space`); browser and CLI downloads unchanged (S-21). Tested with the existing fake downloader, never against a real site. | 0 of 3 downloads succeeded with 403; no JS runtime configured; AV1 preferred [AD 2.1, BE 9] | v1-core |
+| S-24 | **Shared progress** (D-55, 7.13): the computer keeps one practice history per computer (per change: answers given and right, the browser's shape) and one Saved list per library, outside version control (in the operator's configuration directory and the git-ignored workspace, never in a committed file), surviving restarts and updates. Paired phones add answers, reset, save and unsave items, and read the totals and the list, through requests signed with their content included (S-05) and refused when replayed, also after the computer restarts; any program on the computer itself (the browser client is the one they are for) can read and add to the practice history and reset it through additive routes the browser may adopt later, as it can use the browser's other routes, while today's routes stay unchanged (S-21). A store the computer cannot read is never treated as empty (7.13 rule 9). Each answer counts once however often it is sent; a reset clears the answers given before it was pressed (the computer's clock); for the Saved list the latest change wins and an unsave reaches every device; the saved items of a deleted clip are dropped and never accepted again; a capability flag announces it. | Q-3 answered 2026-10-10; the browser keeps `{seen, correct}` per change in `localStorage` (`web/src/features/practice/quiz.ts:105`); no server home for progress today [AD 2.7] | v1-complete (fallback: progress stays on each device, as in revision 3) |
+| S-25 | **Deleting a finished analysis from a paired phone** (D-54, 7.9): a signed request (content included, refused when replayed, also after the computer restarts, S-05) deletes one finished analysis of the computer's current library, whatever device created it, by the same store operation as the browser's "Delete" (`DELETE /api/jobs/{id}`, `JobStore.delete` in `phonotrainer/jobs.py`), so the browser and every phone follow through their usual `deleted` handling and an imported analysis only leaves the list (its folder stays). The request names the library it was made in and is refused with a stable code when the computer uses another one; a clip already gone is reported as such (the phone counts it as done), so repeating the request is harmless; other refusals carry a stable code and a clean sentence. The listing says whether a clip was imported. A capability flag announces it. One clip per request; no bulk deletion. New server work after v1-core: WP-01's v1-core routes are unchanged (S-06). | Q-2 answered 2026-10-10; the browser can delete any analysis today | v1-complete (fallback: no deletion from the phone, as in revision 3) |
 | S-L1 | Link metadata probe (title, duration, thumbnail) before download. | [BE 16.8] | Later |
-| S-L2 | Learner progress storage and sync between web and phone. | [AD 2.7] | Later (Q-3) |
-| S-L3 | TLS for phone access with a certificate pinned at pairing. | [BE 15.3] | Later (Q-1) |
+| S-L2 | Learner progress storage and sync between web and phone. **Promoted on 2026-10-10 to S-24** (Q-3 answered, D-55); kept so references stay valid. | [AD 2.7] | — (now S-24, v1-complete) |
+| S-L3 | Encrypted and authenticated transport for phone access, for example TLS with the computer's certificate pinned at pairing: **version 2 (owner request, 2026-10-10)**; the product requirements are in 14.6, the technical design belongs to the architecture. | [BE 15.3]; Q-1 answered 2026-10-10 (D-56) | Version 2 |
 | S-L4 | Server-side link normalization and a "same link already analyzed" answer across devices. | `?si=` kept [BE 9] | Later |
 | S-L5 | Per-device limit on pending jobs, with a clear error code. | unbounded queue [BE 15.4] | Later |
 
@@ -2839,8 +3254,9 @@ capabilities (S-02), UDP discovery (S-03), terminal pairing and device managemen
 LAN restrictions, SSRF guard and Host validation (S-06 to S-08), idempotent creation (S-09), resumable uploads
 (S-10, v1-complete), the sync listing (S-11), phone renditions including phone video on request (S-12,
 v1-complete), machine-readable job state and error codes (S-13, S-15), the job channel and reference for phones
-(S-14, S-17), record-yourself for phones (S-16, v1-complete), re-run (S-22) and link-path hardening (S-23).
-S-18 is build tooling and S-20 a QA gate.
+(S-14, S-17), record-yourself for phones (S-16, v1-complete), re-run (S-22) and link-path hardening (S-23); and,
+at the owner's request (15.3), shared progress (S-24, v1-complete) and deletion of a finished analysis from a paired
+phone (S-25, v1-complete). S-18 is build tooling and S-20 a QA gate.
 
 ---------------------------------------------------------------------------------------------------------------
 
@@ -2853,15 +3269,15 @@ S-18 is build tooling and S-20 a QA gate.
 | NFR-03 | Storage | install size ≤ 40 MB; a 4-minute clip without video ≤ 3 MB on the phone with renditions (≤ 20 MB with the `analysis.json` and WAV fallback); the budget is enforced (7.10); the app never takes the phone below the free-space floor (1 GB or 10 % of storage, whichever is smaller) with its own downloads or copies; temporary and partial files are cleaned at start. |
 | NFR-04 | Battery | no background work when nothing is pending except the periodic sync window (≥ 15 min, unmetered network, battery not low, as Android allows); no discovery in the background; no wake locks beyond user-visible transfers with a notification; only the current and adjacent shorts are prepared; playback stops when the app leaves the foreground. |
 | NFR-05 | Data | the app's only network peer is the paired computer on the home network (or, before pairing, the address being checked); it never uses mobile data for its own traffic. |
-| NFR-06 | Offline-first | with no network, everything on the phone works: Home, Library, feed (all modes), lessons (all steps except the pitch comparison), shadowing, recording with A/B, Learn, IPA chart, glossary, Practice, Insights, Saved, Settings, creating requests. Needs the computer: sending, processing, downloading, pitch comparison, cancels and re-runs (queued). No screen shows an indefinite spinner because the computer is missing. |
-| NFR-07 | Durability | requests, request states, file copies, download states, positions, lesson step, quiz question and set progress survive rotation, process death, reboot, low-memory kills and app updates; writes are atomic; the data model is versioned with migrations from the first release (schemas exported, migration tests [AR 3.2]); release builds are signed with one stable key so updates install in place (11.7). |
+| NFR-06 | Offline-first | with no network, everything on the phone works: Home, Library, feed (all modes), lessons (all steps except the pitch comparison), shadowing, recording with A/B, Learn, IPA chart, glossary, Practice, Insights, Saved, Settings, creating requests. Needs the computer: sending, processing, downloading, pitch comparison, cancels and re-runs (queued), and in v1-complete deletions from your computer (queued, undoable) and sharing progress (at the next sync). No screen shows an indefinite spinner because the computer is missing. |
+| NFR-07 | Durability | requests, request states, file copies, download states, positions, lesson step, quiz question and set progress (in v1-complete also waiting deletions, answers and Saved changes not shared yet, and a waiting reset) survive rotation, process death, reboot, low-memory kills and app updates; writes are atomic; the data model is versioned with migrations from the first release (schemas exported, migration tests [AR 3.2]); release builds are signed with one stable key so updates install in place (11.7). |
 | NFR-08 | Robustness of data | unknown or missing optional fields never crash the app (older analyses, espeak engine, rules versions 1 to 3 [AD 2.3]); partial downloads are never used; corrupt files are re-downloaded. |
 | NFR-09 | Media | the clip audio is the clock; muted video follows within 0.2 s, offset by the start offset from the listing; every clip kind plays (landscape, portrait, audio-only, video not on the phone, video not available); an undecodable video falls back to sound, never a crash; speed changes keep pitch; switching tracks keeps the position; audio focus and earphone unplugging are respected. |
 | NFR-10 | Security | cleartext allowed by the platform setting but confined in code to the paired computer (11.6); section 11; release builds minified and not debuggable; only the launcher and share target exported. |
 | NFR-11 | Licensing | GPL-3.0-or-later app; every dependency compatible and listed in `THIRD-PARTY-NOTICES.md`; fonts OFL, unmodified TTF with licence text. |
 | NFR-12 | Language | every string, test name, comment, log and document in English; no translations (repository rule). |
-| NFR-13 | Quality bar | the Artemi standard [AR 10.1]: unit tests, lint clean with no baseline, managed-device UI and end-to-end tests with a robot and test tags, release build verified on the phone; the fake computer (unreachable, slow, 4xx, 5xx, lost responses, partial downloads), fakes for connectivity, clock and player; tests for the queue state machine, retries, idempotency, partial downloads, connectivity states, share parsing and shorts v1; a regression test per bug; server changes with pytest. |
-| NFR-14 | Device QA | interacts only with this app; on the test phone simulates "computer unreachable" only by stopping the server or turning phone access off; never reboots the phone, toggles its radios or changes its clock (those ACs are **[emulator]**); changes only the settings the brief allows (font scale, animation scale, TalkBack) through adb, logs them and restores them; reboots only if the owner does it (Q-7); records the phone's video decoders (codec, maximum size) and whether the YouTube and X apps are installed; never sends a link to the real computer (8.7). |
+| NFR-13 | Quality bar | the Artemi standard [AR 10.1]: unit tests, lint clean with no baseline, managed-device UI and end-to-end tests with a robot and test tags, release build verified on the phone; the fake computer (unreachable, slow, 4xx, 5xx, lost responses, partial downloads), fakes for connectivity, clock and player; tests for the queue state machine, retries, idempotency, partial downloads, connectivity states, share parsing and shorts v1 (in v1-complete also deletions from your computer and the merge rules of shared progress, 7.13, with a second device simulated on the fake computer); a regression test per bug; server changes with pytest. |
+| NFR-14 | Device QA | interacts only with this app; on the test phone simulates "computer unreachable" only by stopping the server or turning phone access off; never reboots the phone, toggles its radios or changes its clock (those ACs are **[emulator]**); changes only the settings the brief allows (font scale, animation scale, TalkBack) through adb, logs them and restores them; reboots only if the owner does it (Q-7); records the phone's video decoders (codec, maximum size) and whether the YouTube and X apps are installed; never sends a link to the real computer (8.7); never deletes one of the owner's clips and never resets the owner's shared practice history (D-57): deletions and resets act only on a computer the QA kit started in the same session (the fake computer, or PhonoTrainer started by the kit on the real computer with its own throwaway configuration and library, holding only clips QA created there from local test files), never on the owner's own PhonoTrainer setup, and QA's tools refuse to tap "Delete from your computer…", "Remove from your computer's list…", their confirm buttons, or "Forget it" in "Forget your practice history everywhere?" unless the phone is paired with such a computer; before the test phone can first share progress with the owner's own computer, QA keeps its test answers out of the owner's history (D-57: it clears the phone's history when everything in it came from QA, and otherwise reports what that first share will send); while the test phone shares with the owner's own computer, the answers QA gives there are real answers in the owner's history, so the QA report says how many it gave. |
 
 ### 13.1 Product-wide acceptance criteria
 
@@ -2893,7 +3309,9 @@ S-18 is build tooling and S-20 a QA gate.
   When the web suite runs, Then it passes and no file under `web/` differs from the base branch.
 - **X-AC10** (device QA hygiene): Given a device QA session on the test phone, When it ends, Then its log lists every
   setting changed through adb with its restored value, and records no reboot, radio toggle, clock change or link
-  sent to the real computer by an agent.
+  sent to the real computer by an agent, and (v1-complete) no deletion of one of the owner's clips, no reset of the
+  owner's shared practice history, and, before the test phone first shared progress with the owner's own computer,
+  either the logged clearing of a phone history made only of QA's answers or the totals that share sent (D-57).
 
 ---------------------------------------------------------------------------------------------------------------
 
@@ -2910,14 +3328,14 @@ efficiency work; it is built right after v1-core, and each item has a named fall
 | Area | v1-core | v1-complete |
 |---|---|---|
 | Android project | `android/` in this repository; Artemi toolchain and standards; English only; GPL-compatible dependencies recorded; ignore-rule trap handled; stable release signing (11.7) | — |
-| Server | S-01 to S-09, S-11, S-13, S-14 (channel with lean events, D-44), S-15, S-17, S-18 (build tooling), S-21, S-22, S-23 | S-10 resumable uploads, S-12 renditions (incl. phone video on request), S-16 record yourself |
+| Server | S-01 to S-09, S-11, S-13, S-14 (channel with lean events, D-44), S-15, S-17, S-18 (build tooling), S-21, S-22, S-23 | S-10 resumable uploads, S-12 renditions (incl. phone video on request), S-16 record yourself; S-24 shared progress and S-25 deletion from a paired phone (owner's answers, D-54, D-55) |
 | Onboarding and connection | F-01, F-02, 7.2 to 7.5 | — |
-| Dashboard | F-03 Home, F-04 Library, F-05 Clip page (header, Shorts, Summary counts, On this phone) | F-05 Transcript tab and "How reduced is this speech?" |
-| Feed | F-06, F-07, F-08, F-09: shorts v1, Mix in sets, In order, change and Saved modes, spotlight, captions with marks and modes, Listen first (opt-in), gestures, end cards, questions, saved shorts, audio-only visual, offline behaviour | — |
+| Dashboard | F-03 Home, F-04 Library, F-05 Clip page (header, Shorts, Summary counts, On this phone) | F-05 Transcript tab and "How reduced is this speech?"; F-05 "On your computer" block with "Delete from your computer" (D-54) |
+| Feed | F-06, F-07, F-08, F-09: shorts v1, Mix in sets, In order, change and Saved modes, spotlight, captions with marks and modes, Listen first (opt-in), gestures, end cards, questions, saved shorts, audio-only visual, offline behaviour | F-09 the shared Saved list (7.13, D-55) |
 | Depth | F-10 lesson steps 1, 2, 3 and 5 (shadowing, F-12) | F-10 step 4 and the mouths in Learn and the IPA chart (articulator port), F-11 phrase details, F-13 record yourself |
-| Learn and practice | F-14 glossary, F-15 Learn (text, counts, examples), F-16 IPA chart (without mouths), F-17 Practice | F-18 Insights and the Home teaser |
-| Processing | F-19 add a clip and the share target (section 8), F-20 Requests with re-run, F-23 notifications | — |
-| Sync | F-21: listing, study-pack and original-video downloads with verification and resume, budget, deletion semantics | renditions in the sync (compact data, compressed audio, posters, phone video) |
+| Learn and practice | F-14 glossary, F-15 Learn (text, counts, examples), F-16 IPA chart (without mouths), F-17 Practice | F-18 Insights and the Home teaser; F-17 shared accuracy (7.13, D-55) |
+| Processing | F-19 add a clip and the share target (section 8), F-20 Requests with re-run, F-23 notifications | F-20 rows for deletions from your computer |
+| Sync | F-21: listing, study-pack and original-video downloads with verification and resume, budget, deletion semantics | renditions in the sync (compact data, compressed audio, posters, phone video); deletions made on the phone (7.7, 7.9); shared progress (7.13) |
 | Shell | F-22 Settings, F-24 About, F-25 assets (except the mouth drawing), section 10 | — |
 
 ### 14.2 Suggested build order (input for the work plan; each step demonstrable)
@@ -2932,10 +3350,12 @@ efficiency work; it is built right after v1-core, and each item has a named fall
 5. Sets, questions, Saved, Practice.
 6. Assets, accessibility pass, device QA on the test phone, the link gate (8.7). Device-specific checks wait until
    the phone is attached [AD 1.3]. **v1-core is done here.**
-7. v1-complete in the order of 14.4 read backwards (the item cut last is built first): renditions (S-12),
-   resumable uploads (S-10), Insights, the Transcript tab, record yourself, phrase details, and the articulator port
-   (the largest port item [AD 2.5]). (Lean channel events, formerly first here, ship in v1-core with the phone
-   channel, D-44.)
+7. v1-complete in the order of 14.4 read backwards (the item cut last is built first): deletion from the phone (S-25,
+   F-05 item 6), shared progress (S-24, 7.13), renditions (S-12), resumable uploads (S-10), Insights, the Transcript
+   tab, record yourself, phrase details, and the articulator port (the largest port item [AD 2.5]). (Lean channel
+   events, formerly first here, ship in v1-core with the phone channel, D-44.) The two owner requests come first
+   because the owner asked for them (15.3, D-54, D-55); both need new server work after v1-core, never a change to
+   v1-core's server work in flight.
 
 ### 14.3 Release gates (definition of done)
 
@@ -2947,7 +3367,9 @@ exercised on the test phone; server pytest suite green, and the web vitest suite
 
 ### 14.4 If the schedule forces a cut: what goes first, and its fallback
 
-None of these is a product requirement of the brief; each fallback keeps the brief satisfied.
+None of these is a product requirement of the brief; each fallback keeps the brief satisfied. Items 10 and 11 are
+the owner's answers of 2026-10-10 (15.3), which the owner asked for and did not make optional: they are cut last, and
+only with the owner's approval.
 
 | Order | Cut | Fallback |
 |---|---|---|
@@ -2960,6 +3382,8 @@ None of these is a product requirement of the brief; each fallback keeps the bri
 | 7 | S-12 renditions | `analysis.json` and the WAVs for the study pack; the poster fallback; the original video when the phone plays it, otherwise audio only with "This video can't play on this phone. Listening still works." |
 | 8 | Withdrawn on 2026-10-10: S-14 lean channel events ship in v1-core, because the phone channel is new and lean from its first version (server-contract 7, D-44) | — |
 | 9 | "Leave this clip out of the Mix" | none needed |
+| 10 | Shared progress: practice accuracy and the Saved list (S-24, 7.13; owner's answer to Q-3, "let's try"); only with the owner's approval | accuracy and the Saved list stay on each device and in its backup, "Kept only on this phone.", as in revision 3 |
+| 11 | Deletion of a finished analysis from the phone (S-25, F-05 item 6; owner's answer to Q-2); only with the owner's approval | no "On your computer" block; the learner deletes the clip on the computer, and the phone follows (7.9), as in revision 3 |
 | — | S-03 discovery, only if it fails on the owner's network | manual address entry (always present) |
 | — | S-22 re-run, only if it slips | the phone keeps each file copy until the clip is "Ready on your computer" and re-uploads on "Try again"; links are re-created and the failed job removed |
 
@@ -2967,9 +3391,9 @@ None of these is a product requirement of the brief; each fallback keeps the bri
 
 | Item | Why later |
 |---|---|
-| TLS with a certificate pinned at pairing | needs certificate management; the v1 risk is accepted and documented (Q-1) |
-| Deleting finished analyses from the phone | destructive, not requested by the brief (Q-2) |
-| Practice progress sync with the web | needs a server home for progress (S-L2, Q-3) |
+| Encrypted and authenticated transport (version 2, owner request, 2026-10-10) | plain HTTP is confirmed for v1 (Q-1); the requirements a version-2 design must meet are in 14.6 (S-L3, D-56) |
+| Deleting several clips on the computer at once | no list selection mode exists; v1-complete deletes one clip at a time from its Clip page (D-54) |
+| A Saved view in the browser client; sharing settings, seen shorts or positions between devices | the browser has no Saved feature, shorts or feed, and the owner asked to share progress and saved shorts only (7.13, D-55) |
 | Spaced repetition (1, 3, 7, 14, 30 days), "Learned", the self-check after a review | no web precedent; new data model and prompts (Q-6) |
 | Progress over weeks (trends, days practised, minutes) | needs a time-series model; the web keeps only totals |
 | Session length choices; a "focus change" per set; "Focus mode"; clip-scoped practice | over-built for v1 (15.5) |
@@ -2990,6 +3414,52 @@ None of these is a product requirement of the brief; each fallback keeps the bri
 | Per-device pending-job limit (S-L5) | only paired phones create jobs |
 | mDNS discovery | needs a host firewall change the project must not automate [AD 1.2] |
 
+### 14.6 Version 2: encrypted transport (owner request, 2026-10-10)
+
+The owner's answer to Q-1 (2026-10-10): plain HTTP is accepted for version 1, and version 2 should have "something
+in the app so that it is not left unencrypted and has some security". This section fixes what a version-2 design
+must achieve for the learner and the operator (S-L3, D-56). The technical design (protocol, how the computer's
+identity is made and pinned, how pairing is protected, libraries) belongs to the architecture. None of it is v1
+work, and nothing in v1 may make it harder (v1's per-device credential and the computer's proof of identity, 7.4,
+are what requirement 5 builds on).
+
+1. **Encrypted and authenticated.** After pairing, every exchange between a phone and its computer (API calls,
+   artifact downloads, uploads, the job channel, record-yourself takes, deletions and shared progress) is encrypted,
+   and the phone accepts only the paired computer's own identity, fixed at pairing (pinned). No certificate
+   authority, domain name, internet service or account is involved (principle 9; "an entirely local,
+   non-commercial project" [Brief]). Discovery answers carry no secret and may stay as they are.
+2. **No extra steps for the learner beyond pairing.** Pairing stays exactly as in v1: the code from the computer's
+   terminal and the same screens. No certificate to accept, install or trust in Android settings, no fingerprint to
+   compare by eye, no new field, no new permission (11.4). The operator handles no certificate by hand: the computer
+   makes its own identity and keeps it with its other secrets, outside the repository and the workspace; nothing
+   about it is committed (11.7).
+3. **Pairing protected.** Recording the pairing exchange on the Wi-Fi reveals nothing that lets anyone talk to the
+   computer as the phone or to the phone as the computer (this closes the remaining risk of 11.6), and someone
+   without the code cannot pair or place themselves in the middle of a pairing.
+4. **When the computer's identity changes**, the phone never accepts the new identity by itself. It treats the
+   change like "A different computer answered" (7.5): it sends nothing, deletes nothing, pauses the queue and keeps
+   every clip, request and saved item. Connection details says: "Your computer's identity changed. If PhonoTrainer
+   was reinstalled or reset on your computer, connect again with a new code. If not, another device may be answering
+   at its address." with "Connect again". Connecting again with the same computer (same server id) keeps everything,
+   as re-pairing does in v1 (7.4). The computer's terminal tells the operator when its identity is new and that
+   phones must connect again.
+5. **Already-paired phones move over by themselves.** A phone paired under v1 changes to the encrypted connection at
+   its first connection after both the app and the computer are updated, with no new code and nothing lost, using the
+   trust already established at pairing (the per-device credential, 7.4). If that cannot be proven, it asks to
+   "Connect again" and loses nothing. Once a phone has used the encrypted connection with its computer, neither side
+   ever falls back to plain HTTP with the other: a computer that stops offering it gets nothing and the phone shows
+   "Update PhonoTrainer on your computer" (7.5).
+6. **Mixed versions keep working.** A version-2 app with a version-1 computer works as in v1 (plain HTTP confined as
+   11.6), and Connection details says "Not encrypted: update PhonoTrainer on your computer to encrypt this
+   connection." A version-2 computer keeps serving a phone that has not been updated yet, as in v1, until that phone
+   has used the encrypted connection once (requirement 5). The browser client on the computer itself is unchanged
+   (S-21).
+7. **Visible, but quiet.** The only new things the learner sees are "Encrypted connection" (icon + words) in
+   Connection details, the identity-change state of requirement 4 and the "Not encrypted" line of requirement 6.
+8. **No cost to the study loop.** The success criteria of 3.3 hold unchanged; media playback, image loading and
+   downloads keep using the one shared client (11.6), which then no longer needs the cleartext allowance for the
+   computer.
+
 ---------------------------------------------------------------------------------------------------------------
 
 ## 15. Decisions made on the owner's behalf, conflicts resolved, and questions
@@ -3008,10 +3478,10 @@ from [F], nothing beyond the brief and the evidence.
 | D-04 | **Discovery: the phone broadcasts one probe on a fixed unprivileged UDP port and the computer answers by unicast; plus manual address; no mDNS, no subnet sweep.** | [L] UDP + manual (+ optional sweep); [R] UDP probe + manual; [F] UDP beacon + manual, no sweep → **[R]'s probe with [F]'s "no sweep"** (revision 2 fixes the direction) | mDNS is blocked by the development computer's firewall while high ports are open [AD 1.2]; a sweep looks like a port scan; probe-and-reply means the phone never receives broadcast or multicast, so it needs no multicast lock or extra permission. |
 | D-05 | **"Process from the phone" = shared links and local files**; files are copied on confirm; local videos may be sent as audio only (extracted on the phone). | [L] links + files, audio extraction Later; [R], [F] links + files with extraction in v1 → **[R]/[F]** | The brief: "processes the videos the user wants to process from the phone" plus the share feature; temporary read grants [AD 2.4]; phone videos can be hundreds of MB and the upload had no resume [AD 2.4]. |
 | D-06 | **Phone access is opt-in; pairing by a 6-digit code shown in the computer's terminal (5 min, single use, invalidated after 5 wrong tries); per-device revocable credential; device list and revoke in the CLI; plain HTTP in v1.** | [L] 6 digits, 1-min lock; [R] 8 characters, 10 min, invalidation; [F] 6 digits, 5 min, invalidation → **[F]** (with [R]'s invalidation) | Numeric codes are easy with TalkBack and a numeric keypad; invalidation is stronger than a lock; no auth exists today [BE 15]; the public repo forbids embedded secrets [Brief]. A per-device credential costs the same exchange as one shared secret and allows revoking one phone. |
-| D-07 | **The phone cannot delete finished analyses on the computer in v1**; it can remove only its own failed or cancelled jobs. | [L] yes, online and confirmed; [R], [F] no → **[R]/[F]** | Destructive, not requested by the brief, and a LAN surface today [BE 15.4]; the computer is the archive. Asked as Q-2. |
+| D-07 | **Superseded on 2026-10-10 by D-54** (the owner answered Q-2: the phone may delete a finished analysis; v1-core is unchanged, v1-complete adds it). Original decision: **The phone cannot delete finished analyses on the computer in v1**; it can remove only its own failed or cancelled jobs. | [L] yes, online and confirmed; [R], [F] no → **[R]/[F]** | Destructive, not requested by the brief, and a LAN surface today [BE 15.4]; the computer is the archive. Asked as Q-2. |
 | D-08 | **The phone sends the computer's default analysis options**; only "Audio only" and dialogue separation are exposed (separation only in the in-app Add screen). | [L] audio only; [R] audio only + separation + speech model; [F] audio only + separation → **[F]** | All analyses are TIMIT-61 [AD 2.3]; engine and model choices are power-user settings [WF 9.3]; separation is a meaningful choice for music-heavy clips (web copy). |
 | D-09 | **Didactic static content comes from the web's TypeScript through a read-only build-time extractor, bundled, with a drift test.** | all three agree on one source; revision 2 fixes the mechanism | TypeScript-only today; copying creates drift [AD 2.6]; Learn must work before pairing and offline; `web/` must not be edited (D-35). |
-| D-10 | **Learner progress stays on the phone in v1** (backed up through the allowlist). | all three agree | The brief's sync covers content and queued requests; no server home exists [AD 2.7]. Asked as Q-3. |
+| D-10 | **Superseded on 2026-10-10 by D-55** (the owner answered Q-3: practice progress and saved shorts are shared when the devices connect; v1-core is unchanged, v1-complete adds it). Original decision: **Learner progress stays on the phone in v1** (backed up through the allowlist). | all three agree | The brief's sync covers content and queued requests; no server home exists [AD 2.7]. Asked as Q-3. |
 | D-11 | **Video on the phone: the original when the phone can play it (1080p or less, decodable); a phone video (H.264 ≤ 720p) made by the computer only on request otherwise. Compact clip data, compressed audio and posters are renditions with fallbacks (v1-complete).** | [L] audio and data v1, video SHOULD with original as fallback; [R] all v1; [F] original when decodable, rendition otherwise → revision 1 **[R]**; revision 2 **[F]** | The 720p AV1 originals are 10–15 MB while an H.264 rendition would be 17–25 MB plus server CPU; Android ships a software AV1 decoder that is likely fine at 720p and doubtful at 4K [AD 2.2]; transcoding only what the phone cannot play keeps the one 4K clip working without converting the rest. S-23 makes new downloads H.264 anyway. |
 | D-12 | **The feed plays only files on the phone; no streaming from the computer in v1.** | [L] streams when online with fallback; [R] local only; [F] streaming allowed (1.5 s target) → **[R]** | Offline-first, no stalls when the computer sleeps, one playback path; renditions make local copies small (7.10). |
 | D-13 | **The mouth articulator ships in v1-complete** (lesson step 4, Learn demos, IPA chart), after v1-core, with a text fallback if cut. | all three agree it ships; revision 2 tiers it | It is a step of the web lesson and the core of Learn and the IPA chart; it is the largest port item (about 2,450 lines plus tests [AD 2.5]), so it must not block the brief's core. |
@@ -3065,19 +3535,26 @@ from [F], nothing beyond the brief and the evidence.
 | Link release gate | [L] YouTube, Shorts, X; [R], [F] YouTube, X | **[L]**: Shorts are the vertical content the feed suits best; revision 2: only the owner's own shares (D-36). |
 | Copy for the queue button | [L] "Add to queue"; [R] "Save for later"; [F] "Add to the queue" | "Add to queue" ([L]/[F]); the queue is the brief's concept. |
 
-### 15.3 Questions for the owner (non-blocking; the default applies if unanswered)
+### 15.3 Questions for the owner (non-blocking; answered on 2026-10-10)
 
-Status on 2026-10-10: none of Q-1 to Q-7 was answered, so every default below applies (D-52).
+Status: on 2026-10-10 (before revision 4) none had been answered and every default applied (D-52). **The owner
+answered on 2026-10-10** (D-53): Q-1, Q-4 and Q-5 confirm their defaults (Q-1 adds a version-2 requirement); Q-2 and
+Q-3 change them (D-54, D-55); Q-6 and Q-7 were not answered and their defaults stand. The owner's words, translated
+from Spanish (the owner numbered the questions slightly differently; mapped here): "For 1, yes, unencrypted in
+version 1; you can leave documented for version 2 something in the app so that it is not left unencrypted and has
+some security. For 2, yes it could; when they connect, they sync. For the third, let's also try to make them sync when
+they connect. [The QA links:] yes, I'll pass them to you at the end. [Phone access across restarts:] correct, it stays
+on across server restarts." Questions and defaults are kept as they were asked.
 
-| Id | Question | Default if unanswered |
-|---|---|---|
-| Q-1 | Is plain HTTP between the phone and your computer acceptable on your home Wi-Fi for v1 (phone access is opt-in, phones are paired and revocable, cleartext is confined to your computer in code)? | Yes; encrypted transport with a certificate pinned at pairing goes to the backlog. |
-| Q-2 | Should the phone be able to delete a finished analysis on your computer? | No in v1; the phone removes only its own copy and its own failed requests. |
-| Q-3 | Should practice progress and saved shorts also sync with the browser client? | No in v1; they stay on the phone and in its backup. |
-| Q-4 | During device QA, will you share one YouTube video, one YouTube Shorts link and one X post from your phone yourself, so the link path is tested end to end on your computer? | Yes, and only your own shares count: no agent sends a link to your computer in any other way (D-36); the result is reported as it is. |
-| Q-5 | Once you turn phone access on, should it stay on across restarts of `phonotrainer ui` until you turn it off? | Yes, on the networks it was turned on in (your home Wi-Fi; another network needs `phonotrainer phone on` there, D-42); every start prints that it is on, and you can turn it off or revoke phones at any time. |
-| Q-6 | Do you want saved shorts to come back on a spaced schedule (1, 3, 7, 14, 30 days, with a "Did you hear the change?" check)? | Not in v1: saved shorts return in sets after 3 days; the schedule is in the backlog. |
-| Q-7 | May QA restart your phone once, to confirm that waiting requests survive a restart on the real device? | No: restarts are verified on the emulator; you may restart the phone yourself during QA if you want that check. |
+| Id | Question | Default if unanswered | Owner's answer (2026-10-10) and what it changes |
+|---|---|---|---|
+| Q-1 | Is plain HTTP between the phone and your computer acceptable on your home Wi-Fi for v1 (phone access is opt-in, phones are paired and revocable, cleartext is confined to your computer in code)? | Yes; encrypted transport with a certificate pinned at pairing goes to the backlog. | **Yes for v1** (default confirmed), and document for version 2 how the app stops being unencrypted: requirements in 14.6, S-L3 (D-56). |
+| Q-2 | Should the phone be able to delete a finished analysis on your computer? | No in v1; the phone removes only its own copy and its own failed requests. | **Yes; deletions sync when phone and computer connect** (changed): "Delete from your computer" on the Clip page, waiting on the phone while not connected, v1-complete (F-05 item 6, 7.9, S-25, D-54; D-07 superseded). |
+| Q-3 | Should practice progress and saved shorts also sync with the browser client? | No in v1; they stay on the phone and in its backup. | **Yes, try to make them sync when they connect** (changed): practice accuracy and the Saved list shared through the computer, phone ↔ computer first, the browser by the web owner's adoption, v1-complete (7.13, S-24, D-55; D-10 superseded). |
+| Q-4 | During device QA, will you share one YouTube video, one YouTube Shorts link and one X post from your phone yourself, so the link path is tested end to end on your computer? | Yes, and only your own shares count: no agent sends a link to your computer in any other way (D-36); the result is reported as it is. | **Yes, at the end of QA** (default confirmed; D-36 and 8.7 unchanged). |
+| Q-5 | Once you turn phone access on, should it stay on across restarts of `phonotrainer ui` until you turn it off? | Yes, on the networks it was turned on in (your home Wi-Fi; another network needs `phonotrainer phone on` there, D-42); every start prints that it is on, and you can turn it off or revoke phones at any time. | **Yes, it stays on across server restarts** (default confirmed; D-26, D-42, S-01 unchanged). |
+| Q-6 | Do you want saved shorts to come back on a spaced schedule (1, 3, 7, 14, 30 days, with a "Did you hear the change?" check)? | Not in v1: saved shorts return in sets after 3 days; the schedule is in the backlog. | Not answered: the default stands. |
+| Q-7 | May QA restart your phone once, to confirm that waiting requests survive a restart on the real device? | No: restarts are verified on the emulator; you may restart the phone yourself during QA if you want that check. | Not answered: the default stands (no agent restarts the phone; the owner may choose to). |
 
 ### 15.4 Request (not a question)
 
@@ -3138,7 +3615,41 @@ platform-forced compromise on timing that keeps the brief's queue promise and is
 | D-49 | **"Try audio only" is offered only where it can work**: after a failed copy for space, only while the file can still be read (in the open share sheet, or for a file picked in the app); a shared file whose sheet has closed reads "…then share it again and choose Audio only." with "Remove". For the job code `no_space`, "Try audio only" is for links and "Try again" for files. | consistency review, open item (architecture) 9; S-22 re-runs uploads with their own options only → **clarified** | 7.7 (no space mid-copy), F-20 actions table, 8.6 (`no_space`) | An offered action that cannot succeed breaks principle 12. A shared file's read permission ends with the sheet, and the computer cannot re-run an uploaded file as audio only. |
 | D-50 | **Assets and licences**: no legacy (pre-adaptive) launcher icons, because minSdk 29 always uses adaptive icons; About lists, and X-AC3 checks, the vendored icon set as well as fonts and libraries, from their bundled licence texts. | consistency review, open items 10 and 3 (architecture; the spec shared the wording) → **accepted** | F-24, F-24-AC2, F-25 (launcher row), X-AC3 | Nothing is lost by dropping assets no supported device shows. The design vendors a third-party icon set (ISC, with MIT-licensed parts), which must be credited like the fonts, and a dependency report never lists fonts or icons. |
 | D-51 | **The share sheet does not close by itself while the notification question is open**; the 2 s count starts again once it is answered. | architecture review A-M8, design 9.22; 8.4 items 8 and 9 contradicted each other → **aligned** | 8.4 item 8 | No time limit the learner cannot control (A-11). |
-| D-52 | **Q-1 to Q-7 were never answered; every default applies.** | orchestrator's resumption note → **recorded** | 15.3 | Defaults were written to be safe when unanswered. |
+| D-52 | **Superseded on 2026-10-10 by D-53** (the owner answered). Original decision: **Q-1 to Q-7 were never answered; every default applies.** | orchestrator's resumption note → **recorded** | 15.3 | Defaults were written to be safe when unanswered. |
+
+### 15.7 2026-10-10 owner answers (revision 4, change request CR-01)
+
+The owner answered Q-1 to Q-7 (15.3) after implementation of v1-core had started. The rule applied: implement exactly
+what the answers ask, minimally and robustly, and disturb no work in flight. Every change below is therefore
+**v1-complete or version 2**; v1-core behaviour is unchanged, frozen contracts change only by additive amendment
+(work-plan 2.2), and new server work is new work after v1-core, never a rewrite of v1-core's (S-06 stays as written).
+
+**Review fixes (2026-10-11).** D-58 to D-65 answer the requests the design track (CR-01 design requests P-1 to P-4,
+design.md revision 3) and the architecture (R-1 to R-4, architecture 25.5) sent to the product track after revision 4
+was written (consistency review finding 2; finding 8 through D-62), and the product side of the CR-01 security review
+(F-9 through D-65, F-12 through D-64). The same reviews corrected, in place: D-57 (consistency finding 6, security
+F-15: the first share of the owner's phone, the QA tools' guard, the wording of "fake computer"), 11.5, 11.6, S-05,
+S-24 and S-25 (security F-2 and F-15; S-24's storage wording, consistency finding 14), 14.4 (consistency finding 12)
+and the credit of F-05's delete copy (finding 13). The rule for the other tracks' requests is the one of 15.6: a
+request is accepted unless it changes behaviour the owner asked for, and each answer gives the exact words. Two
+answers touch v1-core, as copy only, in packages that have not started: D-60 (the "Forget this computer…" title and
+confirm label, WP-24) and D-61 (which of F-20's existing reason words each connection state uses, WP-22).
+
+| Id | Decision | Source → disposition | Spec text changed | Why |
+|---|---|---|---|---|
+| D-53 | **The owner's answers are recorded**: Q-1 yes for v1, plus a version-2 requirement (D-56); Q-2 changed (D-54); Q-3 changed (D-55); Q-4 confirmed (D-36, 8.7 and S-20 unchanged; the owner shares the three links at the end of QA); Q-5 confirmed (D-26, D-42, S-01 unchanged); Q-6 and Q-7 not answered, defaults stand. **Supersedes D-52.** | the owner's answers (15.3) → **recorded** | header, 15.3, D-52, D-07, D-10, 7.4, 8.7, 16; the conventions and 8.7 now refer to the owner in neutral words | The defaults were written to stand when unanswered; the answers now replace them where they differ. |
+| D-54 | **The phone may delete a finished analysis on the computer** (v1-complete): only from the clip's Clip page, in its own "On your computer" block, with a destructive confirmation that names every device and the browser (an imported clip has its own wording, after the web's); stored first and sent at once when connected; otherwise it **waits on the phone**, the clip stays studiable but out of new sets with its downloads paused, "Undo" works until it is sent, and it is applied at the next connection before new requests; refusals give "Try again" and "Keep the clip"; it is bound to one computer and one library (never sent elsewhere, dropped by "Forget this computer"); any finished clip of the current library may be deleted, whoever created it; no bulk deletion. "Remove from this phone…" gets its own confirmation words so the two can never be confused. **Reverses D-07.** | Q-2 answered → **specified** | 1.4, 3.2, 4, F-03, F-04 (+AC7), F-05 items 5 and 6, States, F-05-AC6 to AC12, F-06 States, F-20 (groups, actions, AC13, AC14), F-21, F-22, F-23, 7.6, 7.7, 7.8, 7.9 (table and the case list), 7.11, QT-15 to QT-20, 11.2, 11.5, 11.6, S-06, S-25, NFR-06, NFR-07, NFR-13, 14.1, 14.2, 14.4 item 11, 14.5, SC-14 | The owner: "yes it could; when they connect, they sync". One place: the Clip page shows what the clip is and what is stored, so the learner sees exactly what goes; the Library menu keeps only phone actions, so the two removals are never side by side; no selection mode exists, so no bulk deletion is invented. Any submitter: the library is the learner's own and the browser can already delete any clip; restricting it to the phone's own clips would make the answer almost empty (most clips come from the browser). Waiting with "Undo" follows the device queue's model (7.7) and the offline cancel (D-47). **Tier v1-complete, not v1-core**: the brief's requirements, which v1-core covers, do not depend on it; v1-core's server work is in flight and refuses this deletion by contract (`409 not_deletable`), so adding it there would rewrite work in flight; v1-complete is built right after v1-core, and the fallback is exactly revision 3 (14.4 item 11, cut last, so built first, 14.2). |
+| D-55 | **Practice accuracy and the Saved list are shared through the computer** (v1-complete, 7.13): accuracy in the browser's per-change `{seen, correct}` shape, so phone and browser add up; the Saved list (shorts and words, one list) among phones; settings, seen shorts, positions, sets, the session in progress and last-watched times stay on each device. Merge: totals add up and each answer counts once; reset is everywhere and clears answers given before it was pressed; for saved items the latest change wins, and items of a deleted clip go everywhere. The phone ↔ computer path works alone; the browser's part is a list of requirements for the web owner. Practice and Saved show "Shared through your computer · last synced {time}" (or "Kept only on this phone."). **Reverses D-10.** | Q-3 answered → **specified** | 3.2, 4, G5, F-08 Data, F-09 item 5, States, AC4 to AC6, F-17 item 6, States, AC6 to AC11, F-21, F-22, 7.6, 7.7, 7.9, 7.11, 7.13 (new), 9.6, 11.1, 11.2, 11.5, S-24, S-L2, NFR-06, NFR-07, NFR-13, 14.1, 14.2, 14.4 item 10, 14.5 | The owner: "let's also try to make them sync when they connect", read as properly but minimally. Only what both clients already keep is shared, in the shape the browser already uses; the Saved list is shared whole because it is one list (F-09); everything else is a device's viewing state or has no counterpart in the browser. Reset must be everywhere because one shared history cannot be reset in one place, and "before it was pressed" is what the learner means by it. **Tier v1-complete**: as D-54 (new server storage after v1-core; fallback = revision 3; 14.4 item 10). The browser's adoption depends on the web owner (D-35), so the Android plan never waits for it. |
+| D-56 | **Encrypted transport is version 2**, with product requirements (14.6): encrypted and authenticated after pairing with the computer's identity pinned, no extra step beyond pairing, pairing itself protected, a changed identity never accepted silently, phones paired in v1 moved over without a new code, no downgrade, mixed versions working. Plain HTTP stays for v1. | Q-1 answered → **specified for version 2** | 7.4, 11.6, 3.2, S-L3, 14.5, 14.6 (new) | The owner confirmed plain HTTP for v1 and asked for version 2 to be documented so the app does not stay unencrypted. The requirements say what the learner and the operator must experience; the protocol is the architecture's. |
+| D-57 | **Device QA never deletes one of the owner's clips and never resets the owner's shared practice history.** (1) Deletions and resets act only on a computer the QA kit started in the same session: the fake computer, or PhonoTrainer started by the kit on the real computer with its own throwaway configuration and library, which hold only clips QA created there from local test files; never on the owner's own PhonoTrainer setup (its configuration and libraries). (2) The QA tools enforce it before every tap, whatever the step: they refuse to tap "Delete from your computer…", "Remove from your computer's list…", the confirm buttons "Delete from your computer" and "Remove from your computer's list", and "Forget it" in "Forget your practice history everywhere?", unless the phone is paired with a computer the kit started in this session (its server id is in the session's QA log). (3) **The first share of the owner's phone**: the test phone is the owner's own phone, and the answers QA gives there against fake computers stay in its practice history. Before it can first share progress with the owner's own computer, QA compares the phone's per-change totals with the answers the QA logs counted (QA's own on that phone, and those the kit's simulated devices gave on a computer the phone shared with). When everything came from QA, QA clears it with "Reset" (phone-only while nothing is shared, or everywhere while the phone shares with a computer the kit started) and logs it. Otherwise the owner has practised on the phone too: QA resets nothing, and the QA report states the totals that first share will send and how many of them are QA's, so the owner decides. (4) While the test phone shares with the owner's own computer, the answers QA gives there are real answers in the owner's history, and the QA report says how many it gave. | consequence of D-54 and D-55, in the spirit of D-36 → **added**; corrected on 2026-10-11 (consistency review finding 6, security review F-15): the first share, the guard on every tap, and the "fake computer" wording aligned with architecture 21.7 | 7.12 preface, NFR-14, X-AC10 | Both features act on the owner's real data on the computer; the brief limits device QA to this app and to restoring what it changes, and a deletion or a reset cannot be restored. A phone's history is added to the computer's at its first share (7.13 rule 7), so answers QA gave against fake computers would otherwise become part of the owner's history with no way to take them out. Clearing the phone's history is itself a reset that cannot be restored, so QA does it only when every answer in it is QA's; answers the owner gave are the owner's to keep or clear. A guard in two named helpers lets a generic tap on the same label through; checking the label before every tap covers every path. The kit's throwaway PhonoTrainer on the real computer counts as a computer the kit started, as in architecture 21.7, because it holds only what QA created. |
+| D-58 | **An imported clip's deletion uses the web's "remove from the list" words wherever it is named** (v1-complete). Block sentence: "Removing it here takes it off your computer's list and off every device that uses it, including the browser. The imported folder stays on your computer."; button: "Remove from your computer's list…"; sending: "Removing from your computer's list…"; waiting: "Waiting to be removed from your computer's list"; refused: "Couldn't remove “{title}” from your computer's list."; its row in Requests: "Remove “{title}” from your computer's list". The confirmation and the message after it already had their own words (F-05 item 6); the reasons and "Deletion undone: “{title}” stays on your computer." are the same for every clip. | CR-01 design request P-1 (the button label) → **accepted, extended to the block's other words** | F-04, F-05 item 6 (imported clip), States, F-05-AC9; F-20 item 1 and actions table; 7.11 | The button opens a dialog titled "Remove … from your computer's list?" whose confirm button says the same, and the web labels the same action "Remove from the list…" for an imported analysis (`web/src/features/library/LibraryPage.tsx`): a "Delete" button that opens a "Remove" dialog reads as two different actions. The states that follow get the same words because, after the dialog promised that only the list changes, "Waiting to be deleted from your computer" would contradict it for as long as the deletion waits. The undo message is true for both kinds, so it stays one. No new state or action: the words follow the import mark the phone already has (S-25, server-contract 6.3). |
+| D-59 | **A refused deletion keeps holding its clip until the learner decides** (v1-complete): the clip stays out of new sets and its downloads stay paused until "Try again" (it waits again) or "Keep the clip" (the clip is as before). Library rows, Home shelf cards and the Clip page header show nothing for it; Home's status card counts it in "needs your attention" with "Try again" inline (F-03 item 2), Requests lists it with both actions, and the Clip page's "On your computer" block shows the refusal with both actions. F-04's Partial line ("a row whose download is paused shows the reason") does not apply to it. | CR-01 design request P-2, architecture R-1 → **confirmed as the architecture does it** (`PendingDeletions`, architecture 8.8) | F-04, F-05 item 6 (refused), F-06 States, 7.7 (Retries), 7.8, 7.9 | A refused deletion is neither applied nor undone: the learner's confirmed wish still stands and "Keep the clip" is how it is withdrawn, so letting the clip back into sets and downloads would act against that wish before the learner chose. Waiting and sending are shown on rows because the clip is about to leave every device on its own; a refusal changes nothing on either side until the learner decides, so it is shown where the decision's two actions are, and Library rows and shelf cards carry no deletion action (D-54). Refusals are rare (only finished clips of the current library are offered), so the paused downloads cost little. |
+| D-60 | **"Forget this computer…" confirmation: title "Forget this computer?"; buttons "Cancel" (the default, focused first) and "Forget this computer"**; the body is F-22's, unchanged (v1-core copy). | CR-01 design request P-3 (render 31 already draws these words) → **confirmed** | F-22 | F-22 gave the body and the default button but no title or confirm label, so the Settings package (WP-24, not started) would have had to invent them. The drawn words repeat the action the learner tapped, as the other confirmations do ("Remove from this phone"). Copy only. |
+| D-61 | **The reason a waiting row shows, by state** (deletions and requests alike), the first that applies: (1) the queue's pause, in the words of 7.5 ("Your computer no longer recognizes this phone", "Update PhonoTrainer on your computer", "Update this app", "A different computer answered"), and for a deletion the computer said was made for a different computer, "A different computer answered" (D-62); (2) for a deletion, "Your computer is using a different library: this waits until it uses this clip's library again."; (3) not connected: "Not on Wi-Fi" while the phone has no Wi-Fi (the Offline and Not on Wi-Fi states of 7.5), otherwise "Your computer isn't reachable" (Looking, Checking, Not reachable); (4) connected, after a failed attempt: "Will try again in {n} min", and after 3 failed attempts "Couldn't send yet: will try again". A request held by "Stop sending" shows its own line instead, and a large file adds its line (7.7). No word is new. | CR-01 design request P-4 → **confirmed, with the state each word belongs to** | F-05 item 6 (not connected), States; F-20 item 1 | One list for both kinds of row, so a deletion and a request waiting side by side in Requests never give two reasons for one state. "Offline" reads "Not on Wi-Fi" because with no network the phone is not on Wi-Fi either, and joining the home Wi-Fi is the one thing that sends it; "Your computer isn't reachable" also covers the few seconds of Looking and Checking, because until the computer answers it has not been reached. F-20 listed the words without saying which state uses which; the Requests package (WP-22) has not started. |
+| D-62 | **Refusal sentences** (the line after "Couldn't delete “{title}” from your computer."), chosen by the computer's code, never its raw text: `not_finished`: "Your computer says this analysis isn't finished, so it can't be deleted from here."; a computer that no longer offers the deletion (its PhonoTrainer was replaced by one that cannot delete for phones, so the route is unknown to it): "To delete this clip everywhere, delete it on your computer, or update PhonoTrainer there to do it from this phone." (F-05 item 6's "not offered" sentence); any other refusal code: "Your computer answered that it can't delete this clip right now.". An answer that the deletion was made for a different computer (`different_computer`) is not a refusal: the deletion keeps waiting with "A different computer answered", retried on the 7.7 schedule, with "Undo". | architecture R-2 (three sentences proposed in `DeletionCopy`, architecture 19) → **two confirmed, one replaced by a wait, one added** | F-05 item 6 (refused), 7.7 (Retries), 7.9 | The two confirmed sentences are plain, second person and name the place (9.8). A deletion is bound to one computer, and 7.9 already makes a different computer a reason to wait, never a failure; a refusal would offer "Try again" against the wrong computer. A computer that lost the capability after the deletion was stored is F-05's third "not offered" case arriving late, so it gets that sentence, with "Try again" for after an update and "Keep the clip"; it is never read as "already gone", which would remove a clip the computer still has. |
+| D-63 | **A revoked phone that lost its own key** (v1-complete): if "Connect again" has to pair this phone as a new phone because its own stored credential is gone (its key store was cleared), its waiting deletions are dropped as after "Forget this computer": never sent; each clip stays on both sides, without a waiting line, and "Delete from your computer…" is offered again. No message. | architecture R-3 → **added to 7.9** | 7.7 (state machine), 7.9 (table and the revoked-phone case) | It fails safe: nothing is deleted without a confirmation the learner can still see, and nothing is lost on either side. A deletion belongs to the pairing it was made under (D-54), and a new pairing is a new phone to the computer. The case needs the phone's key store to be cleared, which is rare, and the clip shows its ordinary state again where the learner looks for it; a message would add words for an event the learner did not cause. |
+| D-64 | **The computer's copy is the shared history** (v1-complete, 7.13 rule 9): if the operator deletes it on the computer (the shared practice history, or one library's Saved list), every device forgets what had been shared at its next sync and keeps only what it had not shared yet; only a restored copy of the computer's files brings it back. A store the computer cannot read is not a deletion: no device changes anything, and sharing waits ("last synced {time}" keeps aging) until the computer can read it again. The README says so to the operator. | architecture R-4 → **accepted, with the unreadable case** (security review F-12) | 7.13 (rule 9), S-24 | One shared history has one home: a phone that kept its old totals alive against an emptied computer would bring back answers another device had reset, or count them twice. A damaged or unreadable file is not the operator's choice, so it must never empty every device at once. |
+| D-65 | **"Undo" only while the deletion cannot have reached the computer** (v1-complete): after an attempt whose outcome is unknown (no answer, a timeout, a dropped connection, an error on the computer), the deletion keeps waiting and is sent again with the same key, without "Undo", and its block and row add "It may have reached your computer already, so it can't be undone."; if the clip turns out to be gone, it is removed as for any deletion (7.9). | security review F-9 ("Undo" after an unknown outcome; the state that carries it is the architecture's, 8.8) → **specified** | F-05 item 6 (connected, not connected), States; F-20 item 1 and actions table; 7.7 (Retries, state machine); 7.9 | "Undo" promises "“{title}” stays on your computer"; after an unanswered attempt the computer may already have deleted it, and the clip would then vanish right after that promise. Hiding the action is the smallest true answer, and the line says why it went away. Revision 4's "until it is sent" meant this; the line makes it visible. |
 
 ---------------------------------------------------------------------------------------------------------------
 
@@ -3168,7 +3679,7 @@ them (SC-16). "Fact" rows are environment facts the design relies on.
 | "If online (server reachable) it processes; if not, it queues." | product | 8.4 (connection line and buttons), 8.5, 8.6, 8.7. Satisfied in full for local files and for queueing and sending links; whether a link's analysis then succeeds is conditional on the computer's downloader, hardened by S-23 and reported from the owner's own shares (S-20). Disclosed limit: links from the phone to live streams or to videos longer than the computer's link limit (1 hour by default, editable on the computer) are refused with their own copy (D-40, D-43) | SH-AC3, SH-AC4, SH-AC5, SH-AC9, SH-AC12, SH-AC16, SH-AC17, SH-AC18, F-20-AC3, F-20-AC4, F-23-AC4 |
 | "Design must be delegated to a dedicated design agent." | process | conventions (no visual design here), F-25 (asset inventory as content), 9.8 (mark semantics fixed, visuals open) | — (process; F-25-AC2 is the design agent's sign-off) |
 | "It is very important that it is NOT minimalist, and that it is robust." | product | principle 13, F-25 design acceptance list, every States table (revision 3 gives words to the states that had none, D-47), 7.7 to 7.12, NFR-07, NFR-08 | F-25-AC2, F-20-AC7, F-06-AC13, QT-1 to QT-14, X-AC7 |
-| "Take your time; make a work plan; delegate everything possible." | process | 14.1 (tiers), 14.2 (build order), 14.3 (gates), 14.4 (cut order; lean channel events moved to v1-core, D-44), section 12 (server work separable), 15.3 (non-blocking questions; unanswered, defaults applied, D-52), 15.6 (pre-implementation closure of the other tracks' requests) | — (process) |
+| "Take your time; make a work plan; delegate everything possible." | process | 14.1 (tiers), 14.2 (build order), 14.3 (gates), 14.4 (cut order; lean channel events moved to v1-core, D-44), section 12 (server work separable), 15.3 (non-blocking questions, answered on 2026-10-10, D-53), 15.6 (pre-implementation closure of the other tracks' requests), 15.7 (the answers' changes, kept out of work in flight) | — (process) |
 | "When ready, the owner connects the phone to install and test (the test phone, Android 16 / API 36, attached over adb)." | product | NFR-01, NFR-14, 8.7 (gate on the device), 14.2 step 6, 14.3, 15.4 | X-AC8, X-AC10 |
 | Constraint: all repository content in English, including UI strings; no translations | product | conventions, NFR-12, 11.7 (language scan) | X-AC2 |
 | Constraint: GPL-3.0-or-later; dependencies and fonts recorded; OFL fonts vendored with licence text | product | NFR-11, F-24 (libraries, fonts and the vendored icon set, D-50), F-25, 11.7 | X-AC3, F-24-AC1, F-24-AC2 |
@@ -3179,4 +3690,8 @@ them (SC-16). "Fact" rows are environment facts the design relies on.
 | Environment: the server binds 127.0.0.1:8000 by default | fact | 7.1, 7.2, S-01, S-21 | X-AC9 |
 | Environment: the host firewall allows unprivileged TCP/UDP ports on Wi-Fi (and blocks mDNS) | fact | 2.3, 7.1, 7.3, S-03, D-04 | F-02-AC1, F-02-AC4 |
 | Environment: jobs are about 20 MB; originals can be 50+ MB | fact | 2.5 (720p originals are 10–15 MB; one 4K original 65.6 MB), 7.10, S-12, D-11, D-19 | F-21-AC4, F-21-AC6 |
-| Environment: device QA interacts only with this app and restores any changed setting | product | conventions (where ACs are verified), NFR-14, D-32 | X-AC10 |
+| Environment: device QA interacts only with this app and restores any changed setting | product | conventions (where ACs are verified), NFR-14, D-32, D-57 | X-AC10 |
+| Owner's answer to Q-1 (2026-10-10): "yes, unencrypted in version 1; you can leave documented for version 2 something in the app so that it is not left unencrypted and has some security" | product (version 2) | 7.4, 11.6, 14.6, S-L3, D-56 | — (version 2: requirements documented, not built in v1) |
+| Owner's answer to Q-2: "yes it could; when they connect, they sync" (the phone may delete a finished analysis on the computer) | product (v1-complete) | F-05 items 5 and 6, F-04, F-20, 7.7, 7.8, 7.9, 11.5, S-25, D-54; the review answers D-58, D-59, D-61 to D-63, D-65 | F-04-AC7, F-05-AC6 to F-05-AC12, F-20-AC13, F-20-AC14, QT-15 to QT-20 |
+| Owner's answer to Q-3: "let's also try to make them sync when they connect" (practice progress and saved shorts, with the browser too) | product (v1-complete; the browser's part is the web owner's) | 7.13, F-09 item 5, F-17 item 6, 7.6, 11.1, S-24, D-55, D-64 | F-09-AC4 to F-09-AC6, F-17-AC6 to F-17-AC11 |
+| Owner's answers to Q-4 ("I'll pass them to you at the end") and Q-5 ("it stays on across server restarts") | product | 8.7, S-20, D-36; 7.2, S-01, D-26, D-42 | — (unchanged; S-20 is the release gate) |

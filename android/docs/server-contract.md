@@ -1,6 +1,60 @@
 # PhonoTrainer for Android: server contract
 
-Status: v1 contract, revision 3, 2026-10-10 (revisions 1 and 2: the same day). Owner: software architect.
+Status: v1 contract, revision 4, 2026-10-11 (revisions 1 to 3: 2026-10-10). Owner: software architect.
+
+**Revision 4 notes (change request CR-01, the owner's answers of 2026-10-10).** Spec revision 4 adds two v1-complete
+server requirements and a version-2 requirement; nothing of v1-core changes (S-06, API 6 and the routes WP-01 built
+stay as written; the new work is WP-27's milestone A; architecture 25.5 lists every item):
+1. **S-25, deleting a finished analysis from a paired phone (6.11)**: a new signed route, separate from v1-core's
+   `DELETE /api/phone/jobs/{id}` (which keeps answering `409 not_deletable` for a finished job). It deletes one `done`
+   job of the current library, whoever created it, through the same `JobStore.delete` the browser's "Delete" uses; the
+   server id and library id the phone saw travel in the signed query; a job already gone is a success with
+   `already_gone: true`. The listing's existing `source.kind: "import"` is the imported mark (6.3): no new field.
+2. **S-24, shared progress (6.12, 6.13)**: one practice history per computer (`progress.sqlite3` in the configuration
+   directory) and one Saved list per library (`<workspace>/saved.json`), signed routes for phones and additive
+   loopback-only routes for the browser client, which adopts them later (`android/docs/web-progress-sync.md`). Every
+   answer has an id and a time on the computer's clock, so it counts once and a reset clears exactly what was given
+   before it; the Saved list is last-change-wins with tombstones. What acts on every device (a deletion's target, a
+   phone's reset) travels in the signed request target, so a changed body can never delete or reset anything (4.8).
+3. **Capabilities** `delete_finished` and `shared_progress` (3.4); both ship with **API 7**, which WP-27's first
+   milestone sets (1.2).
+4. **Version 2** (S-L3, spec 14.6): the encrypted transport is designed in architecture 26 and summarized in section
+   13; it is not part of the v1 work plan, and 4.8 points to it.
+
+**Revision 4 review fixes (2026-10-11, fix round 1; architecture 25.6 lists each item and its reason).** All in WP-27
+milestone A (API 7) or in version 2; nothing of WP-01's v1-core routes changes.
+1. **Bodies and restarts (4.3)**: the three CR-01 routes carry `body_sha256` in the signed query, so the signature
+   covers their body; a signature older than the server process (`not_before`) answers `401 clock_skew`, which closes
+   replays of requests recorded before a restart on every route. 4.8 is corrected accordingly.
+2. **No whole-request refusal for content (4.7, 6.12)**: `409 store_full` is gone; labels, baselines and Saved entries
+   over a bound are refused one by one and reported; Saved positions are bounded by the job; totals are clamped to
+   32 bits; the worst-case Saved answer is recomputed.
+3. **Deletions (2.1, 4.7, 6.11, 10.3)**: at most 20 per device per 10 minutes (`429 rate_limited`); a visible audit
+   line with the phone's name and short id; the start banner and the README say that paired phones can delete finished
+   analyses and how to revoke a lost phone.
+4. **Stores fail closed (3.2)**: an unreadable `progress.sqlite3` or `saved.json` answers `503 store_unavailable` and
+   is never recreated or overwritten.
+5. **Body rules everywhere (4.7, 6.13)**: the browser routes refuse unbounded or non-JSON bodies before reading them;
+   the three phone routes join the JSON body rules; one audit line per applied reset.
+6. **Version 2 (13)**: RFC 5054's checks in the SRP exchange, legacy-only plain pairing, a pin-bound `hello` and a new
+   device key at migration.
+
+**Revision 4 review fixes, round 2 (2026-10-11; architecture 25.7).** No route, field or status changes. The
+product track's answers (spec D-62, D-64) fix how the phone reads two answers of 6.11: `404 unknown_route` from a
+computer that lost the route is a refusal on the phone, never "already gone" and no longer a wait, and
+`409 different_computer` waits with the reason "A different computer answered" (6.11, 8.1); 3.2 cites D-64.
+
+**WP-01 milestone B's change requests (2026-10-10 and 2026-10-11; v1-core, API 6).** Applied by the integrator with
+WP-01's merges, before revision 4 was merged, and kept beside revision 4's text section by section (work-plan
+revision 4, note 7). All additive: public networks join the virtual interfaces left out of the approved networks
+unless named, and a suspended server still listens so a phone can tell "phone access is off there" (2.1); uvicorn's
+WebSocket lines stay out of the log (2.1); a LAN peer must lie inside the approved network it reached (4.4, 8.1); the
+phone-origin download is confined at every connect and notices yt-dlp's size skip (4.5, 8.2, 9); head and body
+deadlines and connection caps for LAN peers, chunked bodies refused on phone routes that are not file uploads, and
+`Connection: close` on refusals sent before the body (4.7, 8.1); a loopback-bound server announces nothing (5.1);
+upload session files named by the key alone and stored names that fit the disk (3.2, 6.1, 6.6); what an aborted,
+replaced or unstorable upload body answers (6.6, 8.1); a phone's cancel of a queued job is immediate (6.7); the
+module and fixture rows that go with them (10.1, 10.2, 11.2).
 
 **Revision 3 notes (pre-implementation closure).** No route, field or code changed. Spec revision 3 gave the job codes
 `live_stream` and `too_long` their own copy (spec 8.6, D-40), so the "Spec 8.6" cells of 8.2 rows 4 and 5 name it, and
@@ -75,9 +129,11 @@ Conventions
 | S-21 | Compatibility with the browser client | core | 1.3, 1.4 |
 | S-22 | Re-run of own failed, cancelled or interrupted jobs | core | 6.7 |
 | S-23 | Link path hardening | core | 9 |
+| S-24 | Shared progress: one practice history per computer, one Saved list per library; signed phone routes and loopback browser routes (CR-01, D-55) | complete | 3.2, 3.4, 4.2, 4.7, 6.12, 6.13 |
+| S-25 | Deleting a finished analysis from a paired phone (CR-01, D-54) | complete | 3.4, 4.2, 6.3, 6.11 |
 
-Not in this document: S-18 is build tooling (architecture 15); S-20 is the QA link gate (work-plan WP-25); S-L1 to
-S-L5 are Later.
+Not in this document: S-18 is build tooling (architecture 15); S-20 is the QA link gate (work-plan WP-25); S-L1, S-L4
+and S-L5 are Later; S-L2 became S-24; S-L3 is version 2 (section 13, architecture 26).
 
 ### 1.2 API versions
 
@@ -85,7 +141,7 @@ S-L5 are Later.
 |---|---|---|
 | 5 | today | record yourself (unchanged) |
 | **6** | WP-01 (core) | `/api/phone/*`, phone access, discovery, pairing, listing, idempotent creation, re-run, phone channel, downloader hardening |
-| **7** | WP-27 (complete) | renditions, phone video on request, resumable uploads, record yourself for phones; the matching capability flags turn `true` |
+| **7** | WP-27 (complete) | milestone A (CR-01): deleting a finished analysis from a phone (6.11) and shared progress (6.12, 6.13); milestone B: renditions, phone video on request, resumable uploads, record yourself for phones. Each capability flag turns `true` when its milestone ships |
 
 Rules:
 1. `phonotrainer/server.py` keeps one `API_VERSION`; its comment block gains the lines for 6 and 7.
@@ -100,6 +156,9 @@ Rules:
    plan.
 6. Unknown request fields are ignored by the server (`extra="ignore"` models); unknown response fields are ignored by
    the phone (architecture 5.4).
+7. API 7 is the v1-complete server: the first WP-27 milestone merged sets it, and the second adds its routes and turns
+   its flags `true` within 7 (rule 5). This keeps the fake computer's complete tier (`API_VERSION_COMPLETE = 7`,
+   WP-05a) valid, and nothing depends on the number but the browser's and the phone's minimums (rules 2 and 3).
 
 ### 1.3 What does not change for the browser client (S-21)
 
@@ -118,6 +177,10 @@ with one deliberate exception (a request whose `Host` header names a host that i
   parse them. The site a link came from reaches the phone as a field (`source.site`, 6.3), never through the text.
 - `job.json` gains optional fields (`device_id`, `client_request_id`, `rerun_of`); older files load as before and
   `Job.to_public()` is unchanged.
+- From API 7 (v1-complete, CR-01) one additive pair of routes exists for the browser client in every mode,
+  `GET`/`POST /api/progress/practice` (6.13): loopback only, created by `phonotrainer ui`, and inert until the browser
+  calls them (no file is created before the first `POST`). No existing route, payload, `/api/health` key or
+  `/ws/jobs` message changes; the browser keeps its own `localStorage` history until its owner adopts the routes.
 
 The only change every user sees is S-23 (section 9): new downloads prefer H.264, then VP9, then other codecs, and
 yt-dlp is given a JavaScript runtime when one is installed. It changes no route or payload.
@@ -146,7 +209,7 @@ New options on the existing command (`phonotrainer/cli.py`):
 | `--phone-access` | turns phone access on, **remembers it** (`server.json`, 3.2), approves the networks the computer is on now (below) and starts the server with it |
 | `--no-phone-access` | turns it off, remembers it, starts without it |
 | `--phone-interface <name>` | repeatable; also approves a virtual interface or a public network, both excluded by default (below); without `--phone-access`, with phone access already on, it approves only the interfaces it names |
-| neither | uses the remembered value; the default for a computer that never chose is off (S-01, Q-5 default) |
+| neither | uses the remembered value; the default for a computer that never chose is off (S-01, Q-5, confirmed (D-53)) |
 
 **Approved networks** (security review M-6). Phone access stays on across restarts (Q-5), but a laptop must not
 expose it on a café, hotel or office Wi-Fi it joins later. Turning phone access on (`--phone-access` or
@@ -193,7 +256,13 @@ Turn phone access off:   phonotrainer phone off   (or start with --no-phone-acce
 ```
 
   The addresses are the active approved addresses (above), one line each with the interface name. No secret is ever
-  printed by `ui`.
+  printed by `ui`. From API 7 (WP-27 milestone A, S-25) the phone lines end with:
+
+```
+Paired phones can delete finished analyses. If a phone is lost, run: phonotrainer phone revoke <name>
+```
+  because a phone paired under API 6 gains that power with the update, and the operator must know how to take it away
+  (architecture 25.6 C-56).
 - uvicorn runs with `access_log=False` (its access log would print every client address and request path, 3.3), and
   its WebSocket lines (client address and path, logged even without the access log) are filtered while phone access
   runs.
@@ -376,6 +445,52 @@ open upload session (a UUID clash) answers `409 key_conflict` (6.1).
 **`<workspace>/<job id>/phone/`** (derived per-job files, regenerable at any time): `checksums.json`, `media.json`
 (6.4), and in v1-complete the renditions and `renditions.json`. Deleting a job deletes them with its directory.
 
+**`progress.sqlite3`** (complete, S-24: the practice history of this computer, 6.12; in the configuration directory;
+written only by the server, created at the first shared-progress write, never by the CLI). SQLite through the
+standard library's `sqlite3`, mode `0600`, rollback journal (`DELETE`, so it is one file at rest), one connection
+guarded by a lock. Tables:
+- `meta(key TEXT PRIMARY KEY, value TEXT)`: `schema` (1), `reset_id`, `reset_at`, `base_through` (the newest `at`
+  folded into `base`, 4.7);
+- `answer(id BLOB PRIMARY KEY, change TEXT NOT NULL, correct INTEGER NOT NULL, at INTEGER NOT NULL)`, indexed on
+  `at`: one row per answer given after the current reset (`id` is the answer's UUID as 16 bytes);
+- `baseline(id BLOB PRIMARY KEY, at INTEGER NOT NULL, stats TEXT NOT NULL, counted INTEGER NOT NULL)`: a client's
+  totals from before it shared (6.12 rule 4); `counted` turns 0 when a later reset clears it, and the row stays so
+  the same baseline can never be added again;
+- `base(change TEXT PRIMARY KEY, seen INTEGER NOT NULL, correct INTEGER NOT NULL)`: answers folded when the bound of
+  4.7 is reached.
+Why the configuration directory: the practice history belongs to the computer, not to a library (spec 7.13 rule 6),
+so a workspace switch must neither reset nor split it, and this directory is already the per-machine place outside
+the repository and every workspace, with its permission checks (3.1). Why SQLite: the history is a log of answers with
+unique ids, read by time and changed in transactions; a JSON file would be rewritten whole at every sync.
+
+**`<workspace>/saved.json`** (complete, S-24: the Saved list of this library, 6.12; created at the first Saved write)
+
+```json
+{"list_id": "5c0e8a1f2b7d4e6a9c3b1d0f8e2a4c6b", "version": 43, "pruned_through": 7,
+ "entries": {"word:20261010-091503-4be1:12:3": {"kind": "word", "job_id": "20261010-091503-4be1", "segment": 12,
+   "word": 3, "short_first_segment": 11, "change": "flapping", "saved": true, "at": 1791622900, "version": 42}}}
+```
+The key is `<kind>:<job id>:<segment>:<word, or - when null>` (the phone's own unique key of a saved item, architecture
+4.3). `list_id` is 16 random bytes in hex, made when the file is created; `version` counts every applied change; both
+form the opaque cursor of 6.12, so a list that was deleted, recreated or restored from an older copy is never mistaken
+for the one a phone last read. Written atomically (temporary file and `os.replace`) under an in-process lock, by the
+server only; the job store ignores it (it is not a directory with a `job.json`). It holds at most 10,000 entries,
+tombstones included (4.7), so it stays near 2 MB at worst. Why the workspace: the Saved list belongs to one library
+(spec 7.13 rule 6) and anchors to that library's job ids; switching the workspace gives its own list, and deleting a
+workspace deletes its list.
+
+**Both stores fail closed** (complete; architecture 25.6 C-64). Every phone mirrors the computer's copy, so a store
+that silently started again empty would empty accuracy and Saved lists on every device at its next sync. A
+`progress.sqlite3` that cannot be opened or read, whose tables are missing, or whose `meta.schema` is not 1, and a
+`saved.json` that is not valid JSON of the shape above (or names an unknown format), are **never recreated,
+overwritten, moved or repaired** by the server: every route that needs that store answers
+`503 {"detail": "…", "code": "store_unavailable"}` (transient for every client), the job-deletion listener and the
+start-up sweep leave it alone, and the server prints one warning per store and process ("The shared practice history
+(progress.sqlite3) could not be read; it is left untouched. Move it away to start a new one.", or the same for
+`saved.json` in the workspace), naming the file, not its path. Only a **missing** file is created, at the first write;
+an operator who deletes one on purpose gets a new, empty one (spec D-64; architecture 25.5 R-4). This deliberately
+differs from `library.json`, whose loss changes only a library id that phones handle as a library switch.
+
 ### 3.3 Secrets and what never leaves the computer
 
 | Value | Where | Protection |
@@ -385,6 +500,8 @@ open upload session (a UUID clash) answers `409 key_conflict` (6.1).
 | Pairing code | the terminal; `sha256(salt ‖ code)` on disk | single use, 5 minutes, 5 wrong attempts |
 | Server id, library id, device ids | config dir, workspace, the phone | not secret, never committed (outside the repository) |
 | Addresses | printed in the terminal at runtime only (the banner, `phone pair`, the "Paired: … (from …)" line) | never written to a log, never in an HTTP or UDP payload (the phone takes the address from the reply's source); the only file that ever holds one is `pairing.json` for the seconds 3.2 describes |
+| Practice history, Saved list (complete) | `progress.sqlite3` (configuration directory), `<workspace>/saved.json` | not secret: change labels, right or not, times, job ids and word positions; no device id, address, title or path is stored with them; never in a log line |
+| Audit lines (complete) | the terminal of `phonotrainer ui` (stderr), never a file | one line per phone deletion (6.11) and per applied reset (6.12, 6.13): the job id, the phone's name and its 12-character short id (the form `phonotrainer phone list` prints) or "the browser", the first 8 characters of the request key; no title, address, token, key or path |
 
 Rules: no token, key, code or hash in any log line, exception message, HTTP response other than the pairing grant, or
 CLI output. With phone access on (or suspended) uvicorn's access log is off (`access_log=False`), because it would
@@ -405,6 +522,8 @@ Computed at start and cached, so `health` never imports a heavy module or waits 
 | `phone_video` | phone video on request (complete) | `true` from API 7 when ffmpeg has `libopenh264` (checked once with `ffmpeg -encoders`) |
 | `resumable_uploads` | `GET`/`PATCH` upload sessions (complete) | `true` from API 7 |
 | `record_compare` | `/api/phone/jobs/{id}/contour` and `/compare` (complete) | `true` from API 7 |
+| `delete_finished` | `POST /api/phone/jobs/{id}/delete-finished` (6.11; complete, S-25) | `true` from API 7 (WP-27 milestone A); absent (read as `false`) on an API 6 server |
+| `shared_progress` | the shared-progress routes of 6.12 (complete, S-24) | `true` from API 7 (WP-27 milestone A); absent (read as `false`) on an API 6 server |
 | `max_upload_bytes`, `max_chunk_bytes` | limits of 6.6 | `server.json`; 8 MiB |
 | `max_link_duration_s` | the longest phone-origin link video (9) | `server.json` |
 | `free_bytes` | free space of the workspace's filesystem minus the open upload reservations (4.7) | `shutil.disk_usage`, cached for 5 s |
@@ -430,10 +549,13 @@ change the peer.
 | `GET /api/phone/hello` | `phone_access: false` | `phone_access: false` | full answer | full answer | `403 lan_forbidden` |
 | `POST /api/phone/pair` | `403 phone_access_off` | `403 phone_access_off` | allowed | allowed | `403 lan_forbidden` |
 | Every other `/api/phone/*` route and `/api/phone/events` | `403 phone_access_off` | `403 phone_access_off` | signature required | signature required | `403 lan_forbidden` |
+| `GET`/`POST /api/progress/practice` (complete, 6.13) | allowed (Origin rule of 6.13) | `403 lan_forbidden` (loopback only, even with `--host` by hand) | allowed (Origin rule) | `403 lan_forbidden` | `403 lan_forbidden` |
 
 This is an allowlist: a LAN client can never reach the disk browser, path creation, import, review writes, deletion
-of finished analyses, the corpus endpoints, `/api/health` (which carries the workspace path) or `/ws/jobs`. Every
-item of S-06 follows from it. Phone routes enforce their own ownership rules (6.7). "Approved address" is 2.1.
+of finished analyses (v1-complete adds one exception, the signed phone route of 6.11, D-54), the corpus endpoints,
+`/api/health` (which carries the workspace path), `/ws/jobs` or the browser's progress routes. Every item of S-06
+follows from it. Phone routes enforce their own ownership rules (6.7; 6.11 is the one route that acts on any
+submitter's job, by the spec's decision). "Approved address" is 2.1.
 
 `403 lan_forbidden` body: `{"detail": "This part of PhonoTrainer is only available on the computer itself.",
 "code": "lan_forbidden"}`; a forbidden WebSocket upgrade is closed before accept (HTTP 403).
@@ -448,7 +570,8 @@ unknown `/api/phone/…` path answers a JSON `404 {"code": "unknown_route"}`, ne
 
 The phone never sends its token after pairing. It signs each request with its MAC key `K = sha256(token)` (32 raw
 bytes, 3.2), so a token read once on the air is not a reusable credential and a captured request cannot be replayed
-(security review M-1).
+while the server runs (security review M-1); across a restart, from API 7 only, `not_before` closes the remaining
+window (below; spec 11.6).
 
 - Header on every phone route except `hello` and `pair`, on artifact downloads and on the `/api/phone/events`
   upgrade request (no query-string or cookie form exists):
@@ -459,11 +582,21 @@ bytes, 3.2), so a token read once on the air is not a reusable credential and a 
   `mac = hex(HMAC-SHA256(K, "pt-req-v1|" + METHOD + "|" + path_and_query + "|" + ts + "|" + nonce))`, where
   `METHOD` is upper case and `path_and_query` is the request target exactly as sent, still percent-encoded (OkHttp's
   `encodedPath` plus `?encodedQuery`; on the server the ASGI `raw_path` plus `?query_string`), for example
-  `/api/phone/jobs/20261010-091503-4be1/artifacts/audio_mix`. For the WebSocket upgrade it is `/api/phone/events`. The body is not covered: an active attacker on the
-  network is out of scope in v1 (4.8), and upload bodies are bound by their declared SHA-256 anyway.
+  `/api/phone/jobs/20261010-091503-4be1/artifacts/audio_mix`. For the WebSocket upgrade it is `/api/phone/events`. The
+  body itself is not in the MAC string; upload bodies are bound by their declared SHA-256.
+- **Body hash** (complete, CR-01; architecture 25.6 C-54). The three CR-01 routes (6.11 and the two of 6.12) carry
+  `body_sha256=<64 lower-case hex of SHA-256 of the exact body bytes>` as a query parameter, so the signature, which
+  covers the query, covers the body. The server reads the body under the JSON body rules (4.7), hashes the bytes it
+  received and compares with `hmac.compare_digest`; a missing, malformed or different value answers
+  `401 credential_rejected` before the body is parsed. The PT1 string does not change; other routes are unchanged.
 - The server accepts the request when the device exists and is not revoked, `|ts − server time| ≤ 300 s`, the nonce
   was not seen for that device in the last 600 s (an in-memory cache per device, bounded at 4,096 entries), and the
   MAC matches (`hmac.compare_digest`).
+- **`not_before`** (from API 7, WP-27 milestone A; architecture 25.6 C-54): the nonce cache lives in memory, so after a
+  restart it would accept again a request recorded in the 300 s before it. The authenticator therefore also refuses a
+  `ts` earlier than the whole second in which its process started, with `401 clock_skew` (and `server_time`); the phone
+  already answers that code by re-signing once with a fresh `ts`, so a legitimate request costs one round trip after a
+  restart and a recorded one is refused, on every route and on the channel's upgrade.
 - Token format (the pairing secret, 6.2): `pt1_` + 43 base64url characters (32 random bytes,
   `secrets.token_urlsafe(32)`).
 - Missing or malformed header, unknown or revoked device, wrong MAC, or a replayed nonce:
@@ -544,7 +677,7 @@ JavaScript runtime runs YouTube's player code. Only phones the operator paired c
 
 | Limit | Value | Answer |
 |---|---|---|
-| JSON request bodies on phone routes | `Content-Length` required, at most 16 KiB; a `Transfer-Encoding` header on a phone route that is not a file upload is refused | `411 length_required` / `413 too_large` |
+| JSON request bodies on phone routes | `Content-Length` required, at most 16 KiB; enforced by `PhoneAccessMiddleware` before the route runs for every route in `access.JSON_ROUTES`, which from API 7 also lists `POST /api/phone/jobs/{id}/delete-finished`, `POST /api/phone/progress/practice` and `POST /api/phone/progress/saved` (architecture 25.6 C-65); a `Transfer-Encoding` header on a phone route that is not a file upload is refused | `411 length_required` / `413 too_large` |
 | LAN request head | complete within 10 s of the connection or of the previous answer | the connection is closed |
 | LAN request body that is not a file upload | complete within 10 s of its head | the connection is closed |
 | LAN connections | at most 16 per peer address, 128 in total on approved addresses, 16 in total on other local addresses; loopback unlimited; a connection that becomes a WebSocket leaves the counts (the channel has its own limits) | closed at once |
@@ -561,6 +694,11 @@ JavaScript runtime runs YouTube's player code. Only phones the operator paired c
 | Discovery replies | 5.4 | silently dropped |
 | Phone-origin link downloads | 9: no live stream, at most `max_link_duration_s`, at most `max_upload_bytes`, free space checked before the download | job codes `live_stream`, `too_long`, `no_space` (8.2) |
 | Record yourself | unchanged: 8 MiB + 64 KiB, 30 s, concurrency 2 | existing codes |
+| Deletions of finished analyses from phones (complete, 6.11) | at most 20 requests per device in any 10 minutes (a sliding window in memory, counted before the job is looked up); every paired phone may delete any finished analysis and `JobStore.delete` cannot be undone, so a lost or lent phone, a leaked key or a client bug in a loop can never wipe a library at request speed (architecture 25.6 C-56) | `429 rate_limited` with `Retry-After` (transient for the phone) |
+| Shared progress requests (complete) | practice: at most 100 answers per request, and a client sends a baseline in a request of its own (no answers), so the worst cases (a baseline of 64 labels of 40 characters, about 5 KB; 100 answers, about 13 KB) stay under the 16 KiB JSON limit; Saved: at most 80 changes per request (about 15.6 KB at worst); the phone and the browser send in pages. Shape errors (a malformed id or label, `correct > seen`, a number beyond its bound, more than 64 labels in a baseline, an `at` before 2020) refuse the request: they are defects a client avoids by checking its own outbox | `400 invalid_request`; `413 too_large` over 16 KiB |
+| Practice history (complete) | answers after the current reset are kept one by one up to 200,000 rows (about 16 MB); at the bound the oldest 20,000 are folded into per-change totals (`base`, `base_through` = the newest folded `at`) and their ids forgotten, so only a resend of an answer older than the newest 180,000 could ever count twice, and a reset older than `base_through` leaves `base` (6.12 rule 3). **Labels**: every label of `build_reference()` is always accepted; at most 48 other well-formed labels are kept (with the reference's 16, 64 in all), and an answer or a baseline entry with one more is not added. **Baselines**: at most 10,000 are kept; a further baseline is not added. Every refusal is per item and leaves the rest of the request applied; a refusal is never a whole-request error, because a client keeps a refused page and would resend it forever (architecture 25.6 C-55) | the item is not added and is counted in `ignored` (6.12); the request answers `200` |
+| Totals (complete) | every `seen` and `correct` in an answer is clamped to 2,147,483,647, so a 32-bit client never overflows (10,000 baselines of 1,000,000 would pass it) | — |
+| Saved list (complete) | at most 5,000 saved entries per library, and at most 10,000 entries in all, tombstones (unsaved entries) included; tombstones are pruned after 180 days, and earlier, oldest first, when an unsave would pass 10,000 (each pruning advances `pruned_through`, so a cursor older than it gets a full list, 6.12); `segment`, `word` and `short_first_segment` are integers from 0 to 1,000,000 (shape) and must lie within the job (`segment` and `short_first_segment` below its `summary.segments`, `short_first_segment` ≤ `segment`, `word` below its `summary.words`; a job without a summary is held to the shape bound only), else the change is `dropped`. An answer carries at most 5,000 entries (when more changed after the cursor, the answer is a full list instead), so with every field at its bound (194 bytes per entry in compact JSON) an answer is at most 5,080 entries, about 0.99 MB, under the phone's 1 MiB cap | a new save beyond 5,000 saved entries is not applied and comes back in `not_shared`; a change outside its job comes back in `dropped` (both in a `200`, 6.12), so no item ever blocks the request's other changes |
 
 A refusal sent before a request body was read (by the middleware, or by an upload route) carries `Connection: close`:
 the connection closes after the answer instead of waiting for the rest of a body the server will not use.
@@ -571,20 +709,32 @@ synchronous routes use (security review M-5). A per-device cap on queued jobs is
 (S-19 moved to Later as S-L5, spec 11.5 and 12); idempotency keys already make a retried request return its job
 instead of creating another.
 
-### 4.8 Accepted risks (spec 11.6, Q-1 default)
+### 4.8 Accepted risks (spec 11.6, Q-1, confirmed (D-53))
 
 - **Plain HTTP on the home network**: someone on the same Wi-Fi can read clips, transcripts and recordings that cross
   it. Mitigations: phone access is opt-in, tied to approved networks (2.1) and visible at every start; requests are
   signed per device (4.3), so a passive listener captures no reusable credential (only the pairing answer carries
-  the token, once); credentials are per device and revocable; LAN clients reach only the phone API. TLS with a
-  certificate pinned at pairing is Later (S-L3).
+  the token, once); credentials are per device and revocable; LAN clients reach only the phone API. In v1-complete
+  the same applies to practice answers, the Saved list and deletions of finished analyses (6.11, 6.12): a listener
+  can read them, but cannot forge or replay a request, not even after a server restart (`not_before`, 4.3), so cannot
+  delete, reset or change anything. The encrypted transport with the computer's key pinned at pairing is
+  **version 2** (S-L3, spec 14.6, D-56): section 13 and architecture 26.
 - **An active attacker on the network** (ARP spoofing, a rogue access point) can still read or alter what crosses it
   and can relay a pairing code typed into a rogue responder (the phone lists computers by name). Detection: the
   terminal line "Paired: … (from <address>)" (2.2) and the phone's own address in Connection details; prevention
-  needs TLS or a PAKE (S-L3).
+  needs TLS with a pinned key and a PAKE-protected pairing (version 2, section 13). Once paired, such an attacker can
+  block or delay requests, but cannot change one: on the CR-01 routes the signature covers the deletion's target (the
+  job id in the path, the server id and library id in the query, 6.11), a phone's reset (`reset_id` and `reset_at` in
+  the query, 6.12) and the body (`body_sha256`, 4.3). The earlier wording ("could change answers or Saved changes, a
+  wrong accuracy or a saved item lost, nothing more") was wrong: a changed body could unsave every item it had seen,
+  add a huge baseline or wedge an exchange, and a restart reopened replays (architecture 25.6 C-54). Bodies of the v1
+  routes that create or cancel requests stay outside the MAC as before (their effects are bounded by idempotency keys,
+  declared checksums and ownership); version 2's TLS covers every byte (section 13).
 - **The library is shared among paired phones**: any paired phone may list every job and download any job's
   artifacts (spec 7.6); a phone sees another phone's job only as `own: false`, without its device id (6.3), and acts
-  only on its own jobs (6.7).
+  only on its own jobs (6.7), except that from API 7 any paired phone may delete any finished analysis of the current
+  library (6.11; the spec's decision D-54: the browser can already delete any of them), and every paired phone shares
+  one practice history and one Saved list (one learner per computer, spec 7.13 rule 8).
 - **`devices.json` holds MAC keys** (3.2): a local user who can read the operator's configuration directory can act
   as a paired phone. The file is `0600` in a `0700` directory checked at every open.
 
@@ -669,7 +819,9 @@ UTF-8 JSON object, at most 512 bytes:
   happen under the store's lock, so two concurrent requests with one key create one job. Upload session files are
   named by the key alone (3.2), so a key held by another device's open upload session (a UUID clash) answers
   `409 key_conflict`.
-- Cancel, delete and unpair are naturally idempotent (6.2, 6.7).
+- Cancel, delete and unpair are naturally idempotent (6.2, 6.7), and so is deleting a finished analysis (6.11: a job
+  already gone is a success). Shared progress (6.12) is idempotent by its own ids: every answer, baseline and reset
+  carries a UUID chosen by the client, and every Saved change is a last-change-wins write.
 
 ### 6.2 Identity, pairing, health
 
@@ -835,7 +987,7 @@ phone deletes its key right after (architecture 6.3, delivery review D-32).
 | `separation` | enum or null | `off` (option off), `skipped` (a `Dialogue separation skipped` message); null otherwise. For done jobs `analysis.dialogue_separation` is authoritative |
 | `queue_position` | int or null | 1 for the next job to start; counts only queued jobs not being cancelled, in arrival order (the store's enqueue sequence, not `created`) |
 | `title` | string or null | done jobs and downloaded links: `meta.source` / the store's `source` without a trailing ` [<id>]` and without the extension; uploads and path jobs: the file's base name without extension; a link before its download: null |
-| `source.kind` | enum | `link` (has `source_url`), `upload` (`media/` inside the job), `path` (created by path), `import` |
+| `source.kind` | enum | `link` (has `source_url`), `upload` (`media/` inside the job), `path` (created by path), `import` (the analysis was imported from a folder on the computer: `Job.imported`, the browser's `imported`). `import` is the listing's imported mark that S-25 asks for: deleting such a job (6.11) only takes it off the list, so the phone words its confirmation from this value; no new field is added |
 | `source.url` | string or null | links only, as stored |
 | `source.site` | enum or null | links only: `youtube_shorts` (host `youtube.com`/`www.`/`m.` and path `/shorts/…`), `youtube` (`youtube.com`, `www.`, `m.`, `music.`, `youtu.be`), `x` (`x.com`, `twitter.com`, `mobile.twitter.com`, `t.co`), otherwise `other` |
 | `source.file_name` | string or null | uploads and path jobs: base name only |
@@ -1065,8 +1217,11 @@ jobs are never the phone's).
 
 **`DELETE /api/phone/jobs/{id}`** (auth, own; status `error` or `cancelled`) — the phone's `REMOVE_JOB`
 - `204`; the job and its directory are deleted (a `deleted` channel event follows).
-- `409 not_deletable` for `queued`, `running` or `done` ("Delete it on your computer." — finished analyses are never
-  deleted from a phone, D-07); `403 not_own_job`; `404 unknown_job` (the phone treats it as done).
+- `409 not_deletable` for `queued`, `running` or `done` ("Delete it on your computer." — in v1-core a finished
+  analysis is never deleted from a phone, spec D-07); `403 not_own_job`; `404 unknown_job` (the phone treats it as
+  done). This route is unchanged in v1-complete: deleting a finished analysis from a phone (spec D-54, which reverses
+  D-07 for v1-complete) is the separate route of 6.11, with its own capability flag, so a v6 server and v1-core's
+  tests keep their meaning.
 
 **`POST /api/phone/jobs/{id}/rerun`** (auth, own; status `error` or `cancelled`) — "Try again", "Try audio only", the
 automatic re-run after `interrupted`
@@ -1128,9 +1283,203 @@ never kept), implemented by the same functions. Codes in 8.1.
 | `GET /api/phone/jobs/{id}/contour` | yes | complete | 200 | existing record-yourself codes |
 | `POST /api/phone/jobs/{id}/compare` | yes | complete | 200 | existing record-yourself codes |
 | `WS /api/phone/events` | yes | core | upgrade | refused upgrade |
+| `POST /api/phone/jobs/{id}/delete-finished?server_id=…&library_id=…&body_sha256=…` (6.11) | yes | complete | 200 | 409 library_changed/different_computer/not_finished, 429 rate_limited, 400 |
+| `POST /api/phone/progress/practice?[reset_id=…&reset_at=…&]body_sha256=…` (6.12) | yes | complete | 200 | 400, 503 store_unavailable |
+| `POST /api/phone/progress/saved?body_sha256=…` (6.12) | yes | complete | 200 | 400, 409 library_changed, 503 store_unavailable |
+
+The browser's `GET`/`POST /api/progress/practice` (6.13) are not phone routes: no signature, loopback only, and the
+phone never calls them.
 
 Every authenticated row can also answer `401 credential_rejected`, `401 clock_skew`, `403 phone_access_off`,
 `403 lan_forbidden`, `400 bad_host` and `5xx` (transient for the phone).
+
+### 6.11 Deleting a finished analysis from a phone (S-25, complete; capability `delete_finished`)
+
+**`POST /api/phone/jobs/{id}/delete-finished?server_id=<srv_…>&library_id=<lib_…>&body_sha256=<hex>`** (auth;
+`body_sha256` as 4.3)
+
+```json
+{"client_request_id": "00000000-0000-4000-8000-000000000005"}
+```
+- **What it deletes**: one job whose status is `done`, whoever created it (this phone, another phone, the browser or
+  the command line; spec D-54), through `JobStore.delete(id)`, exactly what the browser's `DELETE /api/jobs/{id}`
+  does. So the job's directory goes; an **imported** job (`source.kind: "import"`, 6.3) only leaves the list: its
+  result folder outside the workspace stays untouched and its corpus rows stay (`keep_analysis=True`); `/ws/jobs`
+  sends the browser its usual `deleted` event, so an open analysis shows what it already shows for a job deleted
+  elsewhere; every phone channel sends `deleted` (7); the Saved list drops the job's entries (6.12 rule 5). One job per
+  request; there is no bulk form.
+- **Binding**, checked after the signature and in this order: `server_id` must be this computer's (`409
+  different_computer`; in practice unreachable, because only this computer holds the device key that signed the
+  request, but it costs one comparison); `library_id` must be the current library (the workspace's `library.json`),
+  else `409 library_changed` with `"library_id": "<current>"` in the body, which the phone treats as "wait", never as
+  a failure. Both are in the query, so the signature covers them (4.3): a recorded deletion can be neither replayed
+  (nonce, and `not_before` across a restart) nor re-targeted at another library.
+- **Rate limit** (architecture 25.6 C-56): at most 20 requests per device in any 10 minutes, counted after the
+  signature and before any other check; the 21st answers `429 rate_limited` with `Retry-After` (the seconds until the
+  oldest request leaves the window). Other devices are not affected.
+- **Answers**:
+  - `200 {"job_id": "20261010-091503-4be1", "already_gone": false, "imported": false}`: this request deleted it
+    (`imported: true` when it only left the list);
+  - `200 {"job_id": "20261010-091503-4be1", "already_gone": true, "imported": null}`: no such job (deleted earlier by
+    the browser, the command line, another phone, or by this same request whose answer was lost). It is a success:
+    repeating a deletion is harmless and the phone counts it as done (spec 7.7, QT-16). A `JobNotFound` raised by a
+    concurrent deletion between the status check and `JobStore.delete` is answered the same way;
+  - `409 not_finished` (the job is `queued`, `running`, `error` or `cancelled`): "Only a finished analysis can be
+    deleted from a phone." A phone's own failed or cancelled job is removed with `DELETE /api/phone/jobs/{id}` (6.7);
+  - `400 invalid_request` (malformed job id, server id, library id or key).
+- **The key**: `client_request_id` is the id of the phone's outbox operation, the same on every retry (architecture
+  8.8). The server keeps no memory of it: the operation is idempotent by its nature (a second deletion of the same job
+  answers `already_gone: true`), so the key only lets the audit line show that two requests were one deletion.
+- No ownership check: `own` does not matter here (the one exception to 6.7's rule, spec 11.5).
+- **Concurrency**: the store's lock serializes it with the worker and the browser; a phone downloading one of the
+  job's artifacts at that moment finishes reading its open file, and the next listing no longer has the job.
+- **Audit** (architecture 25.6 C-60): one line per request that reached the store (deleted, removed from the list,
+  already gone), on the `phonotrainer.audit` logger, which the app's lifespan gives its own `StreamHandler` on stderr
+  at INFO with `propagate = False` (installed once, in every mode, removed at shutdown; module `phone/audit.py`), so
+  the line shows in the terminal of `phonotrainer ui` whatever uvicorn's logging configuration (under uvicorn's
+  `LOGGING_CONFIG` an INFO line of an unconfigured logger is dropped): `Phone deletion: job <id> deleted|removed from
+  the list|already gone by <phone name> (<12-character short id>), request <first 8 characters of the key>`. The name
+  is the cleaned device name (2.3) and the short id is the one `phonotrainer phone list` prints and
+  `phonotrainer phone revoke` accepts, so the operator can revoke that phone at once. No title, address, token or path
+  (3.3).
+- An API 6 server has no such path (`404 unknown_route`); the phone offers the deletion only when
+  `capabilities.delete_finished` is `true` (spec F-05 item 6). A deletion stored while the flag was true that later
+  meets a computer without the route (`404 unknown_route`, or a `health` without the flag) is refused on the phone
+  with the "not offered" sentence, never read as "already gone" (spec D-62, architecture 8.8).
+
+### 6.12 Shared progress for phones (S-24, complete; capability `shared_progress`)
+
+What the computer keeps (3.2): the **practice history** of this computer (answers, baselines, the current reset) in
+`progress.sqlite3`, and the **Saved list** of the current library in `<workspace>/saved.json`.
+
+**Merge rules** (spec 7.13; the same for every client, the browser's routes of 6.13 included):
+1. **Each answer and each baseline counts once.** Every answer carries a UUID chosen by the client when the answer was
+   given; every baseline carries the UUID of the history it summarizes. A second arrival of the same id is ignored,
+   whoever sends it and however often (a lost answer, a retry, a phone restored from a backup).
+2. **One clock.** Every `at` is the computer's clock in unix seconds: a phone adds the offset it learned from
+   `server_time` (4.3, 6.2); the browser runs on this computer. An `at` later than the server's clock is clamped to
+   it; an `at` before 2020-01-01 is `400 invalid_request`.
+3. **Reset.** A reset whose `at` is later than the current reset's becomes the current reset: answers with `at` ≤ its
+   `at` are deleted, baselines with `at` ≤ its `at` stop counting (`counted = 0`; their ids stay, so they are never
+   added again), and the folded `base` is cleared when `base_through` ≤ its `at` (the bound's one approximation, 4.7: a
+   reset older than the newest folded answer leaves `base` as it is). A reset whose `at` is not later changes nothing
+   (the current reset already covers it). An answer or baseline that arrives later with `at` ≤ the current reset is
+   ignored, so an answer another device gave before the reset is cleared when it arrives, and one given after it counts.
+4. **Baseline.** A client's history from before it shared (both clients keep only totals today) arrives once as a
+   baseline: per change `{seen, correct}`, with the `at` of that client's first share (spec 7.13 rule 7).
+5. **Saved list.** A change applies when its `at` is later than the stored entry's, or equal and it is an unsave (ties
+   keep the item unsaved). An unsave keeps its entry as a tombstone for 180 days (4.7), so a device that was apart
+   cannot bring the item back with an older save. A change for a job that is not in the store with status `done` is
+   refused for that item and returned in `dropped`; when a job is deleted (`JobStore` listener, and a sweep at start
+   for jobs that disappeared while the server was off) its entries are removed at once, so they are never accepted
+   again (spec F-09-AC6).
+6. **Totals** = for each change, the answers kept (all after the current reset), plus the counted baselines, plus
+   `base`.
+
+**`POST /api/phone/progress/practice?[reset_id=<uuid>&reset_at=<unix s>&]body_sha256=<hex>`** (auth; `body_sha256` as
+4.3)
+
+```json
+{"baseline": {"id": "00000000-0000-4000-8000-0000000000b1", "at": 1791622800,
+              "stats": {"flapping": {"seen": 10, "correct": 7}}},
+ "answers": [{"id": "00000000-0000-4000-8000-0000000000a1", "change": "flapping", "correct": true,
+              "at": 1791622900}]}
+```
+- Every part is optional; `{}` only reads the totals. The server applies the reset, then the baseline, then the
+  answers, in one transaction, and answers with the result. The server accepts a baseline and answers together, but a
+  client sends its baseline in a request without answers (the answers follow in the next request), so no body can
+  cross the 16 KiB limit (4.7). The example above shows both only to name every field.
+- **A phone's reset travels in the query** (`reset_id` and `reset_at` together, or neither), so the signature covers it
+  (4.3): a reset clears the history on every device. A `reset` member in the body of this route is
+  `400 invalid_request`. The browser's route (6.13), which has no signature, keeps it in the body; both feed the same
+  rule 3. Since the review fixes the body is covered too (`body_sha256`, 4.3); the reset stays in the query, as built.
+- **Audit**: a reset that becomes the current one (rule 3) prints one line on the `phonotrainer.audit` logger (6.11):
+  `Practice history reset by phone <phone name> (<12-character short id>)`, or `… by the browser` for 6.13's route,
+  because it clears the history on every device (architecture 25.6 C-65).
+- `change`: `^[a-z][a-z0-9_]{0,39}$`; a well-formed label the reference does not know is kept and summed (a newer
+  client never fails, spec NFR-08) while at most 48 such labels exist (4.7); `0 ≤ correct ≤ seen ≤ 1,000,000`; at most
+  100 answers and at most 64 labels in a baseline (4.7).
+- `200`:
+  ```json
+  {"server_time": 1791622960, "reset": {"id": "00000000-0000-4000-8000-0000000000c1", "at": 1791622850},
+   "totals": {"flapping": {"seen": 12, "correct": 8}}, "accepted": 1, "ignored": 0}
+  ```
+  `reset` is null when there never was one; every number in `totals` is clamped to 2,147,483,647 (4.7). `accepted`
+  counts this request's answers and baseline that were added; `ignored` counts those that were not: an id already
+  known (rule 1), an `at` at or before the current reset (rule 3), a label beyond the 48 unknown labels, or a baseline
+  beyond the 10,000 kept (4.7). A baseline entry refused for its label is left out while the rest of that baseline
+  counts. Both are diagnostics only: the client treats every sent item as handled after a `200`.
+- Errors: `400 invalid_request` (the shape of 4.7: a defect), `503 store_unavailable` (3.2). There is no content error:
+  no bound of the store ever refuses a whole request (4.7).
+
+**`POST /api/phone/progress/saved?body_sha256=<hex>`** (auth; `body_sha256` as 4.3)
+
+```json
+{"library_id": "lib_example1", "cursor": "5c0e8a1f2b7d4e6a9c3b1d0f8e2a4c6b:41",
+ "changes": [{"kind": "word", "job_id": "20261010-091503-4be1", "segment": 12, "word": 3,
+              "short_first_segment": 11, "change": "flapping", "saved": true, "at": 1791622900}]}
+```
+- `library_id` must be the current library, else `409 library_changed` (with `library_id`): the phone keeps its
+  changes and sends them once the computer uses that library again; items of other libraries are never sent (spec
+  7.13 rule 6). `cursor`: the opaque string the phone last received for this library, or null (never); the phone
+  stores it and never parses it. `changes`: at most 80.
+- Entry fields: `kind` (`short` or `word`), `job_id` (6.1 pattern), `segment` from 0 to 1,000,000, `word` from 0 to
+  1,000,000 or null (a short saved without a spotlight word), `short_first_segment` from 0 to 1,000,000, `change` (a
+  label or null), `saved`, `at`. A value outside those ranges is a shape error (`400`); a value outside its job (4.7)
+  drops that change.
+- `200`:
+  ```json
+  {"library_id": "lib_example1", "cursor": "5c0e8a1f2b7d4e6a9c3b1d0f8e2a4c6b:43", "full": false,
+   "items": [{"kind": "word", "job_id": "20261010-091503-4be1", "segment": 12, "word": 3,
+              "short_first_segment": 11, "change": "flapping", "saved": true, "at": 1791622900}],
+   "dropped": [{"kind": "short", "job_id": "20261009-180000-1c2d", "segment": 4, "word": null,
+                "short_first_segment": 4, "change": null, "saved": true, "at": 1791622000}],
+   "not_shared": []}
+  ```
+  `items`: every entry changed after the cursor (this request's changes included), tombstones too, oldest change
+  first. `full: true` when the cursor is null, malformed, names another `list_id` (the list was deleted, recreated or
+  restored), is ahead of the list's `version`, is older than `pruned_through`, or more than 5,000 entries changed
+  after it: `items` is then every saved entry,
+  and the phone replaces its list for this library with it, keeping only its changes the computer has not received
+  yet. `dropped`: this request's changes refused by rule 5 or because a position lies outside its job (4.7); the phone
+  removes those items. `not_shared`: new saves not applied because the library already holds 5,000 saved entries
+  (4.7); the phone keeps those items on this phone only and does not send them again, so the bound never blocks the
+  other changes. An unsave always applies: when it would pass the 10,000-entry bound, the oldest tombstones are pruned
+  first and `pruned_through` advances. Answers stay below 1 MiB: at most 5,000 entries plus `dropped` and `not_shared`,
+  which together hold at most this request's 80 changes, each at most 194 bytes in compact JSON with every field at its
+  bound: about 0.99 MB (4.7).
+- Errors: `400 invalid_request` (shape), `409 library_changed`, `503 store_unavailable` (3.2).
+
+### 6.13 Shared practice history for the browser client (S-24, complete)
+
+**`GET /api/progress/practice`** and **`POST /api/progress/practice`**: the request body and the answer of 6.12's
+practice route, with one more answer field, `"shared_progress": 1` (the format version; the browser's feature
+detection: an older server answers `404`, the SPA's catch-all for unknown `/api/` paths, and `405` to a `POST`). `GET`
+only reads; a `reset` travels in the `POST` body here (no signature exists to cover a query). There is no
+browser route for the Saved list: the browser has no Saved feature (spec 7.13, requirement 5).
+- **Loopback only, in every mode**: a non-loopback peer gets `403 lan_forbidden`, even on a server started with phone
+  access off and `--host` by hand (with phone access on, the allowlist of 4.2 refuses it first).
+- **Origin rule**, the one `/ws/jobs` applies (`_ws_origin_allowed`): an `Origin` header, when present, must name
+  `localhost`, `127.0.0.1`, `::1` or the host the request was sent to, else `403 {"detail": "…", "code":
+  "cross_origin"}`; `POST` also passes `same_origin_only` (`Sec-Fetch-Site`), and `LoopbackHostGuard` applies (DNS
+  rebinding, 4.4); `same_origin_only` answers its own `403 {"detail": "cross-origin request"}` without a `code`. A
+  page on the internet can therefore neither read the history nor add to it.
+- **Body rules before reading** (architecture 25.6 C-65): `PhoneAccessMiddleware` does not cover these paths (they are
+  not phone paths, and it is absent with phone access off), and a Pydantic body parameter would read the whole body
+  before any check. So the `POST` handler takes the raw `Request` and, before reading: refuses a `Transfer-Encoding`
+  header and a missing `Content-Length` (`411 length_required`), a `Content-Length` above 16 KiB (`413 too_large`)
+  and a `Content-Type` other than `application/json` (`415 unsupported_type`); then it reads at most 16 KiB + 1 bytes
+  from the stream (more is `413`), parses them with `json.loads` and validates them with the same Pydantic model as
+  6.12. At most 100 answers; errors as 6.12 (`400 invalid_request` keeps the browser routes' plain
+  `{"detail", "code"}` shape).
+- An applied reset prints the audit line of 6.12 ("… by the browser"), so a reset everywhere made by any program on
+  this computer leaves a trace in the terminal.
+- **When they exist**: whenever the app is built with shared-progress settings. `serve()` (`phonotrainer ui`) passes
+  them in every phone-access mode, so the browser can share even with phone access off; `progress.sqlite3` is created
+  at the first `POST`. `create_app()` without them (the existing tests) has no such route and touches no configuration
+  directory (3.1).
+- The browser's adoption (identity, migration of its `localStorage` history, offline behaviour, tests) is specified for
+  the web owner in `android/docs/web-progress-sync.md`; nothing under `web/` is changed by this project.
 
 ---------------------------------------------------------------------------------------------------------------
 
@@ -1154,6 +1503,8 @@ Every authenticated row can also answer `401 credential_rejected`, `401 clock_sk
 - Phone → server: nothing is expected; frames are read only to notice a close. WebSocket protocol pings from the
   phone (every 7 s) are answered by the server's WebSocket stack.
 - `/ws/jobs` (the browser channel) is unchanged and stays loopback-only when phone access is on.
+- A deletion from a phone (6.11) goes through `JobStore.delete`, so both channels send their usual `deleted` event;
+  shared progress (6.12) has no channel event: phones exchange it at every sync (architecture 7.8).
 
 ---------------------------------------------------------------------------------------------------------------
 
@@ -1171,7 +1522,7 @@ transient), **done** (the operation already happened).
 | `clock_skew` | 401 | the signature's time is more than 300 s from the computer's (body has `server_time`) | transient (re-sync the clock offset, retry once) |
 | `phone_access_off` | 403 | phone access is off on this computer | blocking ("phone access is off there") |
 | `lan_forbidden` | 403 | a non-phone route from the LAN, or a LAN request on an address that is not approved (2.1) or from a peer outside the approved network (4.4) | defect (on a probe: "not reachable") |
-| `unknown_route` | 404 | no such phone route (4.2) | defect |
+| `unknown_route` | 404 | no such phone route (4.2) | defect; for a deletion of a finished analysis a refusal (a computer without the route: "Needs your attention" with spec F-05 item 6's "not offered" sentence, "Try again", "Keep the clip"; spec D-62, architecture 8.8), never "already gone" |
 | `bad_host` | 400 | Host header refused | defect |
 | `invalid_request` | 400 | malformed body or parameters | defect |
 | `too_large` | 413 | JSON body over 16 KiB, or file over `max_upload_bytes` | permanent (files: "Too large for your computer's limit") |
@@ -1185,7 +1536,7 @@ transient), **done** (the operation already happened).
 | `cannot_check_link` | 503 | the computer could not resolve the link's host, at creation or re-run | transient |
 | `key_conflict` | 409 | idempotency key reused for another request | defect |
 | `code_invalid`, `code_expired`, `code_locked` | 403 | pairing (2.3) | shown on Connect |
-| `rate_limited` | 429 | pairing attempts or identity challenges too fast (`Retry-After`) | shown on Connect; on a probe, transient |
+| `rate_limited` | 429 | pairing attempts or identity challenges too fast, or more than 20 deletions of finished analyses from one device in 10 minutes (4.7) (`Retry-After`) | shown on Connect; on a probe or a deletion, transient (not before `Retry-After`) |
 | `app_too_old` | 426 | the app is older than `min_app_version` | blocking ("Update this app") |
 | `unknown_job`, `unknown_request`, `unknown_upload`, `unknown_artifact` | 404 | no such object | done (delete), defect (others) |
 | `artifact_not_ready` | 409 | artifact not `ready` | transient (re-list) |
@@ -1199,6 +1550,11 @@ transient), **done** (the operation already happened).
 | `chunk_too_large` | 413 | PATCH body over `max_chunk_bytes` | defect |
 | `upload_busy` | 409 | another upload body of this device is still receiving bytes, or 4 sessions are open (4.7) | transient |
 | `not_ready`, `not_video` | 409 | phone video request on a job not done or not a video | defect |
+| `library_changed` | 409 | a deletion (6.11) or a Saved exchange (6.12) names a library the computer is not using now (body has `library_id`) | waits (not a failure: retried once the computer uses that library again; spec 7.7) |
+| `different_computer` | 409 | a deletion (6.11) names another server id | waits (the phone never causes it: the deletion keeps waiting with "A different computer answered" and "Undo", retried on the schedule, plus an event code; spec D-61, D-62, architecture 8.8) |
+| `not_finished` | 409 | a deletion (6.11) of a job that is not `done`: "Only a finished analysis can be deleted from a phone." | permanent ("Needs your attention": "Try again", "Keep the clip") |
+| `store_unavailable` | 503 | the shared practice history or Saved list on the computer cannot be read; the file is left untouched (3.2) | transient |
+| `cross_origin` | 403 | the browser's progress route called from another origin (6.13) | — (browser only) |
 | Record yourself (unchanged): `length_required` 411, `too_large` 413, `missing_file` 400, `bad_span` 400, `unsupported_type` 415, `undecodable` 422, `too_long` 413, `too_short` 422, `no_voice` 422, `empty` 422, `ffmpeg_missing` 500 | | as `/api/jobs/{id}/compare` | mapped to the F-13 copy |
 | (none), `server_error` | 5xx | server fault (`server_error`: an upload the computer could not store, 6.6) | transient |
 
@@ -1317,6 +1673,10 @@ an over-long video, an unknown-size video that grows past the limit, and a refus
 | `netinfo.py` | local IPv4 interfaces with address, prefix and default-gateway MAC for the banner, `phone pair` and the approved networks (`socket.if_nameindex()`, `SIOCGIFADDR`/`SIOCGIFNETMASK` ioctls, `/proc/net/route`, `/proc/net/arp`; Linux, as the project); `Interface` gains `virtual: bool = False`, the kernel's answer (`/sys/class/net/<name>` under `/sys/devices/virtual/`, or a hardware type other than Ethernet) | `interfaces() -> list[Interface]` |
 | `cli.py` | `phonotrainer phone …` and the `ui` banner | `phone` (click group), `banner()` |
 | `renditions.py` | complete: compact data, Opus, poster, phone video, low-priority worker | `RenditionWorker` |
+| `progress.py` | complete (S-24): the practice history (`progress.sqlite3`, opened lazily), the Saved list (`saved.json`), the merge rules of 6.12, the job-deletion listener and start-up sweep, the browser's router of 6.13 | `SharedProgressSettings(config_dir, clock)`, `PracticeHistory`, `SavedList`, `browser_router` |
+| `routes.py` (complete additions) | 6.11 and the two phone routes of 6.12, with the `body_sha256` check and the deletion rate limit (4.3, 4.7) | `delete_finished()`, `progress_practice()`, `progress_saved()` |
+| `audit.py` (complete) | the `phonotrainer.audit` logger and its stderr handler, installed once by the app's lifespan in every mode and removed at shutdown (6.11) | `audit_log`, `install()`, `uninstall()`, `short_id(device_id)` (the 12 characters `phone list` prints) |
+| `access.py`, `auth.py` (complete additions) | `JSON_ROUTES` lists the three CR-01 routes (4.7); the authenticator's `not_before` (4.3) | `JSON_ROUTES`, `Authenticator(not_before=…)` |
 
 ### 10.2 Changes to existing modules (kept small)
 
@@ -1347,6 +1707,14 @@ an over-long video, an unknown-size video that grows past the limit, and a refus
   object, both with defaults that keep today's behaviour).
 - `pyproject.toml`: `[tool.setuptools] packages` adds `"phonotrainer.phone"` (the explicit list would otherwise drop
   the subpackage from a regular install).
+- Complete, CR-01 (WP-27 milestone A): `server.py` sets `API_VERSION = 7` with its comment line;
+  `create_app(..., shared_progress: SharedProgressSettings | None = None)` (when `phone` is given and
+  `shared_progress` is not, it is derived from the phone settings' configuration directory and clock) includes
+  `progress.browser_router` before the SPA catch-all and starts the Saved list's job listener in the lifespan;
+  `serve()` and `app_from_env()` pass `SharedProgressSettings(config_dir=config_dir())` in every mode;
+  `Capabilities.as_dict()` adds `delete_finished` and `shared_progress`; the lifespan installs the audit handler
+  (`phone/audit.py`) in every mode; the phone banner gains its API 7 line (2.1). `jobs.py` does not change: the deletion
+  calls the existing `JobStore.delete`, and the Saved list listens through the existing `JobStore.subscribe`.
 - No other module of the analysis pipeline changes.
 
 ### 10.3 Dependencies and documentation
@@ -1360,7 +1728,14 @@ an over-long video, an unknown-size video that grows past the limit, and a refus
   mitigations (4.8), the residual SSRF risk (4.5), the firewall note (TCP port 8000 and UDP 45317 must be allowed on
   the home network; nothing is changed automatically), approved networks and "suspended" (2.1), renaming the
   computer (3.2), `max_upload_bytes` and `max_link_duration_s`. The "Material" section gains the downloader notes of
-  section 9.
+  section 9. In v1-complete (CR-01, WP-27) the phone-access section adds: a paired phone can delete a finished
+  analysis (it disappears for the browser and every phone, an imported one only leaves the list); practice accuracy
+  and the Saved list are shared among the phones (and the browser once it adopts it), kept in `progress.sqlite3`
+  in the configuration directory and `saved.json` in the workspace; removing those files forgets the shared history on
+  every device at its next sync (phones keep only what they had not shared yet), while a damaged one is left alone
+  and reported (3.2). It also says, in these words: "Paired phones can delete finished analyses. If a phone is lost,
+  run `phonotrainer phone revoke <name>`." with the rate limit (4.7) and where the deletion lines appear (6.11).
+- CR-01 adds no Python dependency (`sqlite3` is in the standard library).
 
 ---------------------------------------------------------------------------------------------------------------
 
@@ -1405,7 +1780,7 @@ an over-long video, an unknown-size video that grows past the limit, and a refus
 |---|---|---|
 | `test_phone_config.py` | directory resolution (env, XDG, default), `0700`/`0600` modes, permissions re-checked and tightened at every open, another owner refused, atomic writes, lock between two registries on one directory, server id stable across restarts and workspaces, default name "PhonoTrainer computer" (never the host name), library id per workspace, approved networks recorded by `phone on` (virtual interfaces excluded unless named), suspended start on an unapproved network and activation within 30 s, `create_app()` without phone settings touches no configuration directory | S-01, S-02, D-34 |
 | `test_phone_registry.py` | code format, single use, 300 s expiry, lock after 5 wrong attempts (6th refused with the right code), `code_invalid` with no code, rate limits per source and in total, token never stored (only its key), revoke one and all, re-activation with a valid `previous_token_proof` keeps the id and kills the old key, a wrong or missing proof creates a new device instead, `hello_proof` vector (fixed key, server id, device id and challenge → fixed hex), last-seen throttling, `Cc`/`Cf`/`Zl`/`Zp` stripped from names | S-04, F-02-AC3 |
-| `test_phone_access.py` | the route matrix of 4.2 in every mode (browse, path create, import, review PUT, delete, corpus, `/api/health`, `/ws/jobs`, SPA from the LAN → 403; the same from loopback as before; a LAN request on an unapproved address → 403); signatures: missing, malformed, wrong MAC, unknown and revoked device → `credential_rejected`, a replayed nonce refused, a timestamp 301 s off → `clock_skew` with `server_time`, the reference vector of 4.3 accepted; a CLI revoke applied at the next request; Host validation (LAN: names refused, wrong IP refused; loopback: names accepted, `Host: attacker.example` against `/api/browse` → `bad_host` **with phone access off too**); `/api/phone/../browse`, `/api/phone/%2e%2e/health` and an unknown `/api/phone/x` (JSON 404, never the SPA), over HTTP and WebSocket; proxy headers ignored; 16 KiB limit; no path, home directory or user name in any response of a full session or in any served JSON artifact | S-05, S-06, S-08, F-02-AC8, QT-8 |
+| `test_phone_access.py` | the route matrix of 4.2 in every mode (browse, path create, import, review PUT, delete, corpus, `/api/health`, `/ws/jobs`, SPA from the LAN → 403; the same from loopback as before; a LAN request on an unapproved address → 403); signatures: missing, malformed, wrong MAC, unknown and revoked device → `credential_rejected`, a replayed nonce refused, a timestamp 301 s off → `clock_skew` with `server_time`, the reference vector of 4.3 accepted; a CLI revoke applied at the next request; Host validation (LAN: names refused, wrong IP refused; loopback: names accepted, `Host: attacker.example` against `/api/browse` → `bad_host` **with phone access off too**); `/api/phone/../browse`, `/api/phone/%2e%2e/health` and an unknown `/api/phone/x` (JSON 404, never the SPA), over HTTP and WebSocket; proxy headers ignored; 16 KiB limit; no path, home directory or user name in any response of a full session or in any served JSON artifact; complete (WP-27 A, 4.3): a request signed and recorded before a restart (a new app on the same configuration directory) and replayed after it → `401 clock_skew` with `server_time`, while a request signed after the restart passes, on an HTTP route and on the channel's upgrade | S-05, S-06, S-08, F-02-AC8, QT-8 |
 | `test_phone_api.py` | `hello` in both states, with and without a challenge (proof for a known, a revoked and an unknown device; `server_time` always), challenge rate limit; `pair` success and every error, the "Paired: … (from …)" hand-off through `pairing.json`; `health` shape, capabilities (downloader version string as installed), and an answer within 1 s while `blocking_analyze` holds the worker; `DELETE devices/self`; listing shape and order, own vs other (`device_id` null on other phones' jobs), queue positions, stage and progress mapping, title cleaning, site labels, unknown media facts as 0, revision stable under progress and changed by status; reference identical to `/api/reference` | S-02, S-11, S-13, S-17 |
 | `test_phone_artifacts.py` | every artifact name and role, `preparing` until checksummed then `ready`, ETag = SHA-256, `Range` 206, `If-Range` match and mismatch, 416, `artifact_not_ready`, `unknown_artifact`, `original` unavailable when the file is gone, media facts and `start_offset_ms` signs from `fake_probe` | S-11, QT-9 (server side) |
 | `test_phone_jobs.py` | link creation; the same key twice → one job (sequential and concurrent); `key_conflict`; SSRF (loopback, private, link-local, CGNAT, multicast, IPv6 ULA, IPv4-mapped, NAT64, 6to4, Teredo, literal IPs, user-info, `ftp:`, 2,049 characters, resolution failure → 503); the check repeated at re-run and before the download (a name that re-resolves to a private address fails the job with `refused_address`); cancel (queued, running, done → `already_finished`, error → no-op); delete rules; re-run of a link with `audio_only`, of an upload (file moved, not copied: same inode), repeated key after success, `source_gone`, not own; restart of the store with queued and running jobs → `interrupted` codes, re-runs in arrival order | S-06, S-07, S-09, S-15, S-22, QT-3, QT-5, QT-12, F-20-AC3, F-20-AC4, F-20-AC5 |
@@ -1413,15 +1788,18 @@ an over-long video, an unknown-size video that grows past the limit, and a refus
 | `test_phone_events.py` | upgrade refused without a signature, with a wrong one and with a bad Host; `hello` then `snapshot` lean (no artifacts, no progress log, no paths); `job` events for a lifecycle; `deleted` after a re-run and a delete; coalescing; the ninth channel and a device's third channel refused | S-14, S-05 |
 | `test_phone_discovery.py` | `parse_probe` accepts the exact datagram and drops malformed, oversized and wrong-type ones; the reply holds only the four fields and the nonce; replies only to private sources inside an approved network (a source on the `docker0` network gets none); rate limits; a real responder on `127.0.0.1` with an ephemeral port answers a real UDP probe; not started with phone access off or suspended; port busy → `discovery: false` | S-03 |
 | `test_phone_state.py` | the stage table equals `PREFIXES` of `web/src/jobs/stages.ts` (read-only regex parse: a drift guard); every rule of 8.2 on realistic texts (the ANSI-coloured 403, private video, playlist, unsupported URL, network, ENOSPC, missing ffmpeg, interrupted, the four `…Refused:` classes); `cancelled` decided by status for both store messages; `clean_message` removes ANSI, paths, the home directory and the user name | S-13, S-15 |
-| `test_phone_cli.py` | click `CliRunner`: `ui --phone-access` remembered and `serve` called with phone settings and `access_log=False` (serve stubbed), `--no-phone-access`, `--phone-interface`; `phone on/off/status/pair --no-wait/list/revoke/name` with a fake running server (`runtime.json` + live pid); `phone on` with no phone-access server prints the restart line; `phone pair` with phone access off exits 1 without a code, prints wrong attempts and exits 4 when locked; outputs never contain a token, key or hash; `pair` without a server exits 1 | S-01, S-04 |
+| `test_phone_cli.py` | click `CliRunner`: `ui --phone-access` remembered and `serve` called with phone settings and `access_log=False` (serve stubbed), `--no-phone-access`, `--phone-interface`; `phone on/off/status/pair --no-wait/list/revoke/name` with a fake running server (`runtime.json` + live pid); `phone on` with no phone-access server prints the restart line; `phone pair` with phone access off exits 1 without a code, prints wrong attempts and exits 4 when locked; outputs never contain a token, key or hash; `pair` without a server exits 1; complete (WP-27 A): the banner's API 7 line "Paired phones can delete finished analyses. If a phone is lost, run: phonotrainer phone revoke <name>" with phone access on, and not with it off | S-01, S-04 |
 | `test_download.py` (additions) | the format string order, `js_runtimes` from a fake `which` (node only, deno and node, none), remote components only from the environment variable, the version reported; for phone-origin jobs `allowed_extractors = ["default", "-generic"]`, `max_filesize`, the two-phase refusals (live, upcoming, post-live, over-long, over-large, low space) before any media byte, the re-check; for browser jobs today's options exactly | S-23, S-07 |
-| `test_phone_compat.py` | `REQUIRED_API_VERSION` read from `web/src/api.ts` ≤ `API_VERSION`; with phone access off, the key set of `/api/jobs` items, `/api/health` and `/ws/jobs` messages equal today's and `Host: 127.0.0.1:8000` / `localhost:5173` still pass; download progress texts unchanged; `pyproject.toml` lists `phonotrainer.phone` | S-21 |
+| `test_phone_compat.py` | `REQUIRED_API_VERSION` read from `web/src/api.ts` ≤ `API_VERSION`; with phone access off, the key set of `/api/jobs` items, `/api/health` and `/ws/jobs` messages equal today's and `Host: 127.0.0.1:8000` / `localhost:5173` still pass; download progress texts unchanged; `pyproject.toml` lists `phonotrainer.phone`; complete (CR-01): a drift guard reads `STATS_KEY = "phonotrainer:practice-stats"` and the `{seen, correct}` shape from `web/src/features/practice/quiz.ts` (read-only regex parse), because the browser hand-off (`android/docs/web-progress-sync.md`) migrates exactly that history | S-21, S-24 |
 | `test_phone_renditions.py` (complete) | compact gzip decodes to the same JSON as `analysis.json`; Opus, poster and phone-video argument lists (fake runner); statuses `preparing` → `ready`/`failed`; a missing original → `unavailable`; no task starts while an analysis runs; back-fill at start; real-ffmpeg tests on synthetic `lavfi` media (skipped without ffmpeg) check codec, size, rotation and that the phone video starts at offset 0 | S-12 |
 | `test_phone_record.py` (complete) | `/api/phone/jobs/{id}/contour` and `/compare` give the same results and codes as the existing routes (reusing `test_recording_api.py`'s synthetic takes), signed and from the LAN | S-16 |
-| `test_host_fake_computer.py` | the host-side fake computer of 12 starts on throwaway directories, refuses every download, writes nothing under the working directory it was started from, and serves a full pair → list → download → upload → cancel → re-run → cancel → delete → unpair session | S-21 (no side effects), 12 |
+| `test_host_fake_computer.py` | the host-side fake computer of 12 starts on throwaway directories, refuses every download, writes nothing under the working directory it was started from, and serves a full pair → list → download → upload → cancel → re-run → cancel → delete → unpair session; complete: the session also deletes the second seeded clip with 6.11 and the imported one, which only leaves the list (its result folder stays), and two paired signers exchange practice answers and a Saved change | S-21 (no side effects), 12, S-24, S-25 |
+| `test_phone_delete_finished.py` (complete) | a `done` job of another phone, of the browser and of the CLI deleted; an imported job leaves the list while its result folder and corpus rows stay; `/ws/jobs` and the phone channel send `deleted`; `already_gone` for an unknown id, for a second call with the same key (a lost answer, QT-16) and for a deletion racing the browser's; `library_changed` (with `library_id`), `different_computer`, `not_finished` for `queued`, `running`, `error` and `cancelled`; unsigned → 401, replayed nonce → 401, phone access off → 403, a LAN request on an unapproved address → 403; a `library_id` changed after signing → 401 (the query is signed); v1-core's `DELETE /api/phone/jobs/{id}` still answers `409 not_deletable` for a `done` job; the job's Saved entries dropped; a body changed after signing, or a missing `body_sha256` → 401; the 21st request of one device within 10 minutes (fake clock) → `429 rate_limited` with `Retry-After`, while a second device still deletes, and the window frees itself; the audit line: with `logging.config.dictConfig(uvicorn.config.LOGGING_CONFIG)` applied first, it appears on stderr (`capfd`, not only `caplog`), names the phone's name and its 12-character short id (equal to what `phone list` prints), names the request by the key's first 8 characters, and holds no title, address, token or path; no path in any answer | S-25, S-05, S-06 |
+| `test_progress.py` (complete) | practice: every label of `build_reference()` matches the `change` pattern and fits the 64-label bound (a drift guard: a new reference label can never be refused); two clients add up; a resent answer, a resent baseline and a baseline under a new client lineage with a known id count once; reset clears answers before it and keeps answers after it, including an answer before it that arrives after it (F-17-AC8 server side); a reset not later than the current one changes nothing; a cleared baseline is never re-added; future `at` clamped; unknown labels kept; the fold at the bound (`base_through`, a reset older than it keeps `base`); per-item bounds: with 48 unknown labels stored, an answer on a 49th is `ignored` while reference labels and the request's other answers still count, the 10,001st baseline is `ignored` while the same request's answers count (no whole-request error exists), a baseline entry with a refused label is left out and the rest counts, totals beyond 2,147,483,647 are clamped; a phone's reset read only from the signed query (a `reset` in the phone route's body → 400; `reset_at` changed after signing → 401 `credential_rejected`); a body changed after signing or without `body_sha256` → 401 on both phone routes; an applied reset prints its audit line ("by phone <name> (<short id>)", "by the browser") under uvicorn's logging configuration; history kept across a restart and across a workspace switch; `progress.sqlite3` mode `0600`, absent before the first write, and not touched by `create_app()` without settings; fail closed: random bytes in `progress.sqlite3`, a database without the tables and one with `meta.schema` 2 each answer `503 store_unavailable` on both practice routes with one warning, and the file's bytes are unchanged afterwards (the same for `saved.json` with invalid JSON or another shape, including the start-up sweep and the job-deletion listener). Saved: last change wins, tie keeps the unsave, a tombstone defeats an older save from a device that was apart and a later save wins over it (F-09-AC5), pruning gives `full: true`, and so does a cursor of another `list_id` (the file deleted and recreated) or one ahead of `version`; a change for an unknown or unfinished job is `dropped`, a job deletion drops its entries and they are never accepted again (F-09-AC6), the start-up sweep, `library_changed`, a save beyond 5,000 entries comes back in `not_shared` while the request's unsaves apply, a workspace switch gives another list; more than 5,000 entries changed after a cursor give a full answer; a `segment` beyond the job's `summary.segments`, a `short_first_segment` after its `segment` or a `word` beyond `summary.words` is `dropped`, and 1,000,001 is `400`; an unsave that would pass 10,000 entries prunes the oldest tombstone, advances `pruned_through` and a cursor older than it gets `full: true`; the worst-case answer (5,000 entries and 80 dropped changes, every field at its bound) is under 1 MiB; the worst-case bodies of 4.7 (a baseline of 64 labels alone, 100 answers alone, 80 Saved changes) fit in 16 KiB and a larger body is `413 too_large`. Browser routes: present in every phone-access mode when built by `serve()`, `shared_progress: 1`, loopback only (a LAN peer with phone access off and `--host` → 403), the Origin rule, `Sec-Fetch-Site`, `Host: attacker.example` → `bad_host`; the body rules with phone access off and on: `Transfer-Encoding: chunked` → 411, no `Content-Length` → 411, a declared 16 KiB + 1 → 413, `Content-Type: text/plain` → 415, a body longer than declared is never read past 16 KiB + 1 bytes; the phone routes' signatures, and `PhoneAccessMiddleware` answering a CR-01 phone route without `Content-Length` with 411 (they are in `JSON_ROUTES`) | S-24, S-21 |
 
 The two drift guards that read `web/` files (`test_phone_state.py`, `test_phone_compat.py`) stay; when a change by the
-web agent breaks them, the integrator of the current wave owns the fix (work-plan 2.1), never by editing `web/`.
+web agent breaks them, the integrator of the current wave owns the fix (work-plan 2.1), never by editing `web/`. If
+the web owner adopts 6.13, the `STATS_KEY` guard is expected to change with it (the hand-off says so).
 
 ### 11.4 Definition of done for server work (architecture 23 item 8)
 
@@ -1439,7 +1817,8 @@ web agent breaks them, the integrator of the current wave owns the fix (work-pla
 S-01 config, cli · S-02 config, api · S-03 discovery · S-04 registry, cli · S-05 access, events · S-06 access, jobs ·
 S-07 jobs, download · S-08 access · S-09 jobs, uploads · S-10 uploads (complete) · S-11 api, artifacts · S-12 renditions
 (complete) · S-13 api, state · S-14 events · S-15 state, jobs · S-16 record (complete) · S-17 api · S-21 compat ·
-S-22 jobs · S-23 download.
+S-22 jobs · S-23 download · S-24 progress, compat, host_fake_computer (complete) · S-25 delete_finished, events,
+host_fake_computer (complete).
 
 ---------------------------------------------------------------------------------------------------------------
 
@@ -1478,3 +1857,70 @@ S-22 jobs · S-23 download.
   link. Every [emulator] step of device QA (work-plan WP-25) uses the same host-side fake computer.
 - One optional run with the real pipeline (`phonotrainer ui --phone-access` on a throwaway workspace, configuration
   directory and working directory, local files only) is part of WP-25's real-computer pass, never of CI.
+- **Complete (CR-01)**. `FakeComputer` gains 6.11 and 6.12 with the same codes and merge rules, the capability flags,
+  and knobs to refuse a deletion with a code, to switch the library, and to act as a second device (answers, a reset,
+  saves and unsaves at a given computer time), so the phone's two-device ACs run on the JVM (architecture 21.3;
+  work-plan WP-05a milestone 3). It checks `body_sha256` on the three routes, applies `not_before` after its
+  `restart()`, answers the deletion rate limit with `429`, and refuses content per item exactly as 4.7 says. The
+  host-side fake computer gets 6.11 to 6.13 from the real server code (`create_app` derives the shared-progress settings
+  from its phone settings, 10.2, so nothing else is wired). Beside its seeded clip (created by path, so not imported) it
+  seeds two more: a second finished clip created the same way, so a deletion test never removes the clip the other steps
+  use, and an **imported** clip, made by `JobStore.import_dir` from a synthetic result folder in its temporary directory
+  outside the workspace, whose deletion must leave that folder in place (spec F-05-AC9). Every deletion and reset of
+  device QA happens there, never on the owner's computer (spec D-57; work-plan WP-06 milestone 3).
+
+---------------------------------------------------------------------------------------------------------------
+
+## 13. Version 2: encrypted transport (S-L3; not in the v1 work plan)
+
+The owner confirmed plain HTTP for v1 and asked for version 2 to encrypt the connection (spec 14.6, D-56). The design is
+architecture 26; this section only lists what it would change on the computer, so nothing in v1 is built in a way
+that blocks it. **None of it is v1 work**, and no route or field below exists in API 6 or 7.
+- **Identity**: when phone access is turned on, the computer creates an EC P-256 key and a self-signed certificate in
+  the configuration directory (`tls_key.pem` `0600`, `tls_cert.pem`), with the `cryptography` package (Apache-2.0 or
+  BSD-3-Clause, recorded in `THIRD-PARTY-NOTICES.md` section 3 when added). Its **pin** is the SHA-256 of the
+  certificate's SubjectPublicKeyInfo. `phonotrainer phone new-identity` replaces it (phones must connect again).
+- **Listener**: a second uvicorn server in the same process, on `tls_port` (default 8443, in `server.json`), TLS 1.3
+  only, serving the same app; the loopback HTTP listener on port 8000 stays for the browser (S-21). The discovery reply
+  gains `"tls_port"` (an additive field: v1 phones ignore it).
+- **Pairing over TLS with SRP-6a**: `phone pair` stores an SRP verifier of the code (RFC 5054, 3072-bit group,
+  SHA-256; standard-library integers and `hashlib`) and no v1 `code_sha256`; `POST /api/phone/v2/pair/start` and
+  `/finish` run the exchange, and the key confirmation binds the server id and the pin the phone saw in its TLS
+  handshake, so a machine in the middle has one online guess per code (five attempts lock it, 2.3) and a recording
+  reveals nothing. The token is sent only after the confirmation. A plain `HMAC(code, pin)` sent by the phone is not
+  enough: whoever terminated the phone's TLS could try the 10^6 codes against it offline in under a second
+  (architecture 26.4).
+- **SRP safety checks** (written by hand, so stated here; RFC 5054 section 2.5.4; architecture 25.6 C-53): the
+  computer refuses an `A` with `A mod N = 0` (0, `N`, `2N`, …: it would force `S = 0`, so a key known without the
+  code) with `403 code_invalid`, counted as a wrong attempt, and an `A` longer than 1,024 hex digits with `400`; it
+  draws a new `b` if `u = 0`; the phone refuses `B mod N = 0` and `u = 0`; both secret exponents are fresh, 256 random
+  bits, never reused; `pair_id` is single-use: the first `finish` consumes it whatever the outcome, and an unknown,
+  expired or used `pair_id` or a wrong `m1` is a wrong attempt; `m1` is compared with `hmac.compare_digest` and `m2`
+  on the phone in constant time.
+- **No plain pairing by default** (architecture 25.6 C-58): v1's `POST /api/phone/pair` accepts only a code made with
+  `phonotrainer phone pair --legacy`, which says that it pairs over an unencrypted connection and stores only the v1
+  `code_sha256`; for any other code that route finds no code and answers `403 code_invalid` (2.3), so stripping
+  `tls_port` can never make a version-2 app pair in clear. Phones already paired under v1 keep working (spec 14.6
+  requirement 6).
+- **Moving v1-paired phones**: `GET /api/phone/tls?challenge=<hex>` (signed with PT1, over HTTP) answers the `tls_port`,
+  the pin and `HMAC-SHA256(K, "pt-tls-v1|" + server_id + "|" + device_id + "|" + pin + "|" + tls_port + "|" +
+  challenge)` with the device's key, so the pin is authenticated by the trust established at v1 pairing; a missing or
+  wrong proof leaves the phone on v1, never asking it to connect again. Then, inside pinned TLS, the signed
+  `POST /api/phone/v2/rekey {"key_sha256": "<hex>"}` replaces the device's key with one the phone chose (accepted only
+  on the TLS listener, `403 tls_required` on port 8000; the device id and everything attached to it stay; the answer
+  carries no secret), so a key recorded at the v1 pairing is worthless after the move (architecture 26.5 and 26.6 state
+  the residual risk of an attacker who holds that key at the moment of the move; C-59).
+- **Identity proof over TLS**: `hello` on the TLS listener answers `HMAC-SHA256(K, "pt-hello-v2|" + server_id + "|" +
+  device_id + "|" + challenge + "|" + pin)` with its own pin (architecture 26.9); on port 8000 the v1 proof is
+  unchanged.
+- **No downgrade**: `devices.json` records `tls_since` for a device at its SRP pairing or its rekey; from then on
+  that device's requests over plain HTTP get `403 tls_required` (except `hello`). PT1 signatures, nonces and identity
+  proofs stay on every phone route inside TLS.
+- **Tests**: the RFC 5054 appendix B vectors (its 1024-bit group and SHA-1, through the same code) and fixed vectors
+  for the 3072-bit group with SHA-256 and the pin binding in `tests/phone_fixtures.py`, shared with the phone's tests;
+  `A` in {0, `N`, `2N`} → `403 code_invalid` and the wrong-attempt count grows; a second `finish` with one `pair_id` →
+  `403`, counted; a v1 pairing attempt without a legacy code → `code_invalid`, and with one → paired; a TLS 1.2
+  handshake refused; the pairing MITM case (a different certificate in the transcript fails the confirmation and
+  counts as a wrong attempt); the migration proof; the rekey (the old key refused on both listeners, the device id
+  kept, the route refused on port 8000); `tls_required` after it; `new-identity`; the browser's loopback HTTP
+  unchanged.
