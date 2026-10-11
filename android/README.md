@@ -78,6 +78,34 @@ properties file kept elsewhere, pass `-Pphonotrainer.keystoreProperties=<path>`.
 properties file or a password; the hygiene check and `android/.gitignore` refuse them. Only release-signed builds are
 installed on the test phone, so a later release can always update it in place; `versionCode` only ever increases.
 
+## Plain HTTP to your computer, and how cleartext is confined
+
+In version 1 the phone talks to the PhonoTrainer server over plain HTTP on the home Wi-Fi (the server has no TLS):
+someone on the same Wi-Fi can read the clips, links and recordings that cross it. This is an accepted, documented risk
+(spec 11.6; [`SECURITY.md`, "Transport risk"](SECURITY.md#transport-risk-accepted-for-version-1)). TLS with the
+computer's certificate pinned at pairing is designed for a later version and not implemented
+([`SECURITY.md`, "Version 2"](SECURITY.md#version-2-encrypted-and-authenticated-transport-design-not-implemented)).
+
+An Android network security configuration can only name hosts known at build time, and the computer's address is known
+only at run time and must never be committed. So:
+
+- the network security configuration (`app/src/main/res/xml/network_security_config.xml`) permits cleartext in its
+  base configuration and names no address: **the platform setting alone would allow cleartext to any host**;
+- the app enforces the restriction in code: its single shared HTTP client (built only in `:core:network`, and also used
+  by media playback and image loading) refuses any cleartext request whose host is not the paired computer's current
+  address, or, before pairing, the one address in a private or link-local range (10/8, 172.16/12, 192.168/16,
+  169.254/16) being checked or paired; every other cleartext request fails before any byte is sent (architecture 5.2,
+  X-AC6). Addresses are IPv4 literals and the client resolves no host name. The hygiene check refuses an HTTP client
+  constructed anywhere else.
+
+**Turning phone access off and revoking phones.** On the computer, `phonotrainer phone off` (or starting the server
+with `--no-phone-access`) closes the phone API, and `phonotrainer phone status` shows the state and the paired phones
+([root README, "Phone access (Android client)"](../README.md#phone-access-android-client)).
+`phonotrainer phone revoke <device-id-prefix or name>` revokes one phone, whose credential stops working at its next
+request, and `phonotrainer phone revoke --all` revokes every phone
+([`docs/server-contract.md` 2.2](docs/server-contract.md#22-phonotrainer-phone-terminal-only-device-management-s-04)).
+On the phone: Settings > Your computer > "Forget this computer…".
+
 ## Tests at a glance
 
 - **Unit tests** (`src/test`) run on the JVM; Android modules use Robolectric (sdk 35). Fakes of every domain and
