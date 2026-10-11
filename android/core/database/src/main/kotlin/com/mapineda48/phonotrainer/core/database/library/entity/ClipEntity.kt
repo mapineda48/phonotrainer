@@ -8,7 +8,9 @@ import androidx.room.PrimaryKey
 /**
  * `clip` (architecture 4.2): the catalogue mirror, one row per job any listing of the paired server reported, plus
  * clips kept from a forgotten computer or a previous library. Instants are epoch milliseconds (UTC); enums are stored
- * by name; columns the architecture does not declare NOT NULL are nullable.
+ * by name. Besides the columns the architecture declares NOT NULL, [firstSeenAt] (written with the row) is NOT NULL
+ * and the 0/1 flags are NOT NULL DEFAULT 0 (decision I-17); what the computer reports stays nullable, because an
+ * older listing may leave it out.
  */
 @Entity(
   tableName = "clip",
@@ -48,8 +50,8 @@ data class ClipEntity(
   @ColumnInfo(name = "change_counts_json") val changeCountsJson: String? = null,
   @ColumnInfo(name = "rules_version") val rulesVersion: Int? = null,
   @ColumnInfo(name = "phone_engine") val phoneEngine: String? = null,
-  @ColumnInfo(name = "has_dialogue") val hasDialogue: Boolean? = null,
-  @ColumnInfo(name = "audio_only_job") val audioOnlyJob: Boolean? = null,
+  @ColumnInfo(name = "has_dialogue", defaultValue = "0") val hasDialogue: Boolean = false,
+  @ColumnInfo(name = "audio_only_job", defaultValue = "0") val audioOnlyJob: Boolean = false,
   /** VIDEO, AUDIO, NONE (from the listing's `media`). */
   @ColumnInfo(name = "media_kind") val mediaKind: String? = null,
   @ColumnInfo(name = "video_codec") val videoCodec: String? = null,
@@ -61,14 +63,15 @@ data class ClipEntity(
   @ColumnInfo(name = "missing_listings", defaultValue = "0") val missingListings: Int = 0,
   /** Removal deferred while open. */
   @ColumnInfo(name = "deleted_on_computer", defaultValue = "0") val deletedOnComputer: Boolean = false,
-  @ColumnInfo(name = "wanted") val wanted: Boolean? = null,
-  @ColumnInfo(name = "removed_by_learner") val removedByLearner: Boolean? = null,
-  @ColumnInfo(name = "kept") val kept: Boolean? = null,
-  @ColumnInfo(name = "hidden") val hidden: Boolean? = null,
+  @ColumnInfo(name = "wanted", defaultValue = "0") val wanted: Boolean = false,
+  @ColumnInfo(name = "removed_by_learner", defaultValue = "0") val removedByLearner: Boolean = false,
+  @ColumnInfo(name = "kept", defaultValue = "0") val kept: Boolean = false,
+  @ColumnInfo(name = "hidden", defaultValue = "0") val hidden: Boolean = false,
   /** "Download the video" when automatic video download is off. */
-  @ColumnInfo(name = "video_wanted") val videoWanted: Boolean? = null,
+  @ColumnInfo(name = "video_wanted", defaultValue = "0") val videoWanted: Boolean = false,
   @ColumnInfo(name = "indexed_revision") val indexedRevision: String? = null,
   @ColumnInfo(name = "index_rule_version") val indexRuleVersion: Int? = null,
-  @ColumnInfo(name = "first_seen_at") val firstSeenAt: Long? = null,
+  /** When this phone first listed the clip ("New on this phone"); written with the row. */
+  @ColumnInfo(name = "first_seen_at") val firstSeenAt: Long,
   @ColumnInfo(name = "on_phone_at") val onPhoneAt: Long? = null,
 )

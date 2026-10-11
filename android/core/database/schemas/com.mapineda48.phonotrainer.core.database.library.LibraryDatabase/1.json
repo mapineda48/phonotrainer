@@ -2,11 +2,11 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "d576e9b700152f890728ccf1fe8d812c",
+    "identityHash": "5ee6c996fbfa82b531437118d2a73aa2",
     "entities": [
       {
         "tableName": "clip",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`job_id` TEXT NOT NULL, `server_id` TEXT NOT NULL, `library_id` TEXT NOT NULL, `origin` TEXT NOT NULL, `revision` TEXT NOT NULL, `status` TEXT NOT NULL, `stage` TEXT, `percent` INTEGER, `queue_position` INTEGER, `title` TEXT NOT NULL, `source_kind` TEXT, `source_url` TEXT, `site` TEXT, `submitted_by_device` TEXT, `created_at` INTEGER, `started_at` INTEGER, `finished_at` INTEGER, `error_code` TEXT, `error_message` TEXT, `duration_ms` INTEGER, `segment_count` INTEGER, `word_count` INTEGER, `change_counts_json` TEXT, `rules_version` INTEGER, `phone_engine` TEXT, `has_dialogue` INTEGER, `audio_only_job` INTEGER, `media_kind` TEXT, `video_codec` TEXT, `video_width` INTEGER, `video_height` INTEGER, `video_rotation` INTEGER, `video_offset_ms` INTEGER, `missing_listings` INTEGER NOT NULL DEFAULT 0, `deleted_on_computer` INTEGER NOT NULL DEFAULT 0, `wanted` INTEGER, `removed_by_learner` INTEGER, `kept` INTEGER, `hidden` INTEGER, `video_wanted` INTEGER, `indexed_revision` TEXT, `index_rule_version` INTEGER, `first_seen_at` INTEGER, `on_phone_at` INTEGER, PRIMARY KEY(`job_id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`job_id` TEXT NOT NULL, `server_id` TEXT NOT NULL, `library_id` TEXT NOT NULL, `origin` TEXT NOT NULL, `revision` TEXT NOT NULL, `status` TEXT NOT NULL, `stage` TEXT, `percent` INTEGER, `queue_position` INTEGER, `title` TEXT NOT NULL, `source_kind` TEXT, `source_url` TEXT, `site` TEXT, `submitted_by_device` TEXT, `created_at` INTEGER, `started_at` INTEGER, `finished_at` INTEGER, `error_code` TEXT, `error_message` TEXT, `duration_ms` INTEGER, `segment_count` INTEGER, `word_count` INTEGER, `change_counts_json` TEXT, `rules_version` INTEGER, `phone_engine` TEXT, `has_dialogue` INTEGER NOT NULL DEFAULT 0, `audio_only_job` INTEGER NOT NULL DEFAULT 0, `media_kind` TEXT, `video_codec` TEXT, `video_width` INTEGER, `video_height` INTEGER, `video_rotation` INTEGER, `video_offset_ms` INTEGER, `missing_listings` INTEGER NOT NULL DEFAULT 0, `deleted_on_computer` INTEGER NOT NULL DEFAULT 0, `wanted` INTEGER NOT NULL DEFAULT 0, `removed_by_learner` INTEGER NOT NULL DEFAULT 0, `kept` INTEGER NOT NULL DEFAULT 0, `hidden` INTEGER NOT NULL DEFAULT 0, `video_wanted` INTEGER NOT NULL DEFAULT 0, `indexed_revision` TEXT, `index_rule_version` INTEGER, `first_seen_at` INTEGER NOT NULL, `on_phone_at` INTEGER, PRIMARY KEY(`job_id`))",
         "fields": [
           {
             "fieldPath": "jobId",
@@ -143,12 +143,16 @@
           {
             "fieldPath": "hasDialogue",
             "columnName": "has_dialogue",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
           },
           {
             "fieldPath": "audioOnlyJob",
             "columnName": "audio_only_job",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
           },
           {
             "fieldPath": "mediaKind",
@@ -197,27 +201,37 @@
           {
             "fieldPath": "wanted",
             "columnName": "wanted",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
           },
           {
             "fieldPath": "removedByLearner",
             "columnName": "removed_by_learner",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
           },
           {
             "fieldPath": "kept",
             "columnName": "kept",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
           },
           {
             "fieldPath": "hidden",
             "columnName": "hidden",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
           },
           {
             "fieldPath": "videoWanted",
             "columnName": "video_wanted",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
           },
           {
             "fieldPath": "indexedRevision",
@@ -232,7 +246,8 @@
           {
             "fieldPath": "firstSeenAt",
             "columnName": "first_seen_at",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true
           },
           {
             "fieldPath": "onPhoneAt",
@@ -289,7 +304,7 @@
       },
       {
         "tableName": "artifact",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`job_id` TEXT NOT NULL, `name` TEXT NOT NULL, `role` TEXT, `remote_status` TEXT, `remote_bytes` INTEGER, `remote_sha256` TEXT, `remote_type` TEXT, `remote_url` TEXT, `local_state` TEXT, `local_file` TEXT, `local_sha256` TEXT, `local_bytes` INTEGER, `part_bytes` INTEGER, `part_revision` TEXT, `etag` TEXT, `verify_failures` INTEGER, `pause_reason` TEXT, `last_error` TEXT, `updated_at` INTEGER, PRIMARY KEY(`job_id`, `name`), FOREIGN KEY(`job_id`) REFERENCES `clip`(`job_id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`job_id` TEXT NOT NULL, `name` TEXT NOT NULL, `role` TEXT NOT NULL, `remote_status` TEXT NOT NULL, `remote_bytes` INTEGER, `remote_sha256` TEXT, `remote_type` TEXT, `remote_url` TEXT, `local_state` TEXT NOT NULL DEFAULT 'ABSENT', `local_file` TEXT, `local_sha256` TEXT, `local_bytes` INTEGER, `part_bytes` INTEGER, `part_revision` TEXT, `etag` TEXT, `verify_failures` INTEGER NOT NULL DEFAULT 0, `pause_reason` TEXT, `last_error` TEXT, `updated_at` INTEGER NOT NULL, PRIMARY KEY(`job_id`, `name`), FOREIGN KEY(`job_id`) REFERENCES `clip`(`job_id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "jobId",
@@ -306,12 +321,14 @@
           {
             "fieldPath": "role",
             "columnName": "role",
-            "affinity": "TEXT"
+            "affinity": "TEXT",
+            "notNull": true
           },
           {
             "fieldPath": "remoteStatus",
             "columnName": "remote_status",
-            "affinity": "TEXT"
+            "affinity": "TEXT",
+            "notNull": true
           },
           {
             "fieldPath": "remoteBytes",
@@ -336,7 +353,9 @@
           {
             "fieldPath": "localState",
             "columnName": "local_state",
-            "affinity": "TEXT"
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "'ABSENT'"
           },
           {
             "fieldPath": "localFile",
@@ -371,7 +390,9 @@
           {
             "fieldPath": "verifyFailures",
             "columnName": "verify_failures",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
           },
           {
             "fieldPath": "pauseReason",
@@ -386,7 +407,8 @@
           {
             "fieldPath": "updatedAt",
             "columnName": "updated_at",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true
           }
         ],
         "primaryKey": {
@@ -721,7 +743,7 @@
       },
       {
         "tableName": "request",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `seq` INTEGER NOT NULL, `kind` TEXT, `state` TEXT, `state_reason` TEXT, `held` INTEGER, `created_at` INTEGER, `updated_at` INTEGER, `link_shared` TEXT, `link_sent` TEXT, `link_key` TEXT, `site` TEXT, `title_hint` TEXT, `file_name` TEXT, `file_mime` TEXT, `file_bytes` INTEGER, `file_duration_ms` INTEGER, `file_sha256` TEXT, `copy_file` TEXT, `copy_bytes` INTEGER, `copy_complete` INTEGER, `source_uri` TEXT, `source_persisted` INTEGER, `audio_extracted` INTEGER, `whole_file_fallback` INTEGER, `audio_only` INTEGER, `separate_dialogue` INTEGER, `target_server_id` TEXT, `attempts` INTEGER, `next_attempt_at` INTEGER, `last_error_code` TEXT, `last_error_message` TEXT, `needed_bytes` INTEGER, `job_id` TEXT, `accepted_at` INTEGER, `rerun_count` INTEGER, `auto_rerun_used` INTEGER, `upload_offset` INTEGER, `sent_at` INTEGER, `in_line_at` INTEGER, `analyzing_at` INTEGER, `ready_at` INTEGER, `on_phone_at` INTEGER, `notified_ready` INTEGER, `notified_attention` INTEGER, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `seq` INTEGER NOT NULL, `kind` TEXT NOT NULL, `state` TEXT NOT NULL, `state_reason` TEXT, `held` INTEGER NOT NULL DEFAULT 0, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, `link_shared` TEXT, `link_sent` TEXT, `link_key` TEXT, `site` TEXT, `title_hint` TEXT, `file_name` TEXT, `file_mime` TEXT, `file_bytes` INTEGER, `file_duration_ms` INTEGER, `file_sha256` TEXT, `copy_file` TEXT, `copy_bytes` INTEGER, `copy_complete` INTEGER NOT NULL DEFAULT 0, `source_uri` TEXT, `source_persisted` INTEGER NOT NULL DEFAULT 0, `audio_extracted` INTEGER NOT NULL DEFAULT 0, `whole_file_fallback` INTEGER NOT NULL DEFAULT 0, `audio_only` INTEGER NOT NULL DEFAULT 0, `separate_dialogue` INTEGER NOT NULL DEFAULT 0, `target_server_id` TEXT, `attempts` INTEGER NOT NULL DEFAULT 0, `next_attempt_at` INTEGER, `last_error_code` TEXT, `last_error_message` TEXT, `needed_bytes` INTEGER, `job_id` TEXT, `accepted_at` INTEGER, `rerun_count` INTEGER NOT NULL DEFAULT 0, `auto_rerun_used` INTEGER NOT NULL DEFAULT 0, `upload_offset` INTEGER, `sent_at` INTEGER, `in_line_at` INTEGER, `analyzing_at` INTEGER, `ready_at` INTEGER, `on_phone_at` INTEGER, `notified_ready` INTEGER NOT NULL DEFAULT 0, `notified_attention` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -738,12 +760,14 @@
           {
             "fieldPath": "kind",
             "columnName": "kind",
-            "affinity": "TEXT"
+            "affinity": "TEXT",
+            "notNull": true
           },
           {
             "fieldPath": "state",
             "columnName": "state",
-            "affinity": "TEXT"
+            "affinity": "TEXT",
+            "notNull": true
           },
           {
             "fieldPath": "stateReason",
@@ -753,17 +777,21 @@
           {
             "fieldPath": "held",
             "columnName": "held",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
           },
           {
             "fieldPath": "createdAt",
             "columnName": "created_at",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true
           },
           {
             "fieldPath": "updatedAt",
             "columnName": "updated_at",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true
           },
           {
             "fieldPath": "linkShared",
@@ -828,7 +856,9 @@
           {
             "fieldPath": "copyComplete",
             "columnName": "copy_complete",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
           },
           {
             "fieldPath": "sourceUri",
@@ -838,27 +868,37 @@
           {
             "fieldPath": "sourcePersisted",
             "columnName": "source_persisted",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
           },
           {
             "fieldPath": "audioExtracted",
             "columnName": "audio_extracted",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
           },
           {
             "fieldPath": "wholeFileFallback",
             "columnName": "whole_file_fallback",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
           },
           {
             "fieldPath": "audioOnly",
             "columnName": "audio_only",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
           },
           {
             "fieldPath": "separateDialogue",
             "columnName": "separate_dialogue",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
           },
           {
             "fieldPath": "targetServerId",
@@ -868,7 +908,9 @@
           {
             "fieldPath": "attempts",
             "columnName": "attempts",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
           },
           {
             "fieldPath": "nextAttemptAt",
@@ -903,12 +945,16 @@
           {
             "fieldPath": "rerunCount",
             "columnName": "rerun_count",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
           },
           {
             "fieldPath": "autoRerunUsed",
             "columnName": "auto_rerun_used",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
           },
           {
             "fieldPath": "uploadOffset",
@@ -943,12 +989,16 @@
           {
             "fieldPath": "notifiedReady",
             "columnName": "notified_ready",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
           },
           {
             "fieldPath": "notifiedAttention",
             "columnName": "notified_attention",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
           }
         ],
         "primaryKey": {
@@ -1007,7 +1057,7 @@
       },
       {
         "tableName": "request_op",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `kind` TEXT, `request_id` TEXT, `job_id` TEXT, `audio_only` INTEGER, `created_at` INTEGER, `attempts` INTEGER, `next_attempt_at` INTEGER, `state` TEXT, `last_error_code` TEXT, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `kind` TEXT NOT NULL, `request_id` TEXT, `job_id` TEXT, `audio_only` INTEGER, `created_at` INTEGER NOT NULL, `attempts` INTEGER NOT NULL DEFAULT 0, `next_attempt_at` INTEGER, `state` TEXT NOT NULL DEFAULT 'PENDING', `last_error_code` TEXT, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -1018,7 +1068,8 @@
           {
             "fieldPath": "kind",
             "columnName": "kind",
-            "affinity": "TEXT"
+            "affinity": "TEXT",
+            "notNull": true
           },
           {
             "fieldPath": "requestId",
@@ -1038,12 +1089,15 @@
           {
             "fieldPath": "createdAt",
             "columnName": "created_at",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true
           },
           {
             "fieldPath": "attempts",
             "columnName": "attempts",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
           },
           {
             "fieldPath": "nextAttemptAt",
@@ -1053,7 +1107,9 @@
           {
             "fieldPath": "state",
             "columnName": "state",
-            "affinity": "TEXT"
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "'PENDING'"
           },
           {
             "fieldPath": "lastErrorCode",
@@ -1106,7 +1162,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'd576e9b700152f890728ccf1fe8d812c')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '5ee6c996fbfa82b531437118d2a73aa2')"
     ]
   }
 }

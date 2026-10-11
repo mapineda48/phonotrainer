@@ -2,11 +2,11 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "721ab8fed87d2f6cb2e9d1905a51bf12",
+    "identityHash": "a3a736eb9bb57d9a4c4a2e8f7c367973",
     "entities": [
       {
         "tableName": "short_seen",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`job_id` TEXT NOT NULL, `first_segment` INTEGER NOT NULL, `first_seen_at` INTEGER, `last_seen_at` INTEGER, `seen_count` INTEGER, PRIMARY KEY(`job_id`, `first_segment`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`job_id` TEXT NOT NULL, `first_segment` INTEGER NOT NULL, `first_seen_at` INTEGER NOT NULL, `last_seen_at` INTEGER NOT NULL, `seen_count` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`job_id`, `first_segment`))",
         "fields": [
           {
             "fieldPath": "jobId",
@@ -23,17 +23,21 @@
           {
             "fieldPath": "firstSeenAt",
             "columnName": "first_seen_at",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true
           },
           {
             "fieldPath": "lastSeenAt",
             "columnName": "last_seen_at",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true
           },
           {
             "fieldPath": "seenCount",
             "columnName": "seen_count",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
           }
         ],
         "primaryKey": {
@@ -46,7 +50,7 @@
       },
       {
         "tableName": "clip_progress",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`job_id` TEXT NOT NULL, `resume_first_segment` INTEGER, `resume_position_ms` INTEGER, `last_opened_at` INTEGER, `last_watched_at` INTEGER, `excluded_from_mix` INTEGER, PRIMARY KEY(`job_id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`job_id` TEXT NOT NULL, `resume_first_segment` INTEGER, `resume_position_ms` INTEGER, `last_opened_at` INTEGER, `last_watched_at` INTEGER, `excluded_from_mix` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`job_id`))",
         "fields": [
           {
             "fieldPath": "jobId",
@@ -77,7 +81,9 @@
           {
             "fieldPath": "excludedFromMix",
             "columnName": "excluded_from_mix",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
           }
         ],
         "primaryKey": {
@@ -89,7 +95,7 @@
       },
       {
         "tableName": "feed_position",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`slot` TEXT NOT NULL, `mode_json` TEXT, `job_id` TEXT, `first_segment` INTEGER, `position_ms` INTEGER, `updated_at` INTEGER, PRIMARY KEY(`slot`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`slot` TEXT NOT NULL, `mode_json` TEXT NOT NULL, `job_id` TEXT, `first_segment` INTEGER, `position_ms` INTEGER, `updated_at` INTEGER NOT NULL, PRIMARY KEY(`slot`))",
         "fields": [
           {
             "fieldPath": "slot",
@@ -100,7 +106,8 @@
           {
             "fieldPath": "modeJson",
             "columnName": "mode_json",
-            "affinity": "TEXT"
+            "affinity": "TEXT",
+            "notNull": true
           },
           {
             "fieldPath": "jobId",
@@ -120,7 +127,8 @@
           {
             "fieldPath": "updatedAt",
             "columnName": "updated_at",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true
           }
         ],
         "primaryKey": {
@@ -132,7 +140,7 @@
       },
       {
         "tableName": "saved_item",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `kind` TEXT, `job_id` TEXT, `segment` INTEGER, `word` INTEGER, `short_first_segment` INTEGER, `change` TEXT, `saved_at` INTEGER, `last_watched_at` INTEGER)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `kind` TEXT NOT NULL, `job_id` TEXT NOT NULL, `segment` INTEGER NOT NULL, `word` INTEGER NOT NULL DEFAULT -1, `short_first_segment` INTEGER, `change` TEXT, `saved_at` INTEGER NOT NULL, `last_watched_at` INTEGER)",
         "fields": [
           {
             "fieldPath": "id",
@@ -143,22 +151,27 @@
           {
             "fieldPath": "kind",
             "columnName": "kind",
-            "affinity": "TEXT"
+            "affinity": "TEXT",
+            "notNull": true
           },
           {
             "fieldPath": "jobId",
             "columnName": "job_id",
-            "affinity": "TEXT"
+            "affinity": "TEXT",
+            "notNull": true
           },
           {
             "fieldPath": "segment",
             "columnName": "segment",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true
           },
           {
             "fieldPath": "word",
             "columnName": "word",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "-1"
           },
           {
             "fieldPath": "shortFirstSegment",
@@ -173,7 +186,8 @@
           {
             "fieldPath": "savedAt",
             "columnName": "saved_at",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true
           },
           {
             "fieldPath": "lastWatchedAt",
@@ -204,7 +218,7 @@
       },
       {
         "tableName": "practice_stat",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`change` TEXT NOT NULL, `seen` INTEGER, `correct` INTEGER, PRIMARY KEY(`change`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`change` TEXT NOT NULL, `seen` INTEGER NOT NULL DEFAULT 0, `correct` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`change`))",
         "fields": [
           {
             "fieldPath": "change",
@@ -215,12 +229,16 @@
           {
             "fieldPath": "seen",
             "columnName": "seen",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
           },
           {
             "fieldPath": "correct",
             "columnName": "correct",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
           }
         ],
         "primaryKey": {
@@ -232,7 +250,7 @@
       },
       {
         "tableName": "change_met",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`change` TEXT NOT NULL, `first_met_at` INTEGER, PRIMARY KEY(`change`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`change` TEXT NOT NULL, `first_met_at` INTEGER NOT NULL, PRIMARY KEY(`change`))",
         "fields": [
           {
             "fieldPath": "change",
@@ -243,7 +261,8 @@
           {
             "fieldPath": "firstMetAt",
             "columnName": "first_met_at",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true
           }
         ],
         "primaryKey": {
@@ -255,7 +274,7 @@
       },
       {
         "tableName": "study_set",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `kind` TEXT, `local_date` TEXT, `seed` INTEGER, `rule_version` INTEGER, `created_at` INTEGER, `cursor` INTEGER, `completed_at` INTEGER, `answered` INTEGER, `right` INTEGER)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `kind` TEXT NOT NULL, `local_date` TEXT NOT NULL, `seed` INTEGER NOT NULL, `rule_version` INTEGER NOT NULL, `created_at` INTEGER NOT NULL, `cursor` INTEGER NOT NULL DEFAULT 0, `completed_at` INTEGER, `answered` INTEGER NOT NULL DEFAULT 0, `right` INTEGER NOT NULL DEFAULT 0)",
         "fields": [
           {
             "fieldPath": "id",
@@ -266,32 +285,39 @@
           {
             "fieldPath": "kind",
             "columnName": "kind",
-            "affinity": "TEXT"
+            "affinity": "TEXT",
+            "notNull": true
           },
           {
             "fieldPath": "localDate",
             "columnName": "local_date",
-            "affinity": "TEXT"
+            "affinity": "TEXT",
+            "notNull": true
           },
           {
             "fieldPath": "seed",
             "columnName": "seed",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true
           },
           {
             "fieldPath": "ruleVersion",
             "columnName": "rule_version",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true
           },
           {
             "fieldPath": "createdAt",
             "columnName": "created_at",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true
           },
           {
             "fieldPath": "cursor",
             "columnName": "cursor",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
           },
           {
             "fieldPath": "completedAt",
@@ -301,12 +327,16 @@
           {
             "fieldPath": "answered",
             "columnName": "answered",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
           },
           {
             "fieldPath": "right",
             "columnName": "right",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
           }
         ],
         "primaryKey": {
@@ -318,7 +348,7 @@
       },
       {
         "tableName": "study_set_item",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`set_id` INTEGER NOT NULL, `position` INTEGER NOT NULL, `kind` TEXT, `job_id` TEXT, `first_segment` INTEGER, `spot_segment` INTEGER, `spot_word` INTEGER, `spot_change` TEXT, `saved_tag` INTEGER, `question_json` TEXT, `choice` TEXT, `correct` INTEGER, `dropped` INTEGER, PRIMARY KEY(`set_id`, `position`), FOREIGN KEY(`set_id`) REFERENCES `study_set`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`set_id` INTEGER NOT NULL, `position` INTEGER NOT NULL, `kind` TEXT NOT NULL, `job_id` TEXT, `first_segment` INTEGER, `spot_segment` INTEGER, `spot_word` INTEGER, `spot_change` TEXT, `saved_tag` INTEGER NOT NULL DEFAULT 0, `question_json` TEXT, `choice` TEXT, `correct` INTEGER, `dropped` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`set_id`, `position`), FOREIGN KEY(`set_id`) REFERENCES `study_set`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "setId",
@@ -335,7 +365,8 @@
           {
             "fieldPath": "kind",
             "columnName": "kind",
-            "affinity": "TEXT"
+            "affinity": "TEXT",
+            "notNull": true
           },
           {
             "fieldPath": "jobId",
@@ -365,7 +396,9 @@
           {
             "fieldPath": "savedTag",
             "columnName": "saved_tag",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
           },
           {
             "fieldPath": "questionJson",
@@ -385,7 +418,9 @@
           {
             "fieldPath": "dropped",
             "columnName": "dropped",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
           }
         ],
         "primaryKey": {
@@ -411,7 +446,7 @@
       },
       {
         "tableName": "practice_session",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `focus` TEXT, `weak_spots` INTEGER, `seed` INTEGER, `questions_json` TEXT, `index` INTEGER, `answers_json` TEXT, `created_at` INTEGER, `finished_at` INTEGER)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `focus` TEXT, `weak_spots` INTEGER NOT NULL DEFAULT 0, `seed` INTEGER NOT NULL, `questions_json` TEXT NOT NULL, `index` INTEGER NOT NULL DEFAULT 0, `answers_json` TEXT, `created_at` INTEGER NOT NULL, `finished_at` INTEGER)",
         "fields": [
           {
             "fieldPath": "id",
@@ -427,22 +462,28 @@
           {
             "fieldPath": "weakSpots",
             "columnName": "weak_spots",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
           },
           {
             "fieldPath": "seed",
             "columnName": "seed",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true
           },
           {
             "fieldPath": "questionsJson",
             "columnName": "questions_json",
-            "affinity": "TEXT"
+            "affinity": "TEXT",
+            "notNull": true
           },
           {
             "fieldPath": "index",
             "columnName": "index",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
           },
           {
             "fieldPath": "answersJson",
@@ -452,7 +493,8 @@
           {
             "fieldPath": "createdAt",
             "columnName": "created_at",
-            "affinity": "INTEGER"
+            "affinity": "INTEGER",
+            "notNull": true
           },
           {
             "fieldPath": "finishedAt",
@@ -493,7 +535,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '721ab8fed87d2f6cb2e9d1905a51bf12')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'a3a736eb9bb57d9a4c4a2e8f7c367973')"
     ]
   }
 }
