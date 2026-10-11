@@ -16,11 +16,12 @@ class ExamplePickerTest {
     index: Int,
     diff: Double = 0.2,
     eligible: Boolean = true,
-    realized: String = "ɡɛɾ",
+    realized: String? = "ɡɛɾ",
     job: String = "job-1",
+    dict: String? = "ɡˈɛt",
   ) = OccurrenceRecord(
     word = WordRef(JobId(job), 0, index), change = ChangeLabel("flapping"), shortFirstSegment = 0, wordText = word,
-    wordKey = WordKey.of(word), dictIpa = "ɡˈɛt", realizedIpa = realized, startMs = 1_000, endMs = 1_300,
+    wordKey = WordKey.of(word), dictIpa = dict, realizedIpa = realized, startMs = 1_000, endMs = 1_300,
     diffCost = diff, lowConfidence = !eligible, eligible = eligible, crossesBoundary = false, nextWordText = "it",
     advice = Advice.PRODUCE, family = Family.TD,
   )
@@ -56,18 +57,57 @@ class ExamplePickerTest {
     assertThat(ExamplePicker.pickOccurrences(occurrences).map { it.wordText }).containsExactly("Get", "water").inOrder()
   }
 
+  private val tokenizer = IpaTokenizer(ReferenceSnapshot.ipaTokens)
+
+  private fun withSymbol(rows: List<OccurrenceRecord>, symbol: String, limit: Int = ExamplePicker.SYMBOL_LIMIT) =
+    ExamplePicker.withSymbol(rows, symbol, tokenizer, limit).map { it.wordText }
+
+  /** The heard form holds the symbol and the dictionary form does not ("t̚" and "ɾ" are never in a dictionary form). */
   @Test
-  fun symbolExamplesUseTheInventorysSymbols() {
-    val tokenizer = IpaTokenizer(ReferenceSnapshot.ipaTokens)
+  fun symbolExamplesMatchTheHeardForm() {
     val rows = listOf(
-      row("that", 1, realized = "ðæt̚"),
-      row("water", 2, realized = "wɔɾɚ"),
-      row("gotcha", 3, realized = "ɡɑtʃə"),
-      row("eat", 4, realized = "it"),
+      row("that", 1, realized = "ðæt̚", dict = "ðˈæt"),
+      row("water", 2, realized = "wɔɾɚ", dict = "wˈɔːtɚ"),
+      row("gotcha", 3, realized = "ɡɑtʃə", dict = null),
+      row("eat", 4, realized = "it", dict = null),
     )
-    // "t̚" and "tʃ" are not a plain "t"
-    assertThat(ExamplePicker.withSymbol(rows, "t", tokenizer).map { it.wordText }).containsExactly("eat")
-    assertThat(ExamplePicker.withSymbol(rows, "t̚", tokenizer).map { it.wordText }).containsExactly("that")
-    assertThat(ExamplePicker.withSymbol(rows, "ɾ", tokenizer, limit = 6).map { it.wordText }).containsExactly("water")
+    assertThat(withSymbol(rows, "t̚")).containsExactly("that")
+    assertThat(withSymbol(rows, "ɾ")).containsExactly("water")
+    // the heard form alone: "t̚" and "tʃ" are the inventory's symbols, not a plain "t"
+    assertThat(withSymbol(rows.map { it.copy(dictIpa = null) }, "t")).containsExactly("eat")
+  }
+
+  /**
+   * Architecture 9.4: "the realized or dictionary IPA contains the symbol". A /t/ that was flapped, unreleased or
+   * glottalized is still an example of "t" through its dictionary form, which is tokenized like the heard form: stress
+   * and length marks ignored, the inventory's multi-character symbols kept whole.
+   */
+  @Test
+  fun symbolExamplesMatchTheDictionaryForm() {
+    val rows = listOf(
+      row("water", 1, diff = 0.1, realized = "wɑɾɚ", dict = "wˈɔːtɚ"),
+      row("gotcha", 2, diff = 0.2, realized = "ɡɑɾə", dict = "ɡˈɑtʃə"),
+      row("seat", 3, diff = 0.3, realized = "sit̚", dict = "sˈiːt"),
+      row("cat", 4, diff = 0.4, realized = "kæʔ", dict = "kˈæt"),
+      row("sat", 5, diff = 0.5, realized = "sæʔ", dict = "sˈæt", eligible = false),
+    )
+    // "gotcha" holds "tʃ", not "t"; "sat" is not eligible
+    assertThat(withSymbol(rows, "t")).containsExactly("water", "seat", "cat").inOrder()
+    assertThat(withSymbol(rows, "tʃ")).containsExactly("gotcha")
+    // "wˈɔːtɚ": neither the stress mark nor the length mark hides "ɔ"
+    assertThat(withSymbol(rows, "ɔ")).containsExactly("water")
+  }
+
+  /** A word that holds the symbol in both forms is one example: the pick's one-per-word rule spans both readings. */
+  @Test
+  fun symbolExamplesStayOnePerWordAcrossBothForms() {
+    val rows = listOf(
+      row("better", 1, diff = 0.3, realized = "bɛɾɚ", dict = "bˈɛtɚ"),
+      row("Better", 2, diff = 0.1, realized = "bɛtɚ", dict = "bˈɛtɚ"),
+      row("rate", 3, diff = 0.2, realized = "ɹeɪʔ", dict = null),
+    )
+    assertThat(ExamplePicker.withSymbol(rows, "t", tokenizer).map { it.word.word }).containsExactly(2)
+    assertThat(ExamplePicker.withSymbol(rows, "ɾ", tokenizer).map { it.word.word }).containsExactly(1)
+    assertThat(withSymbol(rows, "t", limit = 0)).isEmpty()
   }
 }

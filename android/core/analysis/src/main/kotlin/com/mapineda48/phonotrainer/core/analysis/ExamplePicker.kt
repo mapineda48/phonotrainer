@@ -13,7 +13,7 @@ object ExamplePicker {
   /** Learn's phenomenon page and the quiz explanation (web default). */
   const val LIMIT: Int = 8
 
-  /** The IPA chart's symbol examples (web `IpaChart`). */
+  /** The IPA chart's symbol examples (web `IpaChart`'s limit). */
   const val SYMBOL_LIMIT: Int = 6
 
   /** Up to [limit] examples among [records]: eligible rows, clearest first, one per [OccurrenceRecord.wordKey]. */
@@ -28,15 +28,20 @@ object ExamplePicker {
     pickBy(occurrences, limit, { WordKey.of(it.wordText) }, { it.diffCost }) { it.word }
 
   /**
-   * Examples of an IPA symbol (web `IpaChart`): eligible rows whose heard form holds [symbol] (tokenized with the
-   * reference's `ipa_tokens`, so "t̚" is not a "t"), picked like [pick].
+   * Examples of an IPA symbol (the IPA chart; architecture 9.4): eligible rows whose realized OR dictionary IPA holds
+   * [symbol], picked like [pick]. Both forms are tokenized by [tokenizer] (the reference's `ipa_tokens`, so "t̚" and
+   * "tʃ" are not a "t"; stress and length marks ignored), so a flapped /t/ is still an example of "t" through its
+   * dictionary form. The web's chart reads the heard form only; 9.4 widens it on purpose.
    */
   fun withSymbol(
     records: List<OccurrenceRecord>,
     symbol: String,
     tokenizer: IpaTokenizer,
     limit: Int = SYMBOL_LIMIT,
-  ): List<OccurrenceRecord> = pick(records.filter { tokenizer.containsSymbol(it.realizedIpa, symbol) }, limit)
+  ): List<OccurrenceRecord> = pick(
+    records.filter { tokenizer.containsSymbol(it.realizedIpa, symbol) || tokenizer.containsSymbol(it.dictIpa, symbol) },
+    limit,
+  )
 
   private fun <T> pickBy(
     items: List<T>,
