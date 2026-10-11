@@ -7,6 +7,24 @@ they fix.
 
 ## Build and test infrastructure
 
+### I-09 Two lint analyses at a time inside the Gradle daemon (2026-10-11, WP-19)
+
+Lint runs in the Gradle daemon (AGP's default), sharing the 3 GB heap of architecture 2.4 with R8, D8, KSP and javac.
+AGP admits `max(1, floor(0.75 × heap / reservedMemoryPerTask))` lint analyses at once, which is four with the default
+512 MB. From-scratch runs of `check lintDebug assembleDebug assembleRelease --rerun-tasks` began to fail on lint's own
+Kotlin (K2) resolution: "Unexpected failure during lint analysis … Error while resolving FirRegularClassImpl from
+RAW_FIR to COMPILER_REQUIRED_ANNOTATIONS" (or `SUPER_TYPES`), each time on a different, unchanged test file
+(`AndroidBundledAssetsTest.kt`, `DependencyShapeTest.kt`, `HiltTestRunner.kt`). The task passes when it runs alone.
+The failures grew with the tree: 2 of 3 runs at w1-wp19a, 0 of 1 at w1-wp02m3, and 3 of 3 once WP-03 was merged. A GC
+log of a failing run shows the daemon's heap full, with G1 Full (compaction) pauses from 3,071 MB. A full collection
+clears soft references, and the analysis keeps its resolved declarations behind soft references. That fits a
+declaration found back at `RAW_FIR` in the middle of a lazy resolution, although lint hides the inner cause.
+`android.experimental.lint.reservedMemoryPerTask=1g` in `gradle.properties` admits two analyses at a time. The heap
+settings and the bound of about 6.5 GB per copy do not change, because the daemon's peak goes down, not up. With it,
+2 of 2 from-scratch runs passed, each about half a minute longer. Running lint out of process was rejected: each
+worker would add its own heap, outside the per-copy budget that lets four copies build at once. If the crash returns
+as the tree grows, the next step is `1536m` (one analysis at a time), measured the same way.
+
 ### I-08 The end-to-end address policy is the release one plus `127.0.0.1` (2026-10-11, WP-19)
 
 Architecture 21.5 asks `TestNetworkModule` for "an `AddressPolicy` that also allows loopback". A `@TestInstallIn`
