@@ -12,13 +12,16 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 
-/** Coach marks seen, in the settings file (architecture 4.5): backed up, so a restored phone does not repeat them. */
+/**
+ * Coach marks seen, in the settings file (architecture 4.5): backed up, so a restored phone does not repeat them. A
+ * settings file that is damaged or cannot be read shows them again ([DataStoreModule]).
+ */
 @Singleton
 class DataStoreCoachMarkRepository @Inject constructor(
   @param:SettingsPreferences private val store: DataStore<Preferences>,
 ) : CoachMarkRepository {
   override fun shouldShow(id: CoachMarkId): Flow<Boolean> =
-    store.data.map { id.value !in it[SEEN].orEmpty() }.distinctUntilChanged()
+    store.dataOrEmpty().map { id.value !in it[SEEN].orEmpty() }.distinctUntilChanged()
 
   override suspend fun dismiss(id: CoachMarkId) {
     store.edit { it[SEEN] = it[SEEN].orEmpty() + id.value }

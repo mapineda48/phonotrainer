@@ -12,6 +12,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import com.mapineda48.phonotrainer.core.common.di.IoDispatcher
 import com.mapineda48.phonotrainer.core.common.hash.Sha256
 import com.mapineda48.phonotrainer.core.datastore.PairingPreferences
+import com.mapineda48.phonotrainer.core.datastore.dataOrEmpty
 import com.mapineda48.phonotrainer.core.datastore.credential.CredentialCipher
 import com.mapineda48.phonotrainer.core.datastore.credential.CredentialUnreadableException
 import com.mapineda48.phonotrainer.core.datastore.credential.SealedCredential
@@ -37,7 +38,7 @@ import kotlinx.coroutines.withContext
 /**
  * [PairingStore] over `pairing.preferences_pb` (architecture 4.5). Keys are private; instants are epoch milliseconds;
  * the credential is the [CredentialCipher]'s ciphertext and IV. A file missing any field of the record reads as "not
- * paired".
+ * paired", and so does a file that is damaged or cannot be read (`DataStoreModule`).
  */
 @Singleton
 class DataStorePairingStore @Inject constructor(
@@ -45,7 +46,7 @@ class DataStorePairingStore @Inject constructor(
   private val cipher: CredentialCipher,
   @param:IoDispatcher private val io: CoroutineDispatcher,
 ) : PairingStore {
-  override val pairing: Flow<PairingRecord?> = store.data.map { it.toRecord() }.distinctUntilChanged()
+  override val pairing: Flow<PairingRecord?> = store.dataOrEmpty().map { it.toRecord() }.distinctUntilChanged()
 
   override suspend fun current(): PairingRecord? = pairing.first()
 
@@ -81,7 +82,7 @@ class DataStorePairingStore @Inject constructor(
   }
 
   override suspend fun <T> withDeviceKey(block: (key: ByteArray) -> T): DeviceKeyResult<T> {
-    val preferences = store.data.first()
+    val preferences = store.dataOrEmpty().first()
     if (preferences.toRecord() == null) return DeviceKeyResult.NotPaired
     val ciphertext = preferences[CREDENTIAL]
     val iv = preferences[CREDENTIAL_IV]
