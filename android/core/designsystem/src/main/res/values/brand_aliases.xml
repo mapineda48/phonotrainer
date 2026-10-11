@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Frozen names that :app's manifest and themes reference (work-plan 4.1, delivery review D-13). The targets may
-     change; these names may not. -->
+<!-- Aliases for the resource names frozen in work-plan.md 4.1 (delivery review D-13), so the manifest and themes of
+     :app resolve against the design system's real assets. Written by hand; the targets are generated. -->
 <resources>
-    <color name="phono_window_background">@color/phono_page</color>
+    <!-- Notification small icon (the stylus P silhouette). -->
     <drawable name="ic_stat_phono">@drawable/ic_notification</drawable>
+    <!-- Window background = page (light and dark come from values/ and values-night/ colors.xml). -->
+    <color name="phono_window_background">@color/phono_page</color>
 </resources>
