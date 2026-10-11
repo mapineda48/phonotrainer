@@ -16,9 +16,9 @@ android {
   }
 }
 
-// :app depends on every module (architecture 2.2, 2.7), so a module that disappears fails the build. The two day-0
-// modules of other work packages join as soon as their owners create them (WP-04 :core:content, WP-12
-// :core:analysis); settings include a declared module only once its build file exists.
+// :app depends on every module (architecture 2.2, 2.7), so a module that disappears fails the build. The day-0 module
+// still to come (WP-12 :core:analysis) joins as soon as its owner creates it; settings include a declared module only
+// once its build file exists. WP-04's :core:content exists since its merge and is listed with the others.
 val everyModule = listOf(
   ":core:domain",
   ":core:common",
@@ -26,6 +26,7 @@ val everyModule = listOf(
   ":core:navigation",
   ":core:designsystem",
   ":core:ui",
+  ":core:content",
   ":core:database",
   ":core:datastore",
   ":core:network",
@@ -51,11 +52,12 @@ val everyModule = listOf(
   ":feature:settings",
   ":feature:insights",
 )
-val dayZeroModules = listOf(":core:content", ":core:analysis")
+val dayZeroModules = listOf(":core:analysis")
 
 dependencies {
   everyModule.forEach { implementation(project(it)) }
-  dayZeroModules.mapNotNull { rootProject.findProject(it) }.forEach { implementation(it) }
+  // By path, not by Project object: a Project as dependency notation is deprecated in Gradle 9 and fails in Gradle 10.
+  dayZeroModules.filter { rootProject.findProject(it) != null }.forEach { implementation(project(it)) }
 
   implementation(libs.androidx.activity.compose)
   implementation(libs.androidx.core.ktx)
