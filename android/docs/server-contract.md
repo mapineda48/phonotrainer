@@ -1028,7 +1028,9 @@ jobs are never the phone's).
 
 **`POST /api/phone/jobs/{id}/cancel`** (auth, own) — no body
 - `200 {"job": PhoneJob}`: a queued or running job is flagged for cancellation (the listing or the channel shows
-  `cancelled` shortly after); a job already `error` or `cancelled` is returned unchanged (idempotent).
+  `cancelled` shortly after); a job already `error` or `cancelled` is returned unchanged (idempotent). A phone's
+  cancel of a **queued** job makes it `cancelled` at once (it may otherwise wait many minutes behind a running
+  analysis); the browser's cancel is unchanged (the worker sees it on entry).
 - `409 {"detail": "…", "code": "already_finished", "job": PhoneJob}`: the job is `done`; the phone keeps the clip and
   shows "Too late to cancel…" (spec F-20-AC5).
 - `403 not_own_job`, `404 unknown_job`.
