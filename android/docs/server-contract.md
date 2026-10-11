@@ -194,7 +194,9 @@ Turn phone access off:   phonotrainer phone off   (or start with --no-phone-acce
 
   The addresses are the active approved addresses (above), one line each with the interface name. No secret is ever
   printed by `ui`.
-- uvicorn runs with `access_log=False` (its access log would print every client address and request path, 3.3).
+- uvicorn runs with `access_log=False` (its access log would print every client address and request path, 3.3), and
+  its WebSocket lines (client address and path, logged even without the access log) are filtered while phone access
+  runs.
 - `--reload` passes the setting to the reloading factory through `PHONOTRAINER_PHONE_ACCESS=1` (as the workspace and
   roots already are).
 
