@@ -145,7 +145,7 @@ New options on the existing command (`phonotrainer/cli.py`):
 |---|---|
 | `--phone-access` | turns phone access on, **remembers it** (`server.json`, 3.2), approves the networks the computer is on now (below) and starts the server with it |
 | `--no-phone-access` | turns it off, remembers it, starts without it |
-| `--phone-interface <name>` | repeatable; also approves a virtual interface that is excluded by default (below); without `--phone-access`, with phone access already on, it approves only the interfaces it names |
+| `--phone-interface <name>` | repeatable; also approves a virtual interface or a public network, both excluded by default (below); without `--phone-access`, with phone access already on, it approves only the interfaces it names |
 | neither | uses the remembered value; the default for a computer that never chose is off (S-01, Q-5 default) |
 
 **Approved networks** (security review M-6). Phone access stays on across restarts (Q-5), but a laptop must not
@@ -154,10 +154,12 @@ expose it on a café, hotel or office Wi-Fi it joins later. Turning phone access
 virtual interface (one the kernel reports as virtual: `/sys/class/net/<name>` under `/sys/devices/virtual/`, or a
 hardware type other than Ethernet; or one whose name starts with `docker`, `br-`, `virbr`, `veth`, `tun`, `tap`,
 `wg`, `tailscale`, `zt`, `ppp`, `nordlynx`, `proton`, `cscotun`, `gpd`, `ipsec`, `vboxnet`, `vmnet`, `podman`,
-`cni`, `lxcbr`, `lxdbr`, `flannel`, `cali`, `vxlan`, `ham`, `nebula`), unless named with `--phone-interface`: the
-interface name, the network (address and prefix, for example `192.0.2.0/24`) and the MAC address of that
-network's default gateway when the kernel knows it (`/proc/net/route` and `/proc/net/arp`, read by `netinfo`,
-10.1; omitted when unknown). At each start, and every 30 s while running, the server computes the
+`cni`, `lxcbr`, `lxdbr`, `flannel`, `cali`, `vxlan`, `ham`, `nebula`) and not on a public network (one whose network
+is global unicast: a computer plugged straight into an ISP modem, a campus network with public addressing; `phone on`
+and `ui --phone-access` print one line per interface left out for this reason), unless named with
+`--phone-interface`: the interface name, the network (address and prefix, for example `192.0.2.0/24`) and the MAC
+address of that network's default gateway when the kernel knows it (`/proc/net/route` and `/proc/net/arp`, read by
+`netinfo`, 10.1; omitted when unknown). At each start, and every 30 s while running, the server computes the
 **active approved addresses**: the local addresses of up interfaces whose (name, network, gateway MAC) match an
 approved entry (a missing MAC on either side matches on name and network). If phone access is remembered on but no
 approved network is up, the server starts with phone access **suspended**: it binds and writes `runtime.json` as with
@@ -483,7 +485,9 @@ Two rules, applied by two middlewares:
 - **LAN rule (phone access on)**: the `Host` header MUST be an IPv4 literal equal to the local address the
   connection arrived on (the ASGI `server` tuple), with the port equal to the listening port or omitted, and that
   address MUST be an active approved address (2.1). Host names are refused, which defeats DNS rebinding against the
-  LAN address. A refused Host gives `400 bad_host`; for a WebSocket, the upgrade is closed before accept.
+  LAN address. A refused Host gives `400 bad_host`; for a WebSocket, the upgrade is closed before accept. The peer
+  MUST lie inside the network of the approved interface it reached and MUST NOT be global unicast unless that network
+  is (the rule of 5.4); otherwise `403 lan_forbidden`.
 
 ### 4.5 SSRF guard for links (S-07)
 
@@ -1149,7 +1153,7 @@ transient), **done** (the operation already happened).
 | `credential_rejected` | 401 | missing or malformed signature, unknown or revoked device, wrong MAC, replayed nonce (4.3) | blocking ("Connect again") |
 | `clock_skew` | 401 | the signature's time is more than 300 s from the computer's (body has `server_time`) | transient (re-sync the clock offset, retry once) |
 | `phone_access_off` | 403 | phone access is off on this computer | blocking ("phone access is off there") |
-| `lan_forbidden` | 403 | a non-phone route from the LAN, or a LAN request on an address that is not approved (2.1) | defect (on a probe: "not reachable") |
+| `lan_forbidden` | 403 | a non-phone route from the LAN, or a LAN request on an address that is not approved (2.1) or from a peer outside the approved network (4.4) | defect (on a probe: "not reachable") |
 | `unknown_route` | 404 | no such phone route (4.2) | defect |
 | `bad_host` | 400 | Host header refused | defect |
 | `invalid_request` | 400 | malformed body or parameters | defect |
