@@ -1,9 +1,9 @@
 package com.mapineda48.phonotrainer.core.notifications
 
 import android.app.Notification
-import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
+import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import com.mapineda48.phonotrainer.core.common.di.ApplicationScope
 import com.mapineda48.phonotrainer.core.domain.api.Notifier
@@ -37,14 +37,27 @@ import com.mapineda48.phonotrainer.core.designsystem.R as DesignR
  * never shows one.
  */
 @Singleton
-class AndroidNotifier @Inject constructor(
-  @param:ApplicationContext private val context: Context,
+class AndroidNotifier internal constructor(
+  private val context: Context,
   private val settings: SettingsRepository,
   private val permission: NotificationPermissionMonitor,
-  @param:ApplicationScope private val scope: CoroutineScope,
+  private val scope: CoroutineScope,
+  private val system: SystemNotifications,
 ) : Notifier, TransferNotifier {
-  private val manager = context.getSystemService(NotificationManager::class.java)
+  @Inject constructor(
+    @ApplicationContext context: Context,
+    settings: SettingsRepository,
+    permission: NotificationPermissionMonitor,
+    @ApplicationScope scope: CoroutineScope,
+  ) : this(context, settings, permission, scope, SystemNotifications.of(context))
+
   private val settingsRead = AtomicBoolean(false)
+
+  /** Guards [unlisted] and keeps a clip's post and the summary it leads to together. */
+  private val readyLock = Any()
+
+  /** "Ready to watch" posts the system did not list yet, by tag, oldest first (see [updateClipsReadySummary]). */
+  private val unlisted = LinkedHashMap<String, UnlistedPost>()
 
   init {
     scope.launch {
@@ -63,8 +76,12 @@ class AndroidNotifier @Inject constructor(
       .setContentText(context.resources.getQuantityString(R.plurals.notification_clip_ready_text, shorts, shorts))
       .setGroup(GROUP_CLIPS_READY)
       .build()
-    manager.notify(TAG_CLIP + clip.value, ID_CLIP_READY, notification)
-    updateClipsReadySummary()
+    val tag = TAG_CLIP + clip.value
+    synchronized(readyLock) {
+      system.notify(tag, ID_CLIP_READY, notification)
+      unlisted[tag] = UnlistedPost(heading, SystemClock.elapsedRealtime())
+      updateClipsReadySummary()
+    }
   }
 
   override fun needsAttention(request: RequestId, title: String, site: Site?, error: RequestError) =
@@ -77,7 +94,7 @@ class AndroidNotifier @Inject constructor(
         .setContentText(line)
         .setStyle(NotificationCompat.BigTextStyle().bigText(line))
         .build()
-      manager.notify(TAG_REQUEST + request.value, ID_NEEDS_ATTENTION, notification)
+      system.notify(TAG_REQUEST + request.value, ID_NEEDS_ATTENTION, notification)
     }
 
   override fun transferNotification(kind: TransferKind, progress: TransferProgress, stop: PendingIntent?): Notification {
@@ -136,28 +153,40 @@ class AndroidNotifier @Inject constructor(
     post()
   }
 
-  /** "Ready to watch" notifications are grouped with a summary when several are showing (architecture 13). */
+  /**
+   * "Ready to watch" notifications are grouped with a summary when two or more show (architecture 13, spec F-23).
+   *
+   * The system lists a post only a moment after `notify` returns, so what shows is what it lists plus the clips this
+   * notifier posted that it does not list yet: the clip just posted, or several posted together. A clip leaves
+   * [unlisted] once an update sees it listed, and from then on the system's list is the truth (the learner may dismiss
+   * it); a post the system never lists (it dropped it), or one dismissed before any update saw it, stops counting
+   * after [UNLISTED_GRACE_MS]. Called under [readyLock].
+   */
   private fun updateClipsReadySummary() {
-    val ready = manager.activeNotifications.filter {
-      it.notification.group == GROUP_CLIPS_READY && (it.notification.flags and Notification.FLAG_GROUP_SUMMARY) == 0
-    }
-    if (ready.size < 2) {
-      manager.cancel(TAG_SUMMARY, ID_CLIPS_READY_SUMMARY)
+    val now = SystemClock.elapsedRealtime()
+    val showing = LinkedHashMap<String, CharSequence?>()
+    system.active()
+      .filter { it.id == ID_CLIP_READY && it.tag?.startsWith(TAG_CLIP) == true }
+      .forEach { showing[it.tag] = it.notification.extras.getCharSequence(Notification.EXTRA_TITLE) }
+    unlisted.entries.removeAll { (tag, post) -> tag in showing || now - post.postedAt > UNLISTED_GRACE_MS }
+    unlisted.forEach { (tag, post) -> showing[tag] = post.title }
+    if (showing.size < 2) {
+      system.cancel(TAG_SUMMARY, ID_CLIPS_READY_SUMMARY)
       return
     }
     val lines = NotificationCompat.InboxStyle()
-    ready.forEach { lines.addLine(it.notification.extras.getCharSequence(Notification.EXTRA_TITLE)) }
+    showing.values.forEach { lines.addLine(it) }
     val summary = builder(NotificationChannels.CLIPS_READY, NavTarget.Home)
       .setContentTitle(NotificationChannels.name(context, NotificationChannels.CLIPS_READY))
       .setContentText(
-        context.resources.getQuantityString(R.plurals.notification_clips_ready_summary, ready.size, ready.size),
+        context.resources.getQuantityString(R.plurals.notification_clips_ready_summary, showing.size, showing.size),
       )
       .setStyle(lines)
       .setGroup(GROUP_CLIPS_READY)
       .setGroupSummary(true)
       .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN)
       .build()
-    manager.notify(TAG_SUMMARY, ID_CLIPS_READY_SUMMARY, summary)
+    system.notify(TAG_SUMMARY, ID_CLIPS_READY_SUMMARY, summary)
   }
 
   private fun builder(channel: String, target: NavTarget): NotificationCompat.Builder =
@@ -176,6 +205,9 @@ class AndroidNotifier @Inject constructor(
 
   private fun megabytes(bytes: Long): Long = (bytes.coerceAtLeast(0) + HALF_MB) / ONE_MB
 
+  /** A "Ready to watch" post and its [SystemClock.elapsedRealtime] instant. */
+  private class UnlistedPost(val title: CharSequence, val postedAt: Long)
+
   companion object {
     /** Every notification of this notifier has a tag (one per clip or request), so ids never collide with others'. */
     const val TAG_CLIP: String = "clip:"
@@ -185,6 +217,9 @@ class AndroidNotifier @Inject constructor(
     const val ID_NEEDS_ATTENTION: Int = 2
     const val ID_CLIPS_READY_SUMMARY: Int = 3
     const val GROUP_CLIPS_READY: String = "com.mapineda48.phonotrainer.CLIPS_READY"
+
+    /** How long a "Ready to watch" post the system does not list yet still counts towards the summary. */
+    internal const val UNLISTED_GRACE_MS: Long = 5_000L
 
     private const val PERCENT = 100
     private const val ONE_MB = 1_000_000L
