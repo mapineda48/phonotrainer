@@ -263,10 +263,10 @@ def _print_corpus_metrics(console: Console, result: dict) -> None:
                    "turning it on approves the networks this computer is on now). "
                    "Default: the remembered choice, off if never chosen.")
 @click.option("--phone-interface", "phone_interfaces", multiple=True,
-              help="Also approve this virtual interface for phones (repeatable; "
-                   "container, virtual-machine and VPN interfaces are excluded by "
-                   "default). With phone access already on, only this interface is "
-                   "added.")
+              help="Also approve this interface for phones (repeatable; container, "
+                   "virtual-machine and VPN interfaces, and networks with public "
+                   "addresses, are excluded by default). With phone access already "
+                   "on, only this interface is added.")
 def ui(workspace: str, port: int, host: str | None, no_open: bool, reload: bool,
        import_dirs: tuple[str, ...], allow_dirs: tuple[str, ...],
        phone_access: bool | None, phone_interfaces: tuple[str, ...]) -> None:

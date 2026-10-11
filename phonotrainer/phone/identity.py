@@ -98,11 +98,19 @@ def is_virtual(iface: Interface | str) -> bool:
     return iface.startswith(VIRTUAL_PREFIXES)
 
 
-def approvable(interfaces: Iterable[Interface], extra: Iterable[str] = ()) -> list[Interface]:
-    """The interfaces `phone on` approves: up, IPv4, not loopback, not virtual
-    unless named."""
-    named = set(extra)
-    chosen = []
+def is_public(iface: Interface) -> bool:
+    """Is the interface's network global unicast (a computer plugged straight
+    into an ISP modem, a campus network with public addressing)? Approving it
+    would let the whole internet reach phone pairing."""
+    try:
+        return ipaddress.ip_interface(f"{iface.address}/{iface.prefix}").network.is_global
+    except ValueError:
+        return False
+
+
+def _candidates(interfaces: Iterable[Interface]) -> list[Interface]:
+    """Up IPv4 interfaces that are not loopback."""
+    found = []
     for iface in interfaces:
         if not iface.up or iface.loopback:
             continue
@@ -111,10 +119,30 @@ def approvable(interfaces: Iterable[Interface], extra: Iterable[str] = ()) -> li
                 continue
         except ValueError:
             continue
-        if is_virtual(iface) and iface.name not in named:
-            continue
-        chosen.append(iface)
-    return chosen
+        found.append(iface)
+    return found
+
+
+def approvable(interfaces: Iterable[Interface], extra: Iterable[str] = ()) -> list[Interface]:
+    """The interfaces `phone on` approves: up, IPv4, not loopback, and neither
+    virtual nor on a public (global unicast) network unless named."""
+    named = set(extra)
+    return [iface for iface in _candidates(interfaces)
+            if iface.name in named or not (is_virtual(iface) or is_public(iface))]
+
+
+def skipped_public(interfaces: Iterable[Interface], extra: Iterable[str] = ()) -> list[Interface]:
+    """The interfaces left out only because their network is public, for the
+    line that says why (`phone on`, `ui --phone-access`)."""
+    named = set(extra)
+    return [iface for iface in _candidates(interfaces)
+            if iface.name not in named and not is_virtual(iface) and is_public(iface)]
+
+
+def public_note(iface: Interface) -> str:
+    return (f"Not approved for phones: {iface.name} {iface.network} is a public network "
+            "(anyone on the internet could reach this computer there). To approve it anyway, "
+            f"start with: phonotrainer ui --phone-access --phone-interface {iface.name}")
 
 
 def network_entry(iface: Interface, approved_at: str) -> dict:

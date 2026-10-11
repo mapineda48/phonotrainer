@@ -17,7 +17,8 @@ import click
 
 from . import PAIRING_MAX_WRONG
 from .config import ConfigDir, ConfigError, runtime_info
-from .identity import MAX_NAME_CHARS, ServerIdentity, active_addresses
+from .identity import (MAX_NAME_CHARS, ServerIdentity, active_addresses, public_note,
+                       skipped_public)
 from .netinfo import Interface, interfaces as real_interfaces
 from .registry import DeviceRegistry
 from .settings import PhoneSettings
@@ -71,7 +72,10 @@ def prepare_phone_access(choice: bool | None, extra_interfaces: Iterable[str],
         return None                       # never chose: off, and nothing is created
     identity = _open_identity(config)
     if choice is True:
-        identity.turn_on(netinfo(), extra)
+        current = netinfo()
+        identity.turn_on(current, extra)
+        if notes is not None:
+            notes.extend(public_note(iface) for iface in skipped_public(current, extra))
     elif choice is None and identity.phone_access and extra:
         identity.turn_on([iface for iface in netinfo() if iface.name in extra], extra)
     elif choice is False:
@@ -151,8 +155,11 @@ def turn_on() -> None:
     """Turn phone access on and approve the networks this computer is on now."""
     config = ConfigDir()
     identity = _open_identity(config)
-    for entry in identity.turn_on(real_interfaces()):
+    current = real_interfaces()
+    for entry in identity.turn_on(current):
         click.echo(f"Approved for phones: {entry['interface']} {entry['network']}")
+    for iface in skipped_public(current):
+        click.echo(public_note(iface))
     click.echo("Phone access is now ON.")
     if runtime_info(config) is None:
         click.echo("Restart `phonotrainer ui` to apply it.")

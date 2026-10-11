@@ -47,7 +47,7 @@ from . import __version__, ipa_maps, learner_audio, metrics as metrics_mod, phen
 from . import review as review_mod, separation
 from .db import DEFAULT_DB, Corpus
 from .jobs import DOWNLOAD_DIR, MEDIA_SUFFIXES, MEDIA_TYPES, JobError, JobNotFound, JobStore
-from .phone.access import LoopbackHostGuard, PhoneAccessMiddleware, is_phone_path
+from .phone.access import LoopbackHostGuard, PhoneAccessMiddleware, is_file_body, is_phone_path
 from .phone.errors import PhoneError, error_response
 from .phone.settings import PhoneSettings
 from .phones_real import ENGINE_ALIASES
@@ -268,8 +268,13 @@ def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
     # Phone routes answer {"detail", "code"}; every other route keeps FastAPI's
     # 422 list exactly as before.
     @app.exception_handler(PhoneError)
-    def _phone_error(request: Request, exc: PhoneError):      # noqa: ARG001
-        return exc.response()
+    def _phone_error(request: Request, exc: PhoneError):
+        response = exc.response()
+        if is_file_body(request.method, request.url.path):
+            # Refused before its file was read (a signature, an unknown key):
+            # close instead of letting the phone send megabytes for nothing.
+            response.headers["Connection"] = "close"
+        return response
 
     @app.exception_handler(RequestValidationError)
     async def _validation_error(request: Request, exc: RequestValidationError):
@@ -788,6 +793,12 @@ def serve(workspace: str | Path = DEFAULT_WORKSPACE, host: str | None = None,
     behind a proxy, and with them on any local page could send
     `X-Forwarded-For` and pass for a remote peer, which `LoopbackHostGuard`
     (the DNS-rebinding defence) would then not check.
+
+    With phone access, uvicorn also runs with the HTTP protocol of
+    `phone/connections.py` (LAN connections must send their request in time,
+    and are counted per peer and per network), and the soft limit of open
+    files is raised to the hard one: anyone who can reach the port must not
+    be able to exhaust the server's file descriptors.
     """
     import uvicorn
 
@@ -814,6 +825,9 @@ def serve(workspace: str | Path = DEFAULT_WORKSPACE, host: str | None = None,
 
     from dataclasses import replace
 
+    from .phone.connections import protocol_path, raise_open_file_limit
+
+    raise_open_file_limit()
     phone = replace(phone, port=port, host=host)
     os.environ["PHONOTRAINER_PHONE_ACCESS"] = "1"
     os.environ["PHONOTRAINER_PORT"] = str(port)
@@ -823,7 +837,7 @@ def serve(workspace: str | Path = DEFAULT_WORKSPACE, host: str | None = None,
     uvicorn.run("phonotrainer.server:app_from_env" if reload
                 else create_app(workspace, allowed_roots=allowed_roots, phone=phone),
                 host=host, port=port, reload=reload, factory=reload,
-                proxy_headers=False, access_log=False)
+                proxy_headers=False, access_log=False, http=protocol_path())
 
 
 def app_from_env() -> FastAPI:

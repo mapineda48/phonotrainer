@@ -145,27 +145,38 @@ def test_ui_bound_to_one_address_says_who_can_reach_it(served, netinfo, config):
 
 def test_serve_with_phone_access(uvicorn_calls, monkeypatch, tmp_path, isolated_config):
     from phonotrainer import server
+    from phonotrainer.phone import connections
 
+    raised = []
+    monkeypatch.setattr(connections, "raise_open_file_limit", lambda: raised.append(True))
     monkeypatch.setattr(server, "create_app", lambda *a, **kw: ("app", a, kw))
     settings = PhoneSettings(config_dir=isolated_config)
     server.serve(workspace=tmp_path / "ws", open_browser=False, phone=settings)
     (app, kw), = uvicorn_calls
     assert kw == {"host": "0.0.0.0", "port": 8000, "reload": False, "factory": False,
-                  "proxy_headers": False, "access_log": False}
+                  "proxy_headers": False, "access_log": False,
+                  "http": connections.protocol_path()}
+    assert kw["http"].startswith("phonotrainer.phone.connections:Guarded")
+    assert raised == [True]
     assert app[2]["phone"].port == 8000 and app[2]["phone"].host == "0.0.0.0"
     uvicorn_calls.clear()
+    raised.clear()
     server.serve(workspace=tmp_path / "ws", open_browser=False)
     (app, kw), = uvicorn_calls
     # phone access off: as before, except that proxy headers are never trusted
     assert kw == {"host": "127.0.0.1", "port": 8000, "reload": False, "factory": False,
                   "proxy_headers": False}
+    assert raised == []
     assert "phone" not in app[2] or app[2]["phone"] is None
 
 
 @pytest.mark.parametrize("phone_on", [True, False])
 def test_serve_with_reload_never_trusts_proxy_headers(uvicorn_calls, tmp_path, isolated_config,
-                                                      phone_on):
+                                                      phone_on, monkeypatch):
     from phonotrainer import server
+    from phonotrainer.phone import connections
+
+    monkeypatch.setattr(connections, "raise_open_file_limit", lambda: None)
 
     phone = PhoneSettings(config_dir=isolated_config) if phone_on else None
     server.serve(workspace=tmp_path / "ws", open_browser=False, reload=True, phone=phone)
@@ -176,6 +187,28 @@ def test_serve_with_reload_never_trusts_proxy_headers(uvicorn_calls, tmp_path, i
     if phone_on:                       # the reloading factory gets the port and the host
         assert os.environ["PHONOTRAINER_PORT"] == "8000"
         assert os.environ["PHONOTRAINER_HOST"] == "0.0.0.0"
+        # an import path, which the reloading worker process can load
+        assert kw["http"] == "phonotrainer.phone.connections:GuardedHttpToolsProtocol"
+
+
+def test_public_networks_are_not_approved_unless_named(served, netinfo, config):
+    from phone_fixtures import LOOPBACK_IF, PUBLIC_V4, WLAN_HOME
+
+    from phonotrainer.phone.netinfo import Interface
+
+    modem = Interface("eth0", PUBLIC_V4, 24, None)          # plugged into the ISP's modem
+    netinfo.current = [LOOPBACK_IF, WLAN_HOME, modem]
+    result = run("phone", "on")
+    assert result.output.splitlines()[:2] == [
+        "Approved for phones: wlan0 192.0.2.0/24",
+        f"Not approved for phones: eth0 {modem.network} is a public network (anyone on the "
+        "internet could reach this computer there). To approve it anyway, start with: "
+        "phonotrainer ui --phone-access --phone-interface eth0"]
+    assert [n["interface"] for n in identity(config).approved_networks] == ["wlan0"]
+    result = run("ui", "--no-open", "--phone-access")
+    assert "Not approved for phones: eth0" in result.output
+    run("ui", "--no-open", "--phone-access", "--phone-interface", "eth0")
+    assert [n["interface"] for n in identity(config).approved_networks] == ["wlan0", "eth0"]
 
 
 # --- phone on / off / status ------------------------------------------------------------------

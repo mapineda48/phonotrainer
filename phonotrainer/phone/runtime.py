@@ -32,6 +32,7 @@ from .access import is_loopback
 from .artifacts import ArtifactIndex
 from .auth import Authenticator
 from .config import RUNTIME_FILE, ConfigDir, ConfigError
+from .connections import ADDRESS_LOG_FILTER, UVICORN_LOGGER
 from .discovery import DiscoveryResponder
 from .events import ChannelSlots
 from .identity import (Capabilities, ServerIdentity, active_addresses, iso, library_id,
@@ -128,8 +129,13 @@ class PhoneRuntime:
         with self._lock:
             return list(self._active) if self.identity.phone_access else []
 
+    def approved_interface(self, address: str) -> Interface | None:
+        """The active approved interface whose local address this is, if any."""
+        return next((iface for iface in self.active_interfaces() if iface.address == address),
+                    None)
+
     def is_approved_address(self, address: str) -> bool:
-        return any(iface.address == address for iface in self.active_interfaces())
+        return self.approved_interface(address) is not None
 
     def now_iso(self) -> str:
         return iso(self.clock())
@@ -197,6 +203,7 @@ class PhoneRuntime:
 
     # --- lifecycle (the app's lifespan) -----------------------------------------------
     def start(self) -> None:
+        logging.getLogger(UVICORN_LOGGER).addFilter(ADDRESS_LOG_FILTER)
         self._discard_stale_pairing()
         self.artifacts.start()
         self.uploads.start()
@@ -250,6 +257,7 @@ class PhoneRuntime:
                 current = None
             if current is not None and current.get("pid") == os.getpid():
                 self.config.delete(RUNTIME_FILE)
+        logging.getLogger(UVICORN_LOGGER).removeFilter(ADDRESS_LOG_FILTER)
 
     def _write_runtime(self) -> None:
         self.config.write_json(RUNTIME_FILE, {
