@@ -19,6 +19,7 @@ store a `result_dir` pointing outside the workspace.
 
 from __future__ import annotations
 
+import errno
 import itertools
 import json
 import queue
@@ -167,6 +168,10 @@ class Job:
     client_request_id: str | None = None
     rerun_of: str | None = None
     origin: str | None = None
+    # A phone upload's declared size and SHA-256 (the file the key stands for),
+    # so a later declaration with the same key and another file is a conflict.
+    upload_bytes: int | None = None
+    upload_sha256: str | None = None
 
     # --- runtime (not serialized) ------------------------------------------
     cancel_requested: bool = field(default=False, repr=False)
@@ -221,7 +226,8 @@ class Job:
             "summary": self.summary,
         }
         # Optional fields only when set: a browser job's job.json is unchanged.
-        for key in ("device_id", "client_request_id", "rerun_of", "origin"):
+        for key in ("device_id", "client_request_id", "rerun_of", "origin",
+                    "upload_bytes", "upload_sha256"):
             value = getattr(self, key)
             if value is not None:
                 data[key] = value
@@ -287,6 +293,9 @@ def _load_job(job_dir: Path) -> Job | None:
         client_request_id=raw.get("client_request_id"),
         rerun_of=raw.get("rerun_of"),
         origin=raw.get("origin"),
+        upload_bytes=raw.get("upload_bytes") if type(raw.get("upload_bytes")) is int else None,
+        upload_sha256=raw.get("upload_sha256") if isinstance(raw.get("upload_sha256"), str)
+        else None,
     )
     # A job left "running" on disk means the server died halfway through.
     if job.status in (RUNNING, QUEUED):
@@ -505,11 +514,14 @@ class JobStore:
 
     def adopt_file(self, path: str | Path, file_name: str, options: dict | None = None, *,
                    device_id: str | None = None, client_request_id: str | None = None,
-                   rerun_of: str | None = None, origin: str | None = None) -> Job:
+                   rerun_of: str | None = None, origin: str | None = None,
+                   upload_bytes: int | None = None, upload_sha256: str | None = None) -> Job:
         """Create a job from a file that is already on this disk (a finished
         phone upload, or the stored file of a re-run): it is MOVED into
         `<root>/<new id>/media/<file_name>`, never copied (one rename on the
-        same filesystem)."""
+        same filesystem). `upload_bytes` and `upload_sha256` record what a
+        phone declared for that file. An OSError (no space, a name the file
+        system refuses) leaves the file where it was and no job behind."""
         path = Path(path)
         if not path.is_file() or path.stat().st_size == 0:
             raise JobError("the uploaded file arrived empty")
@@ -519,17 +531,20 @@ class JobStore:
         dest = media_dir / Path(file_name).name
         try:
             path.replace(dest)
-        except OSError:
+        except OSError as exc:
             import shutil                             # another filesystem: one copy is unavoidable
 
             try:
+                if exc.errno != errno.EXDEV:
+                    raise
                 shutil.move(str(path), str(dest))
             except OSError:
                 _rmtree(self.root / job_id)
                 raise
         return self._enqueue(dest.name, dest, options, job_id=job_id, device_id=device_id,
                              client_request_id=client_request_id, rerun_of=rerun_of,
-                             origin=origin)
+                             origin=origin, upload_bytes=upload_bytes,
+                             upload_sha256=upload_sha256)
 
     def rerun(self, job_id: str, device_id: str, key: str, audio_only: bool | None = None) -> Job:
         """Re-run a failed or cancelled job from what this computer stored

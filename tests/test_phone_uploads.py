@@ -199,10 +199,110 @@ def test_a_whole_file_creates_the_job_and_moves_the_part(paired, phone_app, monk
     assert len(store.list()) == 1
 
 
+def test_a_long_name_in_bytes_is_shortened_to_fit_the_file_system(paired, phone_app):
+    """200 characters are allowed, but a name is limited in BYTES (255 on
+    ext4): 104 three-byte characters are 304. The stored name is shortened,
+    keeps its suffix, and a repeated declaration still matches."""
+    signing, _, _ = paired
+    name = "\u3042" * 100 + ".mp4"
+    assert len(name) == 104 and len(name.encode("utf-8")) == 304
+    first = declare(signing, name=name)
+    assert first.status_code == 201, first.text
+    assert declare(signing, name=name).status_code == 200            # same session
+    resp = put(signing)
+    assert resp.status_code == 201, resp.text
+    stored = Path(phone_app.state.store.get(resp.json()["job"]["id"]).media_path)
+    assert stored.suffix == ".mp4" and stored.name.startswith("\u3042" * 60)
+    assert len(stored.name.encode("utf-8")) <= uploads_mod.MAX_FILE_NAME_BYTES
+    assert stored.read_bytes() == DATA
+    assert resp.json()["job"]["source"]["file_name"] == stored.name
+    done = declare(signing, name=name)
+    assert done.status_code == 200 and done.json()["state"] == "done"
+
+
+def test_fit_file_name():
+    fit = uploads_mod.fit_file_name
+    assert fit("VID_0001.mp4") == "VID_0001.mp4"
+    emoji = "\U0001F600" * 70 + ".webm"                            # 285 bytes
+    short = fit(emoji)
+    assert short.endswith(".webm") and len(short.encode("utf-8")) <= 200
+    assert short == fit(emoji) and short[:-5] == "\U0001F600" * 48    # never half a character
+    assert fit("a" * 300) == "a" * 200                              # no suffix: cut as a whole
+    assert fit(" ." * 120 + ".mp4") == "upload.mp4"                 # nothing left of the stem
+
+
+def test_a_file_system_error_at_the_move_answers_json_and_keeps_the_session(
+        paired, phone_app, monkeypatch):
+    import errno
+
+    signing, _, _ = paired
+    store = phone_app.state.store
+    real = store.adopt_file
+    failures = [OSError(errno.EIO, "I/O error"), OSError(errno.ENOSPC, "No space left")]
+
+    def failing(*args, **kwargs):
+        if failures:
+            raise failures.pop(0)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(store, "adopt_file", failing)
+    assert declare(signing).status_code == 201
+    resp = put(signing)
+    assert resp.status_code == 500 and resp.json()["code"] == "server_error"
+    assert resp.headers["content-type"].startswith("application/json")
+    assert parts(phone_app) == [] and store.list() == []
+    resp = put(signing)
+    assert resp.status_code == 507 and resp.json()["code"] == "no_space"
+    assert parts(phone_app) == []
+    assert declare(signing).json()["state"] == "open"                 # the session stays
+    assert put(signing).status_code == 201                           # and the phone sends again
+
+
+def test_another_file_under_a_finished_key_is_a_conflict(paired, phone_app):
+    signing, _, _ = paired
+    assert declare(signing).status_code == 201
+    assert put(signing).status_code == 201
+    other = DATA[::-1]
+    resp = declare(signing, data=other)                             # same name, another file
+    assert resp.status_code == 409 and resp.json()["code"] == "key_conflict"
+    job = phone_app.state.store.list()[0]
+    assert job.upload_bytes == len(DATA)
+    assert job.upload_sha256 == hashlib.sha256(DATA).hexdigest()
+    assert declare(signing).json()["state"] == "done"
+    wait_until(lambda: phone_app.state.store.get(job.id).status == "done")
+    from conftest import fake_analyze
+
+    from phonotrainer.jobs import JobStore
+
+    reopened = JobStore(phone_app.state.store.root, analyze_fn=fake_analyze, corpus=None)
+    try:                                                            # kept in job.json
+        again = reopened.get(job.id)
+        assert (again.upload_bytes, again.upload_sha256) == (job.upload_bytes, job.upload_sha256)
+    finally:
+        reopened.shutdown()
+
+
 def test_put_without_a_session(paired):
     signing, _, _ = paired
     resp = put(signing)
     assert resp.status_code == 404 and resp.json()["code"] == "unknown_upload"
+
+
+def test_a_put_refused_before_its_body_closes_the_connection(paired, phone_app):
+    """An unsigned or unknown PUT is answered before its file is read: the
+    connection closes, so the phone does not send megabytes for nothing."""
+    from conftest import lan
+
+    signing, _, _ = paired
+    assert declare(signing).status_code == 201
+    resp = put(lan(phone_app))                                     # no signature
+    assert resp.status_code == 401 and resp.json()["code"] == "credential_rejected"
+    assert resp.headers["connection"] == "close"
+    resp = put(signing, key=KEY2)                                   # no session
+    assert resp.status_code == 404 and resp.headers["connection"] == "close"
+    # a JSON route's refusal after its (small) body was read keeps the connection
+    resp = lan(phone_app).post("/api/phone/uploads", json={"client_request_id": KEY1})
+    assert resp.status_code == 401 and "connection" not in resp.headers
 
 
 def test_put_needs_its_declared_length(paired, phone_app):
@@ -492,3 +592,18 @@ def test_a_declaration_after_a_job_was_deleted_starts_again(paired, phone_app):
     wait_until(lambda: phone_app.state.store.get(job_id).status == "done")
     phone_app.state.store.delete(job_id)                       # deleted on the computer
     assert declare(signing).status_code == 201                 # the key is free again
+
+
+def test_a_name_the_file_system_refuses_leaves_the_file_and_no_job(phone_store, tmp_path):
+    """The store's side of a refused move: the file stays where it was (the
+    route deletes the part), and no job directory is left behind."""
+    part = tmp_path / "upload.part"
+    part.write_bytes(DATA)
+    too_long = "あ" * 100 + ".mp4"                      # 304 bytes: ENAMETOOLONG
+    before = sorted(p.name for p in phone_store.root.iterdir()) if phone_store.root.exists() \
+        else []
+    with pytest.raises(OSError):
+        phone_store.adopt_file(part, too_long, {})
+    assert part.read_bytes() == DATA
+    assert sorted(p.name for p in phone_store.root.iterdir()) == before
+    assert phone_store.list() == []

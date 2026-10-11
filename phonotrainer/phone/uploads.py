@@ -52,6 +52,10 @@ log = logging.getLogger("phonotrainer.phone")
 UPLOADS_DIR = ".phone-uploads"
 KEY_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 MAX_FILE_NAME_CHARS = 200
+# The stored name's budget in UTF-8 bytes: file systems limit a name to 255
+# bytes, not characters (85 CJK characters or 64 emoji are already more), and
+# the pipeline may add a few bytes around a name.
+MAX_FILE_NAME_BYTES = 200
 WRITE_THREADS = 4
 JANITOR_INTERVAL_S = 3600
 # How often (real seconds) a waiting body checks whether it went idle or was
@@ -59,6 +63,21 @@ JANITOR_INTERVAL_S = 3600
 POLL_S = 1.0
 # How long a newer body waits for the one it replaces to let go of the part.
 TAKEOVER_WAIT_S = 30.0
+
+
+def fit_file_name(name: str, max_bytes: int = MAX_FILE_NAME_BYTES) -> str:
+    """`name` shortened, if needed, so that its UTF-8 form fits `max_bytes`:
+    the stem loses its last characters (never half of one) and the suffix
+    (`.mp4`) is kept. The same name always gives the same result, so a
+    declaration and its repetition compare equal."""
+    if len(name.encode("utf-8")) <= max_bytes:
+        return name
+    stem, suffix = os.path.splitext(name)
+    room = max_bytes - len(suffix.encode("utf-8"))
+    if not stem or room < 1:
+        return name.encode("utf-8")[:max_bytes].decode("utf-8", "ignore")
+    short = stem.encode("utf-8")[:room].decode("utf-8", "ignore").rstrip(" .")
+    return (short or "upload") + suffix
 
 
 def normalize_key(key: str) -> str | None:

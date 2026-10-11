@@ -7,6 +7,7 @@ started without phone access: it answers `hello` (`phone_access: false`) and
 
 from __future__ import annotations
 
+import errno
 import re
 import time
 from pathlib import Path
@@ -30,7 +31,7 @@ from .runtime import PhoneRuntime
 from .shape import phone_job
 from .ssrf import CannotCheckLink, InvalidLink, LinkRefused, check_link
 from .state import source_kind
-from .uploads import MAX_FILE_NAME_CHARS, TAKEOVER_WAIT_S, normalize_key
+from .uploads import MAX_FILE_NAME_CHARS, TAKEOVER_WAIT_S, fit_file_name, normalize_key
 
 ALL_METHODS = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
 DEVICE_ID_PATTERN = r"^[A-Za-z0-9_]{1,64}$"
@@ -443,12 +444,15 @@ def declare_upload(body: UploadBody, request: Request,
     if not file_name or len(file_name) > MAX_FILE_NAME_CHARS or file_name in (".", ".."):
         raise PhoneError(400, "invalid_request",
                          f"file_name must be 1 to {MAX_FILE_NAME_CHARS} characters long.")
+    # Stored under a name that fits the file system (its limit is in bytes:
+    # 200 CJK characters are 600); the same declaration always gives the same
+    # name, so a repeated one still matches its session or its job.
+    file_name = fit_file_name(file_name)
     sha256 = body.sha256.lower()
     with store.requests_locked():
         job = store.find_by_request(device.device_id, key)
         if job is not None:
-            if (source_kind(job) == "upload" and job.rerun_of is None and job.media_path
-                    and Path(job.media_path).name == file_name):
+            if _created_by_this_upload(job, file_name, body.bytes, sha256):
                 return NoStoreJSONResponse({"state": "done", "job": _job_dict(request, job, device)},
                                            status_code=200)
             raise PhoneError(409, "key_conflict")
@@ -469,6 +473,19 @@ def declare_upload(body: UploadBody, request: Request,
             phone.capabilities.disk_free_bytes)
     return NoStoreJSONResponse(phone.uploads.open_state(session),
                                status_code=201 if created else 200)
+
+
+def _created_by_this_upload(job, file_name: str, size: int, sha256: str) -> bool:
+    """Did this key's job come from an upload of this very file? Its name,
+    and its size and SHA-256 when the job recorded them (another file sent
+    under the same key and name is a key conflict, 6.1)."""
+    if source_kind(job) != "upload" or job.rerun_of is not None or not job.media_path:
+        return False
+    if Path(job.media_path).name != file_name:
+        return False
+    if job.upload_bytes is not None and job.upload_bytes != size:
+        return False
+    return job.upload_sha256 is None or job.upload_sha256 == sha256
 
 
 def _closing(status: int, code: str, detail: str | None = None) -> Response:
@@ -526,14 +543,25 @@ async def put_upload(key: str, request: Request,
                     part.unlink(missing_ok=True)          # removed while it arrived
                     return None
                 job = store.adopt_file(part, file_name, options, device_id=device.device_id,
-                                       client_request_id=key, origin=PHONE_ORIGIN)
+                                       client_request_id=key, origin=PHONE_ORIGIN,
+                                       upload_bytes=session.bytes, upload_sha256=session.sha256)
                 uploads.finish(session)
                 return job
 
         try:
             job = await anyio.to_thread.run_sync(adopt)
         except JobError:
+            part.unlink(missing_ok=True)
             return error_response(400, "length_mismatch")
+        except OSError as exc:
+            # The file system refused the move (no space, an I/O error): the
+            # part goes, the session stays, and the answer keeps the error
+            # shape of 6.1, so the phone sends the file again later.
+            part.unlink(missing_ok=True)
+            uploads.touch(session)
+            if exc.errno in (errno.ENOSPC, errno.EDQUOT):
+                return _closing(507, "no_space")
+            return _closing(500, "server_error", "This computer could not store the upload.")
         if job is None:
             return error_response(404, "unknown_upload")
         return NoStoreJSONResponse({"job": _job_dict(request, job, device)}, status_code=201)
