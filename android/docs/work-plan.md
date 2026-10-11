@@ -1248,7 +1248,8 @@ pairing-store round trip with both flags true and both false, and a store writte
     keys, keystores, long tokens with the placeholder forms of server-contract 6.1 allowed; the credential shapes and
     the `482913` placeholder exemption; the `hygiene: test-vector` marker for the server's SSRF vectors;
     `fallbackToDestructiveMigration`; `android.util.Log`; OkHttp construction; a loopback `AddressPolicy` outside test
-    sources; the merged release manifest against `SECURITY.md`; the **local denylist** computed at run time (host
+    sources; the tokens-only rule (`Color(0x` and `.sp` outside `:core:designsystem`, design 12.5); the merged
+    release manifest against `SECURITY.md`; the **local denylist** computed at run time (host
     name, user name, home directory, git e-mail, `adb devices` serials, the host's IPv4 and MAC addresses), never
     stored; no video or post URL in `docs/qa-report.md`.
   - `scripts/hygiene/install-hooks.sh`: `pre-commit` (staged files) and `pre-push` (pushed range) hooks running
