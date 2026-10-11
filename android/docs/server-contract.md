@@ -165,7 +165,10 @@ approved entry (a missing MAC on either side matches on name and network). If ph
 approved network is up, the server starts with phone access **suspended**: it binds and writes `runtime.json` as with
 phone access on, but no local address is approved, so every LAN request gets `403 lan_forbidden`, no responder runs,
 loopback works as always, and it prints the lines below. It becomes active by itself within 30 s once an approved
-network comes up or the operator approves the current one.
+network comes up or the operator approves the current one. A suspended server still listens on every interface on
+purpose: a phone that reaches it gets `403 lan_forbidden` and can say "Your computer answered, but phone access is off
+there or not approved for this network." (F-02-AC12, spec D-42) instead of reporting a computer that never answered;
+the connection limits of 4.7 bound what another network can hold open.
 
 ```
 Phone access is ON, but this computer is not on a network you approved for phones.
@@ -540,6 +543,9 @@ JavaScript runtime runs YouTube's player code. Only phones the operator paired c
 | Limit | Value | Answer |
 |---|---|---|
 | JSON request bodies on phone routes | `Content-Length` required, at most 16 KiB | `411 length_required` / `413 too_large` |
+| LAN request head | complete within 10 s of the connection or of the previous answer | the connection is closed |
+| LAN request body that is not a file upload | complete within 10 s of its head | the connection is closed |
+| LAN connections | at most 16 per peer address, 128 in total on approved addresses, 16 in total on other local addresses; loopback unlimited; a connection that becomes a WebSocket leaves the counts (the channel has its own limits) | closed at once |
 | Upload size | `max_upload_bytes` (2 GiB default) | `413 too_large` |
 | Free space for uploads | the declared bytes are **reserved**: a declaration is accepted only if `free − Σ open reservations − bytes ≥ MIN_FREE_BYTES` (2 GiB); a reservation ends when its session ends | `507 no_space` |
 | Open upload sessions | at most 4 per device | `409 upload_busy` (detail: "Too many unfinished uploads from this phone.") |
@@ -1296,6 +1302,7 @@ an over-long video, an unknown-size video that grows past the limit, and a refus
 | `uploads.py` | sessions, single PUT, resumable PATCH (complete), janitor | `UploadSessions` |
 | `events.py` | `/api/phone/events` | `phone_events()` |
 | `discovery.py` | UDP responder | `DiscoveryResponder`, `parse_probe()`, `make_reply()` |
+| `connections.py` | the connection limits of 4.7 for LAN peers (uvicorn's HTTP protocols with head and body deadlines and the per-peer and total caps), the open-files limit, the filter that drops uvicorn's WebSocket lines (2.1) | `GuardedHttpToolsProtocol`, `GuardedH11Protocol`, `protocol_path()`, `raise_open_file_limit()`, `ClientAddressLogFilter` |
 | `netinfo.py` | local IPv4 interfaces with address, prefix and default-gateway MAC for the banner, `phone pair` and the approved networks (`socket.if_nameindex()`, `SIOCGIFADDR`/`SIOCGIFNETMASK` ioctls, `/proc/net/route`, `/proc/net/arp`; Linux, as the project); `Interface` gains `virtual: bool = False`, the kernel's answer (`/sys/class/net/<name>` under `/sys/devices/virtual/`, or a hardware type other than Ethernet) | `interfaces() -> list[Interface]` |
 | `cli.py` | `phonotrainer phone …` and the `ui` banner | `phone` (click group), `banner()` |
 | `renditions.py` | complete: compact data, Opus, poster, phone video, low-priority worker | `RenditionWorker` |
@@ -1313,7 +1320,9 @@ an over-long video, an unknown-size video that grows past the limit, and a refus
   phone access is on (or suspended) and no host was given, passes `proxy_headers=False` in every mode, and
   `access_log=False` when phone access is on (or suspended), opens the browser at `127.0.0.1`, writes and removes
   `runtime.json`; it passes its port and host into the phone settings, and to the `--reload` factory through
-  `PHONOTRAINER_PORT` and `PHONOTRAINER_HOST`.
+  `PHONOTRAINER_PORT` and `PHONOTRAINER_HOST`. With phone access it runs uvicorn with
+  `http="phonotrainer.phone.connections:Guarded…Protocol"` (4.7; the httptools variant when httptools is installed,
+  else the h11 one) and first raises the soft `RLIMIT_NOFILE` to the hard limit (at most 65,536).
 - `phonotrainer/jobs.py`: `Job` gains `device_id`, `client_request_id`, `rerun_of`, `origin` (persisted in
   `job.json`, read with defaults, absent from `to_public()`) and a runtime `enqueue_seq`; the worker passes
   `phone_origin=True` to `download_fn` for phone-origin link jobs (9); `JobStore` gains `find_by_request(device_id, key)`,
