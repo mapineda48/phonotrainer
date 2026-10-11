@@ -1,5 +1,6 @@
 package com.mapineda48.phonotrainer.core.testing.fake.requests
 
+import com.mapineda48.phonotrainer.core.domain.api.LinkParser
 import com.mapineda48.phonotrainer.core.domain.api.RequestRepository
 import com.mapineda48.phonotrainer.core.domain.model.AddFilesResult
 import com.mapineda48.phonotrainer.core.domain.model.AddResult
@@ -9,11 +10,13 @@ import com.mapineda48.phonotrainer.core.domain.model.FileSource
 import com.mapineda48.phonotrainer.core.domain.model.IntakeProgress
 import com.mapineda48.phonotrainer.core.domain.model.JobId
 import com.mapineda48.phonotrainer.core.domain.model.LinkInput
+import com.mapineda48.phonotrainer.core.domain.model.ParsedLink
 import com.mapineda48.phonotrainer.core.domain.model.Request
 import com.mapineda48.phonotrainer.core.domain.model.RequestAction
 import com.mapineda48.phonotrainer.core.domain.model.RequestCounts
 import com.mapineda48.phonotrainer.core.domain.model.RequestId
 import com.mapineda48.phonotrainer.core.domain.model.SendReport
+import com.mapineda48.phonotrainer.core.domain.model.Site
 import com.mapineda48.phonotrainer.core.domain.model.remote.RemoteJob
 import com.mapineda48.phonotrainer.core.domain.model.remote.RemoteLibrary
 import com.mapineda48.phonotrainer.core.domain.spi.RequestReconciler
@@ -24,6 +27,37 @@ import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.map
 
 // Settable fakes of the :core:requests interfaces (work-plan 4.6; WP-09 owns this folder after B1).
+
+/**
+ * A settable [LinkParser] for the share sheet's and "Add a clip"'s tests (the real rules, `LinksV1`, live in
+ * `:core:analysis`, which features cannot use). By default: the first http(s) URL of the text (or of the subject),
+ * sent as shared, its own duplicate key, the site from the host (`youtu.be`/`youtube.com`, `/shorts/`, `x.com`/
+ * `twitter.com`), otherwise [Site.OTHER]. [parsed] records every call.
+ */
+class FakeLinkParser(var rule: (sharedText: String, subject: String?) -> ParsedLink? = ::firstLink) : LinkParser {
+  val parsed = mutableListOf<Pair<String, String?>>()
+
+  override fun parse(sharedText: String, subject: String?): ParsedLink? {
+    parsed += sharedText to subject
+    return rule(sharedText, subject)
+  }
+
+  companion object {
+    private val URL = Regex("https?://[^\\s<>\"']+", RegexOption.IGNORE_CASE)
+
+    fun firstLink(sharedText: String, subject: String?): ParsedLink? {
+      val url = (URL.find(sharedText) ?: subject?.let(URL::find))?.value?.trimEnd('.', ',', ';', ':', '!', '?') ?: return null
+      val host = url.substringAfter("://").substringBefore('/').substringBefore('?').lowercase()
+      val site = when {
+        host.endsWith("youtube.com") && url.contains("/shorts/") -> Site.YOUTUBE_SHORTS
+        host == "youtu.be" || host.endsWith("youtube.com") -> Site.YOUTUBE
+        host == "x.com" || host.endsWith("twitter.com") || host == "t.co" -> Site.X
+        else -> Site.OTHER
+      }
+      return ParsedLink(shared = url, sent = url, key = url, site = site)
+    }
+  }
+}
 
 class FakeRequestRepository : RequestRepository {
   val all = MutableStateFlow(emptyList<Request>())

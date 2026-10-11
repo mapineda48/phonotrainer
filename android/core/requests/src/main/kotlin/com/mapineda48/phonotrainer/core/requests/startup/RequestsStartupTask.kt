@@ -83,8 +83,8 @@ internal class RequestsStartupTask @Inject constructor(
 
   private fun watchReconnects() {
     if (!watching.compareAndSet(false, true)) return
+    var wasConnected = status.status.value is ComputerStatus.Connected
     scope.launch {
-      var wasConnected = status.status.value is ComputerStatus.Connected
       status.status.map { it is ComputerStatus.Connected }.distinctUntilChanged().collect { connected ->
         if (connected && !wasConnected) {
           core.transaction {
