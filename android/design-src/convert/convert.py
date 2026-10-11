@@ -13,7 +13,10 @@ What it does, in order:
      icons/PhonoIcons.kt (one property per icons.json entry) and illustration/PhonoIllustrations.kt (the ill_*
      drawables and their aspect);
   4. generates assets/licenses/bundled.json (architecture 20.6) from export/assets/licenses/FONTS.txt and icons.json:
-     one entry per font family and one for the Lucide set, which the licence check and the licences screen read.
+     one entry per font family and one for the Lucide set, which the licence check and the licences screen read, in
+     the schema verifyLicences parses (integration decision I-02: each font file is {"name", "sha256"}, here with its
+     "upstream" file name too), and the rows of THIRD-PARTY-NOTICES.md 7.3 that verifyLicences compares with it (the
+     Licence column a bare SPDX expression, the licence text in a column of its own).
 
 Nothing in the build references design-src/: the converted files are committed in the module.
 
@@ -476,7 +479,8 @@ def generate_bundled(fonts: list[FontRecord], icons: dict, licences_dir: Path) -
                 "licenceFile": first.licence_file,
                 "source": first.source,
                 "copyright": first.copyright,
-                "files": [{"file": r.file, "upstream": r.upstream, "sha256": r.sha256} for r in recs],
+                # verifyLicences keys a font file on "name" (decision I-02); "upstream" is provenance only.
+                "files": [{"name": r.file, "upstream": r.upstream, "sha256": r.sha256} for r in recs],
             }
         )
     lucide_text = (licences_dir / "lucide-LICENSE.txt").read_text(encoding="utf-8")
@@ -504,14 +508,20 @@ def generate_bundled(fonts: list[FontRecord], icons: dict, licences_dir: Path) -
 
 
 def notice_rows(bundled: dict) -> list[str]:
-    rows = ["| Component | Version | Licence | Files | Copyright and source |", "|---|---|---|---|---|"]
+    """The 7.3 table. verifyLicences reads the Component, Version and Licence columns by header and compares the
+    SPDX identifiers of the Licence cell with bundled.json's licence, so that cell holds the bare expression and
+    nothing else; the licence text goes to its own column."""
+    rows = [
+        "| Component | Version | Licence | Licence file | Files | Copyright and source |",
+        "|---|---|---|---|---|---|",
+    ]
     for c in bundled["components"]:
         if c["kind"] == "font":
-            files = "<br>".join(f"`{f['file']}` (SHA-256 `{f['sha256']}`)" for f in c["files"])
+            files = "<br>".join(f"`{f['name']}` (SHA-256 `{f['sha256']}`)" for f in c["files"])
         else:
             files = f"{c['count']} vector drawables (`res/drawable/ic_*.xml`)"
         rows.append(
-            f"| {c['name']} | {c['version']} | {c['licence']} (`assets/licenses/{c['licenceFile']}`) | {files} | "
+            f"| {c['name']} | {c['version']} | {c['licence']} | `assets/licenses/{c['licenceFile']}` | {files} | "
             f"{c['copyright']}; {c['source']} |"
         )
     return rows

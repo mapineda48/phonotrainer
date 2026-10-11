@@ -12,7 +12,7 @@
       "copyright": "Copyright 2020-2024 The Atkinson Hyperlegible Next Project Authors",
       "files": [
         {
-          "file": "atkinson_hyperlegible_next.ttf",
+          "name": "atkinson_hyperlegible_next.ttf",
           "upstream": "AtkinsonHyperlegibleNext[wght].ttf",
           "sha256": "5a455d1cfa099b601ab70751bb9673e8fe1854dc4500c80e1a220d0d75e31745"
         }
@@ -28,12 +28,12 @@
       "copyright": "Copyright 2020 The Newsreader Project Authors",
       "files": [
         {
-          "file": "newsreader.ttf",
+          "name": "newsreader.ttf",
           "upstream": "Newsreader[opsz,wght].ttf",
           "sha256": "8a08d13f8a6c0d51be379a60af84f945f65369a67e509ee3c3bdcc421254d7c1"
         },
         {
-          "file": "newsreader_italic.ttf",
+          "name": "newsreader_italic.ttf",
           "upstream": "Newsreader-Italic[opsz,wght].ttf",
           "sha256": "796668611f80b64d5adf182fde3b6f29ed83b4e7cbec7b96937e84ac01364792"
         }
@@ -49,12 +49,12 @@
       "copyright": "Copyright (c) 1997-2025 SIL Global, with Reserved Font Names \"Charis\" and \"SIL\"",
       "files": [
         {
-          "file": "charis_regular.ttf",
+          "name": "charis_regular.ttf",
           "upstream": "Charis-Regular.ttf from Charis-7.000.zip",
           "sha256": "c03738834bd3a43c3e4a59b11878bd6ede3ee505998242ae649ed1f9cd2edcf6"
         },
         {
-          "file": "charis_bold.ttf",
+          "name": "charis_bold.ttf",
           "upstream": "Charis-Bold.ttf from Charis-7.000.zip",
           "sha256": "64e353674f294993fe979075e351afa5da367a8dd16a860e04eba103cb1cdb08"
         }

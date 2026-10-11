@@ -19,7 +19,10 @@ What it does:
    removes a converted file the export no longer has.
 3. Generates `theme/Palette.kt` (every colour of `palette.json`, with an index the drift test compares),
    `icons/PhonoIcons.kt` (one property per `icons.json` entry) and `illustration/PhonoIllustrations.kt`.
-4. Generates `assets/licenses/bundled.json` from `FONTS.txt` and `icons.json` (architecture 20.6).
+4. Generates `assets/licenses/bundled.json` from `FONTS.txt` and `icons.json` (architecture 20.6), in the schema
+   the build's `verifyLicences` parses (integration decision I-02: a font file is `{"name", "sha256"}`, plus its
+   `upstream` name here). `--notices` prints the matching rows of `THIRD-PARTY-NOTICES.md` 7.3, whose Licence
+   column `verifyLicences` reads as a bare SPDX expression; the licence text has its own column.
 
 The module's JVM tests repeat the checks on every build: the 173-file inventory, the palette gates on the theme's
 values, the palette drift, `bundled.json` against the fonts and the notices, and the vector limits. Never edit the
