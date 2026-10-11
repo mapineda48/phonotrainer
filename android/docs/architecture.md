@@ -2598,8 +2598,9 @@ headers, keystore files, long tokens, and the credential shapes `pt1_[A-Za-z0-9_
 `PT1 device=` lines with a MAC, and `"code"\s*:\s*"\d{6}"` (the documentation placeholder `482913` of
 server-contract 2.2 and 6.2 is the one allowed value); `fallbackToDestructiveMigration`; `android.util.Log`
 outside the facade; OkHttp construction outside `:core:network`; an `AddressPolicy` implementation that allows
-loopback anywhere but `src/test`, `src/androidTest` or `:core:testing*` (security review L-13); and the merged-manifest
-allowlist. `check_ownership.py` checks a diff against the ownership table.
+loopback anywhere but `src/test`, `src/androidTest` or `:core:testing*` (security review L-13); `Color(0x` and `.sp`
+literals in Kotlin outside `:core:designsystem` (17; design 12.5); and the merged-manifest allowlist.
+`check_ownership.py` checks a diff against the ownership table.
 
 At run time `check_repo.py` also builds a **local denylist** it never stores: the host name, the user name, the home
 directory, `git config user.email`, the serials `adb devices` lists, and the host's current IPv4 and MAC addresses;
