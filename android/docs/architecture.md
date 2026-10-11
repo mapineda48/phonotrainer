@@ -1,7 +1,60 @@
 # PhonoTrainer for Android: architecture
 
-Status: v1 architecture, revision 4, 2026-10-10 (revisions 2 and 3: the same day; revision 1: 2026-10-04). Owner:
+Status: v1 architecture, revision 5, 2026-10-11 (revisions 2 to 4: 2026-10-10; revision 1: 2026-10-04). Owner:
 software architect.
+
+**Revision 5 notes (2026-10-11, change request CR-01).** The owner answered Q-1 to Q-7 while v1-core implementation was
+in flight; spec revision 4 (D-53 to D-57) turned the answers into two v1-complete features and a version-2
+requirement. Nothing of v1-core's behaviour changes, frozen contracts change only by additive amendment (work-plan
+2.2, 4.7) and new server work is a new milestone (WP-27 A), never a rewrite of WP-01. Section 25.5 lists every item.
+1. **Deleting a finished analysis from the phone (8.8, AD-24; spec D-54, S-25)**: a new outbox operation
+   `DELETE_FINISHED`, bound to the server id, library id and device id it was made for, sent before new requests,
+   undoable while it waits, never sent elsewhere; the server route is separate from v1-core's (server-contract 6.11).
+2. **Shared progress (7.8, 10, AD-25; spec D-55, S-24)**: every practice answer gets an id and a time on the
+   computer's clock, so totals add up and a reset clears exactly what was given before it; the phone's local totals
+   mirror the shared ones after each exchange, so every screen keeps reading the same table; the Saved list is
+   last-change-wins with tombstones and an opaque cursor; a phone's reset, like a deletion's target, travels in the
+   signed request target (20.8). The browser's adoption is a hand-off (`android/docs/web-progress-sync.md`).
+3. **One v1 amendment now, the rest at v1-complete (4.3, 4.4)**: `learning.db` gains `learning_meta` with a
+   `learning_id` in v1 (before any install), because every backup of every release must carry it for the first-share
+   baseline to count once (spec F-17-AC11); every other table and type arrives with Room version 2 and the
+   v1-complete amendment.
+4. **Version 2: encrypted transport (26, AD-26)**: TLS 1.3 with the computer's key pinned at pairing, pairing protected
+   by SRP-6a over the pairing code, v1-paired phones moved over by a proof made with their existing key. Not part of
+   the v1 work plan.
+
+**Revision 5 review fixes (2026-10-11, fix round 1).** The security and consistency reviews of revision 5 found no
+blocker; every high and medium finding and most low ones are fixed in place, and 25.6 lists each with its reason. In
+short:
+1. **Bodies covered, restarts closed (5.4, 20.8)**: the three CR-01 calls put `body_sha256` in the signed query, and the
+   computer refuses a signature older than its own start, so a recorded request can neither be replayed after a
+   restart nor carry another body.
+2. **Limits refuse items, never whole requests (7.8; server-contract 4.7, 6.12)**: no `409 store_full`; a refused item
+   is reported and marked handled, so no page can block an outbox; the Saved fields are bounded by the job.
+3. **Deletion hardening (8.8, 6.3)**: a per-phone rate limit and a visible audit line on the computer; "Undo" is
+   withdrawn once an attempt may have reached the computer (`maybe_sent`); answers are matched by code
+   (`unknown_route` is never "already gone"; fix round 2 makes it a refusal, spec D-62); "Forget this computer" waits
+   for a deletion in flight.
+4. **Shared progress (7.8, 4.3, 4.5)**: a first share to another computer sends this phone's own answers (`own_stat`),
+   never the first computer's aggregate; the pairing store keeps the two capability flags (CR-01-A2).
+5. **Version 2 (26)**: the SRP-6a safety checks of RFC 5054, a separate candidate client and a pin-bound `hello`, no
+   plain pairing on a version-2 computer without a legacy code, and a new device key at migration.
+
+**Revision 5 review fixes, round 2 (2026-10-11).** The product track answered the architecture's requests (spec 15.7,
+D-58 to D-65); the architecture now follows those answers, and 25.7 lists each item:
+1. **A computer that no longer offers the deletion refuses it (8.8, 19; spec D-62)**: `404 unknown_route`, or a
+   connected computer whose `health` no longer announces `delete_finished`, makes the deletion "Needs your attention"
+   with F-05's "not offered" sentence, "Try again" and "Keep the clip"; it no longer waits.
+   `DeletionWait.COMPUTER_CANNOT` is replaced by `DIFFERENT_COMPUTER`: a `409 different_computer` waits with "A
+   different computer answered".
+2. **`DeletionCopy` holds the product's words (19)**: the refusal sentences of D-62, the imported clip's words of D-58,
+   the waiting reason in D-61's order (one `WaitingReasonCopy` for requests and deletions), and D-65's line on a
+   waiting deletion that may have reached the computer.
+3. **The quoted title has an owner (19)**: `QuotedTitle` in `:core:ui`, made by the integrator in CR-01-A2 with its
+   unit test; every CR-01 `{title}` goes through it (design 9.26, security review F-14).
+4. **The first share of the test phone (21.7; spec D-57 (3))**: the QA log counts QA's practice answers from WP-25 on,
+   and before the test phone can first share with the owner's computer the kit compares its totals with that count,
+   then clears them (all QA's) or reports what the first share will send.
 
 **Revision 4 notes (2026-10-10, pre-implementation closure).** The cross-track consistency review and spec revision 3
 (decisions D-37 to D-52) closed every open item before implementation. Section 25.4 lists each item, its disposition
@@ -128,6 +181,9 @@ Conventions
 | AD-21 | Navigation 3 with all keys in `:core:navigation`, per-tab back stacks each decorated separately (state survives tab switches), overlays as scenes, entries contributed by features through Hilt multibinding | 16 |
 | AD-22 | Screen tests run on Robolectric (sdk 35) per module; the Gradle Managed Device runs the `:app` end-to-end suite (one global `@TestInstallIn` set, real repositories) and the instrumented tests of `:core:player`, `:core:requests` and `:core:sync`; the R8 build is tested black-box | 21 |
 | AD-23 | The fake computer is a stateful MockWebServer dispatcher implementing `server-contract.md` with injectable failure modes (JVM, `:core:testing-jvm`); emulator and QA runs use a host-side fake computer built from the real server code | 21.3 |
+| AD-24 | (v1-complete, CR-01) Deleting a finished analysis on the computer is an outbox operation of the device queue, stored before any attempt, bound to the server id, library id and device id it was made for, sent before new requests through its own signed route (body included in the signature), idempotent ("already gone" is done), undoable only while waiting and never after an attempt that may have reached the computer | 8.8 |
+| AD-25 | (v1-complete, CR-01) Shared progress: answers carry ids and times on the computer's clock and are summed on the computer after the latest reset; a device's own pre-sharing answers arrive once as a baseline named by its `learning_id`; the Saved list is last-change-wins with tombstones; the phone mirrors the shared totals into its own tables after each exchange | 7.8, 10 |
+| AD-26 | (version 2, not in the v1 work plan) Encrypted transport: TLS 1.3 with the computer's self-generated key pinned on the phone; pairing protected by SRP-6a (with RFC 5054's checks) over the pairing code with the pin in the key confirmation, and plain pairing refused unless the operator asks for a legacy code; v1-paired phones move over through a pin proof made with their device key and get a new key inside TLS; PT1 signatures stay | 26 |
 
 ---------------------------------------------------------------------------------------------------------------
 
@@ -743,6 +799,32 @@ other shared components; the visual-only `PosterArt` (poster, poster fallback or
 are WP-03's in `:core:ui`; `AudioOnlyVisual` stays in `:feature:watch`. The app shell (WP-02, `:app`) hosts
 `UserMessages` and the "Connect again" banner (3.1) and applies the in-app appearance through a WP-03 helper (17).
 
+Revision 5 (CR-01, v1-complete; the exact code is work-plan 4.7, change requests CR-01-A1 and CR-01-A2). Every
+addition is additive in the sense of work-plan 2.2: new types, new interface methods **with default bodies** (so every
+implementation and fake of B1 still compiles), new fields with defaults. Two deliberate choices keep consumers'
+exhaustive `when`s compiling: deletion actions get their own enum (`DeletionAction`) instead of new `RequestAction`
+members, and a waiting deletion is a new field (`ClipSummary.deletion`) instead of a new `ClipAvailability` subtype.
+The one enum that grows, `UserMessageKind` (three members), has a single exhaustive consumer, the shell's message host,
+which the integrator updates in the same change.
+- Deletion from your computer (8.8): `ComputerDeletion`, `DeletionState`, `DeletionWait`, `DeletionAction`,
+  `DeletionOffer`, `NotOfferedReason`, `DeleteResult`; `RequestRepository.deletions()`, `deletionOffer(id)`,
+  `deleteFromComputer(id)`, `performDeletion(id, action)`; `ClipSummary.deletion`; `SendReport.deletedOnComputer`;
+  the SPI `PendingDeletions` (`:core:requests` → `:core:sync`, `:core:study`); `UserMessageKind` gains
+  `CLIP_DELETED_FROM_COMPUTER`, `CLIP_REMOVED_FROM_COMPUTER_LIST`, `DELETION_UNDONE` (each with the title).
+- Shared progress (7.8, 10): `SharingState`; `PracticeRepository.sharing()`, `SavedRepository.sharing()`; the
+  exchange bodies of package `…core.domain.model.share` (`PracticeTally`, `PracticeBaseline`, `PracticeReset`,
+  `PracticeAnswer`, `PracticeOutbox`, `PracticeShareAnswer`, `SavedEntry`, `SavedOutbox`, `SavedShareAnswer`); the SPI
+  `SharedProgressLedger` (`:core:study` → `:core:sync`).
+- Both: `Capabilities.deleteFinished` and `Capabilities.sharedProgress` (server-contract 3.4), which the pairing store
+  keeps under two new keys (4.5); three `ComputerClient` methods in `:core:network-api` (`deleteFinished`,
+  `syncPractice`, `syncSaved`) whose default bodies answer like a server without the route
+  (`Refused(404, "unknown_route")`); `SyncController.exclusive(block)`, whose default body only runs the block, so
+  "Forget this computer" can wait for a pass in flight (6.3).
+- Review fixes (25.6, 25.7): `ComputerDeletion.actions` (the one authority on what a deletion offers, like
+  `Request.actions`) and `DeletionWait.DIFFERENT_COMPUTER` (a deletion the computer said was made for a different
+  computer waits, spec D-62); `QuotedTitle` in `:core:ui` `component/`, the one function that makes the quoted title
+  of design 9.26 (19), created by the integrator in CR-01-A2 because the shell's message host uses it there.
+
 ---------------------------------------------------------------------------------------------------------------
 
 ## 4. Persistence
@@ -755,8 +837,8 @@ split, so there are two:
 
 | Database | File | Journal | Backed up | Contents |
 |---|---|---|---|---|
-| `LibraryDatabase` | `library.db` | WAL | no | catalogue mirror, artifacts and local files, derived shorts and occurrences, device queue and outbox, sync metadata |
-| `LearningDatabase` | `learning.db` | TRUNCATE (single file, so Auto Backup copies a consistent file) | yes | seen state, positions, saved items, practice stats, changes met, study sets, practice session |
+| `LibraryDatabase` | `library.db` | WAL | no | catalogue mirror, artifacts and local files, derived shorts and occurrences, device queue and outbox (in v1-complete also the waiting deletions of finished analyses, 8.8), sync metadata |
+| `LearningDatabase` | `learning.db` | TRUNCATE (single file, so Auto Backup copies a consistent file) | yes | seen state, positions, saved items, practice stats, changes met, study sets, practice session, the history's `learning_id`; in v1-complete also the bookkeeping of shared progress (answers and Saved changes not shared yet, a waiting reset, what the computer last confirmed, 7.8), so it is backed up in the same consistent copy as the progress it describes (spec 11.1) |
 
 Cross-database reads (eviction needs "last watched", the Mix needs both) are joined in Kotlin inside repositories.
 Learning rows reference clips by job id only (+ segment + word), so a restore on a new phone re-attaches them when the
@@ -847,6 +929,10 @@ Indices: `(state)`, `(job_id)` UNIQUE, `(link_key)`, `(file_sha256)`, `(seq)`.
 re-run's idempotency key), `kind` (`CANCEL`, `REMOVE_JOB`, `RERUN`; "Forget this computer" is never queued, 6.3),
 `request_id` TEXT NULL (no foreign key: a `REMOVE_JOB` outlives its request row), `job_id` TEXT, `audio_only` INTEGER NULL, `created_at`, `attempts`,
 `next_attempt_at`, `state` (`PENDING`, `DONE`, `FAILED`), `last_error_code`. Index `(state, created_at)`.
+**Version 2 (v1-complete, CR-01-A2, 8.8)**: kind `DELETE_FINISHED` and state `SENDING` (stored values, the columns are
+TEXT); new nullable columns `server_id`, `library_id`, `device_id` (what the deletion is bound to), `title` (for its
+messages after the clip row is gone), `imported` (INTEGER; the confirmation and message variant) and `maybe_sent`
+(INTEGER; set once an attempt's outcome is unknown, so "Undo" is no longer offered, 8.8). Other kinds leave them NULL.
 
 **`sync_meta`** (key/value): last listing time, last complete listing's server id and library id, reference API
 version cached, pending mass-deletion prompt, last reindex rule version.
@@ -864,9 +950,20 @@ version cached, pending mass-deletion prompt, last reindex rule version.
 | `study_set` | `id` autoincrement | `kind` (`TODAY`, `EXTRA`), `local_date`, `seed`, `rule_version`, `created_at`, `cursor`, `completed_at`, `answered`, `right` |
 | `study_set_item` | `(set_id, position)`, FK → `study_set` CASCADE | `kind` (`SHORT`, `QUESTION`), `job_id`, `first_segment`, `spot_segment`, `spot_word`, `spot_change`, `saved_tag`, `question_json`, `choice`, `correct`, `dropped` |
 | `practice_session` | `id` autoincrement | `focus`, `weak_spots`, `seed`, `questions_json`, `index`, `answers_json`, `created_at`, `finished_at` |
+| `learning_meta` (v1, CR-01-A1) | `key` | `value`; one row `learning_id`: a random UUID written when the database is created (`DatabaseModule`'s `onCreate` callback, and `INSERT OR IGNORE` in `onOpen`), never changed; it names this learning history on every computer it is shared with (7.8) |
 
 Anchors are always job + segment (+ word) (F-06 item 5): a later shorts rule maps a stored first segment to the short
 whose segment range contains it.
+
+**Version 2 (v1-complete, CR-01-A2; 7.8, 10)**, all in `learning.db`, so the bookkeeping is backed up with the progress
+it describes:
+
+| Table | Key | Columns |
+|---|---|---|
+| `practice_answer` | `id` (UUID text) | `change`, `correct`, `answered_at` (phone clock, ms), `computer_at` (computer clock, unix s, from the clock offset known when it was given), `sent` (0 until the computer confirmed it, or a baseline covered it); index `(sent, computer_at)`. Written in the same transaction as `practice_stat`, for every answer of the Practice tab and of a set; sent rows are kept 30 days (7.8) |
+| `own_stat` | `change` | `seen`, `correct`: this phone's own answers since the latest reset it knows of, never rewritten by the mirror; the baseline of a first share with another computer (7.8, review fix C-63) |
+| `share_state` | `id` = 1 (one row) | `server_id` (the computer this history is shared with), `offset_s` (last known clock offset, for answers given while not connected), `baseline_json` + `baseline_at` (the first-share baseline until confirmed, then NULL), `reset_id`, `reset_at` (the computer's current reset as last seen), `pending_reset_id`, `pending_reset_at` (a reset pressed here, not confirmed yet), `practice_synced_at`, `saved_library_id`, `saved_cursor` (the opaque Saved cursor of server-contract 6.12, stored as received, never parsed), `saved_synced_at` |
+| `saved_change` | `key` (`<kind>:<job id>:<segment>:<word or ->`, server-contract 3.2) | `kind`, `job_id`, `segment`, `word`, `short_first_segment`, `change`, `saved`, `at` (computer clock, s), `sent` (0 waiting, 1 confirmed, 2 not shared: the computer's list was full, server-contract 6.12 `not_shared`): the Saved outbox, written in the same transaction as `saved_item` |
 
 ### 4.4 Migration policy (AD-10)
 
@@ -880,6 +977,16 @@ whose segment range contains it.
   `MigrationTestHelper` test covering N-1 → N and 1 → latest with data, so the build on the test phone can always be
   updated in place (X-AC7).
 - `fallbackToDestructiveMigration*` is forbidden (hygiene check). A failing migration is a release blocker.
+- **CR-01** applies this policy in two steps. **CR-01-A1** folds `learning_meta` into version 1 now (no build is
+  installed yet): the `learning_id` must exist in every backup of every release, including v1-core's, because a phone
+  restored from a backup taken before its first share must name its baseline exactly as the original did, or the
+  computer would count that history twice (spec F-17-AC11, 7.8). Nothing in v1-core reads it. **CR-01-A2** is the
+  v1-complete schema, **version 2** of both databases (`request_op`'s new columns in `library.db`; `practice_answer`,
+  `own_stat`, `share_state`, `saved_change` in `learning.db`), shipped as `@AutoMigration(from = 1, to = 2)` (new tables
+  and nullable columns only, so no spec class is needed) with `MigrationTestHelper` tests of 1 → 2 with data. It waits
+  for v1-complete because v1-core's build will have been installed on the test phone by then (WP-25), and because those
+  tables belong to code that does not exist before v1-complete; folding them into version 1 would ship unused tables to
+  v1-core QA.
 - Derived tables (`short`, `occurrence`) are rebuilt by the indexer when `index_rule_version` changes; the rule
   version is not a schema version.
 - Only the integrator changes entities (change request from the area owner); area owners change their DAO files.
@@ -892,6 +999,17 @@ whose segment range contains it.
 | `datastore/pairing.preferences_pb` | no | server id, server name, last working address, device id, device name, paired at, last seen, last API version, capabilities, last library id, last probe outcome, the moving average of measured upload throughput to this computer (8.5), the **encrypted** credential (ciphertext + IV) |
 
 Typed wrappers (`SettingsRepository`, `CoachMarkRepository`, `PairingStore`) are the only access; keys are private.
+
+v1-complete (CR-01) adds **no DataStore file**, on purpose: the shared-progress bookkeeping lives in `learning.db`
+(4.3), because Auto Backup must copy it in the same consistent file as the progress it describes (a second file could
+be restored at another moment and count answers twice, spec 11.1), and waiting deletions live in `library.db` with
+the other outbox operations (8.8), which are never backed up. It adds **two pairing-store keys**,
+`caps_delete_finished` and `caps_shared_progress` (Boolean). The pairing store is WP-02's (M3,
+`DataStorePairingStore`): it saves the cached `Capabilities` field by field under its own keys, so a new field of the
+type is not stored until the store names it. CR-01-A2 (work-plan 4.7, the integrator, because `:core:datastore` has
+no v1-complete owner) adds both keys to `readCapabilities()` and `writeCapabilities()`, an absent key reading `false`
+(so a value cached by a v1-core build reads `false` until the next `health`), with a round-trip test. Nothing changes
+in WP-02 M3 now. Version 2 adds its own pairing-store keys (26.12).
 
 ### 4.6 Files on disk
 
@@ -1006,14 +1124,25 @@ pairing relies on the operator's code and on the checks of 6.1 and 6.3 (residual
   does not match `^\d{8}-\d{6}-[0-9a-f]{4}$`, an artifact name is outside the closed table of server-contract 6.4.1,
   `revision` or `sha256` is not lower-case hex of the right length (16 and 64), or `url` is not exactly
   `/api/phone/jobs/{id}/artifacts/{name}` for that job and name. Response bodies are read with a cap: 16 MiB for a
-  listing, 64 KiB for other JSON answers; artifact sizes are capped by role before a download starts (clip data
-  32 MiB, audio 1 GiB, video 4 GiB; a larger artifact is treated as unavailable), and the storage budget and the
-  free-space floor apply as always (7.5), so a hostile or broken listing cannot exhaust memory or disk.
+  listing, 1 MiB for the Saved exchange (v1-complete, server-contract 6.12), 64 KiB for other JSON answers; the
+  shared-progress mappers also reject ids that are not canonical UUIDs, `at` values before 2020, negative or
+  inconsistent tallies or tallies above `Int.MAX_VALUE` (the computer clamps its totals to it, server-contract 6.12),
+  Saved entries whose job id fails the pattern above or whose `segment`, `word` or `short_first_segment` is above
+  1,000,000; artifact sizes are capped by role before
+  a download starts (clip data 32 MiB, audio 1 GiB, video 4 GiB; a larger artifact is treated as unavailable), and the
+  storage budget and the free-space floor apply as always (7.5), so a hostile or broken listing cannot exhaust memory or
+  disk.
+- **Body hash** (v1-complete, CR-01; server-contract 4.3): `deleteFinished`, `syncPractice` and `syncSaved` serialize
+  their body to bytes first, add `body_sha256=<64 lower-case hex of SHA-256 of those bytes>` as the last query
+  parameter, and send exactly those bytes (`toRequestBody` of the array, never a re-serialization), so the PT1
+  signature, which covers the query, covers the body too. A `MockWebServer` test checks that the recorded body hashes
+  to the recorded query value for each of the three calls.
 - Errors: every non-2xx answer is parsed as the error envelope `{detail, code}` (with the optional `job`, `offset`,
   `server_time` and the `Retry-After` header carried in `ApiResult.Refused`, work-plan 4.3) and mapped to
   `ComputerError` (section 19); 422 validation errors whose `detail` is a list are accepted as well.
 - Version negotiation: the app requires `api_version >= 6` (`MIN_SERVER_API`); capabilities in `health` switch the
-  v1-complete paths (renditions, resumable uploads, record compare, phone video). `min_app_version` greater than the
+  v1-complete paths (renditions, resumable uploads, record compare, phone video, and from CR-01 `delete_finished` and
+  `shared_progress`; an absent flag reads as `false`). `min_app_version` greater than the
   app's `versionCode` gives `AppTooOld`. A `404` on `hello` makes the client call `legacyHealth` (`GET /api/health` at
   the same candidate, no credential): an `api_version` there means `ComputerTooOld`, anything else "not PhonoTrainer"
   (server-contract 6.2, delivery review D-15).
@@ -1117,6 +1246,21 @@ signed (delivery review D-32). Then it removes the pairing store, cancels every 
 and keeps waiting requests with `target_server_id = NULL`. A phone forgotten while away stays listed on the computer
 until the operator revokes it there.
 
+v1-complete (CR-01) adds one call to this flow. Waiting deletions of finished analyses (8.8) are bound to the device
+id they were made with: after "Forget this computer" the pairing store is gone, and pairing again (with the same
+computer or another) creates a new device id, because the old key that "Connect again" would need is deleted;
+`:core:requests` drops every deletion whose device id is not the paired one (when `ComputerStatusRepository.paired`
+changes, at start, and again inside the sender), so a forgotten deletion can never be sent (spec QT-18). A deletion
+already **in flight** when the learner confirms is the one case the binding cannot settle (its request has left), so
+`forget()` runs the unpair, the key deletion and the rest of the flow inside `SyncController.exclusive { … }`
+(review fix C-62): `:core:sync` stops the running pass at its next step, waits for an outbox call already on the
+wire (at most its 30 s call timeout, 5.1) and applies that answer as usual (a confirmed deletion removes its clip with
+its message; an unknown outcome leaves the row to be dropped by the binding), then runs the block while holding the
+orchestrator's mutex, so no new pass can start in between. The call is CR-01-A2's (the integrator's, because
+`:core:connectivity` has no v1-complete owner); its default body only runs the block, which is v1-core's behaviour.
+Shared progress stops by itself: it is exchanged only with the paired computer that announces the capability (7.8),
+and the phone keeps showing its mirrored totals and Saved list (spec F-22).
+
 ### 6.4 Background restrictions
 
 `BackgroundRestrictionMonitor` reads `ActivityManager.isBackgroundRestricted()` and
@@ -1132,12 +1276,15 @@ restricted flag, sets `backgroundRestricted` for the Home line and Connection de
 `SyncOrchestrator` runs *passes*, serialized by a process-wide `Mutex` (WorkManager runs in the app process). A pass:
 
 1. **Probe** (skipped if the channel proved liveness in the last 7 s). Stop unless `Connected`.
-2. **Outbox**: send `CANCEL`, `REMOVE_JOB` and `RERUN` operations, oldest first (they go before any new request,
-   F-20-AC5, QT-7) — through `RequestSender` from `:core:requests`.
+2. **Outbox**: send `CANCEL`, `REMOVE_JOB` and `RERUN` operations (and in v1-complete `DELETE_FINISHED`, 8.8), oldest
+   first (they go before any new request, F-20-AC5, QT-7, QT-15) — through `RequestSender` from `:core:requests`. The
+   clips its report names in `deletedOnComputer` are removed at once by the deletion path of 7.7.
 3. **Links**: send waiting link requests in creation order (`RequestSender`).
 4. **Listing**: `GET /api/phone/library` → reconcile the catalogue (7.3, 7.7), then hand the listing to
    `RequestReconciler` from `:core:requests` (request states, automatic re-run after `interrupted`, notifications of own
    requests).
+4a. **Shared progress** (v1-complete, `capabilities.shared_progress`): the practice and Saved exchanges of 7.8,
+   after the listing so every saved item's clip row and the current library id are known.
 5. **Reference**: if the listing's `api_version` differs from the cached one, fetch `/api/phone/reference` and call
    `ReferenceRepository.replace()`.
 6. **Index**: clips whose verified clip data changed are (re)indexed by `ClipIndexer` (`:core:corpus`).
@@ -1162,6 +1309,8 @@ depends on `:core:sync` and asks for passes through `SyncTrigger`.
 | Picked-file copies (lasting permission) | unique work `intake-<requestId>` (`FileIntakeWorker`, `:core:requests`) |
 | Retries of transient failures in the background | the next `sync-on-wifi` run, delayed by the larger of `RetrySchedule`'s next step and the backoff above |
 | New shorts rule version after an app update | one-time `reindex` work |
+| An answer, a save, an unsave or a reset while connected in the foreground (v1-complete) | `ForegroundSession` collects `SharedProgressLedger.changed` and runs only step 4a of 7.1, debounced 10 s, under the orchestrator's mutex; offline, the change simply waits for the next pass (spec 7.13) |
+| A deletion confirmed on the Clip page (v1-complete) | as a request created while connected: an immediate foreground pass (step 2 sends it); otherwise `sync-on-wifi` and the next pass, as for any outbox operation |
 
 JobScheduler's network constraint normally requires a *validated* network, so on a home Wi-Fi without internet access
 the background work may not run until the app is opened; the foreground session, which binds to the Wi-Fi itself
@@ -1231,6 +1380,10 @@ For a listing from the paired server id:
   Listening still works." (spec 14.4). Missing original → "Video not available from your computer".
 - **Paused** when not `Connected`, when the free-space floor is reached, or when the budget is reached; the reason is
   stored in `pause_reason` and shown on the clip.
+- **Skipped** (v1-complete) for a clip in `PendingDeletions.jobIds` (a deletion from the phone waits or is being
+  sent, 8.8): nothing more is downloaded for it, no video and no new revision, until the deletion is applied or undone
+  (spec 7.8); "Undo" lets its downloads continue at the next pass. No `PauseReason` is added: the Clip page shows the
+  deletion block instead.
 
 ### 7.5 Storage budget and eviction (spec 7.10, D-19)
 
@@ -1264,6 +1417,107 @@ same.
   `MassDeletionPrompt` waits for the learner.
 - "Remove from this phone" deletes study pack and video but keeps the `clip` row (`removed_by_learner`); it is never
   downloaded again until "Download to this phone".
+- **Deletions this phone asked for** (v1-complete, 8.8). A clip in `SendReport.deletedOnComputer` is removed by the same
+  path at once (files, derived rows, saved items and positions through the removal hooks; per-change practice stats
+  kept; deferred while a `ClipLease` is open, QT-10), with its own message (`CLIP_DELETED_FROM_COMPUTER`, or
+  `CLIP_REMOVED_FROM_COMPUTER_LIST` for an imported clip) instead of the batch notice. A `deleted` event or a listing
+  that removes a clip whose deletion waits or is being sent fulfils that deletion (`RequestReconciler.onJobDeleted`
+  marks it done and posts the same message once, spec QT-16). Clips in `PendingDeletions.jobIds` are left out of the
+  mass-deletion guard's count and never cause its prompt: the learner already confirmed each one (spec 7.9, QT-15).
+
+### 7.8 Shared progress exchange (v1-complete, CR-01; spec 7.13, S-24, AD-25)
+
+The exchange runs in `:core:sync` (the only module that calls the computer during a pass) and reads and writes the
+learning state only through the SPI `SharedProgressLedger`, implemented by `:core:study`, so neither module depends on
+the other's implementation (2.2):
+
+```kotlin
+interface SharedProgressLedger {                    // :core:study → :core:sync (work-plan 4.7)
+  val changed: Flow<Unit>                            // an answer, a save, an unsave or a reset was stored
+  suspend fun practiceOutbox(serverId: ServerId, offsetS: Long, limit: Int): PracticeOutbox   // may be empty
+  suspend fun practiceApplied(serverId: ServerId, sent: PracticeOutbox, answer: PracticeShareAnswer)
+  suspend fun savedOutbox(serverId: ServerId, libraryId: LibraryId, offsetS: Long, limit: Int): SavedOutbox
+  suspend fun savedApplied(serverId: ServerId, libraryId: LibraryId, sent: SavedOutbox, answer: SavedShareAnswer)
+  suspend fun practiceRefused(serverId: ServerId, sent: PracticeOutbox)    // a 400 or 413: the page is handled
+  suspend fun savedRefused(serverId: ServerId, libraryId: LibraryId, sent: SavedOutbox)   // (Outcomes, below)
+}
+```
+
+**When.** Step 4a of every pass (7.1) and the debounced foreground trigger of 7.2, only while `Connected` to the paired
+computer and only when its last known `capabilities.sharedProgress` is true; otherwise nothing is sent and the phone
+behaves exactly as in v1-core ("Kept only on this phone."). Each run makes at least one practice call and one Saved
+call (an empty outbox still brings the other devices' changes), then repeats while a page was full (100 answers, 80
+Saved changes; server-contract 4.7). An outbox that carries the baseline carries no answers (`practiceOutbox` returns
+it alone; the answers go in the next call), so no body can cross the computer's 16 KiB limit.
+
+**First share** (`practiceOutbox` for a server id that `share_state` does not name: the computer just gained the
+capability, or this phone paired with another computer; spec 7.13 rule 7), in one transaction: `share_state` is set
+for that server id; the **baseline** is this phone's own answers, named by `learning_meta.learning_id` and dated now
+on the computer's clock: the `practice_stat` totals when `share_state` never existed (nothing was mirrored yet, so they
+are all this phone's; `own_stat` is set to the same totals in the same transaction), otherwise the `own_stat` totals
+(after sharing with another computer `practice_stat` mirrors that computer's whole history, other devices' answers
+included, which must never travel to a second computer, spec 7.13 rule 7: "the answers given on it"; review fix
+C-63); every existing `practice_answer` row is marked sent (the baseline covers it); the
+Saved outbox is rebuilt from `saved_item` (one save per item of an `ACTIVE` clip, dated by its `saved_at` on the
+computer's clock, so an unsave made elsewhere later still wins). Naming the baseline by `learning_id` is what makes it
+count once: a phone restored from a backup taken before its first share builds a baseline with the same id, which
+the computer ignores (spec F-17-AC11); pairing again with the same computer after "Forget" keeps `share_state`, so no
+second baseline is sent and the answers given in between go one by one.
+
+**Answers.** Every answer (Practice and set questions, spec F-08) writes `practice_stat`, `own_stat` and a
+`practice_answer` row (UUID, change, right or not, `computer_at` = the phone's clock plus `share_state.offset_s`, the
+last offset the sync stored) in one transaction. `practiceApplied` then, in one transaction: marks the sent rows
+`sent`, clears the confirmed baseline and the confirmed waiting reset, stores the computer's current reset, deletes
+unsent rows given at or before that reset (the computer would ignore them), and **rewrites `practice_stat` as the
+computer's totals plus this phone's unsent rows** (and records the changes with answers in `change_met`). When that
+reset is newer than the one stored (another device reset the history), `own_stat` is rebuilt in the same transaction
+from this phone's `practice_answer` rows given after it, so answers the reset cleared never travel to another
+computer later. So `PracticeRepository.accuracy()` keeps reading `practice_stat` exactly as in v1-core and always shows
+"the last shared totals plus this phone's answers not shared yet" (spec F-17 item 6 and States); after "Forget this
+computer" it keeps showing them as this phone's own (spec F-22). Sent rows older than 30 days are pruned (they are
+about 60 bytes each); the one approximation: a reset pressed elsewhere that reaches this phone more than 30 days
+later leaves `own_stat` with only the kept rows after it, so a later move to another computer adds fewer of this
+phone's answers, never another device's and never one twice.
+
+**Reset.** `PracticeRepository.reset()` while sharing: in one transaction `practice_stat` and `own_stat` are cleared,
+unsent `practice_answer` rows are deleted (they were given before the reset) and a waiting reset (UUID, now on the
+computer's clock) is stored; `sharing()` reads `ResetWaiting` until a practice call carries it and the computer
+confirms it; answers given after it count. `ComputerClient.syncPractice` sends that reset in the signed query
+(`reset_id`, `reset_at`, server-contract 6.12), never in the body; the body itself is covered by `body_sha256` (5.4).
+Not sharing: the phone-only reset of v1-core, which also clears `own_stat`, deletes unsent rows and leaves
+`share_state` alone.
+
+**Saved list.** `saveShort`, `saveWord` and `unsave` write `saved_item` and the `saved_change` outbox (key of
+server-contract 3.2, `at` on the computer's clock) in one transaction. Only changes of `ACTIVE` clips whose library is
+the computer's current one are sent (items of clips "From another library" or "From a computer you forgot" stay on the
+phone, unshared and untouched, spec 7.13 rule 6). `savedApplied` applies the computer's `items` in order (a save
+upserts `saved_item`, an unsave deletes it; an entry whose local unsent change is later is left for that change to
+win), removes `dropped` items, marks `not_shared` changes `sent = 2` (the item stays on this phone, unshared, and is
+not sent again; one event code is logged), and on `full: true` also removes the saved items of this library's
+`ACTIVE` clips that the list no longer has (items with a waiting or not-shared change are kept); then it stores the
+new `saved_cursor`. When the paired computer's library id differs from `share_state.saved_library_id`, the cursor
+restarts at null for the new library, so the first answer is a full list. When a saved
+short was last watched is never sent (spec 7.13). A clip removed by 7.7 also loses its unsent Saved changes (the
+computer drops a deleted job's entries itself, server-contract 6.12 rule 5).
+
+**Outcomes.** Transient failures (no answer, timeout, `5xx`, including `503 store_unavailable` while the computer's
+store is unreadable, server-contract 3.2) retry at the next pass; `library_changed` skips the Saved call until the
+next listing updates the library id; `credential_rejected`, `phone_access_off`, a too-old computer and `clock_skew` are
+handled as for every call (6.2, 5.3). The computer refuses content **per item**, never by refusing a whole request
+(server-contract 4.7): answers and a baseline it does not add count in `ignored`, Saved changes come back in `dropped`
+or `not_shared`, and the phone treats each as handled (sent rows marked sent, the baseline cleared, `dropped` items
+removed, `not_shared` changes marked `sent = 2`), so no page can block the outbox. A `400 invalid_request` or
+`413 too_large` is a defect the outbox checks make unreachable (they apply the computer's patterns and bounds before
+sending); should one come, `practiceRefused` or `savedRefused` marks the page handled the same way (its answers marked
+sent, its baseline cleared, its Saved changes marked `sent = 2`) and one event code is logged, so a defect costs that
+page and never wedges the exchange (review fix C-55). Nothing of this ever shows in Requests, on Home or in a
+notification (spec 7.13).
+
+**One computer at a time.** `share_state` names one server id: if the phone is paired with another computer, that
+computer gets a first share whose baseline is `own_stat` (this phone's own answers since the latest reset it knows of;
+never the first computer's aggregate, so other phones' and the browser's answers stay where they were given, and two
+phones that move count nothing twice), and answers given while sharing with the second computer are not sent to the
+first one later. Several paired computers are Later (spec 14.5), so this is the documented limit, not a defect.
 
 ---------------------------------------------------------------------------------------------------------------
 
@@ -1397,8 +1651,8 @@ this rule.
 
 ### 8.5 Sending and idempotency
 
-- **Order**: outbox operations, then links in `seq` order (even while an upload runs), then files one at a time in
-  `seq` order (spec 7.7).
+- **Order**: outbox operations (in v1-complete including `DELETE_FINISHED`, 8.8), then links in `seq` order (even while
+  an upload runs), then files one at a time in `seq` order (spec 7.7).
 - **Links**: `POST /api/phone/jobs/link` with `client_request_id = request.id`. 201 and 200 both mean accepted (200 =
   the computer already had it). A timeout after the body left keeps the key; the retry returns the existing job, so a
   lost response never creates a second analysis (QT-3, SC-05).
@@ -1445,7 +1699,106 @@ original acceptance order (QT-5, QT-12).
 
 Jobs with `own: false` (browser and CLI jobs, and other phones' jobs, whose `device_id` the computer does not reveal,
 server-contract 6.3) appear only in "Started on your computer": never counted, never in "Needs your attention", never
-notified; failed ones offer only "Hide on this phone" (`clip.hidden`).
+notified; failed ones offer only "Hide on this phone" (`clip.hidden`). Once finished, they are clips like any other,
+and in v1-complete any of them may be deleted from its Clip page (8.8).
+
+### 8.8 Deleting a finished analysis on the computer (v1-complete, CR-01; spec F-05 item 6, 7.7, 7.9, S-25, AD-24)
+
+**The operation.** "Delete from your computer…" confirmed on the Clip page calls
+`RequestRepository.deleteFromComputer(id)`, which writes one `request_op` row in one transaction **before any network
+attempt** (7.7's "local first"): kind `DELETE_FINISHED`, a new UUID as `id` (also the `client_request_id` of every
+attempt), `job_id`, and what it is bound to: the clip's `server_id` and `library_id` and the paired `device_id`, plus
+the clip's `title` and whether it is `imported` (`source_kind = IMPORT`, server-contract 6.3) for its messages. It is
+offered (`deletionOffer`) only when the phone is paired, the computer's last known `capabilities.deleteFinished` is
+true, the clip is `ACTIVE` (so of the current library) and finished; one waiting deletion per clip (a second confirm
+returns the existing one). `DeletionOffer.Available` carries `imported`, the number of the clip's saved items (the
+confirmation's extra sentence) and whether the computer is connected (the offline sentence); otherwise
+`NotOffered(FORGOTTEN_COMPUTER | OTHER_LIBRARY | COMPUTER_CANNOT)` gives the three sentences of spec F-05 item 6
+(`COMPUTER_CANNOT` here is an offer never made; a stored deletion that meets such a computer is refused, below).
+
+**Sending.** `RequestSender.sendOperations()` sends it with the other outbox operations, oldest first, before any link
+or file (spec 7.7 Ordering, QT-15). Inside the transaction that marks it `SENDING` (QT-6's rule) the sender re-reads
+the row and checks the binding: the paired server id equals `server_id`, the paired device id equals `device_id`
+(otherwise the row is deleted: a forgotten computer's deletion is dropped, 6.3), and the computer's current library
+id equals `library_id` (otherwise it stays `PENDING` with the wait `DIFFERENT_LIBRARY`). It is never sent to an address
+without a valid identity proof (5.3, QT-20), because nothing is. It is not sent either when the connected computer's
+capabilities (refreshed by the `health` that begins every connection, 4.5) no longer announce `deleteFinished`: the
+row becomes `FAILED` with `last_error_code = unknown_route`, exactly the refusal a `404 unknown_route` gives below,
+because spec D-62 treats a computer that no longer offers the deletion as a refusal whether the phone learns it from
+the flag or from the answer, and one state needs one set of words. The call is
+`ComputerClient.deleteFinished(id, serverId, libraryId, key)` (server-contract 6.11; the ids and the body's hash travel
+in the signed query, 5.4).
+
+Answers are matched by **status and code together**, never by status alone: v1-core's `REMOVE_JOB` reads a `404` as
+"already gone", and a deletion must not share that rule, because the only `404` this route gives is `unknown_route` (a
+computer without the route, for example one downgraded after the deletion was stored), which says nothing about the
+clip (review fix C-61; spec D-62 makes it a refusal). One unit test per row below, including a `404 unknown_route`
+that leaves the clip on the phone and refuses the deletion.
+
+| Answer | Effect on the row | Effect on the clip |
+|---|---|---|
+| `200`, `already_gone` false or true | deleted (done) | its id goes into `SendReport.deletedOnComputer`; 7.7 removes the clip at once (deferred while open) and posts `CLIP_DELETED_FROM_COMPUTER` or, imported, `CLIP_REMOVED_FROM_COMPUTER_LIST`, once |
+| no answer, timeout, reset, `5xx` after the request started to leave | back to `PENDING`, `attempts + 1`, `next_attempt_at` from `RetrySchedule` (8.5); the same `id` on every retry; **`maybe_sent` set** (the computer may have deleted the clip) | none |
+| a connect failure before any byte left | back to `PENDING`, `attempts + 1`, `RetrySchedule`; `maybe_sent` unchanged | none |
+| `429 rate_limited` (server-contract 4.7) | back to `PENDING`, `attempts + 1`, `next_attempt_at` not before `Retry-After`; `maybe_sent` unchanged (the computer refused before acting) | none |
+| `409 library_changed` | `PENDING` with the wait `DIFFERENT_LIBRARY` ("Your computer is using a different library: …"), not counted as an attempt; sent once the paired computer reports that library again (QT-17) | none |
+| `404 unknown_route` (and, without sending, a connected computer that no longer announces `deleteFinished`, above) | `FAILED` with `last_error_code = unknown_route`: "Needs your attention" with spec F-05 item 6's "not offered" sentence (19), "Try again" (for after an update) and "Keep the clip", no automatic retry, no notification (spec D-62, 7.7 Retries); not `maybe_sent` (no such route ran); never "already gone" | none (the clip stays on both sides; D-59 below) |
+| `409 different_computer` | `PENDING`, `attempts + 1`, `RetrySchedule`, `last_error_code = different_computer`, which `ComputerDeletion` exposes as the wait `DIFFERENT_COMPUTER`: the reason "A different computer answered" (spec D-61, D-62); not `maybe_sent` (the computer refused before acting), so "Undo" stays; one event code is logged (server-contract 8.1: the phone never causes it) | none |
+| `401 credential_rejected`, `403 phone_access_off`, too old | `PENDING`: the queue pauses as for every operation (QT-8, QT-19); after "Connect again" with the same computer the device id is the same (re-activation, 6.3), so it is sent then | none |
+| `409 not_finished`, any other `4xx` code | `FAILED` with `last_error_code` and the reason sentence of 19 (spec D-62): "Needs your attention", no automatic retry, no notification (spec F-23) | none |
+
+**State the learner sees** (`ComputerDeletion`, from the row and the derived queue pause, like 8.4): `WAITING`
+(`PENDING`; with `DeletionWait.DIFFERENT_COMPUTER` while the row's last attempt was answered `different_computer`, since
+every attempt stores its answer's code, or none, in `last_error_code`; `DIFFERENT_LIBRARY` while the computer uses
+another library; otherwise `NOT_CONNECTED`, whose words come from the 7.5 status), `SENDING`, `REFUSED` (`FAILED`,
+with `RequestError(code, message)`); `waiting` carries the row's attempts and next attempt as a `WaitingInfo`, so the
+words of a waiting deletion are those of a waiting request, in spec D-61's order (19).
+Actions (`DeletionAction`, listed in `ComputerDeletion.actions`, the one authority the screens read): `UNDO` while
+`WAITING` and only while `maybe_sent` is not set (the row is deleted inside a transaction that re-reads both, so an
+undo never races a send; posts `DELETION_UNDONE` once); `TRY_AGAIN` and `KEEP_CLIP` while `REFUSED` (back to `PENDING`
+with `attempts = 0`, or the row deleted). **`maybe_sent`** is set when an attempt's outcome is unknown (the table above)
+and when a row left `SENDING` by a process death goes back to `PENDING` at start (a `StartupTask`); it is never
+cleared, because a later answer cannot tell whether that earlier attempt arrived. "Undo" would then post "Deletion
+undone: “{title}” stays on your computer.", which may be false, so such a row offers no "Undo", keeps its waiting
+words and adds the line "It may have reached your computer already, so it can't be undone." (19; spec D-65, review fix
+C-61). Its retry carries the same key (the row's `id`), and the computer, which keeps no memory of keys,
+answers `already_gone: true` if the first attempt had deleted the job: done either way (server-contract 6.11, spec
+QT-16).
+
+**While it waits.** `PendingDeletions.jobIds` (`PENDING`, `SENDING` and `FAILED` rows) feeds three places without new
+coupling: `:core:sync` skips the clip's downloads (7.4) and leaves it out of the mass-deletion guard (7.7);
+`:core:study` adds it to the set builder's exclusions, without touching the "Leave this clip out of the Mix" setting,
+so new sets leave it out while sets made before keep it (spec F-06 States); a refused (`FAILED`) row holds its clip
+the same way until "Try again" or "Keep the clip" (spec D-59); `ClipRepository` fills `ClipSummary.deletion`
+(`WAITING` or `SENDING`, never for a refused one, spec D-59) for the Library rows and the Home shelf (spec F-04, F-03),
+whose words follow the clip's `source.kind` (an imported clip's words, spec D-58; 19). The clip
+stays studiable: nothing is removed before the computer confirms. `RequestRepository.counts()` counts waiting
+deletions in `waiting` and refused ones in `needsAttention` (spec F-20-AC13, AC14); `deletions()` lists them for the
+Requests screen (a row opens the Clip page; there is no request detail). Home's status card shows the attention row's
+inline action from "the request in question" (design 9.17); a refused deletion is not a request, so when the items
+needing attention include no failed request, the inline action is the oldest refused deletion's "Try again"
+(`performDeletion(id, TRY_AGAIN)`), and with a failed request present it stays that request's action, as in v1-core
+(spec D-59, F-03 item 2; WP-34 owns this in v1-complete, review fix C-68).
+
+**Every case of spec 7.9**:
+
+| Case | How it holds |
+|---|---|
+| Already deleted on the computer (browser, CLI, another phone) | `already_gone: true` is done; if a `deleted` event or the listing removed the clip first, `RequestReconciler.onJobDeleted` fulfils the row and posts its message once (7.7); never an error (QT-16) |
+| Lost answer | the retry carries the same key; `already_gone` either way; the clip is removed once (QT-16); meanwhile the row is `maybe_sent`, offers no "Undo" and shows spec D-65's line |
+| A different library | sent only while the computer uses the row's library; the server checks it too (`library_changed`); clips of another library are never offered (QT-17) |
+| A forgotten computer | dropped by the device-id binding (6.3); clips "From a computer you forgot" are never offered (QT-18); a deletion already in flight is answered and applied before the unpair (`SyncController.exclusive`, 6.3; QT-18's variant in WP-28) |
+| A computer without the route (downgraded after the deletion was stored) | refused (spec D-62): `404 unknown_route`, or the connected computer's `health` without `delete_finished` before anything is sent, makes the row `FAILED` with F-05 item 6's "not offered" sentence, "Try again" and "Keep the clip"; never read as "already gone" |
+| A different computer at the address | nothing is sent there without a valid proof (5.3); the row waits (QT-20); an answer `409 different_computer` also waits, with "A different computer answered" and "Undo" (spec D-62) |
+| A revoked phone | the queue pauses; the row is kept, and sent after "Connect again" with the same computer (same device id) (QT-19). One rare exception fails safe (spec D-63): if this phone's own credential key was lost (20.3: "Connect again" then pairs as a new device), the new device id drops the row as after "Forget", so the deletion is never sent and the clip stays on both sides, offered again, with no message |
+| An imported analysis | allowed; its own words wherever the deletion is named (the block, the button, the confirmation, the states, the Requests title and the message, spec D-58), from `imported`; the computer only takes it off its list (server-contract 6.11) |
+| The browser is showing it | the computer deletes it as the browser's own "Delete" does; nothing on the phone side changes for it |
+| Refused | `FAILED`, "Try again" / "Keep the clip", no notification, the reason sentence of spec D-62; the clip stays out of new sets with its downloads paused until one is chosen, and rows and shelf cards show nothing (spec D-59); a transient failure is never a refusal |
+| The clip is open | the removal waits for the `ClipLease` (QT-10) |
+| Kept, or in today's set | not blocked; the set loses its shorts as for any deletion (7.7) |
+| Other phones | they see an ordinary deletion on the computer, with their own mass-deletion guard |
+
+**Never backed up**: the row lives in `library.db` (4.1), so a restored phone has no waiting deletion (spec 11.1).
 
 ---------------------------------------------------------------------------------------------------------------
 
@@ -1544,6 +1897,18 @@ an LRU cache of three clips keyed by job id and revision for the feed, the lesso
   with its tests (the vitest cases become JUnit cases with the same inputs and expected outputs).
 - **Practice stats** use the web's `{seen, correct}` per change; "changes met" records a change when a short with that
   spotlight was seen or a question on it answered.
+- **Shared progress** (v1-complete, CR-01, 7.8): `:core:study` implements `SharedProgressLedger` and the two
+  `sharing()` flows. `SharingState` is `NotShared` when no computer is paired, the paired computer does not announce
+  `shared_progress`, or `share_state` names another computer; `ResetWaiting` (Practice only) while a reset waits;
+  otherwise `Shared(lastSyncedAt)` (`practice_synced_at` for Practice, `saved_synced_at` for Saved). Accuracy, "Worth
+  reviewing", weak-spot weighting and the Home practice card keep reading `practice_stat`, which the exchange keeps as
+  the shared totals plus this phone's unshared answers (`own_stat` keeps this phone's own answers apart, only for a
+  first share with another computer, 7.8); a change is met when `change_met` has it, and the exchange adds
+  every change the shared totals have answers on (spec F-17 item 6). `PracticeRepository.reset()` picks the shared or
+  the phone-only reset from `SharingState`, and the confirmation copy follows the same state (WP-34). Saved items
+  arriving from other phones are ordinary `saved_item` rows with `last_watched_at` empty, so a short saved elsewhere
+  and never watched here counts as not watched for 3 days or more (spec F-09 item 5). The set builder's exclusions
+  also take `PendingDeletions.jobIds` (8.8).
 
 ---------------------------------------------------------------------------------------------------------------
 
@@ -1706,6 +2071,9 @@ H.264 up to …", each marked hardware or software (`DecoderCapabilities.summary
   (Android review M7).
 - `POST_NOTIFICATIONS` is requested in context after the first stored request (F-23); `permissionState` lets Settings
   show "Notifications are off for PhonoTrainer" + "Open settings".
+- v1-complete (CR-01): deletions from your computer and shared progress never notify (spec F-23): `:core:requests`
+  never calls `Notifier` for a `DELETE_FINISHED` row, refused or not, and the progress exchange has no notification at
+  all; their outcomes are one-shot `UserMessages` (8.8) and the Home and Requests counts.
 
 ---------------------------------------------------------------------------------------------------------------
 
@@ -2024,6 +2392,90 @@ its dependency on `:core:ui`) all use it. Only a code the app does not know maps
 the computer's cleaned message. Other features keep one `…ErrorCopy.kt` each for their own errors (connection,
 storage, media); the last probe outcome has one mapping, `ProbeOutcomeCopy` (6.2).
 
+v1-complete (CR-01): a deletion from your computer (8.8) is not a request and does not go through
+`RequestFailureCopy`. One mapping, `DeletionCopy` in `:core:ui` `component/` (owned by WP-34, strings in
+`strings_deletion.xml`), gives the words of every deletion state to the Requests rows (`:feature:requests`), the Clip
+page block (`:feature:library`) and the deletion line of `ClipRow` and `ClipCard`, because features never depend on
+each other (2.2). Every word is the product track's (spec F-05 item 6, F-20 item 1, D-58, D-61,
+D-62, D-65); the architecture adds none:
+- **The imported form** (spec D-58), chosen by `ComputerDeletion.imported` (rows, block) or by
+  `ClipSummary.source.kind == IMPORT` (Library rows, shelf cards):
+
+  | Where | Any finished clip | Imported clip |
+  |---|---|---|
+  | Requests row title | "Delete “{title}” from your computer" | "Remove “{title}” from your computer's list" |
+  | Waiting (block, rows, Library row, shelf card) | "Waiting to be deleted from your computer" | "Waiting to be removed from your computer's list" |
+  | Sending | "Deleting from your computer…" | "Removing from your computer's list…" |
+  | Refused (block, Requests "Needs your attention") | "Couldn't delete “{title}” from your computer." | "Couldn't remove “{title}” from your computer's list." |
+
+  The block's sentence, its button and the confirmation have the same two forms (spec F-05 item 6, D-58: "Remove from
+  your computer's list…", "Remove “{title}” from your computer's list?"); they are the Clip page's own strings
+  (`:feature:library`, WP-34). The reasons, "Undo" and "Deletion undone: “{title}” stays on your computer." are the
+  same for both kinds.
+- **Waiting reason** (spec D-61): the first that applies of
+  1. the queue's pause, from `ComputerStatus`: `ConnectAgain` "Your computer no longer recognizes this phone",
+     `ComputerTooOld` "Update PhonoTrainer on your computer", `AppTooOld` "Update this app", `DifferentComputer` "A
+     different computer answered"; and a deletion with `DeletionWait.DIFFERENT_COMPUTER` (its last answer was
+     `different_computer`, 8.8): "A different computer answered";
+  2. a deletion with `DeletionWait.DIFFERENT_LIBRARY`: "Your computer is using a different library: this waits until it
+     uses this clip's library again.";
+  3. not connected: `Offline` and `NotOnWifi` "Not on Wi-Fi"; `Looking`, `Checking` and `NotReachable` "Your computer
+     isn't reachable";
+  4. `Connected` after a failed attempt (`WaitingInfo.attempts` 1 or 2): "Will try again in {n} min" ({n} from
+     `nextAttemptAt`); 3 or more: "Couldn't send yet: will try again".
+
+  Steps 1, 3 and 4 are a waiting request's reasons too (spec F-20 item 1: "requests and deletions alike", so the two
+  kinds of row never give two reasons for one state), so they are one function owned by the Requests package:
+  `WaitingReasonCopy` in `:core:ui` `component/` (WP-22, v1-core, strings in `strings_request.xml`), with
+  `pause(status)` (step 1, from `ComputerStatus`), `connection(status, waiting)` (steps 3 and 4) and
+  `of(status, waiting)` (`pause`, then `connection`), each returning the line or null (no line: `Connected` before a
+  failed attempt, and `NotConnected`, for which D-61 names no words and where no deletion can exist, 6.3).
+  `RequestRow` calls `of`; `DeletionCopy` calls `pause`, then its two deletion steps, then `connection`. A request
+  held by "Stop sending" and a file too large for one background run keep their own lines (D-46, D-41), as before.
+- **D-65's line**: a `WAITING` deletion whose `actions` lack `UNDO` (`maybe_sent`, 8.8) shows its reason and, under it,
+  "It may have reached your computer already, so it can't be undone."; no "Undo".
+- **Refused**: the title line above and one reason sentence chosen by the code, never the raw server text (spec D-62):
+  `not_finished` → "Your computer says this analysis isn't finished, so it can't be deleted from here.";
+  `unknown_route` (a `404` from a computer without the route, or the same refusal recorded without sending when the
+  connected computer no longer announces `delete_finished`, 8.8) → "To delete this clip everywhere, delete it on your
+  computer, or update PhonoTrainer there to do it from this phone." (F-05 item 6's "not offered" sentence); any other
+  code → "Your computer answered that it can't delete this clip right now.". `different_computer` is never a refusal
+  (step 1 above).
+- The one-shot messages of the three new `UserMessageKind`s are the spec's (F-05 item 6) and live in the shell's host.
+
+**The quoted title** (design 9.26, security review F-14). A clip's title is untrusted text (the uploader chooses a
+link's title), so every `{title}` in the CR-01 copy goes through one function:
+
+```kotlin
+// :core:ui, component/QuotedTitle.kt — made by the integrator in CR-01-A2 (work-plan 4.7)
+object QuotedTitle {
+  // design 9.26, in this order: (1) Cf removed; Cc, Zl, Zp become a space; white-space runs become one space; trimmed.
+  // (2) at most 60 grapheme clusters (android.icu.text.BreakIterator.getCharacterInstance()); a longer title keeps its
+  // first 59, trimmed, plus "…". (3) wrapped by androidx.core.text.BidiFormatter.getInstance(false).unicodeWrap(…).
+  fun of(title: String): String
+}
+```
+Callers: `DeletionCopy` (the Requests title and the refused line), the Clip page's confirmations "Delete “{title}”
+from your computer?" and "Remove “{title}” from your computer's list?" and, in v1-complete, every "Remove “{title}” from
+this phone?" (Clip page, Library, Storage; WP-34), and the shell's message host for `CLIP_DELETED_FROM_COMPUTER`,
+`CLIP_REMOVED_FROM_COMPUTER_LIST` and `DELETION_UNDONE` (WP-26 in CR-01-A2). The full title stays as it is where it
+stands alone (the Clip page header, Library rows). Why `:core:ui` `component/`: every caller (`:core:ui`, the features
+and `:app`) already depends on `:core:ui`, and the function needs Android's ICU (`android.icu`, API 24, below minSdk
+29) and a bidi formatter, which the JVM module `:core:common` does not have. The formatter is the one design 9.26 names,
+`androidx.core.text.BidiFormatter`, because it behaves the same on every Android version (the platform's own class
+ships with the system); `androidx.core` is already a library of the app (`:app` and `:core:notifications` use
+`libs.androidx.core.ktx`), so A2 adds one `implementation(libs.androidx.core.ktx)` line to `:core:ui` and no new
+library (THIRD-PARTY-NOTICES and the licence report unchanged). Why the integrator in CR-01-A2: the shell's host uses
+it in that very commit, and WP-34, its other user, branches after it. Tests: a Robolectric unit test of the three
+steps with design 9.26's three fixtures (A2), and WP-34's screenshot test of the "Delete from your computer" dialog
+with the right-to-left-override title, light and dark, at font scale 1.0 and 2.0, against render 31, specimen 5.
+
+The deletion row of the Requests screen is `DeletionRow` in `:feature:requests` (only that screen lists deletions; the
+Library's "In progress" group does not), built from the same `:core:ui` primitives as `RequestRow` and opening
+`ClipKey`; the visual pieces design 9.26 adds (`PlaceHead`, `ReachStrip`, `DeletionRoute`, `SyncLine` and the danger
+confirmation with stacked buttons and consequence lines) live in a new `:core:ui` sub-package `ui/place/` owned by
+WP-34 (design 9.26), with plain inputs like WP-03's visual pieces.
+
 ---------------------------------------------------------------------------------------------------------------
 
 ## 20. Security
@@ -2062,6 +2514,10 @@ storage, media); the last probe outcome has one mapping, `ProbeOutcomeCopy` (6.2
 - Cloud backup is skipped on devices that cannot encrypt it (`disableIfNoEncryptionCapabilities`, security review L-6).
   `learning.db` uses the TRUNCATE journal (4.1), so the single file Auto Backup copies is consistent; no `-wal` file
   exists to miss.
+- v1-complete (CR-01) leaves the allowlist unchanged (spec 11.1): the shared-progress bookkeeping and `learning_meta`
+  live in `learning.db`, so a restore brings back the progress and the record of what was already shared in one
+  consistent file (7.8: nothing counted twice, nothing unsaved brought back); waiting deletions live in `library.db`
+  and are never backed up (8.8). WP-02's backup-rules test keeps passing unchanged.
 - `networkSecurityConfig` as in 5.2; release builds not debuggable; `android:enableOnBackInvokedCallback="true"`.
 
 ### 20.2 Shared input
@@ -2155,6 +2611,32 @@ pushed range) that run `check_repo.py`; installing the hooks is part of every WP
 a public repository a CI run after a push is already too late. CI runs it again (22). `qa_log.py` (21.7) applies the
 same credential shapes and the local denylist when it writes a QA log.
 
+### 20.8 Deletion and shared progress (v1-complete, CR-01)
+
+The two features add the first phone actions that change what every device sees. Their rules, and the test that
+proves each (phone side in WP-28 and WP-34, server side in server-contract 11.3):
+
+| Threat | Rule | Test |
+|---|---|---|
+| A forged or replayed deletion, reset, answer or Saved change | all are signed phone requests (server-contract 4.3); the deletion's target (job id, server id, library id), a phone's reset (`reset_id`, `reset_at`) and, for the three CR-01 routes, the body's SHA-256 (`body_sha256`) are in the signed request target, so the signature covers the body too; the computer refuses a signature older than its own start (`not_before`), because its nonce cache lives in memory and would otherwise forget a request recorded in the 300 s before a restart (review fix C-54) | server: unsigned → 401, a replayed nonce → 401, the query changed after signing → 401, a body changed after signing → 401, a missing `body_sha256` → 401, a request signed before a restart and replayed after it → `401 clock_skew` (the phone re-signs once), a `reset` in the phone route's body → 400; phone: a `MockWebServer` recording shows the reset only in the query and the body's hash in the query (5.4) |
+| A deletion carried to another computer or library | the row is bound to server id, library id and device id (8.8) and is sent only to the verified paired computer (5.3) | QT-17, QT-18, QT-20 on the JVM with `FakeComputer` (an impersonator records no request with an `Authorization` header) |
+| A deletion the learner did not confirm | created only by the Clip page's confirmation (WP-34); never by a listing, an event, a link or an intent; no bulk form, no deletion route in the shared-input paths (12) | a source-scan unit test in `:core:requests` that fails if any call site other than `deleteFromComputer` inserts a `DELETE_FINISHED` row; the confirmation's screen tests (WP-34) |
+| A lost or lent phone, a leaked device key or a client bug deleting the library one request at a time | every paired phone may delete any finished analysis (spec D-54), and `JobStore.delete` cannot be undone, so the computer limits `delete-finished` to 20 requests per device per 10 minutes (`429 rate_limited` with `Retry-After`, transient for the phone, 8.8), prints one visible line per deletion with the phone's name and short id, and says at start, in the banner and the README, that paired phones can delete finished analyses and how to revoke a lost one (server-contract 2.1, 4.7, 6.11, 10.3; review fix C-56) | server: the 21st request within 10 minutes → 429 with `Retry-After`, another device unaffected; the audit line printed under uvicorn's logging configuration (C-60); the banner line |
+| "Undo" saying something false | "Undo" is withdrawn once an attempt may have reached the computer (`maybe_sent`, 8.8) | JVM: a timeout after the request left, then no `UNDO` in `actions`; a process death while `SENDING`, the same |
+| A hostile computer answer | the shared-progress mappers reject non-UUID ids, `at` before 2020, negative, inconsistent or out-of-range tallies and positions, job ids outside the pattern, and Saved answers above 1 MiB (5.4); a rejected answer changes nothing local | mapper tests with each malformed field; an oversized body is cut at the cap |
+| A wedged exchange (one bad item, a full store, a hostile client filling the computer's bounds) | the computer refuses content per item and never a whole request (`ignored`, `dropped`, `not_shared`), bounds every stored field, prunes tombstones early and clamps totals; the phone marks every refused item handled (7.8; server-contract 4.7, 6.12; review fix C-55) | server: the 49th unknown label ignored while reference labels count, the 10,001st baseline ignored while the request's answers count, a Saved position beyond the job dropped, the worst-case Saved answer under 1 MiB; phone: a page answered with `400` is marked handled and the next page is sent |
+| A lost or damaged store wiping every device | the computer never recreates or overwrites an unreadable or unknown-schema `progress.sqlite3` or `saved.json`: it answers `503 store_unavailable` (transient) and prints a warning (server-contract 3.2; review fix C-64) | server: a corrupt file, a file of another schema → 503 and the file's bytes unchanged |
+| A crafted clip title making a destructive confirmation read like a phone-only removal (a right-to-left override, control characters, a very long title) | every CR-01 `{title}` is `QuotedTitle.of(title)`: format characters removed, controls and separators made spaces, one line of at most 60 grapheme clusters, bidi-isolated; no place word, consequence or button label is built from the title (19; design 9.26; security review F-14, C-79) | Robolectric: design 9.26's three fixtures (CR-01-A2); WP-34's screenshot test of the dialog with the override title against render 31, specimen 5 |
+| A restored backup counting answers twice or bringing back an unsaved item | `learning_id` and the share bookkeeping are in `learning.db` (20.1) | F-17-AC11 logic on the JVM (WP-28), on the emulator (WP-33) |
+| Other devices' answers carried to a second computer | a first share with another computer sends `own_stat`, this phone's own answers, never the mirrored aggregate (7.8, review fix C-63) | JVM: share with computer A (another device adds answers there), forget, pair with B: B's baseline holds only this phone's answers; a reset made elsewhere before the move is respected |
+| A page on the internet reading or adding to the history through the browser routes | loopback only, the `/ws/jobs` Origin rule, `same_origin_only`, `LoopbackHostGuard`, the JSON body rules (server-contract 6.13) | server: a LAN peer → 403, a foreign `Origin` → 403, `Sec-Fetch-Site: cross-site` → 403, `Host: attacker.example` → 400, `Transfer-Encoding` → 411, no `Content-Length` → 411, over 16 KiB → 413, another `Content-Type` → 415 |
+| Data in logs | the computer's audit lines (a deletion, an applied reset) name the job id, the phone's name and its 12-character short id (the form `phonotrainer phone list` prints, so the operator can revoke it), or "the browser", and the first 8 characters of the request key: no title, address, token or path (server-contract 3.3, 6.11); the phone logs event codes only (20.4) | the server's audit-line test under uvicorn's logging configuration, not only `caplog`; the phone's log hygiene check unchanged |
+
+What stays open in v1 is the accepted transport risk (spec 11.6, server-contract 4.8): a listener on the Wi-Fi can
+read these exchanges (practice answers, the Saved list, which clips are deleted), and an active attacker can block or
+delay them, but neither can change or replay a signed request, its body included, nor bring one back after a restart.
+Version 2 encrypts them (26).
+
 ---------------------------------------------------------------------------------------------------------------
 
 ## 21. Testing strategy (AD-22, AD-23)
@@ -2215,6 +2697,12 @@ Failure modes, each a one-line call in a test:
 | `deleteJob(id)`, `finishJob(id)`, `failJob(id, code)`, `progress(id, stage, percent)` | computer-side events |
 | `dropChannel()` | job channel lost (Checking state) |
 | `lowOnSpace()`, `maxUploadBytes = n`, `maxLinkDurationS = n` | upload refusals; the link limit `too_long`'s copy names (SH-AC18) |
+| `capabilities(deleteFinished = …, sharedProgress = …)` (v1-complete, CR-01) | a computer that does or does not announce 6.11 and 6.12 (spec F-05-AC10, F-17-AC9) |
+| `refuseDeletion(code, times)`, `importedJob(id)` (CR-01) | a deletion refused with `not_finished` or another code (F-05-AC12), `429 rate_limited` with `Retry-After`, `409 different_computer`, or `404 unknown_route` (a computer downgraded after the deletion was stored); a finished job listed with `source.kind: "import"` (F-05-AC9) |
+| `applyThenDrop(path, times)` on the deletion route, `restart()` (CR-01 review fixes) | a deletion applied whose answer is lost (`maybe_sent`, no "Undo" afterwards); the fake also checks `body_sha256` on the three CR-01 routes and, after `restart()`, refuses a signature older than the restart with `401 clock_skew`, as the server does (server-contract 4.3) |
+| `recreateSavedList()` (CR-01) | the computer's `saved.json` deleted and made again (a new `list_id`): the phone's next Saved exchange gets a full list (server-contract 6.12) |
+| `otherDevice(name)` returning a handle with `answer(change, correct, at)`, `reset(at)`, `save(item, at)`, `unsave(item, at)` (CR-01) | a second phone or the browser acting on the shared history at a given computer time, so the two-device ACs run on the JVM (F-09-AC4, AC5, F-17-AC6, AC8) |
+| `practiceTotals()`, `savedEntries()`, `deletedJobs()` (CR-01, observation) | what the computer holds after an exchange, to assert "counted once" and "deleted exactly once" (F-05-AC7, F-17-AC7, QT-15, QT-16) |
 
 Observation: `jobsWithKey(key)`, `requests` (recorded requests in order, to assert "the cancel reaches the computer
 before any new request", and that no `Authorization` header ever reached an impersonator), `pairedDevices`.
@@ -2323,6 +2811,49 @@ The torture test runs (1) automated against `FakeComputer` (WP-19), (2) the [emu
 fake computer, which refuses every download, so a shared link can never reach a site (spec D-36), (3) once with the
 real computer **using local files only**. No agent ever sends a link to the real computer (D-36).
 
+v1-complete (CR-01, spec D-57): beside its seeded clip (created by path, not imported), `host_computer.py` seeds a
+second finished clip the same way and an imported one (`JobStore.import_dir` on a synthetic result folder in its
+temporary directory, outside the workspace), so the [emulator] steps of QT-15 to QT-20 and F-05-AC9 delete either
+kind there without removing the clip the other steps use, and it can pair a second signer to act as another device
+on the shared history (server-contract 12). On the owner's computer QA never deletes one
+of the owner's clips and never resets the shared practice history. The guard is in the kit, before any tap: the two
+destructive UI helpers (`ui.py`'s `delete_from_computer` and `reset_everywhere`) first read the paired server id from
+Connection details (shown on screen, 20.3) and stop with an error unless it is the server id of a computer the kit
+started in this session (`host_computer.py`, or `computer.py`, whose throwaway configuration directory and workspace
+hold only clips the session created from local test files; both record their server id in the session's QA log). So
+the real-computer pass deletes only a clip it created itself, and a phone paired with the owner's own computer (the
+S-20 link gate) can never be the target of either helper. `ui.py`'s generic tap applies the same check before it taps
+an element labelled "Delete from your computer" or "Remove from your computer's list", with or without the trailing
+"…" (so the block's buttons and the confirmations' buttons alike), or "Forget it" while the dialog titled "Forget your
+practice history everywhere?" is shown, so a script cannot bypass the guard by tapping the label directly (spec D-57
+(2); security review F-15). While the test phone shares with the owner's own computer, the practice answers QA gives
+there are real answers in the owner's history, and the QA report says how many (spec D-57 (4)).
+
+**The first share of the test phone** (spec D-57 (3), NFR-14, X-AC10; consistency review finding 6). The test phone is
+the owner's own phone, and practice answers QA gives there (from WP-25 on, and against fake computers in WP-33) stay in
+its history; at its first share with the owner's own computer they would join the owner's real history for good
+(7.8, "First share"). Three rules close this:
+1. **Counting, from WP-25 on.** QA gives practice answers on the test phone only in logged sessions: before and after
+   each, the kit reads the Practice screen's per-change line ("7 of 10 · 70 %", spec F-17 item 5) from the layout tree,
+   and the QA log records the difference per change (answers given, answers right). The kit's simulated devices
+   (`host_computer.py`'s second signer) answer only outside those sessions, and the log records each answer and each
+   reset they send, and each reset QA makes, with the server id it went to.
+2. **The check.** Before a v1-complete build on the test phone can first share progress with the owner's own computer
+   (it shares at its first connection to a computer that announces `shared_progress`), and at the latest before WP-33
+   hands the phone back, `ui.py`'s `practice_totals()` reads the per-change totals, and the kit compares them with the
+   log's counts since the last reset the log records: QA's own sessions, plus the simulated devices' answers on a
+   computer this phone shared with. A total the kit cannot read stops the step with an error; it never guesses.
+3. **The outcome, logged.** Equal: everything is QA's, so QA clears it with "Reset": the phone-only "Forget your
+   practice history?" while the line reads "Kept only on this phone." (not paired, or after "Forget this computer"), or
+   `reset_everywhere` while the phone shares with a computer the kit started; either reset also clears `own_stat`
+   (7.8), so the first share with the owner's computer sends nothing; the log records the totals it cleared. Not
+   equal: the owner practised on the phone too, so QA resets nothing, and the QA report states, per change, the totals
+   that first share will send and how many of them are QA's: the screen's totals when the phone has never shared,
+   otherwise this phone's own answers (`own_stat`, 7.8), which are the screen's totals minus the logged answers of the
+   kit's simulated devices; QA's part is the sum of its logged sessions.
+Equality is the test because clearing is itself a reset nobody can undo: any difference, including a reset the owner
+made, means the history is not only QA's, and answers the owner gave are the owner's to keep or clear (spec D-57).
+
 ### 21.8 Server tests
 
 The Python side is tested with pytest under the repository's rules (no network, synthetic media, fakes for the
@@ -2394,17 +2925,21 @@ disturb; this one never runs web tasks):
 | Parallel merges colliding | git-based integration with three-way merges, ownership table + check, frozen shared files, stubs and fakes from B1 |
 | The development computer cannot build many copies at once | at most four Android copies (the integrator's included), GMD runs serialized and filtered (work-plan 1.2) |
 | Didactic drift between web and phone | extractor + drift check in CI on web content paths |
+| A phone deletes a clip the learner did not mean to delete, or a lost phone deletes many (v1-complete) | only from the Clip page, after a destructive confirmation that names every device; undoable while waiting and never once it may have arrived; a separate route and capability; bound to one computer, library and device id (8.8); at most 20 per phone per 10 minutes, each printed on the computer, `phone revoke` named at start (20.8) |
+| Shared progress counts an answer twice, loses one or stops (v1-complete) | ids on every answer and baseline, the baseline named by the backed-up `learning_id` and made of this phone's own answers, a mirror rewritten from the computer's totals, resets by time on one clock; refusals per item, never per request; an unreadable store left untouched; merge rules tested on both sides with a second device (7.8; server-contract 4.7, 11.3) |
+| The browser never adopts shared progress | the phone ↔ computer path works alone and the phone's copy says "your computer", never "the browser" (spec 7.13); the hand-off is self-contained (`web-progress-sync.md`) |
 
 ---------------------------------------------------------------------------------------------------------------
 
-## 25. Review log (revisions 3 and 4)
+## 25. Review log (revisions 3 to 5)
 
 Three reviews of revision 2 (architecture), revision 1 (server contract) and revision 1 (work plan), dated
 2026-10-10: security (`S-…`), Android platform (`A-…`) and delivery and testability (`D-…`). Every finding is listed
 with its disposition: **fixed** (in the place named), **partly** (what was adopted and why the rest was not) or **not
 adopted** (with the evidence). "SC" is `server-contract.md`, "WP" is `work-plan.md`. Spec text is owned by the product
 track; where a fix touches it, the request is listed in 25.3 and the architecture keeps the spec's behaviour. 25.4 is
-the pre-implementation closure of revision 4.
+the pre-implementation closure of revision 4; 25.5 is change request CR-01 (revision 5), 25.6 and 25.7 its two
+rounds of review fixes.
 
 ### 25.1 Blocker and high findings
 
@@ -2562,3 +3097,402 @@ must mirror (C-02, C-04, C-13, C-14, C-19, C-21) was sent to it through the orch
 | C-25 | new and reworded acceptance criteria of spec revision 3 | traced: WP section 10 lists each AC with its WPs and what each proves (SH-AC17 and SH-AC18 are WP-22's and WP-09's: they are opened from Requests after the sheet closed) | WP 10 |
 | C-26 | 25.3 | all seven requests closed by D-37 to D-43; nothing remains open for the product track | 25.3 |
 | C-27 | closure verifier, blocking: lint's version-freshness checks would fail `warningsAsErrors` on the pinned catalog with no code change | fixed (orchestrator decision): lint policy in 2.3; `GradleDependency`, `AndroidGradlePluginVersion`, `NewerVersionAvailable` and `OldTargetApi` ignored through the one INTEGRATOR-owned `config/lint/lint.xml`, nothing else, no baseline | 2.3, 23; WP-02 (creates the file at M1), WP-19 |
+
+### 25.5 Change request CR-01 (revision 5, 2026-10-11)
+
+Inputs: the owner's answers to Q-1 to Q-7 (spec 15.3, 15.7: D-53 to D-57), spec revision 4 and the product track's
+requests A1 to A12, the design track's requests A-1 to A-10 (design.md revision 3), the state of wave 1 on 2026-10-11
+(the integration log and the work packages' progress files: B1 published and merged into this branch; WP-06-2 merged
+into `android-client`; WP-01 milestone B, the rest of the v1-core server at API 6, finished on its branch and in review,
+not merged; WP-02 M3, WP-03 and WP-19's first week running; no wave-2 WP branched) and the code of B1's `:core:domain`,
+`:core:network-api` and `:core:database`, `phonotrainer/jobs.py`, `server.py`, `phonotrainer/phone/` (WP-01's branch,
+read only) and `web/src/features/practice/quiz.ts` and `PracticePage.tsx` (read only), plus WP-01 milestone B's hand-off
+and WP-06-2's `host_computer.py`. Rule: implement exactly what the answers ask, minimally and robustly; disturb no work
+in flight. "SC" is `server-contract.md` (revision 4), "WP" `work-plan.md` (revision 4).
+
+| Id | Item | Disposition | Where |
+|---|---|---|---|
+| C-28 | Q-2, D-54, S-25: the phone may delete a finished analysis on the computer | a separate signed route (`POST /api/phone/jobs/{id}/delete-finished`, server id and library id in the signed query, any submitter, `done` only, `already_gone` is a success) instead of relaxing v1-core's `DELETE /api/phone/jobs/{id}`, whose `409 not_deletable` stays: v1-core's route, tests and the fake computer keep their meaning, and a capability flag gates the new one. On the phone an outbox operation `DELETE_FINISHED` bound to server id, library id and device id (AD-24) | 8.8, 7.1, 7.4, 7.7, 13; SC 4.2, 6.7, 6.11, 8.1 |
+| C-29 | Q-3, D-55, S-24: practice accuracy and the Saved list shared through the computer | answers with ids and computer-clock times summed after the latest reset; baselines named by `learning_id`; Saved last-change-wins with tombstones; the phone mirrors the shared totals into `practice_stat`, so v1-core's readers do not change (AD-25) | 7.8, 10, 4.3; SC 3.2, 6.12 |
+| C-30 | where the computer keeps it | practice history in `progress.sqlite3` in the configuration directory (per computer: survives a workspace switch, spec 7.13 rule 6; already outside the repository and every workspace, with permission checks); the Saved list in `<workspace>/saved.json` (per library, anchored to its job ids). SQLite for the answer log (unique ids, time index, transactions), JSON for the small Saved list (the same atomic-write style as `library.json`) | SC 3.2, 4.7 |
+| C-31 | the browser client (`web/`, another agent's) | loopback-only additive routes `GET`/`POST /api/progress/practice` with the `/ws/jobs` Origin rule, present in every mode when started by `phonotrainer ui`, inert until called; a self-contained hand-off for the web owner; the phone ↔ computer path never depends on it | SC 1.3, 4.2, 6.13; `web-progress-sync.md` |
+| C-32 | product request A3 (an `imported` flag in the listing) | not added: the listing already says it (`source.kind: "import"`, `RemoteSource.kind = IMPORT`, `clip.source_kind`) | SC 6.3; 8.8 |
+| C-33 | capability flags and version | `delete_finished` and `shared_progress` in `health.capabilities`; both ship in API 7, set by WP-27's first milestone; the second milestone adds its flags within 7 (SC 1.2 rule 7), which keeps WP-05a's `API_VERSION_COMPLETE = 7` valid | SC 1.2, 3.4; 5.4 |
+| C-34 | frozen B1 types | CR-01-A1 now (Room `learning_meta` with `learning_id`, created by `DatabaseModule`'s callback), because every backup of every release must carry the id; CR-01-A2 at the start of v1-complete (domain, SPI and network-api additions with defaults; Room version 2 by `AutoMigration`) | 3.4, 4.1 to 4.4; WP 2.2, 4.7 |
+| C-35 | additive, not source-breaking | no new member in `RequestAction`, no new subtype of `ClipAvailability`, no new `PauseReason`: consumers' exhaustive `when`s would stop compiling; separate `DeletionAction`, the field `ClipSummary.deletion`, and the Clip page's deletion block instead. `UserMessageKind` grows (one exhaustive consumer, updated by the integrator in the same change) | 3.4, 7.4 |
+| C-36 | "Forget this computer" drops waiting deletions | by binding each deletion to the paired device id (a new pairing after "Forget" always gets a new one), checked when `paired` changes, at start and in the sender; not by a hook in `:core:connectivity`, which would add v1-core scope to WP-07 | 6.3, 8.8 |
+| C-37 | server work in flight (WP-01 milestone B, API 6) | untouched: the new server work is WP-27's milestone A (phase complete, the owner of the server files in v1-complete), which may start on its own branch now and merges after the v1-core gate like every v1-complete server change. A "WP-01-C" was considered and not adopted: WP-01 owns the server only in phase `core`, so its milestone would either merge before the gate (v1-core QA would test v1-complete code) or need a second owner of the same files in phase `complete` | WP 1.4, WP-27 |
+| C-38 | spec F-05-AC11 (v1-core: the "Remove from this phone?" confirmation gets words) | copy only, no behaviour: added to WP-16's Covers (WP-16 has not started) | WP-16 |
+| C-39 | D-57: device QA never deletes the owner's clips or resets the shared history | `host_computer.py` seeds a deletable non-imported clip and a second device; the kit's destructive helpers run only when the phone is paired with a computer the kit started in the session (its server id in the QA log), never with the owner's own; the QA log counts QA's answers | 21.7; SC 12; WP-06, WP-33 |
+| C-40 | Q-1, D-56: version 2 encrypted transport | designed (26, AD-26): TLS 1.3, pinned self-generated key, SRP-6a pairing bound to the pin, migration proof with the v1 device key, no downgrade, PT1 kept; not in the v1 work plan | 26; SC 4.8, 13 |
+| C-41 | Q-4, Q-5 confirmed; Q-6, Q-7 unanswered | nothing to change (D-36 and the link gate, D-42 approved networks, no spaced repetition, QA never reboots the phone) | — |
+| C-42 | the design track's requests A-1 to A-10 (design.md revision 3) | A-1: the names of 3.4 (`ClipSummary.deletion`, `DeletionOffer`, `ComputerDeletion` with `imported`); A-2: `DeletionCopy`, whose sentences are the product track's (spec D-62; 19); A-3: the three `UserMessageKind`s are adopted, but deletion actions are `DeletionAction` and the row is `DeletionRow` fed by `RequestRepository.deletions()`, not a `RequestAction` or a `Request` kind (C-35); waiting reasons as F-20's through `WaitingInfo`; A-4: `SharingState`; A-5: `Capabilities.deleteFinished` and `source.kind: "import"` (C-32); A-6: `ui/place/` in `:core:ui`, WP-34; A-7: the two staged icons are converted by the integrator in CR-01-A2 (WP-03's conversion script, `PhonoIcons`, `bundled.json`, notices 7.3), so WP-03's frozen 173-file inventory never moves; A-8: in WP-34 (reusing `ShareBridge`'s motion); A-9: recorded in 26.12; A-10: renders 28 to 34 are the references of WP-34's previews and of WP-33's screenshots | 3.4, 8.8, 19, 26.12; WP 3.2, 4.7, WP-26, WP-33, WP-34 |
+| C-43 | a body is not signed (SC 4.3), and a reset clears the history on every device | a phone's reset travels in the signed query (`reset_id`, `reset_at`); a `reset` in the phone route's body is `400`. The same principle as the deletion's target (C-28). Answers and Saved changes stay in the body, whose SHA-256 is now in the signed query too (C-54: the review showed that an unsigned body could do more than miscount, and that a restart reopened replays) | 7.8, 20.8; SC 4.8, 6.12 |
+| C-44 | robustness of the Saved exchange | the cursor is opaque (`<list_id>:<version>`, `saved_cursor` on the phone), so a `saved.json` deleted, recreated or restored is answered with a full list instead of silently skipping changes; the 5,000-entry bound answers `200` with `not_shared` instead of a `409` that would block the request's unsaves forever | 4.3, 7.8; SC 3.2, 4.7, 6.12, 8.1 |
+| C-45 | merge semantics: per-client grow-only counters (the orchestrator's example) or an answer log | an answer log with ids and times: the spec's reset (7.13 rule 3: an answer given before the reset but arriving after it is cleared, one given after it counts, whichever device) needs each answer's time, which per-client counters summed on read cannot keep without becoming a log; the log is bounded (SC 4.7) and the phone keeps a counter table (`practice_stat`) as a mirror, so its readers do not change | 7.8; SC 3.2, 6.12 |
+| C-46 | design request P-2 (a refused deletion's effect on sets and downloads) and the waiting reasons (P-4) | a refused deletion stays in `PendingDeletions` (out of new sets, downloads paused) until "Try again" or "Keep the clip", because it is neither applied nor undone (spec 7.8's words); rows and shelf cards show nothing for it (only Requests and Home count it). Confirmed by spec D-59 (request R-1); the waiting reasons are F-20's in spec D-61's order (19, `DeletionCopy`, `WaitingReasonCopy`) | 8.8, 19 |
+| C-47 | security of the two features | 20.8 lists each threat, rule and test; server tests in SC 11.3 | 20.8 |
+| C-48 | DataStore | no file added (4.5): the bookkeeping must be backed up with the progress it describes; two pairing-store keys for the capability flags (C-66) | 4.5 |
+| C-49 | the deletion's idempotency key | the phone sends its outbox operation's id on every attempt; the computer keeps **no** memory of keys (a draft had a 600 s cache): a second deletion of the same job answers `already_gone: true`, which is a success, so the cache changed no outcome and contradicted spec QT-16's "the computer's answer that the clip is already gone". The key is kept for the audit line, which shows that two requests were one deletion | 8.8; SC 4.7, 6.11 |
+| C-50 | request and answer sizes of shared progress | a client sends a baseline in a call of its own (the worst case, 64 labels of 40 characters plus 100 answers, would cross the 16 KiB JSON limit); an incremental Saved answer with more than 5,000 changed entries becomes a full list, so every answer fits the phone's 1 MiB cap. Both computed from the field limits, not estimated | 7.8; SC 4.7, 6.12; `web-progress-sync.md` 6.2 |
+| C-51 | the change request's suggestions (a "WP-01-C" milestone; WP-01 milestone B called "server v1-complete, API 7") | WP-01 milestone B is the rest of the v1-core server at API 6 (work-plan WP-01, its progress file); API 7 is the v1-complete server, set by WP-27's milestone A (C-33, C-37). Nothing in WP-01 changes | WP 1.4, WP-27 |
+| C-52 | where the phone's new screens go | one new v1-complete package, WP-34, instead of new scope in WP-16, WP-21, WP-22 and WP-24: those are v1-core wave-2 packages, sized and laned for the v1-core gate, and v1-complete work starts after the gate (WP 1.4), so they would have to be reopened then anyway; one package keeps the shared pieces (`DeletionCopy`, `ui/place/`) with one owner and lets the cut order drop CR-01's screens as a unit (spec 14.4 rows 10 and 11). Its seeded happy paths over the real repositories are WP-26's cross-area flows, so it needs no core to finish | WP-34, WP-26, WP 3.2 |
+
+**Requests to the product track (CR-01; spec text only), all answered in spec 15.7 (fix round 2, 25.7):**
+- **R-1** (design P-2): a refused deletion keeps its clip out of new sets and its downloads paused until "Try again"
+  or "Keep the clip"; Library rows, shelf cards and the Clip page header show nothing for it (Home and Requests count
+  it; the Clip page block shows the refusal). **Answered: confirmed as written, spec D-59.**
+- **R-2**: the refusal sentences of 19. **Answered by spec D-62**: `not_finished` and "any other code" confirmed;
+  `different_computer` waits with "A different computer answered" and "Undo"; a computer without the route
+  (`unknown_route`) is a refusal with F-05 item 6's "not offered" sentence, "Try again" and "Keep the clip", not the
+  wait `COMPUTER_CANNOT` that fix round 1 had proposed (8.8 and 19 follow D-62; C-75).
+- **R-3**: a revoked phone whose own credential key was lost re-pairs as a new device, and its waiting deletion is
+  dropped, never sent (8.8). **Answered: spec D-63** (added to 7.9 and the 7.7 state machine; no message).
+- **R-4**: the computer's copy is the shared history: if the operator deletes `progress.sqlite3` (or
+  `<workspace>/saved.json`), every phone's shared accuracy (or Saved list of that library) follows at its next sync,
+  keeping only what it had not shared yet. A file that is unreadable or of an unknown schema is never recreated or
+  overwritten (the computer answers `503` and the phones keep what they have, review fix C-64). **Answered: spec D-64**
+  (7.13 rule 9, with the unreadable case; the README says so, SC 10.3).
+
+No request to the design track: every state above is drawn in design 9.26 and 9.27 (renders 28 to 34).
+
+### 25.6 CR-01 review fixes (revision 5, fix round 1, 2026-10-11)
+
+Inputs: the CR-01 security review (findings F-1 to F-15) and consistency review (findings 1 to 14) of revision 5, as
+routed to the architect. Every high and medium item is fixed; the low ones too, because each was cheap. Nothing in
+flight changes: WP-01 milestone B and WP-02 M3 are untouched, every phone-side change is in CR-01-A2 (not yet applied)
+or in v1-complete WPs that have not started, and every server change is WP-27 milestone A's.
+
+| Id | Finding | Disposition | Where |
+|---|---|---|---|
+| C-53 | security F-1 (high): the hand-written SRP-6a lacked RFC 5054's checks; an `A` of 0, `N` or `2N` makes `S = 0`, so a pairing with no code | the computer refuses `A mod N = 0`, the phone refuses `B mod N = 0`, both refuse `u = 0`; 256-bit fresh secret exponents; a single-use `pair_id` (any failed `finish` counts as a wrong attempt); constant-time `m1`/`m2` comparisons; tests with `A` in {0, `N`, `2N`} next to the RFC vectors | 26.4, 26.12; SC 13 |
+| C-54 | security F-2: bodies of the new routes unsigned, and nonces only in memory, so a request recorded before a restart could be replayed with any body (unsave everything, a huge baseline, an undone deletion) | the three CR-01 routes carry `body_sha256` in the signed query (the technique C-43 used for the reset; the PT1 string does not change); the authenticator refuses a `ts` older than the process start with `401 clock_skew`, which the phone already answers by re-signing once, so restart replays are closed on every route; the wording of SC 4.8 and 20.8 corrected | 5.4, 7.8, 20.8; SC 4.3, 4.7, 4.8, 6.11, 6.12 |
+| C-55 | security F-3: `409 store_full` refused whole requests and wedged a phone's outbox for good; unbounded Saved positions and tombstones could break the 1 MiB cap; totals could pass 32 bits | content refused per item, never per request (`store_full` removed): reference labels always accepted, at most 48 other labels, extra baselines ignored, Saved positions bounded (≤ 1,000,000 and within the job's own counts, else `dropped`), at most 10,000 entries with tombstones pruned early (advancing `pruned_through`), totals clamped to 2,147,483,647; the worst-case answer recomputed (≈ 0.99 MB); the phone marks every refused item handled and a `400` page handled too | 5.4, 7.8, 20.8; SC 4.7, 6.12, 8.1 |
+| C-56 | security F-4: any paired credential can delete any finished analysis with no brake, and phones paired under API 6 gain the power silently | 20 deletions per device per 10 minutes (`429 rate_limited` with `Retry-After`; already transient on the phone); a banner line and a README paragraph naming `phonotrainer phone revoke` | 8.8, 20.8; SC 2.1, 4.7, 6.11, 10.3 |
+| C-57 | security F-5: candidate mode accepted any certificate for the already paired computer at a new address, and one shared client could reuse a candidate connection for signed requests | candidate mode only while no pin exists; a separate candidate client with its own socket factory and pool, without the signing interceptor; the version-2 `hello` proof binds the pin; an instrumented pool test | 26.3, 26.8, 26.9 |
+| C-58 | security F-6: stripping `tls_port` made a version-2 app pair in clear on a version-2 computer; a forged `tls_port` pushed a v1-paired phone into "Connect again" | a version-2 computer serves v1 pairing only for a `phone pair --legacy` code (any other attempt is `code_invalid`, the v1 answer when no code exists); a missing or wrong pin proof keeps the phone on v1 with "Not encrypted" | 26.4 to 26.7, 26.10, 26.11; SC 13 |
+| C-59 | security F-7: a key recorded at a v1 pairing stayed valid after the move to TLS | the move ends with a rekey inside pinned TLS (`POST /api/phone/v2/rekey`, a key the phone chose, accepted only on the TLS listener; device id kept); `tls_required` after it; a key stolen and used first shows "Connect again". Deviation from the finding's wording ("returns a new token"): the phone proposes the key, so no secret is ever returned and a lost answer is settled with a `hello` instead of a second token | 26.5, 26.6, 26.10, 26.11; SC 13 |
+| C-60 | security F-8: the deletion audit line was INFO on a logger uvicorn's configuration drops, and named the device by 4 useful characters | a dedicated `phonotrainer.audit` logger with its own stderr handler installed by the app's lifespan in every mode; the line names the phone and its 12-character short id (as `phone list` prints it); tested under uvicorn's `LOGGING_CONFIG` | 20.8; SC 3.3, 6.11, 10.1, 11.3 |
+| C-61 | security F-9: "Undo" after an attempt with an unknown outcome could say something false; a `404` could be read as "already gone" | `maybe_sent` on the row withdraws "Undo" (and shows spec D-65's line, C-76); answers matched by status and code, `unknown_route` never "already gone" (a refusal, spec D-62, C-75); `ComputerDeletion.actions` is the one authority | 4.2, 8.8, 19; WP 4.7 |
+| C-62 | security F-10: "Forget this computer" raced a deletion in flight | `forget()` runs inside `SyncController.exclusive`, which waits for an outbox call on the wire and applies its answer before the unpair and the key deletion; QT-18's in-flight variant in WP-28 | 6.3, 8.8; WP 4.7, WP-28 |
+| C-63 | security F-11: a first share with a second computer sent the first computer's aggregate (other devices' answers) as this phone's baseline | `own_stat`, this phone's own answers since the latest reset it knows of, written with each answer, cleared by a reset, rebuilt from the kept answer rows when another device's reset arrives; the baseline for a computer other than the one `share_state` names (sent rows kept 30 days for that) | 4.3, 7.8, 20.8; WP 4.7 |
+| C-64 | security F-12: an unreadable store's behaviour was unspecified, and recreating it would wipe every device | fail closed: `503 store_unavailable` (transient) and a warning; the file is never recreated or overwritten; R-4 then covers only a deliberate deletion | 7.8, 20.8, 25.5 R-4; SC 3.2, 8.1, 11.3 |
+| C-65 | security F-13: the browser route had no body rules (a Pydantic body reads everything first), the three phone routes were not in `JSON_ROUTES`, and a reset everywhere left no trace | the browser router mirrors the phone body rules (`Transfer-Encoding` and missing length 411, over 16 KiB 413, not JSON 415, reads at most 16 KiB + 1 bytes); the three routes join `JSON_ROUTES`; one audit line per applied reset | 20.8; SC 4.7, 6.12, 6.13, 11.3 |
+| C-66 | consistency 1 (high): WP-02's pairing store saves capabilities field by field, so the two new flags would read back `false` and both features never start | CR-01-A2 adds `caps_delete_finished` and `caps_shared_progress` to `readCapabilities()`/`writeCapabilities()` (absent reads `false`) with a round-trip test; WP-02 M3 unchanged | 4.5, 3.4; WP 4.7 |
+| C-67 | consistency 4: Storage's "Remove from this phone" confirmation had no owner for its words | WP-24 covers the copy (WP-24 has not started); section 10's F-05-AC11 row lists WP-16 and WP-24 | WP-16, WP-24, WP 10 |
+| C-68 | consistency 5: Home's attention row had no owner for a refused deletion's inline action | WP-34 gains phase-complete rows for `:feature:home`, `ConnectionStatusCard` and `e2e/home/`, with a screen test; the action is the oldest refused deletion's "Try again" when no failed request needs attention (design 9.17) | 8.8; WP 3.2, WP-34 |
+| C-69 | consistency 7: the wave-5 lane arithmetic did not hold | CR-01-A2 sized as its own 2-day item of WP-26; lanes rebalanced (WP-29 last on lane B, WP-30 on lane C); wave 5 restated as about 24 days (about 21 without WP-29), against about 15 without CR-01 | WP 1.3, 1.4, WP-26 |
+| C-70 | consistency 8: `different_computer` was a user-facing refusal although the spec says the deletion waits; `unknown_route` was "any other 4xx" | `different_computer` keeps waiting (an event code; fix round 2 adds its reason "A different computer answered", spec D-62); `unknown_route` was proposed to wait with `COMPUTER_CANNOT`; **superseded by C-75**: product answered (spec D-62) that it is a refusal | 8.8, 19 |
+| C-71 | consistency 9: two dialog changes of design 9.23 missing from WP-34; WP-16 did not cite the v1-core "On this phone" anatomy | both added to WP-34's Covers and Proof; WP-16 consumes design 9.23 and 9.26 (v1-core part) | WP-16, WP-34 |
+| C-72 | consistency 10: the browser hand-off held the Web Lock across a request, and one rejected answer blocked every later sync | the lock only around each read-modify-write; a 10 s timeout; an answer the computer refuses with `400` is logged and dropped | `web-progress-sync.md` 5, 6.2, 8 |
+| C-73 | consistency 11: the exported aggregate after a move to a second computer was a limit the spec did not state | no spec sentence needed: with `own_stat` (C-63) spec 7.13 rule 7 ("the answers given on it") holds as written | 7.8 |
+| C-74 | consistency 14: "Q-1 default", "Q-5 default" after the owner confirmed them | "Q-1, confirmed (D-53)" and "Q-5, confirmed (D-53)"; S-24's "outside the repository" is product's (R-8) | SC 2.1, 4.8 |
+
+Also fixed while there (security F-15, architecture part): `ui.py`'s generic tap applies the D-57 guard to the
+destructive labels (21.7).
+
+**Requests to the product track (fix round 1; spec text only), all answered (fix round 2, 25.7):**
+- **R-5** (C-61): "Undo" lasts only while no attempt may have reached the computer. **Answered: spec D-65**, which
+  also adds the line "It may have reached your computer already, so it can't be undone." (19; C-76).
+- **R-6** (C-56): the brake on deletions (20 per phone per 10 minutes), the terminal line per deletion and the start
+  banner's sentence. **Answered by the product track's fix round 1**: server behaviour, so no spec text is needed; the
+  banner and README sentence stand as written (SC 2.1, 10.3). S-06's promise stays scoped to API 6 by SC 4.2.
+- **R-7** (C-54, security F-15): **Answered in spec 11.5, 11.6, S-05, S-24 and S-25**: content signed and replays
+  refused after a restart from v1-complete; the browser progress routes are open to any program on this computer, like
+  its other routes.
+- **R-8** (C-74): **Answered in spec S-24**: "outside version control (in the operator's configuration directory and
+  the git-ignored workspace, never in a committed file)".
+- R-1 to R-4 of 25.5 are answered by spec D-59, D-62, D-63 and D-64.
+
+**Requests to the design track:** none that need a new drawing. For the record: a waiting deletion without "Undo"
+(C-61) is 9.26's waiting state without its button, with D-65's line under the reason (design 9.19, 9.26); a
+`different_computer` answer is one more reason line ("A different computer answered", D-61 step 1); design 9.17's
+"Try again" in Home's attention row is what WP-34 now owns (C-68).
+
+### 25.7 CR-01 review fixes, round 2 (revision 5, 2026-10-11)
+
+Inputs: the product track's answers D-58 to D-65 (spec 15.7, written after fix round 1), design revision 3.2 (9.19,
+9.26), and the four items the consistency and security reviews routed back to the architect: the architecture still
+contradicted D-62 on `unknown_route`; 19 and WP-34 lacked the answered words; D-57 (3)'s first-share step was only in
+the spec; nothing named the quoted-title function of design 9.26. The rule stays: product owns copy and behaviour, so
+the architecture follows its answers and adds no word of its own; every change lands in CR-01-A2 (not yet applied) or
+in WPs that have not started (WP-22, WP-24, WP-25, WP-34, WP-28 A, WP-06-3, WP-33). WP-01 milestone B, WP-02 M3 and
+everything else in flight are untouched.
+
+| Id | Finding | Disposition | Where |
+|---|---|---|---|
+| C-75 | consistency (blocking): the architecture made a computer without the route a wait (`DeletionWait.COMPUTER_CANNOT`, "Undo" kept, retried), the spec a refusal (D-62, 7.7 Retries, 7.9) | aligned with D-62, product's answer to R-2: `404 unknown_route` → `FAILED` with F-05 item 6's "not offered" sentence, "Try again" and "Keep the clip", no automatic retry, never "already gone"; a connected computer whose `health` no longer announces `delete_finished` gets the same refusal without a request (one state, one set of words); `COMPUTER_CANNOT` leaves `DeletionWait`, replaced by `DIFFERENT_COMPUTER`, the wait a `409 different_computer` gives ("A different computer answered", "Undo" kept, D-62). Why not ask product to reverse D-62: the answer is product's to give, it keeps the clip on both sides (fails safe), and "Try again" serves the one real cause (an older PhonoTrainer, updated later) | 8.8, 19; SC 6.11, 8.1; WP 4.7, WP-28 A, WP-34 |
+| C-76 | consistency (blocking): 19 and WP-34 predated D-58, D-61, D-62 and D-65 ("proposed" sentences, no imported words, no state-to-reason mapping, no D-65 line) | 19 now holds the product's words only: D-58's imported forms (Requests title, waiting, sending, refused; block, button and confirmation in the Clip page's strings), D-61's order (`WaitingReasonCopy`, below), D-62's three refusal sentences, D-65's line; WP-34's Covers and Proof list each | 19; WP-34 |
+| C-77 | D-61: one list of reasons for requests and deletions | `WaitingReasonCopy` in `:core:ui` `component/` (WP-22, v1-core, copy only; WP-22 has not started): the queue pause, connection and retry steps; `RequestRow` and `DeletionCopy` both call it, so the two kinds of row can never give two reasons for one state, which is D-61's purpose. WP-24 gets D-60's title and confirm label of "Forget this computer?" (copy only; WP-24 has not started) | 19; WP 3.2, WP-22, WP-24 |
+| C-78 | consistency (blocking): D-57 (3), NFR-14 and X-AC10 add a QA step before the test phone first shares with the owner's computer; 21.7 had none, WP-33 said QA "never resets the shared history", WP-25 did not count QA's answers | 21.7 gains the counting (from WP-25 on), the check (`practice_totals()` against the QA log) and the logged outcome (clear when equal, else report what the first share sends and QA's part); WP-25 counts its practice answers per change; WP-06-3 adds `practice_totals()`; WP-33's Covers and Proof run the step. Equality is the test because a clearing cannot be undone and the owner's answers are the owner's | 21.7; WP-06-3, WP-25, WP-33, WP 10 |
+| C-79 | security F-14's architecture half: design 9.26 says "the architecture names it and decides its module"; nothing did | `QuotedTitle.of(title)` in `:core:ui` `component/`, made by the integrator in CR-01-A2 with a Robolectric test of design 9.26's three fixtures; the shell's host passes the three messages' titles through it in the same commit; WP-34 uses it in `DeletionCopy` and every CR-01 confirmation and proves the right-to-left-override dialog against render 31, specimen 5; `androidx.core.text.BidiFormatter` (already an app library, one dependency line in `:core:ui`) and the platform's `android.icu.text.BreakIterator`, so no new library | 19, 20.8; WP 3.2, 4.7, WP-26, WP-34 |
+
+**Requests to the product track (fix round 2):** one observation, no change needed now: D-61 names no reason for a
+waiting request while no computer is paired (`ComputerStatus.NotConnected`), so `WaitingReasonCopy` shows no line
+then; a deletion cannot exist in that state (6.3).
+
+**Requests to the design track (fix round 2):** none needed. For alignment only: design 9.19's deletion table may name
+the wait `DeletionWait.DIFFERENT_COMPUTER` (8.8) where it says "the deletion's last error code `different_computer`"
+(both are true: the field is derived from that code), and design 9.26 may cite `QuotedTitle` (19) as the function's
+name (its `androidx.core.text.BidiFormatter` is the one used).
+
+---------------------------------------------------------------------------------------------------------------
+
+## 26. Version 2: encrypted transport (v2, not in the v1 work plan; AD-26, spec 14.6, S-L3, D-56)
+
+**Status.** A design ready to be planned after v1-complete. No v1 work package builds any of it, and no v1 decision
+blocks it: v1's per-device key (5.3), the computer's identity proof and the single shared HTTP client are exactly what
+it builds on. Spec 14.6 lists eight product requirements; 26.11 maps each to this design.
+
+### 26.1 What changes and what does not
+
+- **Changes**: phone traffic to a version-2 computer goes over **TLS 1.3**; the phone trusts only the computer's own
+  key, **pinned at pairing**; pairing runs inside TLS and is protected by **SRP-6a** with the six-digit code, and a
+  version-2 computer pairs in plain HTTP only with a legacy code the operator asks for; a phone paired under v1 moves
+  over by itself with a proof made with its existing device key and then gets a new key inside TLS; once a phone has
+  used TLS with its computer, neither side speaks plain HTTP with the other again.
+- **Does not change**: the pairing screens and the code in the computer's terminal (no certificate, fingerprint or
+  setting for anyone to handle), discovery (one additive field), PT1 signatures and nonces on every phone route,
+  identity proofs, approved networks, the route allowlist and Host rules, and the browser client on the computer's
+  loopback HTTP (S-21).
+
+### 26.2 The computer's identity
+
+- When phone access is turned on (or at the first start of a version-2 server that has phone access on), the computer
+  creates an EC P-256 key and a self-signed X.509 certificate (subject "PhonoTrainer computer", validity 100 years:
+  dates are not part of the trust) in the configuration directory: `tls_key.pem` (`0600`) and `tls_cert.pem`, under
+  the directory's lock and permission checks (server-contract 3.1). Tool: the `cryptography` package (Apache-2.0 or
+  BSD-3-Clause, GPL-compatible; recorded in `THIRD-PARTY-NOTICES.md` section 3 when version 2 adds it); the system
+  `openssl` command is the documented fallback if that dependency is refused.
+- Its **pin** is the SHA-256 of the certificate's DER SubjectPublicKeyInfo, as lower-case hex (computed the same way by
+  `cryptography`'s `public_bytes(DER, SubjectPublicKeyInfo)` and Android's `Certificate.publicKey.encoded`).
+- The key never leaves the directory and is never printed. `phonotrainer phone status` shows the pin's first 8
+  characters so the operator can tell identities apart; nothing else does.
+
+### 26.3 Transport
+
+- A second uvicorn server in the same process serves the same app on `tls_port` (default 8443, in `server.json`, in
+  the range the firewall allows), on the active approved addresses only (server-contract 2.1), with the key and
+  certificate above and `minimum_version = TLSv1_3` (set on the SSL context uvicorn builds, after `Config.load()` and
+  before `serve()`). Port 8000 stays plain HTTP: loopback for the browser, and LAN phone routes for apps that have not
+  moved yet (26.7).
+- The discovery reply gains `"tls_port": 8443` (an additive field; v1 phones ignore unknown fields,
+  server-contract 5.3). `hello` answers on both listeners and gains `"tls_port"`.
+- On the phone, **two clients** are built from the one base client of 5.1 (the same per-socket network binding, no-DNS
+  rule, dispatcher and timeouts), each with its own `SSLContext` for `TLSv1.3`, its own `SSLSocketFactory` and its own
+  `ConnectionPool`, connection specs `RESTRICTED_TLS` (TLS 1.3 only) plus `CLEARTEXT` (only for computers that never
+  offered TLS, 26.7):
+  - the **pinned client** (`@ComputerHttp`, the client of 5.1): every request to the paired computer goes through it
+    (Retrofit, transfers, the job channel) and so does **every check of the paired computer at any address**, a
+    discovered, typed or changed address included. Its `PinnedPeerTrustManager.checkServerTrusted` computes the leaf's
+    pin and accepts it only if it equals the pin stored for the paired computer (`tls_pin` in the pairing store, not
+    backed up, next to the credential, 4.5); certificate dates and chains are ignored, because the pin is the identity.
+    It has no other mode.
+  - the **candidate client** (`@CandidateHttp`), used only while this phone holds **no pin** for the computer it talks
+    to: the `hello` of a computer found or typed before pairing, and the SRP exchange of 26.4. Its trust manager accepts
+    any leaf and records its pin for 26.4. The signing interceptor is not installed on it, so it never carries a PT1
+    signature, and nothing uses it for a computer once a pin is stored.
+  OkHttp keys its pool by `Address`, which includes the socket factory, and the two clients share neither factory nor
+  pool, so a connection opened in candidate mode can never carry a pinned, signed request (review fix C-57). An
+  instrumented test in `:core:network` proves it: a candidate connection to a `MockWebServer` serving a held
+  certificate stays open, then a signed request to the same address through the pinned client (with another pin
+  stored) opens a new connection and fails its handshake before any request byte.
+  - The `HostnameVerifier` accepts only the current or candidate address (`AllowedPeers`), never a name: the computer's
+    address changes with DHCP and its identity is the key.
+  - `CleartextGuard` (5.2) gains one rule: for a computer whose pairing has `tls_required`, every `http` or `ws`
+    request fails before a byte is sent; `https` and `wss` follow the same address rules as before.
+  - The job channel becomes `wss://<address>:<tls_port>/api/phone/events`; artifact downloads keep Range and If-Range
+    over HTTPS; media playback and image loading still read local files only (D-12), so nothing else uses the network.
+  - `network_security_config.xml` keeps its cleartext base configuration while version-1 computers exist (an address
+    known only at runtime cannot be named there, and spec 14.6 requirement 6 keeps a version-1 computer working); the
+    guard above is what confines cleartext, as in v1, and for a computer with `tls_required` it allows none, which is
+    how spec 14.6 requirement 8 ("no longer needs the cleartext allowance for the computer") is met per computer. A
+    later version that drops version-1 computers sets `cleartextTrafficPermitted="false"` in the base configuration.
+
+### 26.4 Pairing over TLS, protected by SRP-6a
+
+A pin delivered with the pairing code's HMAC is not enough: a six-digit code has 10^6 values, so a machine that
+terminates the phone's TLS during pairing receives `HMAC(code, its own pin)` and finds the code offline in well under
+a second, then pairs with the real computer itself. A PAKE gives such an attacker one guess per run and a recording
+nothing. SRP-6a (RFC 5054) is chosen because it needs only modular exponentiation and SHA-256: Python integers and
+`hashlib` on the computer, `java.math.BigInteger` and `MessageDigest` on the phone, with the RFC's test vectors; no
+PAKE library is needed on either side (SPAKE2 and CPace need elliptic-curve point arithmetic that neither standard
+library exposes). Because the exchange is written by hand, the safety checks of RFC 5054 section 2.5.4 are part of the
+design, not left to a library (review fix C-53).
+
+Parameters: the RFC 5054 3072-bit group (`N`, `g = 5`), `H` = SHA-256, `k = H(N | PAD(g))`, identity
+`I = "phonotrainer"`, password `P` = the six digits. Secret exponents `a` and `b` are fresh for every exchange, 256
+random bits each (`SecureRandom` on the phone, `secrets.randbits(256)` on the computer), and never reused.
+
+1. `phonotrainer phone pair` creates the code as in v1 (server-contract 2.3) and stores in `pairing.json` a 16-byte
+   salt `s` and the verifier `v = g^x mod N`, `x = H(s | H(I ":" P))`, and **no** v1 `code_sha256`: a version-2
+   computer pairs over plain HTTP only with a legacy code (26.6).
+2. The phone opens TLS to `tls_port` through the **candidate client** (it has no pin yet) and records the server's pin
+   `pin_seen`. `POST /api/phone/v2/pair/start {device_name, app_version, app_version_name, A}` with `A = g^a mod N`.
+   The computer refuses an `A` with `A mod N = 0` (0, `N`, `2N`, …), which would force `S = 0` and so a key `K = H(0)`
+   known without the code, with `403 code_invalid`, counted as a wrong attempt; an `A` longer than 1,024 hex digits is
+   `400 invalid_request`. Otherwise it answers `{pair_id, salt, B, server_id, name}` with `B = (k·v + g^b) mod N`,
+   computes `u = H(PAD(A) | PAD(B))` at once and draws a new `b` if `u = 0`. `pair_id` (16 random bytes, hex) lives 60 s
+   and allows one `finish`.
+3. The phone refuses a `B` with `B mod N = 0` and a `u = 0`: it sends nothing more and shows the `code_invalid` words
+   (spec F-02). Both compute the shared `S` and `K = H(S)`. The phone sends
+   `POST /api/phone/v2/pair/finish {pair_id, m1, previous_device_id, previous_token_proof}` with
+   `m1 = HMAC-SHA256(K, "pt-pair-v2|client|" + hex(A) + "|" + hex(B) + "|" + server_id + "|" + pin_seen)`.
+4. The computer deletes `pair_id` at its first `finish`, whatever the outcome, so an unknown, expired or already used
+   `pair_id` and a wrong `m1` are each a wrong attempt (five lock the code, 2.3) answered `403 code_invalid`. It
+   recomputes `m1` with **its own** pin and compares with `hmac.compare_digest`. A mismatch means a wrong code or a
+   machine in the middle (whose certificate the phone saw). A match creates or re-activates the device exactly as v1's
+   pairing does (server-contract 6.2, "Connect again" included), records `tls_since` for it (its credential never
+   travels outside TLS), and answers the v1 grant plus `m2 = HMAC-SHA256(K, "pt-pair-v2|server|" + hex(A) + "|" +
+   hex(B) + "|" + server_id + "|" + pin + "|" + device_id)`.
+5. The phone checks `m2` with `MessageDigest.isEqual` (constant time) before storing anything; then it stores the
+   grant, `tls_port`, `tls_pin = pin_seen` and `tls_required = true` in one `PairingStore` write, and continues as in
+   v1 (6.3), through the pinned client: a `hello` with a challenge (26.9), then `Connected`.
+
+The token travels once, inside TLS, only after `m1` proved that both ends know the code and saw the same certificate.
+Rate limits, the five-attempt lock and the terminal's "Paired: … (from …)" line stay as in v1.
+
+### 26.5 Moving phones paired under v1 (spec 14.6 requirement 5)
+
+A version-2 app paired with a computer under v1 probes as in v1 (plain `hello` with its identity proof, 5.3). When the
+computer's `hello` names a `tls_port`:
+1. **Pin proof.** The phone sends the signed `GET /api/phone/tls?challenge=<64 hex>` over HTTP; the computer answers
+   `{tls_port, pin, proof}` with `proof = HMAC-SHA256(K, "pt-tls-v1|" + server_id + "|" + device_id + "|" + pin + "|" +
+   tls_port + "|" + challenge)` and the device's key `K`. The pin is therefore authenticated by the trust established
+   at v1 pairing, without a new code. With a valid proof the phone stores `tls_port` and `tls_pin`. With a missing or
+   wrong proof, or a `404` (a version-1 computer whose `hello` someone gave a `tls_port`), the phone stays on v1
+   exactly, Connection details shows the "Not encrypted" line (26.7), and it asks again at its next session: nothing
+   is deleted and nothing asks the learner to connect again, so a forged or stripped field can never push a phone into a
+   new pairing (review fix C-58).
+2. **First TLS session.** Through the pinned client, a `hello` with a challenge and the version-2 proof (26.9).
+3. **New key** (review fix C-59). TLS here does not authenticate the client, and the phone's key `K` crossed the
+   Wi-Fi in plain HTTP once (the v1 pairing answer), so it must not outlive the move. The phone makes a new token `T2`
+   (the v1 format, 32 random bytes), stores it encrypted as `pending_credential` in the pairing store, and sends
+   `POST /api/phone/v2/rekey {"key_sha256": "<hex SHA-256 of T2>"}`, signed with `K`, through the pinned client. The
+   computer accepts this route only on its TLS listener (on port 8000 it answers `403 tls_required`), replaces the
+   device's `key_sha256` (the old key stops working on both listeners at once), keeps the device id and everything
+   attached to it, records `tls_since`, and answers `200 {"device_id": …}`. The new key is chosen by the phone and
+   sent only inside the pinned TLS session, so no secret is ever returned and a lost answer costs nothing.
+4. **Settling.** Whatever the answer (`200`, an error, or none), the phone checks a `hello` challenge through the
+   pinned client with `T2`'s key: a valid proof commits the move (credential = `T2`, `tls_required = true`,
+   `pending_credential` removed, in one write). Otherwise, if the old key still works, step 3 is retried at the next
+   session; if neither works (someone who held the old key rekeyed first), the status is "Connect again" (v1's words),
+   nothing is deleted, and pairing again with a code runs SRP and keeps the device id and everything else (6.3).
+
+### 26.6 No downgrade
+
+- Phone: `tls_required` (26.4, 26.5) makes `CleartextGuard` refuse plain HTTP to that computer for good. If the computer
+  stops offering TLS (an older PhonoTrainer reinstalled, or the port blocked), nothing is sent, nothing is deleted, and
+  the status reads "Update PhonoTrainer on your computer" (spec 7.5, the `ComputerTooOld` words).
+- Computer: `devices.json` records `tls_since` for a device at its SRP pairing or its rekey; from then on that
+  device's requests over plain HTTP answer `403 {"code": "tls_required"}` (except `hello`), and its old key is gone
+  anyway.
+- **No plain pairing by default** (review fix C-58). A version-2 computer serves v1's `POST /api/phone/pair` only for a
+  code made with `phonotrainer phone pair --legacy`, which prints "This code pairs over an unencrypted connection. Use
+  it only for a phone whose PhonoTrainer app is not updated yet." and stores only v1's `code_sha256` (no SRP verifier,
+  so that code cannot be used over TLS either). For any other code v1's route finds no code and answers
+  `403 code_invalid`, as v1 does when no code exists (server-contract 2.3). An attacker who strips `tls_port` from
+  discovery or `hello` therefore gets a version-2 app a "wrong code", never a plain pairing, and the token never
+  travels in clear.
+- Residuals:
+  - Before a phone moves, an active attacker who strips `tls_port`, or makes the pin proof fail, keeps that phone on
+    v1's protection for as long as it stays in the middle; Connection details says "Not encrypted" meanwhile. Once the
+    pin is stored, it cannot be undone.
+  - A listener who recorded a phone's **v1** pairing holds its key until that phone moves; the rekey (26.5) replaces
+    the key, so the recording is worthless afterwards. Someone who holds the key **and** is active in the middle at
+    the moment of the move can either rekey first (the phone then shows "Connect again", which is visible) or give the
+    phone its own pin with a valid proof (it can compute one with the key) and stay in the middle. Pairing again with a
+    new code rules both out (SRP, 26.4); the original pairing's "Paired: … (from …)" line is the v1 detection that
+    remains. This is spec 14.6 requirement 5: the move is exactly as trustworthy as the v1 pairing it relies on.
+  - A legacy code pairs one phone exactly as v1 does, with v1's risk, and only when the operator asks for it by name.
+
+### 26.7 Mixed versions (spec 14.6 requirement 6)
+
+| App | Computer | Result |
+|---|---|---|
+| v2 | v1 (no `tls_port`) | v1 exactly (plain HTTP confined by `CleartextGuard`); Connection details: "Not encrypted: update PhonoTrainer on your computer to encrypt this connection." The same when a `tls_port` is announced but the pin proof is missing or wrong (26.5) |
+| v2 | v2 | TLS (paired with SRP, or moved and given a new key by 26.5); Connection details: "Encrypted connection" (icon + words) |
+| v1 | v2 | a phone already paired: v1 exactly on port 8000 until its app is updated and moves (26.5); a new pairing of a v1 app needs `phonotrainer phone pair --legacy` (26.6) |
+| any | any, browser | unchanged: loopback HTTP on port 8000 (S-21) |
+
+The owner's v1 builds are sideloaded and updated together with the computer, so a legacy code is the exception for an
+app that cannot be updated at that moment; every phone paired before the update keeps working without one.
+
+### 26.8 Identity change, rotation and revocation (spec 14.6 requirement 4)
+
+- `phonotrainer phone new-identity` replaces the key and certificate and prints "This computer has a new identity.
+  Phones must connect again with a new code: phonotrainer phone pair"; the next start repeats the line once. A lost
+  configuration directory is a new server id, which phones already treat as "A different computer answered" (v1).
+- A phone whose pinned handshake fails sends nothing, deletes nothing, pauses the queue and keeps every clip, request
+  and saved item: a new status (`ComputerStatus.IdentityChanged(name)` and `ProbeOutcome.IdentityChanged`, version-2
+  types) with the spec's words: "Your computer's identity changed. If PhonoTrainer was reinstalled or reset on your
+  computer, connect again with a new code. If not, another device may be answering at its address." and "Connect
+  again". Connecting again with the same server id keeps everything (re-activation with `previous_token_proof`, 6.3)
+  and stores the new pin. The phone never accepts a new pin by itself, and a rotation is never "signed over" by the old
+  key, because the requirement is that the learner decides.
+- The paired computer is checked through the pinned client at every address, a new or typed one included (26.3), so a
+  machine that relays `hello` from a new address fails at its handshake and never reaches the identity proof.
+- Device revocation is v1's (`phone revoke`). A suspected key leak on the computer: `new-identity` and `revoke --all`.
+
+### 26.9 What stays signed with PT1, and why
+
+Every phone route keeps the v1 `Authorization: PT1 …` signature, nonce and clock window (server-contract 4.3), and
+`hello` keeps its identity proof. Reasons: the server keeps one authentication path for both transports while v1 apps
+exist; per-device revocation and "Connect again" keep working unchanged; and a leaked TLS key alone does not let anyone
+act as a phone (the device keys are separate). Inside TLS the bodies are protected by TLS as well as by v1-complete's
+`body_sha256` (server-contract 4.3).
+
+Over TLS the identity proof binds the pin (review fix C-57): `hello` on the TLS listener answers
+`proof = HMAC-SHA256(K, "pt-hello-v2|" + server_id + "|" + device_id + "|" + challenge + "|" + pin)` with the
+computer's own pin, and the phone checks it with its stored `tls_pin`, so a `hello` relayed from another TLS session
+fails even if a pinned handshake were ever bypassed. Over plain HTTP (a phone that has not moved) the v1 proof is
+unchanged.
+
+### 26.10 Threat model: what version 2 changes
+
+| Threat | v1 | v2 |
+|---|---|---|
+| A listener on the Wi-Fi reads clips, transcripts, links, practice answers, the Saved list | yes | no (TLS 1.3, forward secrecy) |
+| Recording the pairing captures the token | yes, once (spec 11.6) | no for an SRP pairing: the exchange is inside TLS and SRP reveals nothing about the code; a v1 pairing recorded earlier is usable only until that phone moves, when the rekey replaces its key (26.5); a legacy code is v1's (26.6) |
+| An active attacker after pairing reads or alters traffic | yes; it cannot change a signed request or its body (CR-01's `body_sha256`), but it can read, block or delay | no: the pinned key authenticates the computer and TLS protects every byte |
+| An active attacker during pairing | can relay a code typed into a rogue responder; seen only through the terminal's "Paired: … (from …)" line | one online guess per run (one in a million), five wrong attempts lock the code; stripping `tls_port` gets a "wrong code", never a plain pairing (26.6); the terminal line stays |
+| A rogue responder after pairing | no proof, so `DifferentComputer` | the pinned handshake fails before any request byte, at any address (26.3, 26.8) |
+| Downgrade to plain HTTP | — | only before a phone moves, and only to v1's protection, with "Not encrypted" shown; never for a pairing (26.6) |
+| A v1 pairing that was recorded, then an active attacker at the moment a phone moves to TLS (26.5) | the listener already holds that phone's token | can rekey first (the phone shows "Connect again") or pin its own key once; closed by pairing again with a code (SRP), 26.6; a recording alone is worthless after the move |
+| An active attacker adds an answer, a Saved change or a reset in a body (CR-01) | no: the body's hash and a phone's reset are in the signed request target (20.8) | no |
+| A local user who reads the configuration directory | can act as a paired phone (`devices.json`) | also can act as the computer (`tls_key.pem`); the same `0600` / `0700` protection |
+| DNS rebinding, LAN route allowlist, approved networks | unchanged | unchanged |
+
+### 26.11 Spec 14.6 requirements → design
+
+| Requirement | Met by |
+|---|---|
+| 1 Encrypted and authenticated, identity pinned, no CA, domain, service or account | TLS 1.3 to a self-generated key; SPKI pin stored at pairing (26.2 to 26.4); discovery unchanged but for `tls_port` |
+| 2 No extra steps beyond pairing | the same code and screens; nothing to accept or install; no new permission (26.4) |
+| 3 Pairing protected | SRP-6a with RFC 5054's checks inside TLS, the pin in the key confirmation; no plain pairing on a version-2 computer without a legacy code the operator asks for; a recording reveals nothing; one guess per run (26.4, 26.6) |
+| 4 Identity change never accepted by itself | `IdentityChanged` state with the spec's words; nothing sent or deleted; "Connect again" keeps everything for the same server id (26.8) |
+| 5 v1-paired phones move over by themselves; no fallback once used | the pin proof with the v1 device key, then a new key inside TLS (26.5); `tls_required` on both sides (26.6); a missing proof keeps v1 with the "Not encrypted" line; "Connect again" only when both the old and the new key fail |
+| 6 Mixed versions keep working | 26.7 (paired v1 phones keep working; a new pairing of an app that is not updated takes a legacy code) |
+| 7 Visible but quiet | "Encrypted connection" and the "Not encrypted" line in Connection details, the identity-change state; nothing else |
+| 8 No cost to the study loop | the same base client; media and images read local files; TLS 1.3 with hardware AES on the phone; NFR-02 and SC-08 re-measured in version 2's QA; no cleartext to a computer with `tls_required` (26.3) |
+
+### 26.12 What implementing it would take (for a future plan; not scheduled)
+
+- **Server** (Python): identity files and `new-identity`; the TLS listener; the SRP verifier in `phone pair` and the
+  `--legacy` option; the two pairing routes, `GET /api/phone/tls` and `POST /api/phone/v2/rekey`; the version-2
+  `hello` proof; `tls_since` and `403 tls_required`; `tls_port` in discovery and `hello`; pytest with the RFC 5054
+  appendix B vectors (its 1024-bit group and SHA-1, run through the same code with those parameters) and fixed vectors
+  for this design's 3072-bit group and SHA-256 in `tests/phone_fixtures.py`, shared with the phone's tests; `A` in
+  {0, `N`, `2N`} → `403 code_invalid` counted as a wrong attempt; a second `finish` with the same `pair_id` → `403`
+  counted; a v1 pairing attempt without a legacy code → `code_invalid`; a refused TLS 1.2 handshake; the in-the-middle
+  pairing case; the pin proof; the rekey (the old key refused on both listeners, the device id kept, the route refused
+  on port 8000); the downgrade refusal (server-contract 13).
+- **Phone**: `:core:network` (the pinned and the candidate client, `PinnedPeerTrustManager`, the pin recorder, the SRP
+  client with its `B mod N` and `u` checks and constant-time `m2` check, the guard rule, the instrumented pool test of
+  26.3), `:core:connectivity` (pairing over TLS, the move and rekey of 26.5, `IdentityChanged`), `:core:datastore`
+  (pairing store keys `tls_port`, `tls_pin`, `tls_required` and the encrypted `pending_credential`; not backed up),
+  Connection details copy (spec 14.6 item 7) with the icons design 9.28 names (lock and lock-open), the fake computer
+  over HTTPS (`mockwebserver3` with `okhttp-tls`'s `HeldCertificate`, Apache-2.0, a test dependency), the host-side
+  fake computer with its TLS listener, and the spec's version-2 ACs on the emulator.
+- **No runtime dependency on the phone** (Conscrypt's TLS 1.3, `BigInteger`, `MessageDigest`); on the computer,
+  `cryptography` for the certificate.
