@@ -27,6 +27,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
 import org.junit.Rule
 import org.junit.Test
@@ -71,6 +72,24 @@ class LibraryViewModelTest {
 
     // One subscription per ViewModel: a kept ViewModel never reads the catalogue again.
     assertThat(clips.calls).isEqualTo(1)
+  }
+
+  @Test
+  fun comingBackAfterALongAbsenceKeepsTheListUntilTheNewOneArrives() = runTest {
+    // A list that collapsed to its loading state would lose its scroll position (F-04-AC5).
+    clips.fake.all.value = LibrarySamples.clips
+    val vm = viewModel()
+    val shown = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.state.collect {} }
+    assertThat(vm.state.value.total).isEqualTo(5)
+    shown.cancel()
+    advanceTimeBy(ABSENCE_MS)
+
+    val seen = mutableListOf<LibraryUiState>()
+    backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.state.collect { seen += it } }
+    assertThat(seen.map { it.loading }).doesNotContain(true)
+    assertThat(seen.last().total).isEqualTo(5)
+    // The subscription had stopped, so the catalogue is read again.
+    assertThat(clips.calls).isEqualTo(2)
   }
 
   @Test
@@ -200,5 +219,10 @@ class LibraryViewModelTest {
     val vm = collected()
     clips.fake.all.value = listOf(LibrarySamples.coffee.copy(availability = ClipAvailability.NotOnThisPhone))
     assertThat(vm.state.value.clips.single().clip.availability).isEqualTo(ClipAvailability.NotOnThisPhone)
+  }
+
+  private companion object {
+    /** Longer than the 5 s the screen's state and then the catalogue each keep their subscription. */
+    const val ABSENCE_MS = 20_000L
   }
 }

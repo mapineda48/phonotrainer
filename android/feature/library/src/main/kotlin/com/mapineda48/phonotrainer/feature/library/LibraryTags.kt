@@ -14,7 +14,7 @@ object LibraryTags {
   const val ADD = "library.list.add"
   const val LEDE = "library.list.lede"
 
-  /** The one scrolling list of the screen (group, search, chips, count and rows). */
+  /** The one scrolling list (group, search, chips, count and rows); absent while the catalogue first loads. */
   const val LIST = "library.list.list"
   /** The search field's container; its editable node is `hasSetTextAction() and hasAnyAncestor(hasTestTag(SEARCH))`. */
   const val SEARCH = "library.list.search"

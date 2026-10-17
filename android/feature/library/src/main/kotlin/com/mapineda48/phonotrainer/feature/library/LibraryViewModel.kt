@@ -74,11 +74,11 @@ internal data class LibraryUiState(
 }
 
 /**
- * The Library (spec F-04). It reads the whole catalogue once (`ClipRepository.clips(ClipQuery())`, called once per
- * ViewModel) and applies search, filter and sort itself ([LibraryRules.arrange]), which gives the live count "8 of
- * 10 clips" and an order that never depends on how a list arrived. Search, filter and sort live in the
- * [SavedStateHandle], so Back from the feed, a tab switch and a process death keep them (F-04-AC5); the scroll
- * position is the screen's saveable list state.
+ * The Library (spec F-04). It subscribes to the whole catalogue (`ClipRepository.clips(ClipQuery())`, one
+ * subscription shared by everything the screen shows) and applies search, filter and sort itself
+ * ([LibraryRules.arrange]), which gives the live count "8 of 10 clips" and an order that never depends on how a list
+ * arrived. Search, filter and sort live in the [SavedStateHandle], so Back from the feed, a tab switch and a process
+ * death keep them (F-04-AC5); the scroll position is the screen's saveable list state.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
@@ -94,12 +94,18 @@ internal class LibraryViewModel @Inject constructor(
   private val posterCache = mutableMapOf<String, File?>()
   private val busy = mutableSetOf<String>()
 
-  private val catalogue: Flow<Catalogue> = attempts.flatMapLatest {
-    clips.clips(ClipQuery())
+  /**
+   * The whole catalogue, read while the Library is shown (and for [STOP_TIMEOUT_MS] after, so a quick tab switch keeps
+   * the subscription). [Catalogue.Loading] is only the first state of a ViewModel and of "Try again": when the Library
+   * comes back after a longer absence the last list stays until the new one arrives, so the list never collapses to
+   * its loading state and keeps its scroll position (F-04-AC5).
+   */
+  private val catalogue: StateFlow<Catalogue> = attempts.flatMapLatest { attempt ->
+    val read = clips.clips(ClipQuery())
       .map<List<ClipSummary>, Catalogue> { Catalogue.Ready(withPosters(it)) }
-      .onStart { emit(Catalogue.Loading) }
       .catch { if (it is CancellationException) throw it else emit(Catalogue.Failed) }
-  }
+    if (attempt == 0) read else read.onStart { emit(Catalogue.Loading) }
+  }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), Catalogue.Loading)
 
   private val controls: Flow<Triple<String, ClipFilter, ClipSort>> = combine(
     savedState.getStateFlow(SEARCH, ""),

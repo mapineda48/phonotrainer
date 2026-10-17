@@ -135,67 +135,67 @@ internal fun LibraryScreen(state: LibraryUiState, actions: LibraryActions, modif
         )
       },
     )
-    LazyColumn(
-      state = listState,
-      modifier = Modifier.fillMaxSize().testTag(LibraryTags.LIST),
-      contentPadding = PaddingValues(start = PhonoSpacing.gutter, end = PhonoSpacing.gutter, bottom = PhonoSpacing.s24),
-      verticalArrangement = Arrangement.spacedBy(PhonoSpacing.s4),
-    ) {
-      item(key = "lede") {
-        PhonoText(
-          stringResource(R.string.library_lede),
-          style = MaterialTheme.typography.bodyMedium,
-          color = PhonoTheme.colors.ink2,
-          modifier = Modifier.padding(bottom = PhonoSpacing.s12).testTag(LibraryTags.LEDE),
-        )
-      }
-      if (state.offline) item(key = "offline") { OfflineBanner(state) }
-      when {
-        state.loading -> item(key = "loading") {
-          Box(Modifier.testTag(LibraryTags.LOADING)) {
-            LoadingGate(loading = true, label = stringResource(R.string.library_loading)) {}
-          }
+    if (state.loading) {
+      // Outside the list on purpose: a lazy list keeps a restored scroll position (after a process death) only until
+      // its first layout with items, so it must not lay out placeholder items before the catalogue arrives.
+      Column(Modifier.fillMaxSize().padding(horizontal = PhonoSpacing.gutter)) {
+        Lede()
+        if (state.offline) OfflineBanner(state)
+        Box(Modifier.testTag(LibraryTags.LOADING)) {
+          LoadingGate(loading = true, label = stringResource(R.string.library_loading)) {}
         }
-        state.failed -> item(key = "error") { CatalogueError(actions.onRetry) }
-        else -> {
-          inProgress(state, actions)
-          if (state.empty) {
-            item(key = "empty") { LibraryEmpty(state.paired, actions) }
-          } else {
-            controls(state, actions)
-            if (state.clips.isEmpty()) {
-              item(key = "no-match") { NoMatch(state, actions) }
-            }
-            items(state.clips, key = { "clip:" + it.clip.id.value }) { card ->
-              val id = card.clip.id
-              Column {
-                ClipRow(
-                  state = card,
-                  onWatch = { actions.onWatch(id) },
-                  onOpen = { actions.onOpenClip(id) },
-                  onMore = { menuFor = id.value },
-                  modifier = Modifier.testTag(LibraryTags.row(id)),
-                  moreMenu = {
-                    RowMenu(
-                      clip = card.clip,
-                      expanded = menuFor == id.value,
-                      onDismiss = { menuFor = null },
-                      onPick = { item ->
-                        menuFor = null
-                        when (item) {
-                          RowMenuItem.WATCH -> actions.onWatch(id)
-                          RowMenuItem.OPEN -> actions.onOpenClip(id)
-                          RowMenuItem.KEEP -> actions.onKeep(id, true)
-                          RowMenuItem.STOP_KEEPING -> actions.onKeep(id, false)
-                          RowMenuItem.DOWNLOAD -> actions.onDownload(id)
-                          RowMenuItem.REMOVE_FROM_PHONE -> removing = id.value
-                          RowMenuItem.REMOVE_VIDEO -> actions.onRemoveVideo(id)
-                        }
-                      },
-                    )
-                  },
-                )
-                Box(Modifier.fillMaxWidth().height(PhonoSizes.hairline).background(PhonoTheme.colors.hairline))
+      }
+    } else {
+      LazyColumn(
+        state = listState,
+        modifier = Modifier.fillMaxSize().testTag(LibraryTags.LIST),
+        contentPadding = PaddingValues(start = PhonoSpacing.gutter, end = PhonoSpacing.gutter, bottom = PhonoSpacing.s24),
+        verticalArrangement = Arrangement.spacedBy(PhonoSpacing.s4),
+      ) {
+        item(key = "lede") { Lede() }
+        if (state.offline) item(key = "offline") { OfflineBanner(state) }
+        when {
+          state.failed -> item(key = "error") { CatalogueError(actions.onRetry) }
+          else -> {
+            inProgress(state, actions)
+            if (state.empty) {
+              item(key = "empty") { LibraryEmpty(state.paired, actions) }
+            } else {
+              controls(state, actions)
+              if (state.clips.isEmpty()) {
+                item(key = "no-match") { NoMatch(state, actions) }
+              }
+              items(state.clips, key = { "clip:" + it.clip.id.value }) { card ->
+                val id = card.clip.id
+                Column {
+                  ClipRow(
+                    state = card,
+                    onWatch = { actions.onWatch(id) },
+                    onOpen = { actions.onOpenClip(id) },
+                    onMore = { menuFor = id.value },
+                    modifier = Modifier.testTag(LibraryTags.row(id)),
+                    moreMenu = {
+                      RowMenu(
+                        clip = card.clip,
+                        expanded = menuFor == id.value,
+                        onDismiss = { menuFor = null },
+                        onPick = { item ->
+                          menuFor = null
+                          when (item) {
+                            RowMenuItem.WATCH -> actions.onWatch(id)
+                            RowMenuItem.OPEN -> actions.onOpenClip(id)
+                            RowMenuItem.KEEP -> actions.onKeep(id, true)
+                            RowMenuItem.STOP_KEEPING -> actions.onKeep(id, false)
+                            RowMenuItem.DOWNLOAD -> actions.onDownload(id)
+                            RowMenuItem.REMOVE_FROM_PHONE -> removing = id.value
+                            RowMenuItem.REMOVE_VIDEO -> actions.onRemoveVideo(id)
+                          }
+                        },
+                      )
+                    },
+                  )
+                  Box(Modifier.fillMaxWidth().height(PhonoSizes.hairline).background(PhonoTheme.colors.hairline))
+                }
               }
             }
           }
@@ -368,6 +368,17 @@ private fun RowMenu(clip: ClipSummary, expanded: Boolean, onDismiss: () -> Unit,
       )
     }
   }
+}
+
+/** The destination's one-sentence lede (design 10). */
+@Composable
+private fun Lede() {
+  PhonoText(
+    stringResource(R.string.library_lede),
+    style = MaterialTheme.typography.bodyMedium,
+    color = PhonoTheme.colors.ink2,
+    modifier = Modifier.padding(bottom = PhonoSpacing.s12).testTag(LibraryTags.LEDE),
+  )
 }
 
 @Composable
