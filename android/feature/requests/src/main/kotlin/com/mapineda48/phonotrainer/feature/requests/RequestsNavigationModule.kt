@@ -10,15 +10,15 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 
-/** Contributes the destinations of :feature:requests to the shell (architecture 16.3). */
+/** Contributes Requests (P-03), the request detail (P-04) and "Add a clip" (P-05) to the shell (architecture 16.3). */
 @Module
 @InstallIn(SingletonComponent::class)
 object RequestsNavigationModule {
   @Provides
   @IntoSet
   fun entries(): EntryInstaller = EntryInstaller { navigator ->
-    entry<RequestsKey> { RequestsStubScreen(navigator::navigate) }
-    entry<RequestDetailKey> { RequestDetailStubScreen() }
-    entry<AddClipKey> { AddClipStubScreen() }
+    entry<RequestsKey> { RequestsRoute(navigator) }
+    entry<RequestDetailKey> { key -> RequestDetailRoute(key, navigator) }
+    entry<AddClipKey> { key -> AddClipRoute(key, navigator) }
   }
 }
