@@ -2,8 +2,10 @@ package com.mapineda48.phonotrainer.core.requests.android
 
 import android.content.Context
 import android.content.pm.ServiceInfo
+import android.os.Build
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
+import androidx.work.ListenableWorker
 import androidx.work.ExistingWorkPolicy
 import androidx.work.ForegroundInfo
 import androidx.work.OneTimeWorkRequestBuilder
@@ -56,14 +58,14 @@ internal class WorkManagerRequestWork @Inject constructor(
       .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
       .setInputData(workDataOf(QueueWorkNames.KEY_REQUEST to id.value))
       .build()
-    work.enqueueUniqueWork(QueueWorkNames.shareIntake(id), ExistingWorkPolicy.KEEP, request)
+    work.enqueueUniqueWork(QueueWorkNames.shareIntake(id), INTAKE_POLICY, request)
   }
 
   override fun startFileIntake(id: RequestId) {
     val request = OneTimeWorkRequestBuilder<FileIntakeWorker>()
       .setInputData(workDataOf(QueueWorkNames.KEY_REQUEST to id.value))
       .build()
-    work.enqueueUniqueWork(QueueWorkNames.fileIntake(id), ExistingWorkPolicy.KEEP, request)
+    work.enqueueUniqueWork(QueueWorkNames.fileIntake(id), INTAKE_POLICY, request)
   }
 
   override fun stopIntake(id: RequestId) {
@@ -78,7 +80,19 @@ internal class WorkManagerRequestWork @Inject constructor(
     // Appended: a run in progress finishes its file, then the new run looks at the queue again.
     work.enqueueUniqueWork(QueueWorkNames.UPLOADS, ExistingWorkPolicy.APPEND_OR_REPLACE, request)
   }
+
+  private companion object {
+    /**
+     * A new intake of a request ("Try audio only" right after a failed copy) may arrive while the work that failed is
+     * still finishing: it is appended and runs next, never dropped; a copy already done makes it end at once.
+     */
+    val INTAKE_POLICY: ExistingWorkPolicy = ExistingWorkPolicy.APPEND_OR_REPLACE
+  }
 }
+
+/** Why Android stopped [worker], for the log: its stop reason on Android 12 and later, "unknown" before. */
+internal fun stopReasonOf(worker: ListenableWorker): String =
+  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) worker.stopReason.toString() else "unknown"
 
 /** The "Transfers" notification as a foreground service of type `dataSync` (architecture 7.2, Android review L10). */
 internal fun transferForeground(
@@ -112,7 +126,7 @@ internal class ShareIntakeWorker @AssistedInject constructor(
       intake.copy(id)
       Result.success()
     } catch (stopped: CancellationException) {
-      log.w("requests.intake_stopped.$stopReason")
+      log.w("requests.intake_stopped.${stopReasonOf(this)}")
       throw stopped
     }
   }
@@ -140,7 +154,7 @@ internal class FileIntakeWorker @AssistedInject constructor(
       intake.copy(id)
       Result.success()
     } catch (stopped: CancellationException) {
-      log.w("requests.intake_stopped.$stopReason")
+      log.w("requests.intake_stopped.${stopReasonOf(this)}")
       throw stopped
     }
   }
@@ -182,7 +196,7 @@ internal class UploadWorker @AssistedInject constructor(
       uploader.run(foreground)
       Result.success()
     } catch (stopped: CancellationException) {
-      log.w("requests.upload_stopped.$stopReason")
+      log.w("requests.upload_stopped.${stopReasonOf(this)}")
       throw stopped
     }
   }

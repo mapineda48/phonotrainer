@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The device queue's workers run as WorkManager foreground work of type dataSync: the expedited shared-file copy on
+     Android 10 and 11 and every visible upload (architecture 7.2, 8.3, 8.5), so WorkManager's foreground service must
+     carry that type. Architecture 7.2 places this entry, with the FOREGROUND_SERVICE_DATA_SYNC permission, in
+     :core:sync's manifest; :core:requests declares the same service entry because its own workers need it, and the
+     manifest merger makes the two one. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <application>
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge" />
+    </application>
+
+</manifest>

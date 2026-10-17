@@ -3,7 +3,7 @@ package com.mapineda48.phonotrainer.core.requests.android
 import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
+import androidx.core.net.toUri
 import android.os.ParcelFileDescriptor
 import android.provider.OpenableColumns
 import com.mapineda48.phonotrainer.core.requests.intake.ExtractorInput
@@ -30,7 +30,7 @@ internal class ContentSourceReader @Inject constructor(
   private val resolver: ContentResolver get() = context.contentResolver
 
   override fun refuses(uri: String): Boolean {
-    val parsed = runCatching { Uri.parse(uri) }.getOrNull() ?: return true
+    val parsed = runCatching { uri.toUri() }.getOrNull() ?: return true
     if (parsed.scheme != ContentResolver.SCHEME_CONTENT) return true
     val authority = parsed.authority?.takeIf { it.isNotEmpty() } ?: return true
     // A content URI may name several authorities ("a;b"); every one must belong to another app.
@@ -43,7 +43,7 @@ internal class ContentSourceReader @Inject constructor(
   }
 
   override fun facts(uri: String): SourceFacts {
-    val parsed = Uri.parse(uri)
+    val parsed = uri.toUri()
     var name: String? = null
     var size: Long? = null
     runCatching {
@@ -62,17 +62,17 @@ internal class ContentSourceReader @Inject constructor(
 
   /** Opens a URI that [refuses] accepted when its request was made (FileIntake checks before any request exists). */
   override fun open(uri: String): SourceStream {
-    val descriptor = resolver.openFileDescriptor(Uri.parse(uri), "r")
+    val descriptor = resolver.openFileDescriptor(uri.toUri(), "r")
       ?: throw FileNotFoundException("no descriptor")
     return DescriptorStream(descriptor)
   }
 
   override fun keepReadable(uri: String): Boolean = runCatching {
-    resolver.takePersistableUriPermission(Uri.parse(uri), Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    resolver.takePersistableUriPermission(uri.toUri(), Intent.FLAG_GRANT_READ_URI_PERMISSION)
   }.isSuccess
 
   override fun release(uri: String) {
-    runCatching { resolver.releasePersistableUriPermission(Uri.parse(uri), Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+    runCatching { resolver.releasePersistableUriPermission(uri.toUri(), Intent.FLAG_GRANT_READ_URI_PERMISSION) }
   }
 }
 
