@@ -1,6 +1,5 @@
 package com.mapineda48.phonotrainer.core.network.channel
 
-import app.cash.turbine.Event
 import app.cash.turbine.test
 import com.google.common.truth.Truth.assertThat
 import com.mapineda48.phonotrainer.core.domain.model.DeviceId
@@ -34,8 +33,9 @@ import org.junit.Test
 
 /**
  * The job channel (architecture 5.5, server-contract 7) over a real WebSocket: the fake computer's `hello`,
- * `snapshot`, `job` and `deleted` events, a channel the computer drops, a silent peer that misses its pongs (short
- * ping intervals stand for 7 s), a change of network, and frames this app does not know or cannot trust.
+ * `snapshot`, `job` and `deleted` events, a channel the computer drops or closes (both fail as lost), a silent peer
+ * that misses its pongs (short ping intervals stand for 7 s), a change of network, and frames this app does not know
+ * or cannot trust.
  */
 class JobChannelTest {
   private val computer = FakeComputer().start()
@@ -73,7 +73,7 @@ class JobChannelTest {
   }
 
   @Test
-  fun aChannelTheComputerDropsEnds() = runBlocking<Unit> {
+  fun aChannelTheComputerDropsFailsAsLost() = runBlocking<Unit> {
     TestStack(computer).use { stack ->
       stack.pair()
 
@@ -81,8 +81,38 @@ class JobChannelTest {
         assertThat(awaitItem()).isInstanceOf(ChannelEvent.Hello::class.java)
         assertThat(awaitItem()).isInstanceOf(ChannelEvent.Snapshot::class.java)
         computer.dropChannel()
-        val end = awaitEvent()
-        assertThat(end is Event.Complete || end is Event.Error).isTrue()
+        assertThat(awaitError()).isInstanceOf(ChannelLostException::class.java)
+      }
+    }
+  }
+
+  /**
+   * The real computer closes an accepted channel with code 1008 when it revokes the device or phone access is turned
+   * off (server-contract 7): a lost channel like any other, never a normal end (architecture 5.5).
+   */
+  @Test
+  fun aChannelTheComputerClosesFailsAsLost() = runBlocking<Unit> {
+    val server = MockWebServer().apply { start(InetAddress.getByName(FakeComputer.HOST), 0) }
+    server.use {
+      server.enqueue(
+        MockResponse.Builder().webSocketUpgrade(
+          object : WebSocketListener() {
+            override fun onOpen(webSocket: WebSocket, response: Response) {
+              webSocket.send("""{"type": "deleted", "id": "$JOB_ID"}""")
+              webSocket.close(POLICY_VIOLATION, "device revoked")
+            }
+          },
+        ).build(),
+      )
+      TestStack(computer).use { stack ->
+        stack.trust(HostPort(FakeComputer.HOST, server.port))
+
+        stack.channel.open().test(timeout = 5.seconds) {
+          assertThat(awaitItem()).isEqualTo(ChannelEvent.Deleted(JobId(JOB_ID)))
+          val failure = awaitError()
+          assertThat(failure).isInstanceOf(ChannelLostException::class.java)
+          assertThat(failure.message).contains("1008")
+        }
       }
     }
   }
@@ -145,9 +175,11 @@ class JobChannelTest {
       TestStack(computer).use { stack ->
         stack.trust(HostPort(FakeComputer.HOST, server.port))
 
-        val events = withTimeout(5_000) { stack.channel.open().toList() }
-
-        assertThat(events).containsExactly(ChannelEvent.Deleted(JobId(JOB_ID)))
+        stack.channel.open().test(timeout = 5.seconds) {
+          assertThat(awaitItem()).isEqualTo(ChannelEvent.Deleted(JobId(JOB_ID)))
+          // The computer's close ends the channel as lost (server-contract 7); nothing else was emitted before it.
+          assertThat(awaitError()).isInstanceOf(ChannelLostException::class.java)
+        }
       }
     }
   }
@@ -207,6 +239,7 @@ class JobChannelTest {
     const val SLACK_MS = 700L
     const val NETWORK_A = 101L
     const val NETWORK_B = 102L
+    const val POLICY_VIOLATION = 1008
     const val JOB_ID = "20261010-091503-4be1"
     const val WEBSOCKET_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
   }

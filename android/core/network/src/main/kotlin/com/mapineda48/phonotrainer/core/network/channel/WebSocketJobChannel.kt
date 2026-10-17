@@ -28,16 +28,20 @@ import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 
-/** The job channel ended: the computer closed it, a ping got no pong, or the network changed (architecture 5.5). */
+/**
+ * The job channel ended: the upgrade was refused, the computer closed the channel, a ping got no pong, or the network
+ * changed (architecture 5.5).
+ */
 internal class ChannelLostException(message: String, cause: Throwable? = null) : IOException(message, cause)
 
 /**
  * The job channel of architecture 5.5 and server-contract 7: `ws://<current address>/api/phone/events` with a signed
  * upgrade, on the channel profile (OkHttp pings every 7 s, so a missing pong fails it within 14 s). The flow emits
  * `hello`, `snapshot`, `job` and `deleted` events; frames of an unknown type, and frames that fail validation, are
- * skipped. It fails with [ChannelLostException] (or the upgrade's failure) when the channel is lost or the network
- * changes, completes when the computer closes it, and closes the socket when the collector stops. Reconnecting is the
- * caller's (the sync engine's backoff, 5.5).
+ * skipped. It fails with [ChannelLostException] (or the upgrade's failure) when the channel is refused, lost or closed
+ * by the computer, or the network changes, so a consumer sees every end of the channel as a failure, as the fake
+ * computer's client shows it; it closes the socket when the collector stops. Reconnecting is the caller's (the sync
+ * engine's backoff, 5.5).
  */
 @Singleton
 internal class WebSocketJobChannel @Inject constructor(
@@ -74,13 +78,16 @@ internal class WebSocketJobChannel @Inject constructor(
         event?.let { trySend(it) }
       }
 
+      // The phone never closes the channel itself (stopping the collector cancels the socket), so a close always
+      // comes from the computer: it revoked the device, turned phone access off or restarted (code 1008 after an
+      // accepted upgrade), and the channel is lost like any other (server-contract 7, architecture 5.5).
       override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
         webSocket.close(NORMAL_CLOSURE, null)
-        close()
+        close(ChannelLostException("The computer closed the channel (code $code)."))
       }
 
       override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-        close()
+        close(ChannelLostException("The computer closed the channel (code $code)."))
       }
 
       override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
