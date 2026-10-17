@@ -84,8 +84,8 @@ internal class DescriptorStream(private val descriptor: ParcelFileDescriptor) : 
   override val seekable: Boolean = descriptor.statSize >= 0 && runCatching { input.channel.position() }.isSuccess
 
   override fun rewind(): Boolean {
-    if (!consumed) return true
-    if (!seekable) return false
+    if (!seekable) return !consumed
+    // Always seek: an extractor reading the same descriptor moves its offset without this stream knowing.
     return runCatching { input.channel.position(0) }.isSuccess.also { if (it) consumed = false }
   }
 
@@ -97,8 +97,11 @@ internal class DescriptorStream(private val descriptor: ParcelFileDescriptor) : 
     }
   }
 
-  override fun extractorInput(): ExtractorInput? =
-    if (seekable) ExtractorInput.Descriptor(descriptor.fileDescriptor, descriptor.statSize) else null
+  override fun extractorInput(): ExtractorInput? {
+    if (!seekable) return null
+    consumed = true
+    return ExtractorInput.Descriptor(descriptor.fileDescriptor, descriptor.statSize)
+  }
 
   override fun close() {
     try {

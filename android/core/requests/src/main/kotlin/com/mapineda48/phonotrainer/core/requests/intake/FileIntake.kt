@@ -67,7 +67,8 @@ internal class FileIntake @Inject constructor(
   /**
    * Checks and stores each file as its own request (`PREPARING`), then hands its copy to the intake work: the
    * expedited shared-file work with the descriptor opened now, while the share sheet is visible, or the picked-file
-   * work, which opens the file again with its lasting permission (F-19-AC4).
+   * work, which opens the file again with its lasting permission (F-19-AC4). An item named twice (a multiple share
+   * lists its items in `EXTRA_STREAM` and in its `ClipData`, architecture 8.3) is one request.
    */
   suspend fun add(sources: List<FileSource>, options: FileOptions, serverId: String?): AddFilesResult =
     withContext(io) {
@@ -75,7 +76,7 @@ internal class FileIntake @Inject constructor(
       val refused = mutableListOf<FileRefusal>()
       val maxUpload = maxUploadBytes()
       var reserved = 0L
-      sources.forEachIndexed { index, source ->
+      sources.distinctBy { it.uri }.forEachIndexed { index, source ->
         if (index >= MAX_ITEMS) {
           refused += FileRefusal(MediaTypes.safeDisplayName(source.displayName), FileRefusalReason.TOO_MANY, null)
           return@forEachIndexed

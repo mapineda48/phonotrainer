@@ -135,6 +135,20 @@ class IntakeTest {
   }
 
   @Test
+  fun anItemListedInTheStreamAndInTheClipDataIsOneRequest() = queueTest { queue ->
+    // A multiple share names its items in EXTRA_STREAM and again in its ClipData (architecture 8.3).
+    val first = queue.reader.add("content://media.example/a", FakeItem(FakeMediaBytes.video(size = 2_000, salt = 4), name = "a.mp4"))
+    val second = queue.reader.add("content://media.example/b", FakeItem(FakeMediaBytes.video(size = 3_000, salt = 5), name = "b.mp4"))
+
+    val result = queue.repository.addFiles(listOf(shared(first), shared(second), shared(first), shared(second)), video)
+    queue.runIntakes()
+
+    assertThat(result.added).hasSize(2)
+    assertThat(result.refused).isEmpty()
+    assertThat(queue.repository.requests().first().map { it.fileName }).containsExactly("a.mp4", "b.mp4").inOrder()
+  }
+
+  @Test
   fun moreThanTenItemsAreRefusedAsTooMany() = queueTest { queue ->
     val sources = (1..12).map { n -> shared(queue.reader.add("content://media.example/$n", FakeItem(ByteArray(100) { n.toByte() }, name = "$n.mp4"))) }
 

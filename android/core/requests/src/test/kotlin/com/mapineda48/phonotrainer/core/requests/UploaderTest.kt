@@ -10,7 +10,9 @@ import com.mapineda48.phonotrainer.core.domain.model.RequestAction
 import com.mapineda48.phonotrainer.core.domain.model.RequestId
 import com.mapineda48.phonotrainer.core.domain.model.RequestState
 import com.mapineda48.phonotrainer.core.network.api.ApiResult
+import com.mapineda48.phonotrainer.core.network.api.UploadDeclaration
 import com.mapineda48.phonotrainer.core.requests.send.UploadRun
+import com.mapineda48.phonotrainer.core.testing.computer.FakeComputerClient
 import com.mapineda48.phonotrainer.core.testing.computer.FakeMediaBytes
 import java.time.Duration
 import kotlinx.coroutines.CompletableDeferred
@@ -283,5 +285,59 @@ class UploaderTest {
     assertThat(queue.computer.requests.filter { it.path.endsWith("/rerun") }).hasSize(1)
     assertThat(queue.request(id).jobId).isNotEqualTo(job)
     assertThat(queue.repository.requests().first()).hasSize(1)
+  }
+
+  @Test
+  fun aStaleSessionOfTheKeyIsAbandonedOnceAndTheFileDeclaredAgain() = queueTest { queue ->
+    // The key declared the whole video before its audio was extracted on the phone (architecture 8.4).
+    val id = queue.waitingFile(FakeMediaBytes.video(size = 20_000, salt = 12))
+    val video = FakeMediaBytes.video(size = 90_000, salt = 13)
+    val stale = UploadDeclaration(id, "VID_0001.mp4", video.size.toLong(), Sha256.hex(video), separateDialogue = true)
+    assertThat(queue.fakeClient.openUpload(stale)).isInstanceOf(ApiResult.Ok::class.java)
+
+    queue.uploader.run(FakeForeground())
+
+    val calls = queue.computer.requests.map { it.method to it.path }
+    assertThat(calls).contains("DELETE" to "/api/phone/uploads/${id.value}")
+    assertThat(queue.computer.jobsWithKey(id).single().sourceBytes).isEqualTo(FakeMediaBytes.video(size = 20_000, salt = 12))
+    assertThat(queue.request(id).state).isEqualTo(RequestState.IN_LINE)
+  }
+
+  @Test
+  fun aKeyHeldByAnotherPhoneWaitsAndFailsNothing() = queueTest { queue ->
+    val id = queue.waitingFile(FakeMediaBytes.video(size = 20_000, salt = 14))
+    val otherPhone = queue.computer.pairDevice("Other")
+    val other = FakeComputerClient(queue.computer, otherPhone)
+    val theirs = FakeMediaBytes.video(size = 10_000, salt = 15)
+    other.openUpload(UploadDeclaration(id, "theirs.mp4", theirs.size.toLong(), Sha256.hex(theirs), separateDialogue = null))
+
+    assertThat(queue.uploader.run(FakeForeground())).isEqualTo(UploadRun.IDLE)
+
+    // A UUID clash is a defect of the key (server-contract 8.1): logged, retried on the schedule, never "failed".
+    val request = queue.request(id)
+    assertThat(request.state).isEqualTo(RequestState.WAITING)
+    assertThat(request.waiting!!.attempts).isEqualTo(1)
+    assertThat(queue.computer.jobsWithKey(id)).isEmpty()
+    val declarations = queue.computer.requests.filter { it.method == "POST" && it.path == "/api/phone/uploads" && it.signedBy != otherPhone.deviceId }
+    assertThat(declarations.map { it.status }).containsExactly(409, 409)
+  }
+
+  @Test
+  fun aStoreFailureOnTheComputerKeepsTheCopyAndTheNextTryUsesTheSameKey() = queueTest { queue ->
+    val bytes = FakeMediaBytes.video(size = 20_000, salt = 16)
+    val id = queue.waitingFile(bytes)
+    queue.computer.failNext("/api/phone/uploads/*", 500, "server_error", method = "PUT")
+
+    queue.uploader.run(FakeForeground())
+    val waiting = queue.request(id)
+    assertThat(waiting.state).isEqualTo(RequestState.WAITING)
+    assertThat(waiting.waiting!!.attempts).isEqualTo(1)
+    assertThat(queue.files.dir(id).exists()).isTrue()
+
+    queue.clock.advanceBy(Duration.ofSeconds(30))
+    queue.uploader.run(FakeForeground())
+
+    assertThat(queue.computer.jobsWithKey(id).single().sourceBytes).isEqualTo(bytes)
+    assertThat(queue.request(id).state).isEqualTo(RequestState.IN_LINE)
   }
 }
