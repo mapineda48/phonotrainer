@@ -17,31 +17,55 @@ import com.mapineda48.phonotrainer.core.domain.model.Track
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
-// Settable fakes of the :core:player interfaces (work-plan 4.6; WP-11 owns this folder after B1).
+// Settable fakes of the :core:player interfaces (work-plan 4.6; WP-11). Each records what it was asked and exposes
+// its state flow for the test to set: a screen test drives every playback state by assigning `stateFlow.value`.
 
+/** One call of [FakeSpanPlayer.play]. */
+data class SpanPlay(val span: ClipSpan, val speed: Float, val track: Track, val loop: Boolean)
+
+/** Plays nothing: [play] records the call, shows it as playing and returns at once (the span "ended"). */
 class FakeSpanPlayer : SpanPlayer {
   val stateFlow = MutableStateFlow(SpanPlaybackState(null, false, 0, 1f, Track.MIX, false, null))
   val played = mutableListOf<ClipSpan>()
+  val calls = mutableListOf<SpanPlay>()
+  var stops = 0
+    private set
 
   override val state: StateFlow<SpanPlaybackState> = stateFlow
 
   override suspend fun play(span: ClipSpan, speed: Float, track: Track, loop: Boolean) {
     played += span
+    calls += SpanPlay(span, speed, track, loop)
     stateFlow.value = SpanPlaybackState(span, true, span.startMs, speed, track, loop, null)
   }
 
   override fun stop() {
+    stops++
     stateFlow.value = stateFlow.value.copy(playing = false)
   }
 }
 
-/** Records every command; [stateFlow] is what the feed observes. */
-class FakeFeedPlayer : FeedPlayer {
+/**
+ * The Watch screen telling the pool whether Watch is visible (architecture 11.2), recorded by [FakeFeedPlayer]. The
+ * method has the name and signature that change request CR-WP11-1 adds to `FeedPlayer`, so the fake's one override
+ * serves both once it is applied.
+ */
+interface FakeFeedVisibility {
+  fun setVisible(visible: Boolean)
+}
+
+/** Records every command; [stateFlow] is what the feed observes, [position] what `positionMs()` answers. */
+class FakeFeedPlayer : FeedPlayer, FakeFeedVisibility {
   val stateFlow = MutableStateFlow(FeedPlaybackState(0, false, 1f, Track.MIX, LoopMode.OFF, false, false, false, false, null))
   val commands = mutableListOf<String>()
+
+  /** Every `setVisible` call, in order. */
+  val visibility = mutableListOf<Boolean>()
   var queue: List<FeedItem> = emptyList()
     private set
   var position = 0L
+  var released = false
+    private set
 
   override val state: StateFlow<FeedPlaybackState> = stateFlow
 
@@ -52,12 +76,12 @@ class FakeFeedPlayer : FeedPlayer {
 
   override fun settle(index: Int, autoplay: Boolean) {
     commands += "settle:$index:$autoplay"
-    stateFlow.value = stateFlow.value.copy(index = index, playing = autoplay)
+    stateFlow.value = stateFlow.value.copy(index = index, playing = autoplay, ended = false)
   }
 
   override fun play() {
     commands += "play"
-    stateFlow.value = stateFlow.value.copy(playing = true)
+    stateFlow.value = stateFlow.value.copy(playing = true, ended = false)
   }
 
   override fun pause() {
@@ -100,26 +124,43 @@ class FakeFeedPlayer : FeedPlayer {
 
   override fun positionMs(): Long = position
 
+  override fun setVisible(visible: Boolean) {
+    commands += "setVisible:$visible"
+    visibility += visible
+    if (!visible) stateFlow.value = stateFlow.value.copy(playing = false, firstFrameRendered = false)
+  }
+
   override fun release() {
     commands += "release"
+    released = true
   }
 }
 
+/** One call of [FakeShadowingRunner.run]. */
+data class ShadowingRun(val span: ClipSpan, val slowSpeed: Float, val track: Track)
+
+/** Records runs and stops; the test sets [stateFlow] to show any phase. [run] returns at once. */
 class FakeShadowingRunner : ShadowingRunner {
   val stateFlow = MutableStateFlow<ShadowingState>(ShadowingState.Idle)
   val runs = mutableListOf<ClipSpan>()
+  val calls = mutableListOf<ShadowingRun>()
+  var stops = 0
+    private set
 
   override val state: StateFlow<ShadowingState> = stateFlow
 
   override suspend fun run(span: ClipSpan, slowSpeed: Float, track: Track) {
     runs += span
+    calls += ShadowingRun(span, slowSpeed, track)
   }
 
   override fun stop() {
+    stops++
     stateFlow.value = ShadowingState.Idle
   }
 }
 
+/** Keeps the claim order: the last element is the owner that holds the sound. */
 class FakeAudioArbiter : AudioArbiter {
   val owners = mutableListOf<PlaybackOwner>()
 
@@ -133,6 +174,7 @@ class FakeAudioArbiter : AudioArbiter {
   }
 }
 
+/** Answers [decoders] for `summary()` and [playable] for `canPlay` (everything plays by default). */
 class FakeDecoderCapabilities(
   var decoders: List<DecoderInfo> = emptyList(),
   var playable: (String, Int, Int) -> Boolean = { _, _, _ -> true },
