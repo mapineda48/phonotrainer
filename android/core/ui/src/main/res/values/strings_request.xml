@@ -1,8 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Strings of RequestRow and RequestFailureCopy (WP-22; placeholder copy at the contract freeze). -->
+<!-- Strings of RequestRow, RequestFailureCopy and WaitingReasonCopy (WP-22): the request card of design 9.19, the
+     failure copy of spec 8.6 and 7.7 (architecture 19), the waiting reasons of spec F-20 item 1 (D-61) and the stage
+     words and teaching lines of spec F-20 item 2 (the web's stepper). -->
 <resources>
+    <!-- The card. -->
     <string name="request_open">Open “%1$s”</string>
-    <string name="request_action_cancel_preparing">Stop adding</string>
+    <string name="request_open_label">open the request</string>
+    <string name="request_watch">Watch</string>
+
+    <!-- Action labels (spec F-20 actions table); "…when connected" while the computer is not (F-20 States). -->
+    <string name="request_action_cancel_preparing">Cancel</string>
     <string name="request_action_send_now">Send now</string>
     <string name="request_action_stop_sending">Stop sending</string>
     <string name="request_action_remove">Remove</string>
@@ -10,11 +17,168 @@
     <string name="request_action_undo_cancel">Undo</string>
     <string name="request_action_try_again">Try again</string>
     <string name="request_action_try_audio_only">Try audio only</string>
-    <string name="request_action_open_link">Open link</string>
+    <string name="request_action_open_link">Open the link</string>
     <string name="request_action_show_details">Show details</string>
     <string name="request_action_connect_again">Connect again</string>
     <string name="request_action_why">Why?</string>
-    <string name="request_failure_title">Couldn\'t analyze this clip</string>
-    <string name="request_failure_body">Your computer stopped working on it.</string>
+    <string name="request_action_cancel_when_connected">Cancel when connected</string>
+    <string name="request_action_try_again_when_connected">Try again when connected</string>
+    <string name="request_action_try_audio_only_when_connected">Try audio only when connected</string>
+
+    <!-- State words (design 9.19; spec F-20 item 1). -->
+    <string name="request_state_preparing">Preparing the file… %1$d %%</string>
+    <string name="request_state_preparing_unknown">Preparing the file…</string>
+    <string name="request_state_waiting">Waiting on this phone</string>
+    <string name="request_state_sending">Sending %1$d %% · %2$s</string>
+    <string name="request_state_sending_unknown">Sending…</string>
+    <string name="request_bytes_of">%1$s of %2$s</string>
+    <string name="request_state_sent">Sent to your computer</string>
+    <string name="request_state_in_line">Waiting in line · %1$s</string>
+    <string name="request_state_in_line_unknown">Waiting in line</string>
+    <string name="request_in_line_note">Analyses run one at a time.</string>
+    <string name="request_state_analyzing">Analyzing %1$d %%</string>
+    <string name="request_state_analyzing_unknown">Analyzing</string>
+    <string name="request_state_cancel_waiting">Cancel waiting for your computer</string>
+    <string name="request_state_rerun">Starting again on your computer</string>
+    <string name="request_state_ready">Ready on your computer</string>
+    <string name="request_state_getting">Getting it on this phone %1$d %%</string>
+    <string name="request_state_getting_unknown">Getting it on this phone</string>
+    <string name="request_state_on_phone">On this phone</string>
+    <string name="request_last_known">Last known: %1$s (%2$s)</string>
+    <string name="request_phrase_of">phrase %1$d of %2$d</string>
+
+    <!-- The source line: site + shortened link, or file name + size, and the age. -->
+    <string name="request_site_youtube">YouTube</string>
+    <string name="request_site_shorts">YouTube Shorts</string>
+    <string name="request_site_x">X</string>
+    <string name="request_site_other">Other website</string>
+    <string name="request_file_video">Video</string>
+    <string name="request_file_audio">Audio</string>
+    <string name="request_added">added %1$s</string>
+    <string name="request_ago_now">just now</string>
+    <plurals name="request_ago_minutes">
+        <item quantity="one">%d min ago</item>
+        <item quantity="other">%d min ago</item>
+    </plurals>
+    <plurals name="request_ago_hours">
+        <item quantity="one">%d hour ago</item>
+        <item quantity="other">%d hours ago</item>
+    </plurals>
+    <string name="request_ago_yesterday">yesterday</string>
+    <plurals name="request_ago_days">
+        <item quantity="one">%d day ago</item>
+        <item quantity="other">%d days ago</item>
+    </plurals>
+    <string name="request_size_kb">%1$s KB</string>
+    <string name="request_size_mb">%1$s MB</string>
+    <string name="request_size_gb">%1$s GB</string>
+
+    <!-- Reason lines of a waiting row (spec F-20 item 1, D-41, D-46, D-61). -->
+    <string name="request_reason_held">Stopped by you: it waits here until you tap Send now.</string>
+    <string name="request_reason_large_file">Open PhonoTrainer on your home Wi-Fi to send this file: large files are sent while the app is open.</string>
+    <string name="waiting_connect_again">Your computer no longer recognizes this phone</string>
+    <string name="waiting_computer_too_old">Update PhonoTrainer on your computer</string>
+    <string name="waiting_app_too_old">Update this app</string>
+    <string name="waiting_different_computer">A different computer answered</string>
+    <string name="waiting_not_on_wifi">Not on Wi-Fi</string>
+    <string name="waiting_unreachable">Your computer isn\'t reachable</string>
+    <plurals name="waiting_retry_in">
+        <item quantity="one">Will try again in %d min</item>
+        <item quantity="other">Will try again in %d min</item>
+    </plurals>
+    <string name="waiting_retry_later">Couldn\'t send yet: will try again</string>
+
+    <!-- The route line of a waiting request (design 9.19). -->
+    <string name="request_route_phone">Phone</string>
+    <string name="request_route_computer">Computer</string>
+    <string name="request_route_ready">Ready</string>
+    <string name="request_route_description">On this phone: not on your computer yet.</string>
+
+    <!-- The analysis stages (spec F-20 item 2, the web's stepper; design 9.19). -->
+    <string name="request_stage_download">Download</string>
+    <string name="request_stage_extract">Extract the audio</string>
+    <string name="request_stage_separate">Separate the dialogue</string>
+    <string name="request_stage_transcribe">Transcribe the words</string>
+    <string name="request_stage_phones">Hear the phones</string>
+    <string name="request_stage_save">Compare and save</string>
+    <string name="request_stage_short_download">Download</string>
+    <string name="request_stage_short_extract">Audio</string>
+    <string name="request_stage_short_separate">Dialogue</string>
+    <string name="request_stage_short_transcribe">Words</string>
+    <string name="request_stage_short_phones">Phones</string>
+    <string name="request_stage_short_save">Save</string>
+    <string name="request_teach_download">Fetching the video from the website.</string>
+    <string name="request_teach_extract">Turning the file into a plain mono recording the models can read.</string>
+    <string name="request_teach_separate">Removing music and effects so that only the voices remain.</string>
+    <string name="request_teach_transcribe">Whisper writes down every word and when it is said.</string>
+    <string name="request_teach_phones">The phone recognizer listens to each word and lines it up with its dictionary form.</string>
+    <string name="request_teach_save">Labelling what changed in each word and saving the results.</string>
+    <string name="request_stage_status_done">done</string>
+    <string name="request_stage_status_current">in progress</string>
+    <string name="request_stage_status_next">next</string>
+    <string name="request_stage_status_skipped">skipped</string>
+    <string name="request_stage_status_failed">failed</string>
+    <string name="request_stage_status_cancelled">cancelled</string>
+    <string name="request_step_of">Step %1$d of %2$d</string>
+    <string name="request_stepper_current">Step %1$d of %2$d: %3$s, in progress.</string>
+    <string name="request_stepper_waiting">%1$d steps on your computer, not started yet.</string>
+    <string name="request_stepper_done">All %1$d steps done.</string>
+    <string name="request_stage_announcement">Now: %1$s.</string>
+
+    <!-- Failure copy (spec 8.6; the phone-side copy codes of 7.7; architecture 19). -->
+    <string name="request_failure_refused_address_title">This link can\'t be analyzed</string>
+    <string name="request_failure_refused_address_body">It points to a private or local address.</string>
+    <string name="request_failure_invalid_url_body">Your computer couldn\'t accept it as a link to download.</string>
+    <string name="request_failure_file_refused_title">Your computer can\'t take this file</string>
+    <string name="request_failure_unsupported_type_body">Its file type isn\'t supported. Supported: MP4, MOV, MKV, WebM, AVI, M4V, MP3, M4A, AAC, WAV, FLAC, OGG, Opus.</string>
+    <string name="request_failure_too_large_body">It is larger than %1$s.</string>
+    <string name="request_failure_too_large_unknown_body">It is larger than your computer accepts.</string>
+    <string name="request_failure_checksum_body">It arrived damaged on your computer three times. Try sending it again.</string>
+    <string name="request_failure_download_forbidden_title">The download failed</string>
+    <string name="request_failure_download_forbidden_body">The website refused it. This sometimes passes after a while, or with audio only.</string>
+    <string name="request_failure_download_unavailable_title">This video can\'t be downloaded</string>
+    <string name="request_failure_download_unavailable_body">It is private, removed, or needs a login, which PhonoTrainer can\'t do.</string>
+    <string name="request_failure_unsupported_site_title">This website isn\'t supported</string>
+    <string name="request_failure_unsupported_site_body">Your computer doesn\'t know how to download from this site. Try a YouTube or X link.</string>
+    <string name="request_failure_playlist_title">That\'s a playlist</string>
+    <string name="request_failure_playlist_body">Share a single video instead.</string>
+    <string name="request_failure_live_stream_title">Live streams can\'t be analyzed</string>
+    <string name="request_failure_live_stream_body">This video is live or hasn\'t started yet. Once it has ended and is saved as a video, try again.</string>
+    <string name="request_failure_too_long_title">This video is too long for your computer</string>
+    <string name="request_failure_too_long_body">Your computer analyzes link videos up to %1$s long. Share a shorter video; the limit can be changed on your computer (see its README).</string>
+    <string name="request_failure_too_long_unknown_body">Your computer analyzes link videos up to the length set on your computer. Share a shorter video; the limit can be changed on your computer (see its README).</string>
+    <plurals name="request_limit_hours">
+        <item quantity="one">%d hour</item>
+        <item quantity="other">%d hours</item>
+    </plurals>
+    <plurals name="request_limit_minutes">
+        <item quantity="one">%d minute</item>
+        <item quantity="other">%d minutes</item>
+    </plurals>
+    <string name="request_failure_network_title">Your computer couldn\'t reach the website</string>
+    <string name="request_failure_no_space_title">Your computer is low on space</string>
+    <string name="request_failure_no_space_body">Your computer has %1$s free.</string>
+    <string name="request_failure_not_media_title">Your computer couldn\'t read this file</string>
+    <string name="request_failure_tool_missing_title">Your computer can\'t process this yet</string>
+    <string name="request_failure_tool_missing_body">It is missing a tool (ffmpeg). See the README on your computer.</string>
+    <string name="request_failure_interrupted_title">Your computer stopped during the analysis</string>
+    <string name="request_failure_interrupted_body">Start PhonoTrainer again, then try again.</string>
+    <string name="request_failure_processing_title">The analysis failed</string>
+    <string name="request_failure_processing_body">Your computer couldn\'t finish the analysis.</string>
+    <string name="request_failure_cancelled_title">Cancelled</string>
+    <string name="request_failure_source_gone_title">Your computer no longer has this file</string>
+    <string name="request_failure_source_gone_body">Share it again.</string>
+    <string name="request_failure_copy_title">Couldn\'t keep the file</string>
+    <string name="request_failure_copy_no_space_video">Not enough space on this phone to keep this video until your computer is reachable. Free %1$s MB or choose Audio only.</string>
+    <string name="request_failure_copy_no_space_video_reshare">Not enough space on this phone to keep this video. Free %1$s MB, then share it again and choose Audio only.</string>
+    <string name="request_failure_copy_no_space_file">Not enough space on this phone to keep this file until your computer is reachable. Free %1$s MB.</string>
+    <string name="request_failure_copy_unreadable">PhonoTrainer couldn\'t read this file. Open it once in the app that has it, then share it again.</string>
+    <string name="request_failure_copy_interrupted">The copy didn\'t finish. Share it again.</string>
+    <string name="request_failure_copy_missing_title">The copy kept on this phone is missing</string>
+    <string name="request_failure_copy_missing_body">Share the file again to analyze it.</string>
+
+    <!-- The "Needs attention" notification line (spec F-23, D-40, F-23-AC4). -->
     <string name="request_failure_notification">%1$s — Tap to see what you can do.</string>
+    <string name="request_failure_notification_download">Couldn\'t download %1$s link — Tap to try again or try audio only.</string>
+    <string name="request_failure_notification_download_other">Couldn\'t download the link — Tap to try again or try audio only.</string>
 </resources>
