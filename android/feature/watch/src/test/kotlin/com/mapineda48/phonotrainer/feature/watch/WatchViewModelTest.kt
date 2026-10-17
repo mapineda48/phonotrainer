@@ -506,6 +506,18 @@ class WatchViewModelTest {
   }
 
   @Test
+  fun anArrivedTrackReachesThePoolWhileTheShortPlaysSoTheNextShortHasIt() {
+    // F-06-AC13: even before the clip's own flow reports it, the neighbours get the fresh media within a second.
+    arrangeClip()
+    val vm = viewModel()
+    vm.onPageSettled(0)
+    content.mediaById[job] = media(job, File("dialogue.wav"))
+    player.commands.clear()
+    advance(SeenTracker.PERIOD_MS * WatchViewModel.REFRESH_TICKS)
+    assertThat(player.commands).contains("setQueue:10:0")
+  }
+
+  @Test
   fun aNeighbourOfAChangedClipIsPreparedWithItsFreshMedia() {
     arrangeClip()
     val vm = viewModel()

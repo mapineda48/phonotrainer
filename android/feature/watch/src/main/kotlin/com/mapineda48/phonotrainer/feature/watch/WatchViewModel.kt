@@ -500,8 +500,12 @@ internal class WatchViewModel @AssistedInject constructor(
     val v = Visit(page, page.id, length, tracker)
     visit = v
     v.job = viewModelScope.launch {
+      var ticks = 0
       while (isActive) {
         delay(SeenTracker.PERIOD_MS)
+        // Fresh media for the neighbours about once a second (architecture 11.1): an arrived track is prepared before
+        // the learner swipes to it, even before the clip's own flow reports the change.
+        if (++ticks % REFRESH_TICKS == 0) refreshNeighbours(feed.value.current)
         val state = player.state.value
         val position = player.positionMs()
         tracker.sample(position, state.playing)
@@ -1056,5 +1060,8 @@ internal class WatchViewModel @AssistedInject constructor(
 
     /** A set holds 8 shorts (F-08 item 1); fewer says so. */
     const val FULL_SET = 8
+
+    /** Visit samples between two checks of the neighbours' media. */
+    const val REFRESH_TICKS = 5
   }
 }

@@ -19,6 +19,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -227,10 +230,12 @@ internal fun ProgressRow(
     }
     val start = content?.playStartMs ?: 0L
     val length = content?.lengthMs ?: 1L
-    val elapsed = (playhead.value - start).coerceIn(0L, length)
+    val elapsed by remember(content) {
+      derivedStateOf { ((playhead.value - start).coerceIn(0L, length) / PROGRESS_STEP_MS) * PROGRESS_STEP_MS }
+    }
     val pin = content?.pin
     val spot = content?.spotlight
-    val pinNow = spot != null && playhead.value in spot.startMs..spot.endMs
+    val pinNow by remember(content) { derivedStateOf { spot != null && playhead.value in spot.startMs..spot.endMs } }
     ShortProgress(
       progress = elapsed / length.toFloat(),
       samples = content?.trace.orEmpty(),

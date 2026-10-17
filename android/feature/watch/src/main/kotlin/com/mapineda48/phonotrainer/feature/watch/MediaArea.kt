@@ -18,6 +18,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -26,8 +27,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -78,6 +81,8 @@ internal fun MediaArea(
   val description = stringResource(R.string.watch_media_description)
   val playLabel = stringResource(if (current && playback.playing) R.string.watch_pause else R.string.watch_play)
   var held by remember { mutableStateOf(false) }
+  // A short tick when "Hold to slow down" starts (design 8); it follows the system's haptic setting.
+  val haptics = LocalHapticFeedback.current
   Box(
     modifier = modifier
       .background(if (look == MediaLook.LANDSCAPE_VIDEO || look == MediaLook.PORTRAIT_VIDEO) colors.letterbox else colors.page)
@@ -87,6 +92,7 @@ internal fun MediaArea(
           onDoubleTap = { replay() },
           onLongPress = {
             held = true
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
             hold(true)
           },
           onPress = {
@@ -109,7 +115,11 @@ internal fun MediaArea(
     when (look) {
       MediaLook.AUDIO_ONLY -> {
         AudioOnlyVisual(page.id.jobId, content, playhead, Modifier.fillMaxSize().testTag(WatchTags.AUDIO_ONLY))
-        val measurable = content?.phraseAt(playhead.value)?.let { p -> content.pitch.firstOrNull { it.segment == p.segment }?.measurable } ?: false
+        val measurable by remember(content) {
+          derivedStateOf {
+            content?.phraseAt(playhead.value)?.let { p -> content.pitch.firstOrNull { it.segment == p.segment }?.measurable } ?: false
+          }
+        }
         OverlayChip(stringResource(R.string.watch_audio_only), PhonoIcons.AudioOnly, Modifier.align(Alignment.TopStart))
         OverlayChip(
           stringResource(if (measurable) R.string.watch_pitch_of_phrase else R.string.watch_no_pitch),
