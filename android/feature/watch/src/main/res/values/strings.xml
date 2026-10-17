@@ -1,13 +1,245 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Strings of :feature:watch. At the contract freeze: the feed stub (WP-17 replaces it). -->
+<!-- Strings of :feature:watch: the feed and the short card (spec F-06 to F-09, F-01 item 4; design 9.2 to 9.15). -->
 <resources>
     <string name="watch_title">Watch</string>
-    <string name="watch_lede">Swipe through short phrases from your clips; tap a word to see how it was said.</string>
-    <string name="watch_start_last">Starts where you left off.</string>
-    <string name="watch_start_today">Starts at today\'s set.</string>
-    <string name="watch_start_in_order">Starts at a clip, in order.</string>
-    <string name="watch_start_change">Starts with one change.</string>
-    <string name="watch_start_saved">Starts with your saved shorts.</string>
-    <string name="watch_start_word">Starts at a word.</string>
-    <string name="watch_open_lesson">Open a word lesson</string>
+
+    <!-- Feed header (F-07 item 1, design 9.2). -->
+    <string name="watch_mode_mix">Mix</string>
+    <string name="watch_mode_today">Today\'s set</string>
+    <string name="watch_mode_another_set">Another set</string>
+    <string name="watch_mode_in_order">In order</string>
+    <string name="watch_mode_saved">Saved</string>
+    <string name="watch_mode_with_detail">%1$s · %2$s</string>
+    <string name="watch_mode_picker_label">What the feed shows: %1$s</string>
+    <string name="watch_position_set">%1$d of %2$d</string>
+    <string name="watch_position_ordinal">%1$d / %2$d</string>
+    <string name="watch_position_question">Question %1$d of %2$d</string>
+    <string name="watch_position_done">Done</string>
+    <string name="watch_previous_short">Previous short</string>
+    <string name="watch_next_short">Next short</string>
+    <string name="watch_on_this_phone">On this phone</string>
+    <plurals name="watch_short_set">
+        <item quantity="one">Only %1$d short today: add a clip for more.</item>
+        <item quantity="other">Only %1$d shorts today: add a clip for more.</item>
+    </plurals>
+
+    <!-- Spotlight slip (F-07 item 3, design 9.3). -->
+    <string name="watch_listen_for">Listen for</string>
+    <string name="watch_now">Now</string>
+    <string name="watch_quoted">“%1$s”</string>
+    <string name="watch_word_pair">“%1$s” + “%2$s”</string>
+    <string name="watch_ipa_line">/%1$s/ → [%2$s]</string>
+    <string name="watch_ipa_said">[%1$s]</string>
+    <string name="watch_play_word">Play the word</string>
+    <string name="watch_slowly">Slowly</string>
+    <string name="watch_recognize_suffix">Just learn to hear it: no need to copy it.</string>
+    <string name="watch_no_spotlight">No labelled change here: listen to the rhythm.</string>
+    <string name="watch_saved_tag">Saved</string>
+    <string name="watch_slip_description">Listen for %1$s in %2$s. %3$s. %4$s Double-tap to open the lesson.</string>
+    <string name="watch_register_universal">universal</string>
+    <string name="watch_register_casual">casual</string>
+    <string name="watch_register_marked">marked</string>
+
+    <!-- Captions (F-07 items 4 and 5, design 9.4). -->
+    <string name="watch_listen_first_line">Listen first: the words appear after it plays</string>
+    <string name="watch_show_words">Show the words</string>
+    <string name="watch_captions_off">Captions are off</string>
+    <string name="watch_captions_show">Show</string>
+    <string name="watch_word_spotlight">listen for</string>
+    <string name="watch_word_low_confidence">low confidence</string>
+    <string name="watch_word_stressed">stressed</string>
+    <string name="watch_advice_produce">safe to produce</string>
+    <string name="watch_advice_understand">recognize only</string>
+    <string name="watch_open_lesson_label">Open the lesson</string>
+    <string name="watch_loop_this_phrase">Loop this phrase</string>
+    <string name="watch_dictionary">/%1$s/</string>
+    <string name="watch_intonation_statement">Statement</string>
+    <string name="watch_intonation_question">Question</string>
+    <string name="watch_intonation_exclamation">Exclamation</string>
+    <string name="watch_intonation_unfinished">Unfinished</string>
+    <string name="watch_intonation_phrase">Phrase</string>
+    <string name="watch_intonation_rises">rises</string>
+    <string name="watch_intonation_falls">falls</string>
+    <string name="watch_intonation_flat">stays flat</string>
+    <string name="watch_intonation_badge">%1$s · %2$s</string>
+    <string name="watch_intonation_usually">usually %1$s</string>
+    <string name="watch_intonation_uptalk">uptalk</string>
+
+    <!-- Coach marks (spec F-01 item 4; the catalogue is WP-13's). -->
+    <string name="watch_coach_swipe_title">Swipe up for the next short.</string>
+    <string name="watch_coach_swipe_body">The arrows at the top move one short too.</string>
+    <string name="watch_coach_tap_word_title">Tap any underlined word to see how it was really said.</string>
+    <string name="watch_coach_tap_word_body">The short pauses while the lesson is open.</string>
+    <string name="watch_coach_hold_title">Press and hold the picture to slow down.</string>
+    <string name="watch_coach_hold_body">Let go and it plays at your speed again.</string>
+    <string name="watch_coach_marks_title">The line style and the small icon tell you the kind of change.</string>
+    <string name="watch_coach_marks_body">So you never need to tell colors apart.</string>
+
+    <!-- Action rail and bar (F-07 item 6, design 9.6). -->
+    <string name="watch_replay">Replay</string>
+    <string name="watch_replay_description">Replay the phrase</string>
+    <string name="watch_speed_value">%1$s×</string>
+    <string name="watch_speed_description">Speed: %1$s×</string>
+    <string name="watch_loop_off">Loop off</string>
+    <string name="watch_loop_phrase">Loop: Phrase</string>
+    <string name="watch_loop_short">Loop: Short</string>
+    <string name="watch_shadow">Shadow</string>
+    <string name="watch_save">Save</string>
+    <string name="watch_saved">Saved</string>
+    <string name="watch_more">More</string>
+    <string name="watch_more_description">More for this short</string>
+
+    <!-- Progress and clip line (F-07 items 7 and 8, design 9.7). -->
+    <string name="watch_play">Play</string>
+    <string name="watch_pause">Pause</string>
+    <string name="watch_clip_line">Short %1$d of %2$d · %3$s–%4$s</string>
+    <string name="watch_clip_untitled">This clip</string>
+    <string name="watch_open_clip">Open the clip page: %1$s</string>
+    <string name="watch_track_dialogue_missing">Playing the original mix: the dialogue track isn\'t on this phone yet.</string>
+    <string name="watch_track_mix_missing">Playing the dialogue only: the original mix isn\'t on this phone yet.</string>
+    <string name="watch_track_no_dialogue">Playing the original mix: this clip has no dialogue-only track.</string>
+
+    <!-- Media area (F-06 item 7, design 9.5 and 7.3). -->
+    <string name="watch_audio_only">Audio only</string>
+    <string name="watch_pitch_of_phrase">Pitch of this phrase</string>
+    <string name="watch_no_pitch">No measurable pitch here</string>
+    <string name="watch_video_not_on_phone">Video not on this phone · playing the audio</string>
+    <string name="watch_video_not_available">Video not available from your computer</string>
+    <string name="watch_video_cannot_play">This video can\'t play on this phone. Listening still works.</string>
+    <string name="watch_short_failed">This short couldn\'t be played.</string>
+    <string name="watch_getting_ready">Getting the sound ready…</string>
+    <string name="watch_hold_slow">0.5×</string>
+    <string name="watch_volume_zero">Turn the volume up: this is all about sound.</string>
+    <string name="watch_media_description">The picture of the short. Tap to play or pause, double-tap to replay the phrase, press and hold to slow down.</string>
+
+    <!-- TalkBack (F-07-AC11, design 9.8). -->
+    <string name="watch_summary_spotlight">Short %1$d of %2$d, %3$s. Listen for %4$s in “%5$s”. %6$s.</string>
+    <string name="watch_summary_plain">Short %1$d of %2$d, %3$s. No labelled change here: listen to the rhythm. %4$s.</string>
+    <plurals name="watch_seconds">
+        <item quantity="one">%1$d second</item>
+        <item quantity="other">%1$d seconds</item>
+    </plurals>
+    <string name="watch_action_play">Play</string>
+    <string name="watch_action_pause">Pause</string>
+    <string name="watch_action_replay">Replay phrase</string>
+    <string name="watch_action_slower">Slower</string>
+    <string name="watch_action_lesson">Open lesson</string>
+    <string name="watch_action_save">Save</string>
+    <string name="watch_action_unsave">Remove from saved</string>
+
+    <!-- More sheet (F-07 item 9, design 9.12). -->
+    <string name="watch_more_title">This short</string>
+    <string name="watch_listen_to">Listen to</string>
+    <string name="watch_track_mix">Original mix</string>
+    <string name="watch_track_dialogue">Dialogue only</string>
+    <string name="watch_captions">Captions</string>
+    <string name="watch_captions_marks">Marks</string>
+    <string name="watch_captions_plain">Plain</string>
+    <string name="watch_captions_ipa">IPA</string>
+    <string name="watch_captions_off_option">Off</string>
+    <string name="watch_listen_first">Listen first</string>
+    <string name="watch_listen_first_description">Hear each phrase before you read it.</string>
+    <string name="watch_phrase_details">Pitch, stress and IPA of this phrase</string>
+    <string name="watch_record">Record yourself</string>
+    <string name="watch_open_clip_page">Open the clip page</string>
+    <string name="watch_download_video">Download the video</string>
+    <string name="watch_leave_out">Leave this clip out of the Mix</string>
+    <string name="watch_leave_out_description">You can put it back here or in Settings.</string>
+    <string name="watch_marks_meaning">What do the marks mean?</string>
+
+    <!-- Shadow sheet (F-12, the rail's "Shadow"). -->
+    <string name="watch_shadow_title">Shadow this phrase</string>
+    <string name="watch_shadow_lede">Listen, then say it with the speaker: three slow rounds and one at full speed.</string>
+
+    <!-- Mode picker (F-06 item 3, design 9.12). -->
+    <string name="watch_picker_title">What the feed shows</string>
+    <string name="watch_picker_lede">Pick a mode: today\'s set, your saved shorts, one change across your clips, or one clip in order.</string>
+    <plurals name="watch_picker_today_progress">
+        <item quantity="one">%1$d of %2$d done</item>
+        <item quantity="other">%1$d of %2$d done</item>
+    </plurals>
+    <string name="watch_picker_today_none">Starts with your first clip</string>
+    <plurals name="watch_picker_saved_count">
+        <item quantity="one">%1$d saved short</item>
+        <item quantity="other">%1$d saved shorts</item>
+    </plurals>
+    <string name="watch_picker_one_change">One change</string>
+    <string name="watch_picker_one_clip">One clip, in order</string>
+    <plurals name="watch_picker_change">
+        <item quantity="one">%1$s · %2$d short</item>
+        <item quantity="other">%1$s · %2$d shorts</item>
+    </plurals>
+    <string name="watch_picker_change_zero">%1$s · 0 · Learn</string>
+    <string name="watch_picker_left_at">left at short %1$d</string>
+    <string name="watch_picker_not_started">from the start</string>
+    <string name="watch_picker_no_clips">No clips on this phone yet.</string>
+    <string name="watch_picker_selected">Selected</string>
+
+    <!-- Set questions (F-08 item 5, design 9.14). -->
+    <string name="watch_next_question">Next question</string>
+    <string name="watch_question_skip_note">Swiping past a question is fine: it is not counted.</string>
+
+    <!-- End cards (F-06 item 9, F-08 items 6 and 7, design 9.15). -->
+    <string name="watch_end_kicker_today">Today\'s set</string>
+    <string name="watch_end_kicker_set">Set</string>
+    <string name="watch_end_done_today">Done for today</string>
+    <string name="watch_end_set_done">Set done</string>
+    <plurals name="watch_end_shorts">
+        <item quantity="one">%1$d short</item>
+        <item quantity="other">%1$d shorts</item>
+    </plurals>
+    <plurals name="watch_end_questions">
+        <item quantity="one">%1$d question</item>
+        <item quantity="other">%1$d questions</item>
+    </plurals>
+    <plurals name="watch_end_right">
+        <item quantity="one">%1$d of %2$d right</item>
+        <item quantity="other">%1$d of %2$d right</item>
+    </plurals>
+    <string name="watch_end_tally">%1$s · %2$s · %3$s</string>
+    <string name="watch_end_met">What you met</string>
+    <string name="watch_end_met_count">%1$s ×%2$d</string>
+    <string name="watch_end_nothing_plays">Nothing plays after this card. A new set is ready after midnight.</string>
+    <string name="watch_end_no_questions">Not enough clips to build questions yet.</string>
+    <string name="watch_end_back_home">Back to Home</string>
+    <string name="watch_end_another_set">Another set</string>
+    <string name="watch_end_practice">Practice</string>
+    <string name="watch_end_of_clip">End of %1$s</string>
+    <string name="watch_end_of_clip_untitled">End of this clip</string>
+    <string name="watch_end_clip_tally">You saw %1$s with %2$s.</string>
+    <plurals name="watch_end_kinds">
+        <item quantity="one">%1$d kind of change</item>
+        <item quantity="other">%1$d kinds of change</item>
+    </plurals>
+    <string name="watch_end_watch_again">Watch it again</string>
+    <string name="watch_end_next_clip">Next clip: %1$s</string>
+    <string name="watch_end_every_change">That\'s every “%1$s” in your clips.</string>
+    <string name="watch_end_learn_about">Learn about %1$s</string>
+    <string name="watch_end_practice_change">Practice %1$s</string>
+    <string name="watch_end_all_saved">That\'s all your saved shorts.</string>
+    <string name="watch_end_seen_every">You\'ve seen every short. New ones appear when your computer finishes a clip.</string>
+    <string name="watch_end_replay_mix">Replay the mix</string>
+    <string name="watch_end_add_clip">Add a clip</string>
+    <plurals name="watch_end_on_the_way">
+        <item quantity="one">%1$d more clip on the way</item>
+        <item quantity="other">%1$d more clips on the way</item>
+    </plurals>
+
+    <!-- Empty states (F-06 States, design 9.8 and 9.21). -->
+    <string name="watch_empty_first_run_title">Your feed fills up with your clips</string>
+    <string name="watch_empty_first_run_body">Connect to your computer, or add a clip from YouTube, X or a file on this phone.</string>
+    <string name="watch_empty_connect">Connect to your computer</string>
+    <string name="watch_empty_add_clip">Add a clip</string>
+    <string name="watch_empty_learn">Meanwhile, explore the changes in Learn</string>
+    <string name="watch_empty_coming_title">Your clips are still coming to this phone.</string>
+    <string name="watch_empty_coming_body">Shorts appear as soon as a clip is on this phone.</string>
+    <string name="watch_empty_coming_progress">Bringing your clips: %1$d %%</string>
+    <string name="watch_empty_change_title">No shorts with %1$s on this phone yet.</string>
+    <string name="watch_empty_change_body">They appear when a clip with this change is on this phone.</string>
+    <string name="watch_empty_watch_mix">Watch the Mix</string>
+    <string name="watch_empty_saved_title">Nothing saved yet.</string>
+    <string name="watch_empty_saved_body">Tap “Save” on a short or a word you want to hear again.</string>
+    <string name="watch_empty_clip_title">That clip is no longer on this phone.</string>
+    <string name="watch_empty_clip_body">Pick another clip or watch the Mix.</string>
+    <string name="watch_loading">Preparing the feed…</string>
 </resources>

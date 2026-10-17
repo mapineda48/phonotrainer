@@ -23,7 +23,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asFlow
 
-// Settable fakes of the :core:connectivity interfaces (work-plan 4.6; WP-07 owns this folder after B1).
+// Settable fakes of the :core:connectivity interfaces (work-plan 4.6; WP-07 owns this folder after B1). The real
+// implementations live in :core:connectivity; these stand in for them in other modules' unit and screen tests.
 
 class FakeComputerStatusRepository(status: ComputerStatus = ComputerStatus.NotConnected) : ComputerStatusRepository {
   val statusState = MutableStateFlow(status)
@@ -46,25 +47,50 @@ class FakeComputerStatusRepository(status: ComputerStatus = ComputerStatus.NotCo
   }
 }
 
+/**
+ * Settable [PairingRepository]: [searchStates] is what every search emits, in order; the results are functions of
+ * their arguments; [paired], [checked], [newAddresses] and [forgets] record the calls.
+ */
 class FakePairingRepository : PairingRepository {
   var searchStates: List<SearchState> = listOf(SearchState.Searching, SearchState.NothingFound)
   var checkResult: (HostPort) -> CheckResult = { CheckResult.NoAnswer }
+
+  /** The answer of [useNewAddress]; the same as [checkResult] unless set. */
+  var useNewAddressResult: ((HostPort) -> CheckResult)? = null
   var pairResult: (PairingTarget, String) -> PairResult = { _, _ -> PairResult.CodeInvalid }
   var forgetResult: ForgetResult = ForgetResult.Forgotten
   val paired = mutableListOf<Triple<PairingTarget, String, String>>()
+  val checked = mutableListOf<HostPort>()
+  val newAddresses = mutableListOf<HostPort>()
+  var searches = 0
+    private set
+  var forgets = 0
+    private set
 
-  override fun search(): Flow<SearchState> = searchStates.asFlow()
+  override fun search(): Flow<SearchState> {
+    searches++
+    return searchStates.asFlow()
+  }
 
-  override suspend fun check(address: HostPort): CheckResult = checkResult(address)
+  override suspend fun check(address: HostPort): CheckResult {
+    checked += address
+    return checkResult(address)
+  }
 
   override suspend fun pair(target: PairingTarget, code: String, deviceName: String): PairResult {
     paired += Triple(target, code, deviceName)
     return pairResult(target, code)
   }
 
-  override suspend fun useNewAddress(address: HostPort): CheckResult = checkResult(address)
+  override suspend fun useNewAddress(address: HostPort): CheckResult {
+    newAddresses += address
+    return (useNewAddressResult ?: checkResult)(address)
+  }
 
-  override suspend fun forget(): ForgetResult = forgetResult
+  override suspend fun forget(): ForgetResult {
+    forgets++
+    return forgetResult
+  }
 }
 
 class FakeChannelLiveness : ChannelLiveness {
@@ -96,15 +122,35 @@ class FakeNetworkMonitor(initial: NetworkSnapshot = wifi()) : NetworkMonitor {
 
     fun mobileOnly(): NetworkSnapshot =
       NetworkSnapshot(NetworkKind.MOBILE_ONLY, 200L, null, null, vpnActive = false, validated = true)
+
+    /** Another Wi-Fi network (a new handle and address): a network change for the status machine. */
+    fun otherWifi(): NetworkSnapshot =
+      NetworkSnapshot(NetworkKind.WIFI, 101L, "198.51.100.20", 24, vpnActive = false, validated = false)
   }
 }
 
-/** Discovery that answers with [answers]; [probes] records each datagram sent. */
+/**
+ * Discovery that answers with the fixed [answers], then with each responder's reply to the probe (a responder sees the
+ * probe datagram, so it can echo its nonce, as `FakeComputer.answerProbe` does). [probes] and [calls] record each
+ * search as it is asked for.
+ */
 class FakeDiscoveryTransport(var answers: List<Datagram> = emptyList()) : DiscoveryTransport {
+  /** One search as asked for: where the probe goes, when, and how long replies are collected. */
+  data class Call(val broadcastTargets: List<String>, val schedule: List<Duration>, val listenFor: Duration)
+
+  private val responders = mutableListOf<(ByteArray) -> Datagram?>()
   val probes = mutableListOf<ByteArray>()
+  val calls = mutableListOf<Call>()
+
+  /** Adds a responder: its reply to a probe, or null to stay silent. */
+  fun respond(responder: (ByteArray) -> Datagram?) {
+    responders += responder
+  }
 
   override fun probe(datagram: ByteArray, broadcastTargets: List<String>, schedule: List<Duration>, listenFor: Duration): Flow<Datagram> {
     probes += datagram
-    return answers.asFlow()
+    calls += Call(broadcastTargets, schedule, listenFor)
+    val replies = answers + responders.toList().mapNotNull { it(datagram) }
+    return replies.asFlow()
   }
 }
