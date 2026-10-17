@@ -1,11 +1,57 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Strings of ClipCard and ClipRow (WP-16; placeholder copy at the contract freeze). -->
+<!-- Strings of ClipCard and ClipRow (WP-16; spec F-03 item 7, F-04, design 9.18). The availability words are
+     :core:ui's (ui_availability_*, the same words AvailabilityChip draws), so a row's sentence and its chip agree. -->
 <resources>
     <string name="clip_watch">Watch</string>
-    <string name="clip_open">Open “%1$s”</string>
-    <string name="clip_more">More for “%1$s”</string>
-    <plurals name="clip_shorts_seen">
-        <item quantity="one">%1$d of %2$d short seen</item>
-        <item quantity="other">%1$d of %2$d shorts seen</item>
+    <string name="clip_open">Open the clip page</string>
+    <string name="clip_more">More actions for “%1$s”</string>
+    <string name="clip_more_short">More actions</string>
+
+    <!-- Lengths: "4 min 21 s", "1 h 3 min", "45 s". -->
+    <string name="clip_duration_hours">%1$d h %2$d min</string>
+    <string name="clip_duration_minutes">%1$d min %2$d s</string>
+    <string name="clip_duration_whole_minutes">%1$d min</string>
+    <string name="clip_duration_seconds">%1$d s</string>
+
+    <!-- The numbers arrive formatted ("1,489"). -->
+    <plurals name="clip_words">
+        <item quantity="one">%1$s word</item>
+        <item quantity="other">%1$s words</item>
     </plurals>
+    <plurals name="clip_changes">
+        <item quantity="one">%1$s change</item>
+        <item quantity="other">%1$s changes</item>
+    </plurals>
+    <plurals name="clip_shorts">
+        <item quantity="one">%1$s short</item>
+        <item quantity="other">%1$s shorts</item>
+    </plurals>
+    <plurals name="clip_shorts_seen">
+        <item quantity="one">You\'ve seen %1$d of %2$d short</item>
+        <item quantity="other">You\'ve seen %1$d of %2$d shorts</item>
+    </plurals>
+
+    <!-- Where a clip came from: the source icon and its word. -->
+    <string name="clip_source_youtube">YouTube</string>
+    <string name="clip_source_x">X</string>
+    <string name="clip_source_website">Website</string>
+    <string name="clip_source_upload">Uploaded file</string>
+    <string name="clip_source_computer">Computer</string>
+
+    <string name="clip_kept">Kept</string>
+    <string name="clip_older_rules">Older rules: re-analyze on your computer to update</string>
+    <string name="clip_origin_forgotten">From a computer you forgot</string>
+    <string name="clip_origin_other_library">From another library</string>
+
+    <!-- A family's count on a shelf card: "Reduction 21". -->
+    <string name="clip_family_count">%1$s %2$d</string>
+
+    <!-- Sizes, in decimal units as the system shows them: "640 KB", "2.1 MB", "17 MB", "1.2 GB". -->
+    <plurals name="clip_size_bytes">
+        <item quantity="one">%1$d byte</item>
+        <item quantity="other">%1$d bytes</item>
+    </plurals>
+    <string name="clip_size_kb">%1$s KB</string>
+    <string name="clip_size_mb">%1$s MB</string>
+    <string name="clip_size_gb">%1$s GB</string>
 </resources>
