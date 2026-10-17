@@ -7,6 +7,24 @@ they fix.
 
 ## App shell
 
+### I-19 The per-tab state proof runs on the real Library (2026-10-17, WP-19; CR-WP16-1)
+
+Architecture 16.2's per-tab state (Android review H1, WP-02's Proof) was proved by `e2e/smoke/PerTabStateTest` on the
+M2 Library stub, which drew an instance marker and numbered placeholder rows for it. WP-16's real Library draws
+neither, so that test failed at run time once WP-16 was merged (3/3: the stub's search field and rows are gone). Its
+three scenarios (tab switches, a recreate with the Library's tab in the background and in the foreground, a restore
+from the saved state alone) now run on the real Library in WP-16's `e2e/library/LibraryStateTest`, opened on the Learn
+tab's stack, with the ViewModel told apart by the catalogue's subscription count. `PerTabStateTest` is deleted rather
+than reduced to "the Library opens on a tab stack": `NavigationSmokeTest` already opens every destination, so a reduced
+copy would prove nothing new. The stub-only `LibraryTags.INSTANCE` and `row(Int)` went with it.
+
+Any rewrite of `PhonoShell`'s stack decoration re-runs the two H1 mutation scripts (the orchestration scratchpad's
+`impl/WP-02/h1-mutation/`, kept outside the repository) against
+`com.mapineda48.phonotrainer.e2e.library.LibraryStateTest`: under each mutant its three per-tab tests must fail, and
+they did on WP-16's branch before its merge (WP-16's hand-off). Until the sync engine (WP-08) is merged that class
+uninstalls `SyncModule` and binds settable fakes (work-plan 2.4); when WP-08 lands it moves to `TestSeeder.seedLibrary`,
+and the H1 check moves with it.
+
 ### I-12 The shell draws WP-03's frame and leaves the top inset to each destination (2026-10-11, WP-19)
 
 The wave-1 review (architecture finding 1, completeness WP-03 item 4; WP-03's CR-3) found the shell on Material's

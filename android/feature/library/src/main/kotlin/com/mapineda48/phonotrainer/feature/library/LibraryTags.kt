@@ -101,17 +101,4 @@ object LibraryTags {
   const val DOWNLOAD_VIDEO = "library.clip.on-phone.download-video"
   const val REMOVE_VIDEO = "library.clip.on-phone.remove-video"
   const val REMOVE_FROM_PHONE = "library.clip.on-phone.remove"
-
-  // --- The M2 stub's tags, kept only so that e2e/smoke/PerTabStateTest (integrator-owned) still compiles. ---
-  // The real Library has neither an instance marker nor numbered placeholder rows, so nothing carries these tags;
-  // e2e/library/LibraryStateTest proves the same per-tab state on the real Library. Change request CR-WP16-1 retires
-  // PerTabStateTest, after which both members go.
-
-  /** Not drawn by the real Library (CR-WP16-1). */
-  @Deprecated("Nothing carries this tag; e2e/library/LibraryStateTest replaces PerTabStateTest (CR-WP16-1).")
-  const val INSTANCE = "library.list.instance"
-
-  /** Not drawn by the real Library: rows are tagged by clip, [row] (CR-WP16-1). */
-  @Deprecated("Nothing carries this tag; rows are tagged by clip id (CR-WP16-1).", ReplaceWith("row(id)"))
-  fun row(number: Int): String = "library.list.stub-row.$number"
 }
