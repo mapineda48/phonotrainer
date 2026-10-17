@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The shadowing runner's live line, announced politely at each phase (spec F-12, F-12-AC4; the web's
+     describePhase). ShadowingPanel (WP-18) shows the same words. -->
+<resources>
+    <string name="player_shadowing_listen">Round %1$d of %2$d: listen at %3$s</string>
+    <string name="player_shadowing_listen_full">Round %1$d of %2$d: listen at full speed</string>
+    <string name="player_shadowing_your_turn">Round %1$d of %2$d: your turn — say it now</string>
+    <string name="player_shadowing_stopped">Shadowing stopped.</string>
+    <!-- A playback speed: "0.75×". -->
+    <string name="player_speed">%1$s×</string>
+</resources>
