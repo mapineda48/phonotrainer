@@ -109,7 +109,7 @@ class CleartextGuardTest {
 
     val outcome = stack.peers.withCandidate(named) { stack.client.hello(named) }
     val transfer = stack.transfer.download(
-      DownloadRequest("http://localhost:${computer.address.port}/api/phone/library", folder.newFile(), 0, null, 0),
+      DownloadRequest("http://localhost:${computer.address.port}/api/phone/library", folder.newFile(), 0, null, 10),
     ) {}
 
     assertThat(outcome).isEqualTo(ApiResult.Failed(AppError.Computer.Guarded))

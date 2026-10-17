@@ -15,6 +15,8 @@ import com.mapineda48.phonotrainer.core.domain.model.remote.SeparationNote
 import com.mapineda48.phonotrainer.core.domain.model.remote.SourceKind
 import com.mapineda48.phonotrainer.core.domain.model.remote.Stage
 import com.mapineda48.phonotrainer.core.network.api.ApiResult
+import com.mapineda48.phonotrainer.core.network.api.DownloadRequest
+import com.mapineda48.phonotrainer.core.network.api.DownloadOutcome
 import com.mapineda48.phonotrainer.core.network.api.LinkCreate
 import com.mapineda48.phonotrainer.core.network.support.TestStack
 import com.mapineda48.phonotrainer.core.testing.computer.FakeComputer
@@ -142,6 +144,22 @@ class AnswersTest {
     val artifacts = listed.value.jobs.single().artifacts!!.associateBy { it.name }
     assertThat(artifacts.getValue("audio_mix").status).isEqualTo(RemoteArtifactStatus.UNKNOWN)
     assertThat(artifacts.getValue("analysis").status).isEqualTo(RemoteArtifactStatus.UNAVAILABLE)
+  }
+
+  @Test
+  fun aReadyArtifactOfZeroBytesIsUnavailableAndNeverRequested() = runBlocking<Unit> {
+    val listed = library(
+      job { putJsonArray("artifacts") { add(artifact("analysis", role = "clip_data") { put("bytes", 0) }) } },
+    )
+    val artifact = (listed as ApiResult.Ok).value.jobs.single().artifacts!!.single()
+    // Whatever a caller does with it, an expected size of zero bounds nothing: the transfer refuses it unsent.
+    val part = java.io.File(System.getProperty("java.io.tmpdir"), "wp05b-zero-${System.nanoTime()}.part")
+    val outcome = stack.transfer.download(DownloadRequest(artifact.url!!, part, 0, null, 0)) {}
+
+    assertThat(artifact.status).isEqualTo(RemoteArtifactStatus.UNAVAILABLE)
+    assertThat(outcome).isEqualTo(DownloadOutcome.Failed(AppError.Computer.Malformed))
+    assertThat(part.exists()).isFalse()
+    assertThat(server.requestCount).isEqualTo(1)
   }
 
   @Test

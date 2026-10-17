@@ -35,7 +35,8 @@ import okhttp3.Response
 /**
  * Resumable artifact downloads (architecture 7.4), signed and confined like every call, on the download profile (30 s
  * per read, no call timeout):
- * - a part already [DownloadRequest.expectedBytes] long is never requested: the caller verifies it (A-M5);
+ * - [DownloadRequest.expectedBytes] is a hard bound: zero or less is refused as malformed without a request, and a
+ *   part already that long is never requested: the caller verifies it (A-M5);
  * - a part shorter than [DownloadRequest.resumeFrom] cannot be resumed: it is emptied ([DownloadOutcome.RestartedFromZero]);
  * - resuming sends `Range: bytes=<resumeFrom>-` and `If-Range`; `206` appends at `resumeFrom` (its `Content-Range` must
  *   start there), a `200` where `206` was expected empties the part without reading it (`RestartedFromZero`), `416`
@@ -56,14 +57,16 @@ internal class HttpArtifactTransfer @Inject constructor(
   private suspend fun transfer(request: DownloadRequest, onProgress: (Long) -> Unit): DownloadOutcome {
     val start = request.resumeFrom
     val target = request.target
-    if (start < 0 || request.expectedBytes < 0 || (request.expectedBytes > 0 && start > request.expectedBytes)) {
+    // Every artifact of the closed table has bytes (server-contract 6.4.1): an expected size of zero or less would
+    // leave the download without its bound (architecture 5.4), so it is refused before anything is sent.
+    if (request.expectedBytes <= 0 || start < 0 || start > request.expectedBytes) {
       return DownloadOutcome.Failed(AppError.Computer.Malformed)
     }
     if (start > 0 && target.length() < start) {
       emptyPart(target)
       return DownloadOutcome.RestartedFromZero
     }
-    if (request.expectedBytes > 0 && start == request.expectedBytes) {
+    if (start == request.expectedBytes) {
       return DownloadOutcome.Complete(request.ifRange, start)
     }
     val url = resolve(request.url) ?: return DownloadOutcome.Failed(AppError.Computer.Guarded)
@@ -119,7 +122,7 @@ internal class HttpArtifactTransfer @Inject constructor(
       }
     }
     val declared = response.body.contentLength()
-    if (request.expectedBytes > 0 && declared >= 0 && from + declared > request.expectedBytes) {
+    if (declared >= 0 && from + declared > request.expectedBytes) {
       return DownloadOutcome.Failed(AppError.Computer.Malformed)
     }
     return write(response, request, from, onProgress, noAnswerAfterS)
@@ -145,7 +148,7 @@ internal class HttpArtifactTransfer @Inject constructor(
           currentCoroutineContext().ensureActive()
           val read = source.read(buffer)
           if (read < 0) break
-          if (request.expectedBytes > 0 && length + read > request.expectedBytes) {
+          if (length + read > request.expectedBytes) {
             part.write(buffer, 0, (request.expectedBytes - length).toInt())
             part.fd.sync()
             return DownloadOutcome.Failed(AppError.Computer.Malformed)

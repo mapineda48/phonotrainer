@@ -255,8 +255,9 @@ private fun ArtifactDto.toArtifact(jobId: String): RemoteArtifact {
   var state = enumOf(status, RemoteArtifactStatus.UNKNOWN)
   if (state == RemoteArtifactStatus.READY) {
     if (bytes == null || sha256 == null || revision == null || url == null) malformed("artifact: ready without its file")
-    // A file larger than its role allows is never downloaded (architecture 5.4): it reads as unavailable.
-    if (bytes > Wire.sizeCap(tableRole)) state = RemoteArtifactStatus.UNAVAILABLE
+    // A file larger than its role allows is never downloaded (architecture 5.4): it reads as unavailable. So does an
+    // empty one: no artifact of the closed table is ever empty, and a size of zero would bound nothing.
+    if (bytes == 0L || bytes > Wire.sizeCap(tableRole)) state = RemoteArtifactStatus.UNAVAILABLE
   }
   return RemoteArtifact(
     name = artifactName,
