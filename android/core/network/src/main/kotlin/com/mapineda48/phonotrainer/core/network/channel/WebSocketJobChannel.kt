@@ -12,15 +12,18 @@ import com.mapineda48.phonotrainer.core.network.http.ComputerHttp
 import com.mapineda48.phonotrainer.core.network.http.Profile
 import com.mapineda48.phonotrainer.core.network.peers.ComputerPeers
 import java.io.IOException
+import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import okhttp3.Request
@@ -42,6 +45,12 @@ internal class ChannelLostException(message: String, cause: Throwable? = null) :
  * by the computer, or the network changes, so a consumer sees every end of the channel as a failure, as the fake
  * computer's client shows it; it closes the socket when the collector stops. Reconnecting is the caller's (the sync
  * engine's backoff, 5.5).
+ *
+ * Nothing the computer sends can exhaust memory (architecture 5.4): each message is bounded on the socket before
+ * OkHttp reads it, uncompressed ([ChannelInput], [ChannelUpgradeInterceptor]), and the events waiting for the collector
+ * are bounded in number ([MAX_PENDING_EVENTS]) and in size ([MAX_PENDING_CHARS], the text of their frames). A
+ * computer that sends faster than the collector takes loses the channel; the sync engine catches up from the
+ * snapshot of the next one.
  */
 @Singleton
 internal class WebSocketJobChannel @Inject constructor(
@@ -56,7 +65,14 @@ internal class WebSocketJobChannel @Inject constructor(
     (binder as? NetworkBinding)?.addListener { networkGeneration.update { it + 1 } }
   }
 
-  override fun open(): Flow<ChannelEvent> = callbackFlow {
+  override fun open(): Flow<ChannelEvent> = flow {
+    val pending = AtomicLong()
+    val waiting = events(pending).buffer(MAX_PENDING_EVENTS)
+    emitAll(waiting.map { next -> next.event.also { pending.addAndGet(-next.chars) } })
+  }
+
+  /** The channel's events, each with the length of its frame's text, which [pending] adds up until it is collected. */
+  private fun events(pending: AtomicLong): Flow<Pending> = callbackFlow {
     val generation = networkGeneration.value
     val at = peers.current.value
     if (at == null) {
@@ -75,7 +91,12 @@ internal class WebSocketJobChannel @Inject constructor(
           log.d { "channel: skipped a frame that is not JSON (${e.javaClass.simpleName})" }
           null
         }
-        event?.let { trySend(it) }
+        if (event == null) return
+        val chars = text.length.toLong()
+        if (pending.addAndGet(chars) > MAX_PENDING_CHARS || trySend(Pending(event, chars)).isFailure) {
+          webSocket.cancel()
+          close(ChannelLostException("The computer sent events faster than this app takes them."))
+        }
       }
 
       // The phone never closes the channel itself (stopping the collector cancels the socket), so a close always
@@ -106,10 +127,18 @@ internal class WebSocketJobChannel @Inject constructor(
       networkWatch.cancel()
       socket.cancel()
     }
-  }.buffer(Channel.UNLIMITED)
+  }
 
-  private companion object {
-    const val EVENTS = "/api/phone/events"
-    const val NORMAL_CLOSURE = 1000
+  private class Pending(val event: ChannelEvent, val chars: Long)
+
+  internal companion object {
+    /** The events that may wait for the collector; one more loses the channel. */
+    const val MAX_PENDING_EVENTS = 256
+
+    /** The text of the frames whose events wait for the collector, at most one listing's worth (architecture 5.4). */
+    const val MAX_PENDING_CHARS: Long = ChannelInput.MAX_MESSAGE_BYTES
+
+    private const val EVENTS = "/api/phone/events"
+    private const val NORMAL_CLOSURE = 1000
   }
 }

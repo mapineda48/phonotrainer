@@ -8,18 +8,22 @@ import com.mapineda48.phonotrainer.core.domain.model.JobId
 import com.mapineda48.phonotrainer.core.domain.model.remote.ChannelEvent
 import com.mapineda48.phonotrainer.core.domain.model.remote.RemoteStatus
 import com.mapineda48.phonotrainer.core.network.http.NetworkTimeouts
+import com.mapineda48.phonotrainer.core.network.support.RawPeer
 import com.mapineda48.phonotrainer.core.network.support.RecordingPlatform
 import com.mapineda48.phonotrainer.core.network.support.TestStack
 import com.mapineda48.phonotrainer.core.testing.computer.FakeComputer
 import java.io.BufferedReader
+import java.io.ByteArrayOutputStream
 import java.io.InputStreamReader
 import java.net.InetAddress
 import java.net.ServerSocket
 import java.security.MessageDigest
 import java.time.Duration
 import java.util.Base64
+import java.util.zip.Deflater
 import kotlin.concurrent.thread
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -69,6 +73,8 @@ class JobChannelTest {
       }
       val upgrade = computer.requests.single { it.path == "/api/phone/events" }
       assertThat(upgrade.signedBy).isNotNull()
+      // No compression is offered, so each message is as long on the wire as in memory (architecture 5.4).
+      assertThat(upgrade.headers.keys.map { it.lowercase() }).doesNotContain("sec-websocket-extensions")
     }
   }
 
@@ -184,6 +190,154 @@ class JobChannelTest {
     }
   }
 
+  /**
+   * OkHttp inflates a compressed message without a limit, so a frame of a few kilobytes could become a message of any
+   * size: an acceptance that names an extension the phone never offered fails the channel before a frame is read.
+   */
+  @Test
+  fun anAcceptanceThatNamesAnExtensionFailsTheChannelBeforeAFrameIsRead() = runBlocking<Unit> {
+    val frame = deflatedFrame(deletedEvent(padding = DEFLATED_PADDING))
+    RawPeer {
+      acceptWebSocket("Sec-WebSocket-Extensions: permessage-deflate\r\n")
+      write(frame)
+      awaitPhoneClose()
+    }.use { peer ->
+      TestStack(computer).use { stack ->
+        stack.trust(peer.address)
+
+        stack.channel.open().test(timeout = 5.seconds) {
+          val failure = awaitError()
+          assertThat(failure).isInstanceOf(ChannelLostException::class.java)
+          assertThat(causes(failure).any { "extension" in it }).isTrue()
+        }
+        assertThat(peer.awaitDone()).isTrue()
+        assertThat(peer.closedByPhone).isTrue()
+        assertThat(peer.header("Sec-WebSocket-Extensions")).isNull()
+      }
+    }
+  }
+
+  @Test
+  fun aMessageOverTheBoundFailsTheChannelBeforeItIsRead() = runBlocking<Unit> {
+    RawPeer {
+      acceptWebSocket()
+      write(RawPeer.frameHeader(RawPeer.FIN or RawPeer.TEXT, OVERSIZED_BYTES))
+      stream(OVERSIZED_BYTES)
+    }.use { peer ->
+      TestStack(computer).use { stack ->
+        stack.trust(peer.address)
+
+        stack.channel.open().test(timeout = 5.seconds) {
+          val failure = awaitError()
+          assertThat(failure).isInstanceOf(ChannelLostException::class.java)
+          assertThat(causes(failure).any { "larger than" in it }).isTrue()
+        }
+        assertThat(peer.awaitDone()).isTrue()
+        assertThat(peer.closedByPhone).isTrue()
+        assertThat(peer.written.get()).isLessThan(CUT_SHORT_BYTES)
+      }
+    }
+  }
+
+  @Test
+  fun aMessageSplitIntoFramesIsBoundedAsAWhole() = runBlocking<Unit> {
+    RawPeer {
+      acceptWebSocket()
+      write(RawPeer.frameHeader(RawPeer.TEXT, FRAGMENT_BYTES))
+      stream(FRAGMENT_BYTES)
+      write(RawPeer.frameHeader(RawPeer.FIN or RawPeer.CONTINUATION, FRAGMENT_BYTES))
+      stream(FRAGMENT_BYTES)
+    }.use { peer ->
+      TestStack(computer).use { stack ->
+        stack.trust(peer.address)
+
+        stack.channel.open().test(timeout = 5.seconds) {
+          val failure = awaitError()
+          assertThat(causes(failure).any { "larger than" in it }).isTrue()
+        }
+        assertThat(peer.awaitDone()).isTrue()
+      }
+    }
+  }
+
+  @Test
+  fun aComputerThatSendsMoreEventsThanTheCollectorTakesLosesTheChannel() = runBlocking<Unit> {
+    val server = MockWebServer().apply { start(InetAddress.getByName(FakeComputer.HOST), 0) }
+    server.use {
+      server.enqueue(
+        MockResponse.Builder().webSocketUpgrade(
+          object : WebSocketListener() {
+            override fun onOpen(webSocket: WebSocket, response: Response) {
+              repeat(WebSocketJobChannel.MAX_PENDING_EVENTS + FLOOD_EXTRA) { webSocket.send(deletedEvent()) }
+            }
+          },
+        ).build(),
+      )
+      TestStack(computer).use { stack ->
+        stack.trust(HostPort(FakeComputer.HOST, server.port))
+
+        val (received, failure) = collectSlowly(stack)
+
+        assertThat(failure).isInstanceOf(ChannelLostException::class.java)
+        assertThat(failure!!.message).contains("faster")
+        assertThat(received).isAtMost(WebSocketJobChannel.MAX_PENDING_EVENTS + 1)
+      }
+    }
+  }
+
+  @Test
+  fun eventsWaitingForTheCollectorAreBoundedInSize() = runBlocking<Unit> {
+    val frame = deletedEvent(padding = LARGE_PADDING).toByteArray(Charsets.UTF_8)
+    RawPeer {
+      acceptWebSocket()
+      repeat(LARGE_EVENTS) { write(RawPeer.frameHeader(RawPeer.FIN or RawPeer.TEXT, frame.size.toLong()) + frame) }
+      awaitPhoneClose()
+    }.use { peer ->
+      TestStack(computer).use { stack ->
+        stack.trust(peer.address)
+
+        val (received, failure) = collectSlowly(stack)
+
+        assertThat(failure).isInstanceOf(ChannelLostException::class.java)
+        assertThat(failure!!.message).contains("faster")
+        assertThat(received).isLessThan(LARGE_EVENTS)
+      }
+    }
+  }
+
+  /** Collects the channel with a collector that stalls on its first event; the events it took and how it ended. */
+  private suspend fun collectSlowly(stack: TestStack): Pair<Int, Throwable?> {
+    var received = 0
+    val failure = withTimeout(10_000) {
+      runCatching {
+        stack.channel.open().collect { if (++received == 1) delay(STALL_MS) }
+      }.exceptionOrNull()
+    }
+    return received to failure
+  }
+
+  private fun causes(failure: Throwable): List<String> =
+    generateSequence(failure) { it.cause }.mapNotNull { it.message }.toList()
+
+  /** A valid `deleted` frame's text, with an unknown field of [padding] characters (ignored by the parser). */
+  private fun deletedEvent(padding: Int = 0): String =
+    """{"type": "deleted", "id": "$JOB_ID"""" + (if (padding > 0) """, "pad": "${"x".repeat(padding)}"""" else "") + "}"
+
+  /** [text] as one `permessage-deflate` frame (RFC 7692): raw deflate, without the sync flush's 00 00 FF FF. */
+  private fun deflatedFrame(text: String): ByteArray {
+    val deflater = Deflater(Deflater.BEST_COMPRESSION, true)
+    deflater.setInput(text.toByteArray(Charsets.UTF_8))
+    val out = ByteArrayOutputStream()
+    val buffer = ByteArray(64 * 1024)
+    do {
+      val count = deflater.deflate(buffer, 0, buffer.size, Deflater.SYNC_FLUSH)
+      out.write(buffer, 0, count)
+    } while (count == buffer.size || !deflater.needsInput())
+    deflater.end()
+    val payload = out.toByteArray().let { it.copyOf(it.size - SYNC_FLUSH_TAIL) }
+    return RawPeer.frameHeader(RawPeer.FIN or RawPeer.RSV1 or RawPeer.TEXT, payload.size.toLong()) + payload
+  }
+
   @Test
   fun anUnverifiedAddressNeverGetsAnUpgrade() = runBlocking<Unit> {
     TestStack(computer).use { stack ->
@@ -242,5 +396,15 @@ class JobChannelTest {
     const val POLICY_VIOLATION = 1008
     const val JOB_ID = "20261010-091503-4be1"
     const val WEBSOCKET_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+    const val MIB = 1024 * 1024
+    const val DEFLATED_PADDING = 8 * MIB
+    const val OVERSIZED_BYTES = 64L * MIB
+    const val FRAGMENT_BYTES = 10L * MIB
+    const val CUT_SHORT_BYTES = 32L * MIB
+    const val FLOOD_EXTRA = 64
+    const val LARGE_PADDING = 9 * MIB
+    const val LARGE_EVENTS = 3
+    const val STALL_MS = 1_500L
+    const val SYNC_FLUSH_TAIL = 4
   }
 }

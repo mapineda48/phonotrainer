@@ -112,7 +112,9 @@ class HostComputerSessionTest {
     assertThat(created.status).isEqualTo(201)
     val job = created.value.value
 
-    // The job channel announces it; then cancel, re-run, cancel and delete, as the emulator smoke test does.
+    // The job channel announces it; then cancel, re-run, cancel and delete, as the emulator smoke test does. The phone
+    // offers no compression and refuses an acceptance that names any, so this also shows that the real server (whose
+    // uvicorn accepts permessage-deflate by default) answers the channel uncompressed (round 2 of the reviews).
     val events = withTimeout(CHANNEL_MS) { stack.channel.open().take(2).toList() }
     assertThat(events[0]).isInstanceOf(ChannelEvent.Hello::class.java)
     assertThat((events[1] as ChannelEvent.Snapshot).jobs.map { it.id }).contains(job.id)

@@ -6,6 +6,8 @@ import com.mapineda48.phonotrainer.core.network.api.VerifiedPeers
 import com.mapineda48.phonotrainer.core.network.binding.CurrentNetworkInterceptor
 import com.mapineda48.phonotrainer.core.network.binding.NetworkBinding
 import com.mapineda48.phonotrainer.core.network.binding.RetiredConnectionRetry
+import com.mapineda48.phonotrainer.core.network.channel.ChannelInput
+import com.mapineda48.phonotrainer.core.network.channel.ChannelUpgradeInterceptor
 import com.mapineda48.phonotrainer.core.network.guard.CleartextGuard
 import com.mapineda48.phonotrainer.core.network.guard.ComputerSocketFactory
 import com.mapineda48.phonotrainer.core.network.guard.GuardEventListener
@@ -17,6 +19,7 @@ import java.net.Proxy
 import java.time.Duration
 import java.util.EnumMap
 import java.util.concurrent.TimeUnit
+import javax.net.SocketFactory
 import okhttp3.Call
 import okhttp3.ConnectionPool
 import okhttp3.Dns
@@ -59,9 +62,15 @@ internal data class NetworkTimeouts(
  * The one OkHttp client of architecture 5.1 and the clients derived from it per [Profile]: they share the connection
  * pool, the dispatcher, the guard, the signer, the network binding and the absence of DNS and proxies, and differ only
  * in their timeouts. The channel's client is the exception: it never reuses a pooled connection and never retries by
- * itself, because OkHttp runs no network interceptor for a WebSocket upgrade (see [create]).
+ * itself, because OkHttp runs no network interceptor for a WebSocket upgrade (see [create]); it offers no WebSocket
+ * extension, refuses an answer that names one, and reads through [channelSockets], whose sockets bound every message
+ * before OkHttp buffers it ([ChannelInput], architecture 5.4 and 5.5).
  */
-internal class ComputerHttp(val base: OkHttpClient, private val timeouts: NetworkTimeouts) {
+internal class ComputerHttp(
+  val base: OkHttpClient,
+  private val timeouts: NetworkTimeouts,
+  private val channelSockets: SocketFactory = base.socketFactory,
+) {
   private val clients = EnumMap<Profile, OkHttpClient>(Profile::class.java)
 
   fun client(profile: Profile): OkHttpClient = synchronized(clients) {
@@ -93,6 +102,8 @@ internal class ComputerHttp(val base: OkHttpClient, private val timeouts: Networ
         // and it always opens a fresh socket, bound to the network current at that moment.
         .retryOnConnectionFailure(false)
         .connectionPool(ConnectionPool(0, CHANNEL_POOL_KEEP_ALIVE_MS, TimeUnit.MILLISECONDS))
+        .socketFactory(channelSockets)
+        .addInterceptor(ChannelUpgradeInterceptor)
     }
     return builder.build()
   }
@@ -103,7 +114,8 @@ internal class ComputerHttp(val base: OkHttpClient, private val timeouts: Networ
      * Application interceptors: the guard first, the retired-connection retry, the signer's checks and its
      * `clock_skew` retry, the caps. Network interceptors, once per attempt (OkHttp's transparent retries included):
      * the retirement of connections from an earlier network (only with the client's own [NetworkBinding]), the PT1
-     * signature with a fresh nonce, then the debug log. `NetworkModule` and the tests build it only through here.
+     * signature with a fresh nonce, then the debug log. The channel's sockets come from the same factory with each
+     * message bounded on the way in. `NetworkModule` and the tests build it only through here.
      */
     fun create(
       guard: CleartextGuard,
@@ -133,7 +145,10 @@ internal class ComputerHttp(val base: OkHttpClient, private val timeouts: Networ
       (binder as? NetworkBinding)?.let { builder.addNetworkInterceptor(CurrentNetworkInterceptor(it, pool)) }
       builder.addNetworkInterceptor(AttemptSigner(signer, verified))
       debugLog?.let(builder::addNetworkInterceptor)
-      return ComputerHttp(builder.build(), timeouts)
+      val channelSockets = ComputerSocketFactory(binder, guard) { input ->
+        ChannelInput(input, ChannelInput.MAX_MESSAGE_BYTES)
+      }
+      return ComputerHttp(builder.build(), timeouts, channelSockets)
     }
 
     /** The pool every derived client shares; idle connections close before the server's keep-alive ends. */

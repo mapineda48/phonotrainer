@@ -8,6 +8,7 @@ import com.mapineda48.phonotrainer.core.network.binding.NetworkBinding
 import com.mapineda48.phonotrainer.core.network.http.GuardedException
 import com.mapineda48.phonotrainer.core.network.http.NoDnsException
 import com.mapineda48.phonotrainer.core.network.peers.ComputerPeers
+import java.io.InputStream
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Proxy
@@ -98,13 +99,15 @@ internal class GuardEventListener(private val guard: CleartextGuard) : EventList
 /**
  * The client's socket factory (architecture 5.1): every socket is bound to the network current at the moment it is
  * created, when the binder is the client's own [NetworkBinding] (the end-to-end binder binds nothing), and refuses to
- * connect anywhere the guard does not allow.
+ * connect anywhere the guard does not allow. [input], when given, wraps each socket's input stream (the job channel
+ * bounds its messages there).
  */
 internal class ComputerSocketFactory(
   private val binder: ComputerNetworkBinder,
   private val guard: CleartextGuard,
+  private val input: ((InputStream) -> InputStream)? = null,
 ) : SocketFactory() {
-  override fun createSocket(): Socket = GuardedSocket(guard).also { socket ->
+  override fun createSocket(): Socket = GuardedSocket(guard, input).also { socket ->
     try {
       socket.networkHandle = (binder as? NetworkBinding)?.bindSocket(socket)
     } catch (e: java.io.IOException) {
@@ -127,13 +130,24 @@ internal class ComputerSocketFactory(
 
 /**
  * A socket that connects only where the guard allows, and remembers the network it was bound to (null when the binder
- * binds nothing), so a connection from an earlier network is never reused ([CurrentNetworkInterceptor]).
+ * binds nothing), so a connection from an earlier network is never reused ([CurrentNetworkInterceptor]). Its input
+ * stream is read through [input] when given, created once.
  */
-internal class GuardedSocket(private val guard: CleartextGuard) : Socket() {
+internal class GuardedSocket(
+  private val guard: CleartextGuard,
+  private val input: ((InputStream) -> InputStream)? = null,
+) : Socket() {
   @Volatile var networkHandle: Long? = null
+
+  private var wrapped: InputStream? = null
 
   override fun connect(endpoint: SocketAddress?, timeout: Int) {
     if (!guard.allows(endpoint)) throw GuardedException("The address is not the computer's.")
     super.connect(endpoint, timeout)
+  }
+
+  override fun getInputStream(): InputStream {
+    val wrap = input ?: return super.getInputStream()
+    return synchronized(this) { wrapped ?: wrap(super.getInputStream()).also { wrapped = it } }
   }
 }
