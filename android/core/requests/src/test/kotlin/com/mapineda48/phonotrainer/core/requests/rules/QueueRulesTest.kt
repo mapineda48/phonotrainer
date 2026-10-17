@@ -87,4 +87,18 @@ class QueueRulesTest {
     assertThat(BackgroundWindow.fits(800_000_000, 2_000_000.0)).isFalse()
     assertThat(BackgroundWindow.fits(800_000_000, 2_000_000.0, resumable = true)).isTrue()
   }
+
+  @Test
+  fun showDetailsNeverCarriesTerminalCodes() {
+    val raw = "\u001b[0;31mERROR:\u001b[0m [youtube] abc123def45: This live event will begin in 2 hours.\r\n" +
+      "\u001b]8;;https://example.org\u0007link\u001b]8;;\u0007 \u009b1mbold\u001b[22m\u0007\r[download]  42%\n\n\n\u202Edone"
+
+    val cleaned = Details.clean(raw)
+
+    assertThat(cleaned).isEqualTo(
+      "ERROR: [youtube] abc123def45: This live event will begin in 2 hours.\nlink bold\n[download]  42%\ndone",
+    )
+    assertThat(cleaned.none { it.code < 0x20 && it != '\n' && it != '\t' }).isTrue()
+    assertThat(Details.clean("x".repeat(5_000))).hasLength(Details.MAX_CHARS)
+  }
 }

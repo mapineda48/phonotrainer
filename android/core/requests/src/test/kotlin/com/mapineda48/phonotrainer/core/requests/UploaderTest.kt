@@ -109,6 +109,28 @@ class UploaderTest {
   }
 
   @Test
+  fun aLostAnswerToTheBodyIsFoundByTheNextDeclarationAndMakesNoSecondJob() = queueTest { queue ->
+    // The computer stores the file and makes the job, then the answer never arrives (QT-3 for a file, spec 7.7).
+    val bytes = FakeMediaBytes.video(size = 25_000, salt = 17)
+    val id = queue.waitingFile(bytes)
+    queue.computer.applyThenDrop("/api/phone/uploads/*", method = "PUT")
+
+    queue.uploader.run(FakeForeground())
+    assertThat(queue.request(id).state).isEqualTo(RequestState.WAITING)
+    assertThat(queue.computer.jobsWithKey(id)).hasSize(1)
+
+    queue.clock.advanceBy(Duration.ofSeconds(30))
+    val putsBefore = queue.client.puts
+    queue.uploader.run(FakeForeground())
+
+    // The declaration answers "done" with the job the key made: nothing is sent again.
+    assertThat(queue.client.puts).isEqualTo(putsBefore)
+    assertThat(queue.computer.jobsWithKey(id)).hasSize(1)
+    assertThat(queue.request(id).jobId).isEqualTo(queue.computer.jobsWithKey(id).single().id)
+    assertThat(queue.files.dir(id).exists()).isFalse()
+  }
+
+  @Test
   fun aLargeFileWaitsForTheAppWhileTheLinksBehindItGo() = queueTest { queue ->
     val id = queue.waitingFile(FakeMediaBytes.video(size = 20_000, salt = 3), declared = 600_000_000)
     val link = (queue.repository.addLink(LinkInput("https://youtu.be/abc123def45", null, audioOnly = false)) as AddResult.Added).id

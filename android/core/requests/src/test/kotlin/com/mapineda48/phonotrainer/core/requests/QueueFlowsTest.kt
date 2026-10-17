@@ -359,6 +359,22 @@ class QueueFlowsTest {
   }
 
   @Test
+  fun aLiveStreamOffersTryAgainAndItsDetailsCarryNoTerminalCodes() = queueTest { queue ->
+    val id = queue.add("https://youtu.be/abc123def45", subject = "Morning live")
+    queue.sync()
+    queue.computer.failJob(queue.request(id).jobId!!, "live_stream", "\u001b[0;31mERROR:\u001b[0m This live event will begin soon.\r")
+
+    queue.sync()
+
+    val failed = queue.request(id)
+    assertThat(failed.state).isEqualTo(RequestState.NEEDS_ATTENTION)
+    assertThat(failed.lastError!!.code).isEqualTo("live_stream")
+    assertThat(failed.lastError!!.message).isEqualTo("ERROR: This live event will begin soon.")
+    assertThat(failed.actions).containsExactly(RequestAction.TRY_AGAIN, RequestAction.OPEN_LINK, RequestAction.REMOVE).inOrder()
+    assertThat(queue.notifier.attention.single().second.message).isEqualTo("ERROR: This live event will begin soon.")
+  }
+
+  @Test
   fun theComputersProgressMovesTheRequestAndItsReadyClipSaysSoOnce() = queueTest { queue ->
     val id = queue.add("https://youtu.be/abc123def45")
     queue.sync()

@@ -18,6 +18,7 @@ import com.mapineda48.phonotrainer.core.domain.model.remote.RemoteJob
 import com.mapineda48.phonotrainer.core.domain.model.remote.Stage
 import com.mapineda48.phonotrainer.core.requests.rules.ActionFacts
 import com.mapineda48.phonotrainer.core.requests.rules.BackgroundWindow
+import com.mapineda48.phonotrainer.core.requests.rules.Details
 import com.mapineda48.phonotrainer.core.requests.rules.MediaTypes
 import com.mapineda48.phonotrainer.core.requests.rules.RequestActions
 import com.mapineda48.phonotrainer.core.requests.rules.Titles
@@ -69,7 +70,7 @@ internal object RequestTitles {
     val code = (if (copyState) row.stateReason else row.lastErrorCode) ?: return null
     return RequestError(
       code = code,
-      message = if (copyState) null else row.lastErrorMessage,
+      message = if (copyState) null else row.lastErrorMessage?.let(Details::clean)?.takeIf { it.isNotEmpty() },
       downloaderVersion = downloaderVersion,
       atSending = copyState || row.jobId == null,
       neededBytes = if (copyState) row.neededBytes else null,
