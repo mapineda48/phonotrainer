@@ -13,6 +13,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.mapineda48.phonotrainer.core.domain.model.JobId
 import com.mapineda48.phonotrainer.core.player.feed.FeedPlayerPool
+import com.mapineda48.phonotrainer.core.player.feed.FollowerVideo
 import com.mapineda48.phonotrainer.core.player.support.PlayerHarness
 import com.mapineda48.phonotrainer.core.player.support.PlayerHarness.Media
 import com.mapineda48.phonotrainer.core.player.support.onMain
@@ -50,8 +51,10 @@ class AvSyncTest {
   @Test
   fun aPositiveStartOffsetIsSkippedAndStaysInSync() = check(offsetMs = 500, startMs = 2_000, maxDriftMs = 60)
 
+  /** The follower is re-synced once it drifts past 0.2 s, so it may be that far off plus a frame and a check. */
   @Test
-  fun aNegativeOffsetIsFollowedWithinTheResyncLimit() = check(offsetMs = -400, startMs = 2_000, maxDriftMs = 250)
+  fun aNegativeOffsetIsFollowedWithinTheResyncLimit() =
+    check(offsetMs = -400, startMs = 2_000, maxDriftMs = FollowerVideo.MAX_DRIFT_MS + FRAME_MS + FollowerVideo.SYNC_MS)
 
   private fun check(offsetMs: Long, startMs: Long, maxDriftMs: Long) {
     harness.clip(job, true)
@@ -130,5 +133,6 @@ class AvSyncTest {
     const val MIN_FRAMES = 40
     const val FIRST_FRAME_SLACK = 3
     const val DEBUG_FRAMES = 40
+    const val FRAME_MS = 34L
   }
 }

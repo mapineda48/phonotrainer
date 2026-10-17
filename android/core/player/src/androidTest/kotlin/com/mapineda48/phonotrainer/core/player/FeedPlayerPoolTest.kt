@@ -94,10 +94,13 @@ class FeedPlayerPoolTest {
     }
     waitPlayedPast(200)
     val before = position()
+    val from = android.os.SystemClock.uptimeMillis()
     Thread.sleep(1_000)
     val advanced = position() - before
+    val elapsed = android.os.SystemClock.uptimeMillis() - from
 
-    assertThat(advanced).isIn(com.google.common.collect.Range.closed(350L, 650L)) // about 0.5 s per second
+    // About 0.5 s of the clip per second of wall time, however long the test thread really slept.
+    assertThat(advanced.toDouble() / elapsed).isIn(com.google.common.collect.Range.closed(0.4, 0.6))
     assertThat(onMain { pool.currentPlayer()!!.playbackParameters }).isEqualTo(PlaybackParameters(0.5f, 1f))
     // After the speed change the tone is still 440 Hz: no octave down (220 Hz).
     assertThat(harness.heard(pool).dominantAfter(listOf(220.0, Media.MIX_HZ, 880.0))).isEqualTo(Media.MIX_HZ)

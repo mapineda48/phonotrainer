@@ -57,6 +57,6 @@ internal class FollowerVideo(
     const val MAX_DRIFT_MS: Long = 200
 
     /** How often the follower is checked while its short is current. */
-    const val SYNC_MS: Long = 100
+    const val SYNC_MS: Long = 50
   }
 }
