@@ -337,7 +337,7 @@ private fun LegendRow(word: @Composable () -> Unit, title: String, detail: Strin
 
 @PreviewLightDark
 @Composable
-private fun MarksPreview() {
+internal fun MarksPreview() {
   PhonoPreviewSurface {
     FamilyMark(Family.TD)
     Row(horizontalArrangement = Arrangement.spacedBy(PhonoSpacing.s8)) {
@@ -355,7 +355,7 @@ private fun MarksPreview() {
 
 @PreviewLightDark
 @Composable
-private fun MarksCvdPatternsPreview() {
+internal fun MarksCvdPatternsPreview() {
   PhonoPreviewSurface(colors = ColorChoice.COLOR_VISION_FRIENDLY, patterns = PatternChoice.FOLLOW_COLORS) {
     Row(horizontalArrangement = Arrangement.spacedBy(PhonoSpacing.s8)) {
       MarkedWordSpan(text = "does", family = Family.REDUCTION)

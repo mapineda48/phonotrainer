@@ -195,7 +195,7 @@ fun IconWell(@DrawableRes icon: Int, modifier: Modifier = Modifier, filled: Bool
 
 @PreviewLightDark
 @Composable
-private fun CardsPreview() {
+internal fun CardsPreview() {
   PhonoPreviewSurface {
     Kicker("Listen for", count = "3 of 8")
     PaperCard { PhonoText("A plain card", style = MaterialTheme.typography.titleLarge) }
