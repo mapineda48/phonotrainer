@@ -494,6 +494,8 @@ class ConformanceTest {
       val answer = calls.getValue(method to path)()
       assertWithMessage("$method $path answering $status $code").that(refusal(answer)).isEqualTo(expected)
       if (status == 429) assertThat((answer as ApiResult.Refused).retryAfterS).isEqualTo(30)
+      // A challenged hello without a proof forgets the address (architecture 5.3): it proves itself again.
+      if (path == "/api/phone/hello") assertThat(ok(client.hello(computer.address, device)).value.proofValid).isTrue()
     }
   }
 

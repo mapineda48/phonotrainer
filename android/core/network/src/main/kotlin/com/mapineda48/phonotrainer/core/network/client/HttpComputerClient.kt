@@ -82,17 +82,30 @@ internal class HttpComputerClient @Inject constructor(
 
   // --- identity, pairing, health (server-contract 6.2) --------------------------------------------------------------
 
+  /**
+   * A challenged `hello` that does not end in a valid proof, for any reason (a refusal such as `404`, an answer that
+   * is not the documented JSON, no answer at all, a revoked device, a stale proof, or the call being cancelled),
+   * forgets an earlier verification of [at]: whatever answers there now has not proved itself, so nothing signed is
+   * sent there until a new proof (architecture 5.3).
+   */
   override suspend fun hello(at: HostPort, challengeFor: DeviceId?): ApiResult<ComputerIdentity> {
     val challenge = challengeFor?.let { Pt1.newNonce() }
     val epoch = verified.epoch()
-    return call(at, probe(), { hello(challengeFor?.value, challenge) }) { response ->
-      val answer = response.body() ?: malformed("hello")
-      val proofValid = if (challengeFor != null && challenge != null) {
-        prove(at, answer, challengeFor, challenge, epoch)
-      } else {
-        null
+    var proven = false
+    try {
+      val result = call(at, probe(), { hello(challengeFor?.value, challenge) }) { response ->
+        val answer = response.body() ?: malformed("hello")
+        val proofValid = if (challengeFor != null && challenge != null) {
+          prove(at, answer, challengeFor, challenge, epoch)
+        } else {
+          null
+        }
+        answer.toIdentity(proofValid)
       }
-      answer.toIdentity(proofValid)
+      proven = result is ApiResult.Ok && result.value.proofValid == true && result.value.revoked != true
+      return result
+    } finally {
+      if (challenge != null && !proven) verified.forget(at)
     }
   }
 

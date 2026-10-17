@@ -81,7 +81,10 @@ class SessionTest {
         val before = quick.client.hello(computer.address, com.mapineda48.phonotrainer.core.domain.model.DeviceId(device.deviceId))
         assertThat(before).isEqualTo(ApiResult.Failed(AppError.Computer.Unreachable(ProbeOutcome.NoAnswer(1))))
 
+        // A probe with no answer proved nothing, so the address proves itself again (architecture 5.3).
         computer.reachability = Reachability.Reachable
+        val again = quick.client.hello(computer.address, com.mapineda48.phonotrainer.core.domain.model.DeviceId(device.deviceId))
+        assertThat((again as ApiResult.Ok).value.proofValid).isTrue()
         computer.addJob(JobSeed(status = JobStatus.RUNNING))
         assertThat((quick.client.health() as ApiResult.Ok).value.analyzing).isEqualTo(1)
         computer.reachability = Reachability.Slow(Duration.ofMillis(1_200))
