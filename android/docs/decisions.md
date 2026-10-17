@@ -130,6 +130,22 @@ row gaining one on open, and a new id for every new database; replacing `INSERT 
 dropping `onOpen`, makes it fail. `LearningIdOnDeviceTest` repeats the first case on the managed device, and
 `GlobalTestSetTest.theInMemoryLearningDatabaseHasItsLearningId` covers the end-to-end set's in-memory builder.
 
+## Media
+
+### I-18 The feed keeps its pool of three players; DefaultPreloadManager is the measured fallback (2026-10-17, WP-11)
+
+Architecture 11.2 asked WP-11 to evaluate Media3's `DefaultPreloadManager` as a drop-in for the pool's preparation and
+to record decoders and memory while swiping. On the managed device (Pixel 9 API 36 ATD, software decoders), 50 swipes
+over two-second shorts of a 320×240 H.264 clip, swipe to sound measured from `settle` to the platform's playout start:
+pool of three p50 86 / p90 91 / max 96 ms with 3 video decoders, PSS 110 → 118 MB; one player with
+`DefaultPreloadManager` (neighbours loaded 1 s ahead) p50 124 / p90 139 ms with 1 decoder; 1280×720 on the pool p90
+93 ms, 3 decoders, PSS 112 → 118 MB. Both meet SC-08; the pool keeps the neighbours' decoders warm and the first frame
+ready, so it stays. A short loaded while already current (a jump) starts with its video off and its neighbours wait
+for it (p90 163 ms 4.5 s from a key frame), and players buffer local files 0.1 s before starting. If WP-25's phone
+measurements show codec or memory pressure (AV1 720p on the test phone), the fallback is the preload manager with one
+player, behind the same `FeedPlayer` (architecture 11.2). Proof: `:core:player` `SwipeTimingTest`,
+`PreloadManagerEvaluationTest` (device log tag `PhonoPlayerQA`).
+
 ## Build and test infrastructure
 
 ### I-15 `StartupOrder` is kept by an R8 rule, proved with AGP's own R8 (2026-10-11, WP-19)
