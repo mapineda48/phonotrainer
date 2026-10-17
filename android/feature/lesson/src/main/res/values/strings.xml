@@ -1,7 +1,142 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Strings of :feature:lesson. At the contract freeze: the word lesson stub (WP-18 replaces it). -->
+<!-- Strings of :feature:lesson, the word lesson (WP-18; spec F-10, F-12, F-14; design 9.9 to 9.11). The web's copy
+     (web/src/features/analysis/lesson) is kept word for word where the spec says "(web)". -->
 <resources>
+    <!-- Frame and header (design 9.9) -->
     <string name="lesson_title">Word lesson</string>
-    <string name="lesson_lede">Hear the word, compare what was said with the dictionary, and practise it.</string>
+    <string name="lesson_kicker">WORD LESSON</string>
     <string name="lesson_close">Close</string>
+    <string name="lesson_save">Save this word</string>
+    <string name="lesson_word">“%1$s”</string>
+    <string name="lesson_word_next">+ “%1$s”</string>
+    <string name="lesson_meta">Word %1$d of %2$d · phrase %3$d · %4$s–%5$s</string>
+    <string name="lesson_word_button">Word</string>
+    <string name="lesson_previous">Previous word</string>
+    <string name="lesson_next">Next word</string>
+    <string name="lesson_next_change">Next change</string>
+    <string name="lesson_low_confidence">Low confidence</string>
+    <string name="lesson_nothing_heard">Nothing heard here</string>
+    <string name="lesson_paused">Paused · %1$s</string>
+    <string name="lesson_register_universal">universal</string>
+    <string name="lesson_register_casual">casual</string>
+    <string name="lesson_register_marked">marked</string>
+    <string name="lesson_loading">Opening the lesson…</string>
+    <string name="lesson_gone_title">That clip is no longer on this phone.</string>
+    <string name="lesson_gone_body">Close the lesson to go back to where you were.</string>
+    <string name="lesson_damaged_title">This lesson can\'t open.</string>
+    <string name="lesson_damaged_body">The clip\'s data was damaged on this phone: it needs downloading again.</string>
+    <string name="lesson_word_gone_title">That word is no longer in this clip.</string>
+    <string name="lesson_word_gone_body">The clip was analyzed again since this lesson was opened.</string>
+
+    <!-- Steps -->
+    <string name="lesson_step_listen">Listen</string>
+    <string name="lesson_step_compare">Compare</string>
+    <string name="lesson_step_why">Why it changes</string>
+    <string name="lesson_step_see">See the mouth</string>
+    <string name="lesson_step_practice">Practice</string>
+    <string name="lesson_step_number">Step %1$d</string>
+    <string name="lesson_step_open">Open</string>
+    <string name="lesson_step_closed">Closed</string>
+    <string name="lesson_played">played %1$d×</string>
+
+    <!-- Step 1, Listen -->
+    <string name="lesson_play_word">Play the word</string>
+    <string name="lesson_play_with">Play with “%1$s”</string>
+    <string name="lesson_play_phrase">Play the phrase</string>
+    <string name="lesson_crossing">This change happens between “%1$s” and “%2$s”: listen to them together.</string>
+    <string name="lesson_no_audio">This clip came without its audio: you can read it, but not listen to it.</string>
+    <string name="lesson_speed">Speed</string>
+    <string name="lesson_speed_option">%1$s×</string>
+    <string name="lesson_loop">Loop: repeat what you play</string>
+    <string name="lesson_track">Listen to</string>
+    <string name="lesson_track_mix">Original mix</string>
+    <string name="lesson_track_dialogue">Dialogue only</string>
+
+    <!-- Step 2, Compare (design 9.10) -->
+    <string name="lesson_explain">What\'s this: %1$s</string>
+    <string name="lesson_dictionary">Dictionary</string>
+    <string name="lesson_said">What was said</string>
+    <string name="lesson_aligner">Expected by the aligner</string>
+    <string name="lesson_dictionary_form">/%1$s/</string>
+    <string name="lesson_said_form">[%1$s]</string>
+    <string name="lesson_nothing">∅</string>
+    <string name="lesson_spoken">Written “%1$s”, said as “%2$s”: the comparison uses the spoken form.</string>
+    <string name="lesson_no_dictionary_title">No dictionary form</string>
+    <string name="lesson_no_dictionary">“%1$s” is a number or symbol the dictionary cannot spell out, so there is nothing to compare what was said against.</string>
+    <string name="lesson_legend">What the marks mean</string>
+    <string name="lesson_mark_same">same</string>
+    <string name="lesson_mark_changed">changed</string>
+    <string name="lesson_mark_dropped">dropped</string>
+    <string name="lesson_mark_added">added</string>
+    <string name="lesson_sort_same">%1$s, same</string>
+    <string name="lesson_sort_changed">%1$s changed to %2$s</string>
+    <string name="lesson_sort_dropped">%1$s, not heard</string>
+    <string name="lesson_sort_added">%1$s, added</string>
+    <string name="lesson_compare_note_narrow">Each column pairs a sound the dictionary expects with what was heard at the same moment. Pick a sound to hear it and see what it is.</string>
+    <string name="lesson_compare_note_espeak">With the espeak engine the expected row already includes some native changes (better → [bɛɾɚ]); the dictionary line above is the citation form.</string>
+    <string name="lesson_gap_linked">Gap between “%1$s” and “%2$s”: %3$s — they run together: that is the linking (an unlinked boundary sits nearer 60 ms).</string>
+    <string name="lesson_gap_unlinked">Gap between “%1$s” and “%2$s”: %3$s — no clear linking at this boundary.</string>
+    <string name="lesson_gap_ms">%1$d ms</string>
+    <string name="lesson_gap_overlap">none, the sounds overlap</string>
+    <string name="lesson_pill_same">= same · [%1$s]</string>
+    <string name="lesson_pill_changed">≠ changed · /%1$s/ → [%2$s]</string>
+    <string name="lesson_pill_dropped">– dropped · /%1$s/</string>
+    <string name="lesson_pill_added">+ added · [%1$s]</string>
+    <string name="lesson_sound_unknown">a sound outside the drawable inventory</string>
+    <string name="lesson_sound_as_in">As in “%1$s”.</string>
+    <string name="lesson_play_sound">Play this sound</string>
+    <string name="lesson_see_mouth">See it in the mouth</string>
+    <string name="lesson_ipa_chart">Open in the IPA chart</string>
+
+    <!-- Step 3, Why it changes (design 9.11) -->
+    <string name="lesson_nothing_heard_title">Nothing was heard here</string>
+    <string name="lesson_nothing_heard_body">The recognizer found no sounds for this word — it may be silence, laughter or music. The labels below are not verifiable.</string>
+    <string name="lesson_low_confidence_body">The recognizer was unsure over this stretch. Read the labels with caution.</string>
+    <string name="lesson_no_change_dictionary">With no dictionary form to compare against, no change can be labeled here.</string>
+    <string name="lesson_no_change_same">Nothing changed: this word was said the way the dictionary says it.</string>
+    <string name="lesson_no_change_unlabeled">No labeled change. The sounds may still differ slightly from the dictionary form — compare them in step 2.</string>
+    <string name="lesson_link_kind">Kind of link: %1$s</string>
+    <string name="lesson_link_consonant">consonant → vowel</string>
+    <string name="lesson_link_r">linking r</string>
+    <string name="lesson_link_glide_w">glide [w]</string>
+    <string name="lesson_link_glide_j">glide [j]</string>
+    <string name="lesson_reduced_form">Reduced form: “%1$s”</string>
+    <string name="lesson_reduced_form_expansion">Reduced form: “%1$s” ← “%2$s”</string>
+    <string name="lesson_from_scoring">From form scoring: not visible in the recognized sounds — the weak form matched this audio better than the strong one.</string>
+    <string name="lesson_form_scoring">Form scoring heard the %1$s form [%2$s]</string>
+    <string name="lesson_form_scoring_margin">Form scoring heard the %1$s form [%2$s] — the weak form scored %3$s %4$s against the citation form [%5$s]</string>
+    <string name="lesson_form_weak">weak</string>
+    <string name="lesson_form_strong">strong</string>
+    <string name="lesson_form_ahead">ahead by</string>
+    <string name="lesson_form_behind">behind by</string>
+    <string name="lesson_form_h_dropped">the /h/ was dropped</string>
+    <string name="lesson_watch_more">Watch more like this</string>
+    <string name="lesson_learn_about">Learn about %1$s</string>
+    <string name="lesson_learn_more">Learn more</string>
+    <string name="lesson_prominence">Prominence</string>
+    <string name="lesson_prominence_value">%1$d %% of the phrase\'s peak</string>
+    <string name="lesson_content_word">content word</string>
+    <string name="lesson_function_word">function word</string>
+    <string name="lesson_function_peak">The peak fell on a grammar word: contrast or emphasis.</string>
+    <string name="lesson_divergence">Divergence</string>
+    <string name="lesson_divergence_value">%1$s (0 = identical)</string>
+    <string name="lesson_divergence_none">no dictionary form</string>
+    <string name="lesson_oov">Not in the dictionary: its dictionary form was guessed from the spelling.</string>
+    <string name="lesson_fallback">Approximate timing: the sounds were placed using the transcript\'s word times.</string>
+    <plurals name="lesson_attracted">
+        <item quantity="one">%1$d sound was kept as expected after a recognizer confusion (attraction).</item>
+        <item quantity="other">%1$d sounds were kept as expected after a recognizer confusion (attraction).</item>
+    </plurals>
+
+    <!-- Step 4, See the mouth (v1-complete drawing; v1-core fallback: names and what the mouth does) -->
+    <string name="lesson_mouth_for">Show the mouth for</string>
+    <string name="lesson_mouth_said">What was said</string>
+    <string name="lesson_mouth_dictionary">Dictionary form</string>
+    <string name="lesson_mouth_no_drawing">No drawing for this sound yet.</string>
+    <string name="lesson_mouth_follow">Follow the playback again</string>
+    <string name="lesson_mouth_footer">The shapes in between the sounds are not decoration: they are the coarticulation this analysis measures.</string>
+    <string name="lesson_mouth_caption">[%1$s] %2$s · as in “%3$s”</string>
+    <string name="lesson_mouth_view">Side view of the mouth: [%1$s], %2$s</string>
+    <string name="lesson_mouth_rest">Side view of the mouth, at rest</string>
+    <string name="lesson_mouth_sound">[%1$s] %2$s</string>
 </resources>
