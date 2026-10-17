@@ -3,7 +3,9 @@
      Android 10 and 11 and every visible upload (architecture 7.2, 8.3, 8.5), so WorkManager's foreground service must
      carry that type. Architecture 7.2 places this entry, with the FOREGROUND_SERVICE_DATA_SYNC permission, in
      :core:sync's manifest; :core:requests declares the same service entry because its own workers need it, and the
-     manifest merger makes the two one. -->
+     manifest merger makes the two one. Until that permission is in the merged manifest, Android 14 and later refuse the
+     service inside WorkManager where the worker cannot see it, so UploadWorker checks the permission first
+     (dataSyncForegroundAllowed) and a file above the background window keeps waiting for the app. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 

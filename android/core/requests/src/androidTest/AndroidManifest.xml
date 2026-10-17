@@ -1,8 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- The core instrumented suite of :core:requests (work-plan WP-09): a provider of test media and an activity that
-     stands for the share sheet. WorkManager is initialised by the tests with their own worker factory. -->
+     stands for the share sheet. WorkManager is initialised by the tests with their own worker factory. The test package
+     holds FOREGROUND_SERVICE_DATA_SYNC, as the app's merged manifest will by change request CR-WP09-1, so the visible
+     upload's foreground service can be proved on the device. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
     <application>
         <activity

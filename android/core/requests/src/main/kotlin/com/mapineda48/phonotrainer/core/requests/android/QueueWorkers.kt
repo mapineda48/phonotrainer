@@ -1,8 +1,11 @@
 package com.mapineda48.phonotrainer.core.requests.android
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.os.Build
+import androidx.core.content.ContextCompat
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.ListenableWorker
@@ -102,6 +105,24 @@ internal fun transferForeground(
   progress: TransferProgress,
 ): ForegroundInfo =
   ForegroundInfo(id, notifier.transferNotification(kind, progress), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+
+/**
+ * Whether WorkManager's foreground service can really enter the foreground as `dataSync`, checked before
+ * `setForeground()` because the worker never learns of a refusal: WorkManager 2.12.0 completes `setForeground()` once it
+ * has called `startForegroundService`, and the service's own `startForeground` catches `SecurityException` and
+ * `ForegroundServiceStartNotAllowedException` and only logs them. On Android 14 and later that refusal is certain
+ * without `FOREGROUND_SERVICE_DATA_SYNC` (and the system may also raise `ForegroundServiceDidNotStartInTimeException`).
+ * Without this check a file above the background window would start as ordinary work, be stopped at Android's
+ * 10-minute limit and restart from zero, over and over (F-20-AC10, Android review H4). The other refusals are not
+ * expected here, because a visible transfer is only asked for while the app is visible: the app in the background
+ * (refused by `startForegroundService` itself, which does reach the worker) and Android 15's daily data-sync limit
+ * (reset when the app comes to the foreground).
+ */
+internal fun dataSyncForegroundAllowed(context: Context): Boolean {
+  if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return true
+  return ContextCompat.checkSelfPermission(context, Manifest.permission.FOREGROUND_SERVICE_DATA_SYNC) ==
+    PackageManager.PERMISSION_GRANTED
+}
 
 /**
  * The expedited copy of a shared item (`intake-share-<id>`, architecture 8.3, Android review H2a): it keeps the process
@@ -210,11 +231,18 @@ internal class UploadWorker @AssistedInject constructor(
 
   private inner class WorkerForeground : UploadForeground {
     private var promoted = false
+    private var permissionMissingLogged = false
 
     override fun appVisible(): Boolean = visibility.visible()
 
     override suspend fun promote(progress: TransferProgress): Boolean {
       if (promoted) return true
+      if (!dataSyncForegroundAllowed(applicationContext)) {
+        // The service would be refused where the worker cannot see it: the file keeps waiting for a visible transfer.
+        if (!permissionMissingLogged) log.w("requests.upload_not_foreground.permission")
+        permissionMissingLogged = true
+        return false
+      }
       return try {
         setForeground(transferForeground(transfers, QueueWorkNames.UPLOAD_NOTIFICATION, TransferKind.UPLOAD, progress))
         promoted = true

@@ -54,7 +54,10 @@ internal interface UploadForeground {
   /** Whether the app is in the foreground now. */
   fun appVisible(): Boolean
 
-  /** Runs the work as a visible transfer; false when Android does not allow it now (the app left the foreground). */
+  /**
+   * Runs the work as a visible transfer; false when Android does not allow it now (the app left the foreground, or on
+   * Android 14 and later the app does not hold `FOREGROUND_SERVICE_DATA_SYNC`).
+   */
   suspend fun promote(progress: TransferProgress): Boolean
 
   /** New progress for the visible transfer (at most about once a second). */
