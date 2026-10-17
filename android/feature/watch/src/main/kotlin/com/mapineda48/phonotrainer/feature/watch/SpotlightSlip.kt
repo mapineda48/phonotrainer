@@ -124,10 +124,10 @@ internal fun SpotlightSlipCard(
       if (now) NowPill()
     }
     slip.contraction?.let {
-      PhonoBadge(it, icon = PhonoIcons.FamilyLexical, modifier = Modifier.clearAndSetSemantics { }.testTag(WatchTags.CONTRACTION))
+      PhonoBadge(it, icon = PhonoIcons.FamilyLexical, modifier = Modifier.testTag(WatchTags.CONTRACTION).clearAndSetSemantics { })
     }
     ipa?.let {
-      IpaText(it, style = PhonoTheme.type.ipaSlip, modifier = Modifier.clearAndSetSemantics { }.testTag(WatchTags.SLIP_IPA))
+      IpaText(it, style = PhonoTheme.type.ipaSlip, modifier = Modifier.testTag(WatchTags.SLIP_IPA).clearAndSetSemantics { })
     }
     if (!compact) {
       cueOf(slip)?.let {
@@ -135,7 +135,7 @@ internal fun SpotlightSlipCard(
           it,
           style = MaterialTheme.typography.bodyMedium,
           color = colors.ink2,
-          modifier = Modifier.clearAndSetSemantics { }.testTag(WatchTags.SLIP_CUE),
+          modifier = Modifier.testTag(WatchTags.SLIP_CUE).clearAndSetSemantics { },
         )
       }
       FlowRow(

@@ -128,12 +128,12 @@ private fun RailItem(action: CardAction) {
       .heightIn(min = PhonoSizes.railItem.height)
       .clip(RoundedCornerShape(PhonoRadius.medium))
       .clickable(role = Role.Button, onClick = action.onClick)
+      .testTag(action.tag)
       .clearAndSetSemantics {
         contentDescription = action.description
         role = Role.Button
         if (action.tag == WatchTags.SAVE) stateDescription = action.label
       }
-      .testTag(action.tag)
       .padding(vertical = PhonoSpacing.s2),
     horizontalAlignment = Alignment.CenterHorizontally,
     verticalArrangement = Arrangement.spacedBy(PhonoSpacing.s2),
@@ -172,12 +172,12 @@ internal fun ActionBar(actions: List<CardAction>, modifier: Modifier = Modifier)
               .background(if (action.toggled) colors.ink else colors.sheet)
               .border(PhonoSizes.ring, if (action.toggled) colors.ink else colors.lineStrong, RoundedCornerShape(PhonoRadius.medium))
               .clickable(role = Role.Button, onClick = action.onClick)
+              .testTag(action.tag)
               .clearAndSetSemantics {
                 contentDescription = action.description
                 role = Role.Button
                 if (action.tag == WatchTags.SAVE) stateDescription = action.label
               }
-              .testTag(action.tag)
               .padding(horizontal = PhonoSpacing.s8, vertical = PhonoSpacing.s6),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(PhonoSpacing.s6),
@@ -264,11 +264,11 @@ internal fun ClipLine(
         .heightIn(min = PhonoSizes.minTarget)
         .clip(RoundedCornerShape(PhonoRadius.small))
         .clickable(role = Role.Button, onClick = onOpenClip)
+        .testTag(WatchTags.CLIP_TITLE)
         .clearAndSetSemantics {
           contentDescription = openLabel
           role = Role.Button
-        }
-        .testTag(WatchTags.CLIP_TITLE),
+        },
       verticalAlignment = Alignment.CenterVertically,
       horizontalArrangement = Arrangement.spacedBy(PhonoSpacing.s4),
     ) {

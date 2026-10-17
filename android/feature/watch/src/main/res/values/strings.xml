@@ -19,7 +19,10 @@
     <string name="watch_previous_short">Previous short</string>
     <string name="watch_next_short">Next short</string>
     <string name="watch_on_this_phone">On this phone</string>
-    <string name="watch_short_set">Only %1$d shorts today: add a clip for more.</string>
+    <plurals name="watch_short_set">
+        <item quantity="one">Only %1$d short today: add a clip for more.</item>
+        <item quantity="other">Only %1$d shorts today: add a clip for more.</item>
+    </plurals>
 
     <!-- Spotlight slip (F-07 item 3, design 9.3). -->
     <string name="watch_listen_for">Listen for</string>
@@ -158,7 +161,10 @@
     <!-- Mode picker (F-06 item 3, design 9.12). -->
     <string name="watch_picker_title">What the feed shows</string>
     <string name="watch_picker_lede">Pick a mode: today\'s set, your saved shorts, one change across your clips, or one clip in order.</string>
-    <string name="watch_picker_today_progress">%1$d of %2$d done</string>
+    <plurals name="watch_picker_today_progress">
+        <item quantity="one">%1$d of %2$d done</item>
+        <item quantity="other">%1$d of %2$d done</item>
+    </plurals>
     <string name="watch_picker_today_none">Starts with your first clip</string>
     <plurals name="watch_picker_saved_count">
         <item quantity="one">%1$d saved short</item>
@@ -193,7 +199,10 @@
         <item quantity="one">%1$d question</item>
         <item quantity="other">%1$d questions</item>
     </plurals>
-    <string name="watch_end_right">%1$d of %2$d right</string>
+    <plurals name="watch_end_right">
+        <item quantity="one">%1$d of %2$d right</item>
+        <item quantity="other">%1$d of %2$d right</item>
+    </plurals>
     <string name="watch_end_tally">%1$s · %2$s · %3$s</string>
     <string name="watch_end_tally_short">%1$s · %2$s</string>
     <string name="watch_end_met">What you met</string>

@@ -26,6 +26,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.mapineda48.phonotrainer.core.designsystem.component.PhonoText
 import com.mapineda48.phonotrainer.core.designsystem.theme.PhonoSpacing
@@ -157,7 +158,7 @@ internal fun WatchScreen(
         state.shortSet?.let { count ->
           if (state.currentPage is FeedPage.Short && state.current == 0) {
             PhonoText(
-              stringResource(R.string.watch_short_set, count),
+              pluralStringResource(R.plurals.watch_short_set, count, count),
               style = MaterialTheme.typography.bodySmall,
               color = colors.ink2,
               modifier = Modifier.padding(horizontal = PhonoSpacing.gutter).testTag(WatchTags.SHORT_SET),
@@ -179,7 +180,6 @@ internal fun WatchScreen(
         VerticalPager(
           state = pager,
           key = { index -> state.pages.getOrNull(index)?.key ?: index },
-          beyondViewportPageCount = 1,
           flingBehavior = PagerDefaults.flingBehavior(
             state = pager,
             snapAnimationSpec = if (reduced) snap() else tween(SWIPE_MS),

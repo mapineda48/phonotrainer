@@ -252,13 +252,13 @@ private fun CaptionWordButton(
     modifier = modifier
       .defaultMinSize(minWidth = PhonoSizes.minTarget, minHeight = PhonoSizes.minTarget)
       .combinedClickable(onClick = onClick, onLongClick = onLoop, role = Role.Button)
+      .testTag(WatchTags.word(word.ref.segment, word.ref.word))
       .clearAndSetSemantics {
         contentDescription = description
         role = Role.Button
         onClick(label = openLabel) { onClick(); true }
         customActions = listOf(CustomAccessibilityAction(loopLabel) { onLoop(); true })
       }
-      .testTag(WatchTags.word(word.ref.segment, word.ref.word))
       .then(
         if (word.spotlit) {
           Modifier.drawBehind {

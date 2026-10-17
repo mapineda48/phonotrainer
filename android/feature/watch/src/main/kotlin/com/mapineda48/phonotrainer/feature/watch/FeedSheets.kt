@@ -83,7 +83,7 @@ internal fun ModePickerSheet(
       PickerRow(
         title = stringResource(R.string.watch_mode_with_detail, stringResource(R.string.watch_mode_mix), stringResource(R.string.watch_mode_today)),
         detail = if (today != null) {
-          stringResource(R.string.watch_picker_today_progress, today.first, today.second)
+          pluralStringResource(R.plurals.watch_picker_today_progress, today.second, today.first, today.second)
         } else {
           stringResource(R.string.watch_picker_today_none)
         },

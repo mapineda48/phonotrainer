@@ -31,7 +31,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontStyle
@@ -66,6 +68,8 @@ internal fun MediaArea(
   onReplay: () -> Unit,
   onHold: (Boolean) -> Unit,
   modifier: Modifier = Modifier,
+  summary: String? = null,
+  summaryActions: List<CustomAccessibilityAction> = emptyList(),
 ) {
   val colors = PhonoTheme.colors
   val toggle by rememberUpdatedState(onTogglePlay)
@@ -94,11 +98,12 @@ internal fun MediaArea(
           },
         )
       }
-      .semantics {
-        contentDescription = description
+      .testTag(WatchTags.MEDIA)
+      .semantics(mergeDescendants = true) {
+        contentDescription = summary ?: description
+        if (summaryActions.isNotEmpty()) customActions = summaryActions
         onClick(label = playLabel) { toggle(); true }
-      }
-      .testTag(WatchTags.MEDIA),
+      },
   ) {
     val title = content?.clipTitle
     when (look) {

@@ -168,7 +168,7 @@ private fun SetSummaryBody(summary: SetSummary?, callbacks: EndCallbacks) {
         R.string.watch_end_tally,
         shorts,
         pluralStringResource(R.plurals.watch_end_questions, summary.questions, summary.questions),
-        stringResource(R.string.watch_end_right, summary.right, summary.questions),
+        pluralStringResource(R.plurals.watch_end_right, summary.questions, summary.right, summary.questions),
       )
     } else {
       shorts

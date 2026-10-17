@@ -125,11 +125,12 @@ internal fun ShortCard(
       callbacks.onSave(); true
     },
   )
-  val cardModifier = modifier.fillMaxSize().shortSemantics(summary, a11yActions)
+  val cardModifier = modifier.fillMaxSize()
+  val talk = CardTalk(summary, a11yActions)
   if (look == MediaLook.PORTRAIT_VIDEO && !failed) {
-    PortraitCard(page, state, current, content, playhead, playback, look, largeText, actions, volumeMuted, surface, callbacks, cardModifier)
+    PortraitCard(page, state, current, content, playhead, playback, look, largeText, actions, volumeMuted, surface, callbacks, talk, cardModifier)
   } else {
-    StandardCard(page, state, current, content, playhead, playback, look, failed, largeText, actions, volumeMuted, surface, callbacks, cardModifier)
+    StandardCard(page, state, current, content, playhead, playback, look, failed, largeText, actions, volumeMuted, surface, callbacks, talk, cardModifier)
   }
 }
 
@@ -148,11 +149,19 @@ private fun StandardCard(
   volumeMuted: Boolean,
   surface: @Composable (Modifier, ContentScale) -> Unit,
   callbacks: CardCallbacks,
+  talk: CardTalk,
   modifier: Modifier,
 ) {
   Column(modifier) {
     if (failed) {
-      Box(Modifier.fillMaxWidth().aspectRatio(MEDIA_RATIO).background(PhonoTheme.colors.page), contentAlignment = Alignment.Center) {
+      Box(
+        Modifier
+          .fillMaxWidth()
+          .aspectRatio(MEDIA_RATIO)
+          .background(PhonoTheme.colors.page)
+          .shortSemantics(talk.summary, talk.actions),
+        contentAlignment = Alignment.Center,
+      ) {
         Notice(
           body = stringResource(R.string.watch_short_failed),
           kind = NoticeKind.CAUTION,
@@ -174,6 +183,8 @@ private fun StandardCard(
         onReplay = callbacks.onReplay,
         onHold = callbacks.onHold,
         modifier = Modifier.fillMaxWidth().aspectRatio(MEDIA_RATIO),
+        summary = talk.summary,
+        summaryActions = talk.actions,
       )
     }
     Row(Modifier.weight(1f).fillMaxWidth()) {
@@ -210,6 +221,7 @@ private fun PortraitCard(
   volumeMuted: Boolean,
   surface: @Composable (Modifier, ContentScale) -> Unit,
   callbacks: CardCallbacks,
+  talk: CardTalk,
   modifier: Modifier,
 ) {
   val colors = PhonoTheme.colors
@@ -228,6 +240,8 @@ private fun PortraitCard(
         onReplay = callbacks.onReplay,
         onHold = callbacks.onHold,
         modifier = Modifier.fillMaxSize(),
+        summary = talk.summary,
+        summaryActions = talk.actions,
       )
       // The caption slip: an opaque sheet at the bottom left, so captions stay legible over any picture.
       Column(
@@ -277,7 +291,7 @@ private fun TextBlock(
   largeText: Boolean,
   volumeMuted: Boolean,
   callbacks: CardCallbacks,
-  captionsModifier: Modifier,
+  modifier: Modifier,
 ) {
   LoadingGate(loading = content == null, label = stringResource(R.string.watch_loading)) {
     val c = content ?: return@LoadingGate
@@ -309,7 +323,7 @@ private fun TextBlock(
       onShowWords = callbacks.onShowWords,
       onShowCaptions = callbacks.onShowCaptions,
       onExplain = callbacks.onExplain,
-      modifier = captionsModifier,
+      modifier = modifier,
     )
     if (current) {
       state.coachMark?.let { mark ->
@@ -353,6 +367,12 @@ internal fun cardSummary(page: FeedPage.Short, content: ShortContent?): String {
     stringResource(R.string.watch_summary_plain, page.info.ordinal, page.info.ofTotal, title, duration)
   }
 }
+
+/**
+ * What TalkBack meets first on a card (F-07-AC11, design 9.8): the summary and the custom actions, on the card's
+ * picture (or on its failure notice), so the slip, the words, the rail and the hint stay their own nodes.
+ */
+private data class CardTalk(val summary: String, val actions: List<CustomAccessibilityAction>)
 
 /** The state a card that is not current draws: paused at its start. */
 private fun IdleFor(page: FeedPage.Short): FeedPlaybackState = IdlePlayback.copy(index = page.queueIndex)

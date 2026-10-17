@@ -139,7 +139,7 @@ private fun Beads(progress: SetProgress) {
   val gap = 4.dp
   val capsule = 16.dp
   val width = dot * (progress.total - 1).coerceAtLeast(0) + gap * (progress.total - 1).coerceAtLeast(0) + capsule
-  Canvas(Modifier.size(width, dot).clearAndSetSemantics { }.testTag(WatchTags.BEADS)) {
+  Canvas(Modifier.size(width, dot).testTag(WatchTags.BEADS).clearAndSetSemantics { }) {
     var x = 0f
     val r = dot.toPx() / 2
     for (i in 0 until progress.total) {
