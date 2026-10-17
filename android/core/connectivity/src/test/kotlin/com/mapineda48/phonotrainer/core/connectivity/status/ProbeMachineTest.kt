@@ -48,10 +48,10 @@ class ProbeMachineTest {
 
   private val target = ProbeTarget(ServerId("srv_example1"), "Study desk", DeviceId("dev_example1"), HostPort("192.0.2.10", 8000))
 
-  private fun health(analyzing: Int = 0, inLine: Int = 0) = ComputerHealth(
+  private fun health(analyzing: Int = 0, inLine: Int = 0, lowOnSpace: Boolean = false) = ComputerHealth(
     serverId = target.serverId, name = "Study desk", libraryId = LibraryId("lib_example1"), apiVersion = 6,
     minAppVersion = 1, version = "0.1.0", serverTime = 1_791_622_800L, deviceId = target.deviceId,
-    analyzing = analyzing, inLine = inLine, lowOnSpace = false,
+    analyzing = analyzing, inLine = inLine, lowOnSpace = lowOnSpace,
     capabilities = Capabilities(true, "2026.8.19", true, false, false, false, false, 1L, 1L, 3_600L, 1L),
   )
 
@@ -123,6 +123,16 @@ class ProbeMachineTest {
     assertThat(driver.status).isEqualTo(ComputerStatus.Connected("Study desk", 1, 2, false))
     assertThat(driver.announced()).containsExactly(ComputerStatus.Connected("Study desk", 1, 2, false))
     assertThat(driver.state.lastSeen).isEqualTo(t0)
+  }
+
+  @Test
+  fun aComputerLowOnSpaceIsConnectedAndSaysSo() {
+    val driver = connected()
+    driver.on(MachineInput.CheckNow)
+    driver.answer(ProbeReport.Success(health(lowOnSpace = true)))
+
+    assertThat(driver.status).isEqualTo(ComputerStatus.Connected("Study desk", 0, 0, lowOnSpace = true))
+    assertThat(driver.announced()).hasSize(1)
   }
 
   @Test
