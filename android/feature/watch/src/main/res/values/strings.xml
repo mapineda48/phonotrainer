@@ -15,7 +15,6 @@
     <string name="watch_position_ordinal">%1$d / %2$d</string>
     <string name="watch_position_question">Question %1$d of %2$d</string>
     <string name="watch_position_done">Done</string>
-    <string name="watch_position_set_description">Short %1$d of %2$d in this set</string>
     <string name="watch_previous_short">Previous short</string>
     <string name="watch_next_short">Next short</string>
     <string name="watch_on_this_phone">On this phone</string>
@@ -35,7 +34,6 @@
     <string name="watch_slowly">Slowly</string>
     <string name="watch_recognize_suffix">Just learn to hear it: no need to copy it.</string>
     <string name="watch_no_spotlight">No labelled change here: listen to the rhythm.</string>
-    <string name="watch_contraction">%1$s ← %2$s</string>
     <string name="watch_saved_tag">Saved</string>
     <string name="watch_slip_description">Listen for %1$s in %2$s. %3$s. %4$s Double-tap to open the lesson.</string>
     <string name="watch_register_universal">universal</string>
@@ -47,8 +45,6 @@
     <string name="watch_show_words">Show the words</string>
     <string name="watch_captions_off">Captions are off</string>
     <string name="watch_captions_show">Show</string>
-    <string name="watch_word_description">%1$s, %2$s</string>
-    <string name="watch_word_plain">%1$s</string>
     <string name="watch_word_spotlight">listen for</string>
     <string name="watch_word_low_confidence">low confidence</string>
     <string name="watch_word_stressed">stressed</string>
@@ -56,7 +52,6 @@
     <string name="watch_advice_understand">recognize only</string>
     <string name="watch_open_lesson_label">Open the lesson</string>
     <string name="watch_loop_this_phrase">Loop this phrase</string>
-    <string name="watch_said">said [%1$s]</string>
     <string name="watch_dictionary">/%1$s/</string>
     <string name="watch_intonation_statement">Statement</string>
     <string name="watch_intonation_question">Question</string>
@@ -83,7 +78,6 @@
     <!-- Action rail and bar (F-07 item 6, design 9.6). -->
     <string name="watch_replay">Replay</string>
     <string name="watch_replay_description">Replay the phrase</string>
-    <string name="watch_speed">Speed</string>
     <string name="watch_speed_value">%1$s×</string>
     <string name="watch_speed_description">Speed: %1$s×</string>
     <string name="watch_loop_off">Loop off</string>
@@ -152,7 +146,6 @@
     <string name="watch_leave_out">Leave this clip out of the Mix</string>
     <string name="watch_leave_out_description">You can put it back here or in Settings.</string>
     <string name="watch_marks_meaning">What do the marks mean?</string>
-    <string name="watch_close">Close</string>
 
     <!-- Shadow sheet (F-12, the rail's "Shadow"). -->
     <string name="watch_shadow_title">Shadow this phrase</string>
@@ -204,7 +197,6 @@
         <item quantity="other">%1$d of %2$d right</item>
     </plurals>
     <string name="watch_end_tally">%1$s · %2$s · %3$s</string>
-    <string name="watch_end_tally_short">%1$s · %2$s</string>
     <string name="watch_end_met">What you met</string>
     <string name="watch_end_met_count">%1$s ×%2$d</string>
     <string name="watch_end_nothing_plays">Nothing plays after this card. A new set is ready after midnight.</string>
