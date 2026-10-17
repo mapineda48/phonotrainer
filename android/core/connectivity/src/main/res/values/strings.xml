@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The connection transitions TalkBack announces politely (spec 7.5: "Connected", "Offline", never "Checking" and
+     never percents; architecture 6.2 rule 7). The status card (WP-15) shows the full status lines. -->
+<resources>
+    <string name="connectivity_announce_connected">Connected to %1$s</string>
+    <string name="connectivity_announce_offline">Offline</string>
+    <string name="connectivity_announce_not_reachable">Your computer isn\'t reachable</string>
+</resources>

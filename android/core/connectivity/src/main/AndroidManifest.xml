@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The network monitor registers ConnectivityManager callbacks (architecture 6.1, 6.2). The app already holds this
+     permission (android/SECURITY.md lists it), so the merged release manifest does not change. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+</manifest>
