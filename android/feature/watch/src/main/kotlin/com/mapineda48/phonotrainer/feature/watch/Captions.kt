@@ -3,6 +3,7 @@ package com.mapineda48.phonotrainer.feature.watch
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -67,9 +68,12 @@ import com.mapineda48.phonotrainer.core.ui.a11y.LocalReducedMotion
 /**
  * The captions of the short on screen (spec F-07 items 4 and 5, design 9.4): the previous phrase dimmed, the current
  * phrase with every word a 48 dp button wearing its mark, the next phrase dimmed, and the intonation badge closing the
- * current phrase. When the current phrase does not fit (a long phrase, large text, IPA), the dimmed phrases go first
- * ([compact]) and the area scrolls, following the word being said line by line (a jump with reduced motion); paused,
- * the learner scrolls it. Nothing is cut mid-word (A-06, F-07-AC9).
+ * current phrase. When the current phrase does not fit (a long phrase, large text, IPA, or a short area on a small
+ * phone), the dimmed phrases go first ([compact]) and the area scrolls, following the word being said line by line (a
+ * jump with reduced motion); paused, the learner scrolls it. Nothing is cut mid-word (A-06, F-07-AC9).
+ *
+ * [footer] (the hint line, the volume notice) sits inline under the phrases, inside the same area: it never takes the
+ * room the current phrase needs; on a short area it is below the phrase, one scroll away.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -86,26 +90,33 @@ internal fun Captions(
   onShowCaptions: () -> Unit,
   onExplain: (String) -> Unit,
   modifier: Modifier = Modifier,
+  footer: @Composable () -> Unit = {},
 ) {
   val colors = PhonoTheme.colors
   if (mode == CaptionMode.OFF) {
-    Row(
-      modifier = modifier.fillMaxWidth().testTag(WatchTags.CAPTIONS_OFF),
-      verticalAlignment = Alignment.CenterVertically,
-      horizontalArrangement = Arrangement.spacedBy(PhonoSpacing.s8),
-    ) {
-      Icon(painterResource(PhonoIcons.Captions), null, tint = colors.ink2)
-      PhonoText(stringResource(R.string.watch_captions_off), style = MaterialTheme.typography.bodyMedium, color = colors.ink2)
-      LinkButton(
-        text = stringResource(R.string.watch_captions_show),
-        onClick = onShowCaptions,
-        modifier = Modifier.testTag(WatchTags.CAPTIONS_SHOW),
-      )
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(PhonoSpacing.s8)) {
+      Row(
+        modifier = Modifier.fillMaxWidth().testTag(WatchTags.CAPTIONS_OFF),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(PhonoSpacing.s8),
+      ) {
+        Icon(painterResource(PhonoIcons.Captions), null, tint = colors.ink2)
+        PhonoText(stringResource(R.string.watch_captions_off), style = MaterialTheme.typography.bodyMedium, color = colors.ink2)
+        LinkButton(
+          text = stringResource(R.string.watch_captions_show),
+          onClick = onShowCaptions,
+          modifier = Modifier.testTag(WatchTags.CAPTIONS_SHOW),
+        )
+      }
+      footer()
     }
     return
   }
   val current by remember(content) { derivedStateOf { content.phraseAt(playhead.value) } }
-  val phrase = current ?: return
+  val phrase = current ?: run {
+    Column(modifier.fillMaxWidth()) { footer() }
+    return
+  }
   val index = content.phrases.indexOf(phrase)
   val previous = content.phrases.getOrNull(index - 1)
   val next = content.phrases.getOrNull(index + 1)
@@ -127,46 +138,54 @@ internal fun Captions(
       if (reduced) scroll.scrollTo(top) else scroll.animateScrollTo(top)
     }
   }
-  Column(
-    modifier = modifier
-      .fillMaxWidth()
-      .onGloballyPositioned { viewportTop.floatValue = it.positionInRoot().y }
-      .verticalScroll(scroll)
-      .testTag(WatchTags.CAPTIONS),
-    verticalArrangement = Arrangement.spacedBy(PhonoSpacing.s4),
-  ) {
-    if (!compact && previous != null) {
-      DimPhrase(previous, Modifier.testTag(WatchTags.CAPTION_PREVIOUS))
-    }
-    if (hidden) {
-      ListenFirstLine(onShowWords)
-    } else {
-      FlowRow(
-        modifier = Modifier
-          .fillMaxWidth()
-          .testTag(WatchTags.CAPTION_CURRENT),
-        verticalArrangement = Arrangement.Center,
-      ) {
-        phrase.words.forEachIndexed { i, word ->
-          CaptionWordButton(
-            word = word,
-            mode = mode,
-            playing = playing == i,
-            onClick = { onWord(word.ref) },
-            onLoop = { onLoopPhrase(phrase.segment) },
-            modifier = Modifier.onGloballyPositioned {
-              wordTops[i] = (it.positionInRoot().y - viewportTop.floatValue).toInt() + scroll.value
-            },
-          )
-        }
-        phrase.badge?.let { IntonationBadgeChip(it, onExplain) }
+  BoxWithConstraints(modifier.fillMaxWidth()) {
+    // A short area keeps the current phrase first: the dimmed phrases go when they would push it out of view.
+    val dropDimmed = compact || maxHeight < DIMMED_ROOM
+    Column(
+      modifier = Modifier
+        .fillMaxWidth()
+        .onGloballyPositioned { viewportTop.floatValue = it.positionInRoot().y }
+        .verticalScroll(scroll)
+        .testTag(WatchTags.CAPTIONS),
+      verticalArrangement = Arrangement.spacedBy(PhonoSpacing.s4),
+    ) {
+      if (!dropDimmed && previous != null) {
+        DimPhrase(previous, Modifier.testTag(WatchTags.CAPTION_PREVIOUS))
       }
-    }
-    if (!compact && next != null) {
-      DimPhrase(next, Modifier.testTag(WatchTags.CAPTION_NEXT))
+      if (hidden) {
+        ListenFirstLine(onShowWords)
+      } else {
+        FlowRow(
+          modifier = Modifier
+            .fillMaxWidth()
+            .testTag(WatchTags.CAPTION_CURRENT),
+          verticalArrangement = Arrangement.Center,
+        ) {
+          phrase.words.forEachIndexed { i, word ->
+            CaptionWordButton(
+              word = word,
+              mode = mode,
+              playing = playing == i,
+              onClick = { onWord(word.ref) },
+              onLoop = { onLoopPhrase(phrase.segment) },
+              modifier = Modifier.onGloballyPositioned {
+                wordTops[i] = (it.positionInRoot().y - viewportTop.floatValue).toInt() + scroll.value
+              },
+            )
+          }
+          phrase.badge?.let { IntonationBadgeChip(it, onExplain) }
+        }
+      }
+      if (!dropDimmed && next != null) {
+        DimPhrase(next, Modifier.testTag(WatchTags.CAPTION_NEXT))
+      }
+      footer()
     }
   }
 }
+
+/** Below this height the dimmed phrases make room for the current one (two dim lines and two caption line boxes). */
+private val DIMMED_ROOM = 184.dp
 
 @Composable
 private fun DimPhrase(phrase: CaptionPhrase, modifier: Modifier = Modifier) {

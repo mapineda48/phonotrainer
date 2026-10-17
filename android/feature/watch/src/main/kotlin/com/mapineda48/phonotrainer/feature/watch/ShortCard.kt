@@ -3,6 +3,7 @@ package com.mapineda48.phonotrainer.feature.watch
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
@@ -14,18 +15,24 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.State
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.mapineda48.phonotrainer.core.designsystem.component.CoachPointer
 import com.mapineda48.phonotrainer.core.designsystem.component.Notice
 import com.mapineda48.phonotrainer.core.designsystem.component.NoticeKind
 import com.mapineda48.phonotrainer.core.designsystem.icons.PhonoIcons
@@ -38,7 +45,6 @@ import com.mapineda48.phonotrainer.core.domain.model.FeedPlaybackState
 import com.mapineda48.phonotrainer.core.domain.model.WordRef
 import com.mapineda48.phonotrainer.core.ui.CoachMark
 import com.mapineda48.phonotrainer.core.ui.CoachMarkHost
-import com.mapineda48.phonotrainer.core.designsystem.component.CoachPointer
 import com.mapineda48.phonotrainer.core.ui.LoadingGate
 import com.mapineda48.phonotrainer.core.ui.a11y.shortSemantics
 
@@ -188,11 +194,13 @@ private fun StandardCard(
       )
     }
     Row(Modifier.weight(1f).fillMaxWidth()) {
-      Column(
+      BoxWithConstraints(
         Modifier.weight(1f).padding(start = PhonoSpacing.feedGutter, end = PhonoSpacing.s4, top = PhonoSpacing.s10),
-        verticalArrangement = Arrangement.spacedBy(PhonoSpacing.s8),
       ) {
-        TextBlock(page, state, current, content, playhead, largeText, volumeMuted, callbacks, Modifier.weight(1f))
+        val room = maxHeight
+        Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(PhonoSpacing.s8)) {
+          TextBlock(page, state, current, content, playhead, largeText, volumeMuted, callbacks, Modifier.weight(1f), room)
+        }
       }
       if (!largeText) ActionRail(actions, Modifier.padding(top = PhonoSpacing.s8, end = PhonoSpacing.s4))
     }
@@ -292,16 +300,25 @@ private fun TextBlock(
   volumeMuted: Boolean,
   callbacks: CardCallbacks,
   modifier: Modifier,
+  room: Dp = Dp.Infinity,
 ) {
   LoadingGate(loading = content == null, label = stringResource(R.string.watch_loading)) {
     val c = content ?: return@LoadingGate
     val slip = c.spotlight
     if (slip != null) {
+      // The captions are what the short is for: when the whole slip would leave them less than [CAPTION_ROOM], the
+      // slip takes its compact form (design 9.3: chips, word, IPA; the cue and the buttons are in the lesson the slip
+      // opens), as it does at large text. Measured once in full; a compact slip never measures itself back to full.
+      var fullHeight by remember(slip) { mutableIntStateOf(0) }
+      val density = LocalDensity.current
+      val tooTall = fullHeight > 0 && with(density) { fullHeight.toDp() } + CAPTION_ROOM > room
+      val compact = largeText || tooTall
       SpotlightSlipCard(
         slip = slip,
         playhead = playhead,
         savedTag = page.savedTag,
-        compact = largeText,
+        compact = compact,
+        modifier = if (compact) Modifier else Modifier.onSizeChanged { fullHeight = it.height },
         onOpenLesson = { callbacks.onWord(slip.word) },
         onPlayWord = callbacks.onPlayWord,
         onSlowly = callbacks.onSlowly,
@@ -324,22 +341,23 @@ private fun TextBlock(
       onShowCaptions = callbacks.onShowCaptions,
       onExplain = callbacks.onExplain,
       modifier = modifier,
-    )
-    if (current) {
-      state.coachMark?.let { mark ->
-        CoachMarkHost(
-          mark = coachMarkOf(mark),
-          onDismiss = { callbacks.onDismissCoach(mark) },
-          pointer = CoachPointer.TOP,
-          modifier = Modifier.testTag(WatchTags.COACH),
-        ) { }
-      }
-      if (volumeMuted) {
-        Notice(
-          body = stringResource(R.string.watch_volume_zero),
-          kind = NoticeKind.TIP,
-          modifier = Modifier.testTag(WatchTags.VOLUME),
-        )
+    ) {
+      if (current) {
+        state.coachMark?.let { mark ->
+          CoachMarkHost(
+            mark = coachMarkOf(mark),
+            onDismiss = { callbacks.onDismissCoach(mark) },
+            pointer = CoachPointer.TOP,
+            modifier = Modifier.testTag(WatchTags.COACH),
+          ) { }
+        }
+        if (volumeMuted) {
+          Notice(
+            body = stringResource(R.string.watch_volume_zero),
+            kind = NoticeKind.TIP,
+            modifier = Modifier.testTag(WatchTags.VOLUME),
+          )
+        }
       }
     }
   }
@@ -379,6 +397,9 @@ private fun IdleFor(page: FeedPage.Short): FeedPlaybackState = IdlePlayback.copy
 
 /** From this font scale the rail becomes the action bar and the slip compacts (design 9.6). */
 internal const val LARGE_TEXT = 1.3f
+
+/** What the captions keep under the slip at least: three 46 dp caption line boxes (design 9.4) and their gaps. */
+private val CAPTION_ROOM = 160.dp
 
 /** A phrase this long drops the dimmed phrases first (design 9.4 overflow). */
 private const val LONG_PHRASE_WORDS = 14

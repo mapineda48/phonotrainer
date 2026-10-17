@@ -52,7 +52,8 @@ import com.mapineda48.phonotrainer.core.ui.PracticeBadge
  * The spotlight slip (spec F-07 item 3, design 9.3): the change chip and the practice badge, "LISTEN FOR" and the word
  * in quotes underlined in its family's style, the "Now" pill while the word plays, the IPA line, the one-line cue,
  * and "Play the word" / "Slowly". Tapping anywhere else on the slip opens the lesson on the word. [compact] (large
- * text, design 9.6) keeps the chips, the word and the IPA; the cue and the buttons move to the lesson.
+ * text, design 9.6, or too little room for the captions under it) keeps the chips, the word and the IPA (design 9.3's
+ * list: no kicker); the cue and the buttons move to the lesson.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -109,7 +110,7 @@ internal fun SpotlightSlipCard(
       PracticeBadge(slip.advice, register = registerWords(slip.register))
       if (savedTag) PhonoBadge(stringResource(R.string.watch_saved_tag), icon = PhonoIcons.Saved, modifier = Modifier.testTag(WatchTags.SAVED_TAG))
     }
-    Kicker(stringResource(R.string.watch_listen_for), modifier = Modifier.clearAndSetSemantics { })
+    if (!compact) Kicker(stringResource(R.string.watch_listen_for), modifier = Modifier.clearAndSetSemantics { })
     Row(
       verticalAlignment = Alignment.CenterVertically,
       horizontalArrangement = Arrangement.spacedBy(PhonoSpacing.s10),

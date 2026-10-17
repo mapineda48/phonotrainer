@@ -11,6 +11,7 @@ import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import com.google.common.truth.Truth.assertThat
 import com.mapineda48.phonotrainer.core.domain.model.AppError
@@ -84,6 +85,31 @@ class ShortCardScreenTest {
       listOf(WatchTags.REPLAY, WatchTags.SPEED, WatchTags.LOOP, WatchTags.SHADOW, WatchTags.SAVE, WatchTags.MORE)
         .forEach { compose.onNodeWithTag(it).assertExists() }
     }
+
+  @Test
+  fun onTheDesignPhoneTheWholeSlipAndTheCaptionsAreInView() {
+    screen.setContent(content = feed(WatchPreviewData.ready()))
+    compose.onNodeWithTag(WatchTags.word(4, 0)).assertIsDisplayed()
+    compose.onNodeWithTag(WatchTags.SLIP_CUE, useUnmergedTree = true).assertIsDisplayed()
+    compose.onNodeWithTag(WatchTags.PLAY_WORD).assertIsDisplayed()
+  }
+
+  @Test
+  @Config(qualifiers = "w412dp-h760dp-xxhdpi")
+  fun onAShorterScreenTheSlipCompactsSoTheCaptionsStayInView() {
+    // A 915 dp phone under the shell's bars, with the first coach mark up: the whole slip would leave the captions no
+    // room, so it keeps its chips, word and IPA (design 9.3), and the hint line waits under the phrase, in the
+    // captions' own area, instead of pushing it out (F-07 item 4: the phrase is what the short is for).
+    screen.setContent(content = feed(WatchPreviewData.ready().copy(coachMark = WatchCoachMark.TAP_WORD)))
+    compose.onNodeWithTag(WatchTags.word(4, 0)).assertIsDisplayed()
+    compose.onNodeWithTag(WatchTags.SLIP).assertIsDisplayed()
+    compose.onNodeWithTag(WatchTags.SLIP_IPA, useUnmergedTree = true).assertIsDisplayed()
+    assertThat(compose.onAllNodesWithTagCount(WatchTags.SLIP_CUE)).isEqualTo(0)
+    assertThat(compose.onAllNodesWithTagCount(WatchTags.PLAY_WORD)).isEqualTo(0)
+    // The hint is one scroll away, still dismissable.
+    compose.onNodeWithTag(WatchTags.COACH).performScrollTo().assertIsDisplayed()
+    compose.onNodeWithTag(com.mapineda48.phonotrainer.core.ui.UiTags.COACH_GOT_IT).assertExists()
+  }
 
   @Test
   fun listenFirstHidesTheWordsBehindOneLineThatRevealsNoCount() {
