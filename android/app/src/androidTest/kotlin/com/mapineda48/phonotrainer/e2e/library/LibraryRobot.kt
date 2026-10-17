@@ -26,6 +26,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.google.common.truth.Truth.assertThat
 import com.mapineda48.phonotrainer.core.domain.model.ClipFilter
 import com.mapineda48.phonotrainer.core.domain.model.JobId
+import com.mapineda48.phonotrainer.core.domain.model.ShortId
 import com.mapineda48.phonotrainer.core.navigation.ClipTab
 import com.mapineda48.phonotrainer.core.navigation.LibraryKey
 import com.mapineda48.phonotrainer.core.navigation.Tab
@@ -220,6 +221,13 @@ class LibraryRobot(private val compose: ComposeTestRule, val phono: PhonoRobot) 
   fun clipWatch() {
     compose.onNodeWithTag(LibraryTags.CLIP_LIST).performScrollToNode(hasTestTag(LibraryTags.CLIP_WATCH))
     phono.tap(LibraryTags.CLIP_WATCH)
+  }
+
+  /** Taps the Shorts tab's row of [short], which opens the feed In order at that short (F-05-AC5). */
+  fun clipShort(short: ShortId) {
+    clipTab(ClipTab.SHORTS)
+    compose.onNodeWithTag(LibraryTags.CLIP_LIST).performScrollToNode(hasTestTag(LibraryTags.short(short)))
+    phono.tap(LibraryTags.short(short))
   }
 
   /** "Remove from this phone…" in the Summary's "On this phone" block. */
