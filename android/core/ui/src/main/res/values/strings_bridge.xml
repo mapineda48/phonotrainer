@@ -1,8 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Strings of ShareBridge and ConnectionLine (WP-23; placeholder copy at the contract freeze). -->
+<!-- Strings of ShareBridge and ConnectionLine (WP-23; spec 8.4 item 3, design 9.22): the connection line of the share
+     sheet and of "Add a clip". The words are the line's own, so the bridge never depends on another component's
+     helper (wave-1 architecture review, finding 9). -->
 <resources>
-    <string name="bridge_phone">This phone</string>
-    <string name="bridge_computer">Your computer</string>
-    <string name="bridge_sending">Sending to your computer</string>
-    <string name="bridge_waiting">Waiting on this phone until your computer is reachable</string>
+    <string name="bridge_checking">Checking your computer…</string>
+    <string name="bridge_connected">Your computer is connected: the analysis starts now.</string>
+    <plurals name="bridge_connected_in_line">
+        <item quantity="one">It goes in line after %d other clip.</item>
+        <item quantity="other">It goes in line after %d other clips.</item>
+    </plurals>
+    <string name="bridge_unreachable">Your computer isn\'t reachable right now.</string>
+    <string name="bridge_unreachable_body">This waits on your phone and is sent when you\'re back on your home Wi-Fi.</string>
+    <string name="bridge_not_paired">This phone isn\'t connected to your computer yet.</string>
+    <string name="bridge_not_paired_body">It waits on your phone until you connect.</string>
+    <string name="bridge_attention">Your computer needs attention (%1$s).</string>
+    <string name="bridge_attention_body">This waits on your phone.</string>
+    <string name="bridge_reason_connect_again">it no longer recognizes this phone</string>
+    <string name="bridge_reason_computer_too_old">update PhonoTrainer on your computer</string>
+    <string name="bridge_reason_app_too_old">update this app</string>
+    <string name="bridge_reason_different_computer">a different computer answered</string>
 </resources>
