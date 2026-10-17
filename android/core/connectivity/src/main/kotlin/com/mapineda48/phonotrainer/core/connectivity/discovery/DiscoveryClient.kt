@@ -1,5 +1,6 @@
 package com.mapineda48.phonotrainer.core.connectivity.discovery
 
+import com.mapineda48.phonotrainer.core.connectivity.ComputerNames
 import com.mapineda48.phonotrainer.core.domain.model.FoundComputer
 import com.mapineda48.phonotrainer.core.domain.model.HostPort
 import com.mapineda48.phonotrainer.core.domain.model.NetworkSnapshot
@@ -7,7 +8,6 @@ import com.mapineda48.phonotrainer.core.domain.model.SearchState
 import com.mapineda48.phonotrainer.core.domain.model.ServerId
 import com.mapineda48.phonotrainer.core.domain.spi.DiscoveryTransport
 import com.mapineda48.phonotrainer.core.network.api.AddressPolicy
-import java.util.Locale
 import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -70,22 +70,22 @@ internal object Broadcast {
 
 /**
  * The list Connect shows (spec F-02 behaviour 3, D-39; architecture 6.1): every confirmed answer is its own row, in the
- * order they arrived. Names and server ids are public, so two answers with one name (compared without case or outer
- * spaces), or one server id at two addresses, are a **conflict**: those rows are marked, the state carries the note's
- * flag, and **nothing is preselected**. Otherwise exactly one selectable computer (phone access on, not too old) is
- * preselected.
+ * order they arrived. Names and server ids are public, so two answers with one name (compared on
+ * [ComputerNames.conflictKey]: without invisible characters, case, white space or compatibility forms), or one server
+ * id at two addresses, are a **conflict**, and so is a row already marked when it was confirmed (its `hello` gave
+ * another name than its discovery reply): those rows are marked, the state carries the note's flag, and **nothing is
+ * preselected**. Otherwise exactly one selectable computer (phone access on, not too old) is preselected.
  */
 internal object FoundList {
   fun state(rows: List<FoundComputer>): SearchState.Found {
-    val names = rows.groupingBy { nameKey(it.name) }.eachCount()
+    val names = rows.groupingBy { ComputerNames.conflictKey(it.name) }.eachCount()
     val addressesById = rows.groupBy { it.serverId }.mapValues { (_, same) -> same.map { it.address }.toSet().size }
     val marked = rows.map { row ->
-      row.copy(conflict = (names[nameKey(row.name)] ?: 0) > 1 || (addressesById[row.serverId] ?: 0) > 1)
+      val sameName = (names[ComputerNames.conflictKey(row.name)] ?: 0) > 1
+      row.copy(conflict = row.conflict || sameName || (addressesById[row.serverId] ?: 0) > 1)
     }
     val conflict = marked.any { it.conflict }
     val preselected = marked.singleOrNull()?.takeIf { !conflict && it.phoneAccess && !it.tooOld }
     return SearchState.Found(marked, preselected, conflict)
   }
-
-  private fun nameKey(name: String): String = name.trim().lowercase(Locale.ROOT)
 }

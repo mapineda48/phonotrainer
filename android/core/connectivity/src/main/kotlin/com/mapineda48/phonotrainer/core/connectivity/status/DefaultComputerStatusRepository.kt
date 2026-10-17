@@ -2,6 +2,7 @@ package com.mapineda48.phonotrainer.core.connectivity.status
 
 import com.mapineda48.phonotrainer.core.common.di.ApplicationScope
 import com.mapineda48.phonotrainer.core.common.log.PhonoLog
+import com.mapineda48.phonotrainer.core.connectivity.ComputerNames
 import com.mapineda48.phonotrainer.core.connectivity.ConnectivityRules
 import com.mapineda48.phonotrainer.core.connectivity.onHomeNetwork
 import com.mapineda48.phonotrainer.core.connectivity.platform.AppForeground
@@ -179,11 +180,13 @@ internal class DefaultComputerStatusRepository @Inject constructor(
   )
 }
 
-internal fun PairingRecord.toTarget(): ProbeTarget = ProbeTarget(serverId, serverName, deviceId, address)
+/** The stored name was cleaned when it was stored; it is cleaned again on the way out ([ComputerNames]). */
+internal fun PairingRecord.toTarget(): ProbeTarget =
+  ProbeTarget(serverId, ComputerNames.clean(serverName), deviceId, address)
 
 internal fun PairingRecord.toPaired(): PairedComputer = PairedComputer(
   serverId = serverId,
-  name = serverName,
+  name = ComputerNames.clean(serverName),
   deviceId = deviceId,
   deviceName = deviceName,
   address = address,

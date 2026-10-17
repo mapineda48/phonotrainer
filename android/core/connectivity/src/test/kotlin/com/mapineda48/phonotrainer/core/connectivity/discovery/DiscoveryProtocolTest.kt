@@ -7,8 +7,10 @@ import com.mapineda48.phonotrainer.core.domain.model.ServerId
 import com.mapineda48.phonotrainer.core.testing.fake.connectivity.FakeNetworkMonitor
 import java.time.Duration
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import org.junit.Test
 
 /** The datagrams of server-contract 5.2 and 5.3, the broadcast targets and the list's conflict rules (spec D-39). */
@@ -127,5 +129,45 @@ class DiscoveryProtocolTest {
   @Test
   fun aComputerTooOldIsNeverPreselected() {
     assertThat(FoundList.state(listOf(row("srv_a", "Study desk", tooOld = true))).preselected).isNull()
+  }
+
+  @Test
+  fun namesThatOnlyDifferInWhatCannotBeSeenAreTheSameNameAndAConflict() {
+    // Zero-width space, soft hyphen, bidi isolates, a left-to-right mark, a right-to-left override, a line break.
+    listOf(
+      "Study desk\u200B",
+      "Study\u00ADdesk",
+      "\u2068Study desk\u2069",
+      "Study desk\u200E",
+      "Study \u202Edesk",
+      "Study\ndesk",
+    ).forEach { lookalike ->
+      val state = FoundList.state(listOf(row("srv_a", "Study desk"), row("srv_b", lookalike, host = "192.0.2.11")))
+
+      assertThat(state.computers.map { it.conflict }).containsExactly(true, true)
+      assertThat(state.conflict).isTrue()
+      assertThat(state.preselected).isNull()
+    }
+  }
+
+  @Test
+  fun aRowMarkedWhenItWasConfirmedStaysAConflictAndIsNotPreselected() {
+    val state = FoundList.state(listOf(row("srv_a", "Study desk").copy(conflict = true)))
+
+    assertThat(state.conflict).isTrue()
+    assertThat(state.preselected).isNull()
+  }
+
+  @Test
+  fun aReplysNameIsCleanedBeforeItIsUsed() {
+    val nonce = DiscoveryProtocol.newNonce()
+    fun reply(name: String) = buildJsonObject {
+      put("t", "phonotrainer-here"); put("v", 1); put("nonce", nonce); put("server_id", "srv_abc")
+      put("name", name); put("http_port", 8000); put("api_version", 6)
+    }.toString().toByteArray(Charsets.UTF_8)
+
+    assertThat(DiscoveryProtocol.parseReply(reply("Study\u200B desk\u202E"), nonce)?.name).isEqualTo("Study desk")
+    assertThat(DiscoveryProtocol.parseReply(reply("x".repeat(100)), nonce)?.name).isEqualTo("x".repeat(59) + "\u2026")
+    assertThat(DiscoveryProtocol.parseReply(reply("\u200B\u2068\u2069"), nonce)?.name).isEqualTo("PhonoTrainer computer")
   }
 }

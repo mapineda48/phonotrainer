@@ -1,5 +1,6 @@
 package com.mapineda48.phonotrainer.core.connectivity.discovery
 
+import com.mapineda48.phonotrainer.core.connectivity.ComputerNames
 import com.mapineda48.phonotrainer.core.connectivity.Hex
 import com.mapineda48.phonotrainer.core.domain.model.ServerId
 import java.nio.ByteBuffer
@@ -62,7 +63,7 @@ object DiscoveryProtocol {
   /**
    * The reply in [bytes] if it answers the probe that carried [nonce], or null: too long, not UTF-8 JSON, another type
    * or version, another nonce, or a field without its documented shape (server-contract 5.3). Unknown fields are
-   * ignored.
+   * ignored. The name is cleaned ([ComputerNames.clean]), because anything on the network can answer.
    */
   fun parseReply(bytes: ByteArray, nonce: String): DiscoveryReply? {
     if (bytes.isEmpty() || bytes.size > MAX_DATAGRAM) return null
@@ -80,8 +81,9 @@ object DiscoveryProtocol {
     if (reply.integer("v") != 1) return null
     if (reply.string("nonce") != nonce) return null
     val serverId = reply.string("server_id")?.takeIf(SERVER_ID::matches) ?: return null
-    val name = reply.string("name")?.trim()?.takeIf { it.isNotEmpty() && it.length <= MAX_NAME_CHARS } ?: return null
-    if (name.any { it.isISOControl() }) return null
+    val raw = reply.string("name")?.trim()?.takeIf { it.isNotEmpty() && it.length <= MAX_NAME_CHARS } ?: return null
+    if (raw.any { it.isISOControl() }) return null
+    val name = ComputerNames.clean(raw)
     val port = reply.integer("http_port")?.takeIf { it in 1..MAX_PORT } ?: return null
     val apiVersion = reply.integer("api_version")?.takeIf { it >= 0 } ?: return null
     return DiscoveryReply(ServerId(serverId), name, port, apiVersion)

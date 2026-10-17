@@ -1,5 +1,6 @@
 package com.mapineda48.phonotrainer.core.connectivity.status
 
+import com.mapineda48.phonotrainer.core.connectivity.ComputerNames
 import com.mapineda48.phonotrainer.core.connectivity.ConnectivityRules
 import com.mapineda48.phonotrainer.core.domain.model.AppError
 import com.mapineda48.phonotrainer.core.domain.model.DeviceId
@@ -96,7 +97,8 @@ internal object ProbeVerdicts {
         health.serverId != target.serverId -> ProbeReport.DifferentComputer
         health.apiVersion < ConnectivityRules.MIN_SERVER_API -> ProbeReport.ComputerTooOld
         health.minAppVersion > appVersionCode -> ProbeReport.AppTooOld
-        else -> ProbeReport.Success(health)
+        // The name reaches the status, Home and TalkBack: cleaned like every name from the network (ComputerNames).
+        else -> ProbeReport.Success(health.copy(name = ComputerNames.clean(health.name, target.name)))
       }
     }
     is ApiResult.Refused -> when {
