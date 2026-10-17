@@ -152,6 +152,21 @@ class RequestRowCopyTest {
   }
 
   @Test
+  fun showDetailsNeverShowsAnEscapeSequenceOrAControlCharacter() {
+    assertThat(RequestRowCopy.details("\u001B[31mERROR:\u001B[0m the download\u0007 failed\nline two"))
+      .isEqualTo("ERROR: the download failed\nline two")
+    assertThat(RequestRowCopy.details("\u001B]0;title\u0007plain")).isEqualTo("plain")
+    assertThat(RequestRowCopy.details("\u001B[0m")).isNull()
+    assertThat(RequestRowCopy.details(null)).isNull()
+    val copy = RequestFailureCopy.of(
+      com.mapineda48.phonotrainer.core.domain.model.RequestError("processing_failed", "\u001B[1mSegment 3\u001B[0m failed", null, atSending = false),
+      FailureContext(RequestKind.LINK, Site.YOUTUBE, setOf(RequestAction.TRY_AGAIN), null),
+      resources,
+    )
+    assertThat(copy.body).isEqualTo("Segment 3 failed")
+  }
+
+  @Test
   fun numbersAndLinksAreWrittenOneWay() {
     assertThat(RequestRowCopy.ordinal(1)).isEqualTo("1st")
     assertThat(RequestRowCopy.ordinal(2)).isEqualTo("2nd")

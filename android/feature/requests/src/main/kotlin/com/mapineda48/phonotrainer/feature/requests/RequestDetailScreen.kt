@@ -362,7 +362,7 @@ private fun Details(state: RequestDetailUiState, request: Request, offered: Bool
     verticalArrangement = Arrangement.spacedBy(PhonoSpacing.s6),
   ) {
     PhonoText(
-      error?.message?.takeIf { it.isNotBlank() } ?: stringResource(R.string.detail_details_none),
+      RequestRowCopy.details(error?.message) ?: stringResource(R.string.detail_details_none),
       style = MaterialTheme.typography.bodyMedium,
       color = colors.ink,
     )

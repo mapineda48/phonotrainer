@@ -324,6 +324,17 @@ object RequestRowCopy {
     RequestAction.WHY -> PhonoIcons.Help
   }
 
+  /**
+   * The computer's message as "Show details" shows it (spec F-20 item 2, F-20-AC7): the computer cleans it already
+   * (server-contract 8.3) and so does `:core:requests`, and the phone still never shows a terminal escape sequence or
+   * another control character (a new line and a tab stay); null when nothing is left.
+   */
+  fun details(message: String?): String? {
+    val text = message ?: return null
+    val plain = ESCAPES.replace(text, "").filter { it == '\n' || it == '\t' || !Character.isISOControl(it) }
+    return plain.trim().takeIf { it.isNotEmpty() }
+  }
+
   /** The link as a card shows it: no scheme, no "www.", the middle cut when long ("youtube.com/watch?v=…Qx7"). */
   fun shortLink(link: String): String {
     val bare = link.trim().substringAfter("://").removePrefix("www.")
@@ -402,6 +413,9 @@ object RequestRowCopy {
     RequestAction.SHOW_DETAILS,
     RequestAction.REMOVE,
   )
+
+  /** ANSI CSI sequences ("ESC [ 31 m"), OSC sequences ending with BEL or ST, and lone two-character escapes. */
+  private val ESCAPES = Regex("\u001B\\[[0-?]*[ -/]*[@-~]|\u001B\\][^\u0007\u001B]*(?:\u0007|\u001B\\\\)|\u001B[@-Z\\\\-_]")
 
   private val FAILURES = setOf(RequestState.NEEDS_ATTENTION, RequestState.COPY_FAILED, RequestState.COPY_MISSING, RequestState.CANCELLED)
   private val ON_COMPUTER = setOf(RequestState.SENT, RequestState.IN_LINE, RequestState.ANALYZING)

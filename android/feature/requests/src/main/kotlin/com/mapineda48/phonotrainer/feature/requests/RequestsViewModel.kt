@@ -22,6 +22,7 @@ import java.time.Instant
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -38,6 +39,7 @@ import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** Whether the queue could be read (spec F-20 States: Loading, Error). */
 internal enum class Load { LOADING, FAILED, READY }
@@ -139,7 +141,7 @@ internal class RequestsViewModel @Inject constructor(
 
   /** Carries out [action] on [id] (the route has already asked first when the action needs it). */
   fun perform(id: RequestId, action: RequestAction) {
-    viewModelScope.launch { requests.perform(id, action) }
+    viewModelScope.launch { withContext(NonCancellable) { requests.perform(id, action) } }
   }
 
   /** "Try again" after the queue could not be read. */

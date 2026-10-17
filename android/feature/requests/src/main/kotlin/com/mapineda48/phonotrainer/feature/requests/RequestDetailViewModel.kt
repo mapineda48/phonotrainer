@@ -22,6 +22,7 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.ZoneOffset
 import kotlin.coroutines.cancellation.CancellationException
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -35,6 +36,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** What the request detail shows (spec F-20 item 2, design 10.2 P-04). */
 @Immutable
@@ -112,7 +114,7 @@ internal class RequestDetailViewModel @AssistedInject constructor(
 
   /** Carries out [action] (the route has already asked first when the action needs it). */
   fun perform(action: RequestAction) {
-    viewModelScope.launch { requests.perform(id, action) }
+    viewModelScope.launch { withContext(NonCancellable) { requests.perform(id, action) } }
   }
 
   fun setLinkExpanded(open: Boolean) {

@@ -139,7 +139,7 @@ object RequestFailureCopy {
   private val none: (RequestError, FailureContext, Resources) -> String = { _, _, _ -> "" }
 
   /** The computer's cleaned message (server-contract 8.3), whole. */
-  private val message: (RequestError, FailureContext, Resources) -> String = { error, _, _ -> error.message.orEmpty().trim() }
+  private val message: (RequestError, FailureContext, Resources) -> String = { error, _, _ -> RequestRowCopy.details(error.message).orEmpty() }
 
   private val TRY_AGAIN = RequestAction.TRY_AGAIN
   private val TRY_AUDIO_ONLY = RequestAction.TRY_AUDIO_ONLY
@@ -229,7 +229,7 @@ object RequestFailureCopy {
       Rule(R.string.request_failure_copy_missing_title, listOf(REMOVE), fixed(R.string.request_failure_copy_missing_body))
     // processing_failed, and any code this app does not know (architecture 19, NFR-08).
     else -> Rule(R.string.request_failure_processing_title, listOf(TRY_AGAIN, SHOW_DETAILS, REMOVE)) { error, _, res ->
-      error.message?.lineSequence()?.map(String::trim)?.firstOrNull { it.isNotEmpty() }
+      RequestRowCopy.details(error.message)?.lineSequence()?.map(String::trim)?.firstOrNull { it.isNotEmpty() }
         ?: res.getString(R.string.request_failure_processing_body)
     }
   }

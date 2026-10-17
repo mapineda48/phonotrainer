@@ -133,6 +133,16 @@ class RequestDetailScreenTest {
   }
 
   @Test
+  fun showDetailsHasNoTerminalEscapeCodesEvenIfTheMessageHadThem() {
+    // F-20-AC7: the computer and :core:requests clean the message; the screen never shows one either way.
+    val raw = RequestRowSamples.downloadForbidden.copy(
+      lastError = RequestError("download_forbidden", "\u001B[0;31mERROR:\u001B[0m HTTP Error 403: Forbidden", null, atSending = false),
+    )
+    show(detailOf(raw, details = true))
+    assertThat(text(RequestsTags.DETAIL_DETAILS)).isEqualTo("ERROR: HTTP Error 403: Forbidden")
+  }
+
+  @Test
   fun aPlaylistOffersOnlyOpenTheLinkAndRemove() {
     // SH-AC16.
     val playlist = RequestRowSamples.downloadForbidden.copy(
