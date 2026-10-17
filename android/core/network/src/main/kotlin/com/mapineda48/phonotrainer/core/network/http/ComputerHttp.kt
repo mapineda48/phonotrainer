@@ -17,12 +17,14 @@ import java.net.Proxy
 import java.time.Duration
 import java.util.EnumMap
 import java.util.concurrent.TimeUnit
+import okhttp3.Call
 import okhttp3.ConnectionPool
 import okhttp3.Dns
 import okhttp3.HttpUrl
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
+import okhttp3.Request
 import okhttp3.Response
 import okhttp3.ResponseBody.Companion.asResponseBody
 import okio.Buffer
@@ -175,32 +177,60 @@ internal object Routes {
 /**
  * Reads every JSON answer with its cap (architecture 5.4, security review M-3): a declared length over the cap fails
  * before a byte is read, and a body that grows past it fails as soon as it does, with [MalformedAnswerException].
+ *
+ * A `101 Switching Protocols` passes uncapped only as the answer to the job channel's WebSocket upgrade, whose body
+ * OkHttp never reads (the channel bounds its own messages). OkHttp hands any other 1xx answer on with its body, and
+ * Retrofit would buffer the whole body of that non-2xx answer, so it is refused before a byte of it is read.
  */
 internal object BodyCapInterceptor : Interceptor {
   private const val SWITCHING_PROTOCOLS = 101
+  private const val UPGRADE = "Upgrade"
+  private const val WEBSOCKET = "websocket"
+  private val INFORMATIONAL = 100..199
 
   override fun intercept(chain: Interceptor.Chain): Response {
-    val response = chain.proceed(chain.request())
-    val cap = Routes.answerCap(chain.request().url)
-    if (cap == null || response.code == SWITCHING_PROTOCOLS) return response
+    val request = chain.request()
+    val response = chain.proceed(request)
+    if (response.code in INFORMATIONAL) {
+      if (response.code == SWITCHING_PROTOCOLS && isWebSocketUpgrade(request)) return response
+      refuse(chain.call(), response, "The answer is an unexpected HTTP ${response.code}.")
+    }
+    val cap = Routes.answerCap(request.url) ?: return response
     val body = response.body
     val declared = body.contentLength()
-    if (declared > cap) {
-      response.close()
-      throw MalformedAnswerException("The answer is larger than $cap bytes.")
-    }
-    val capped = CappedSource(body.source(), cap).buffer().asResponseBody(body.contentType(), declared)
+    if (declared > cap) refuse(chain.call(), response, "The answer is larger than $cap bytes.")
+    val capped = CappedSource(body.source(), cap, chain.call()).buffer().asResponseBody(body.contentType(), declared)
     return response.newBuilder().body(capped).build()
   }
 
-  private class CappedSource(delegate: Source, private val cap: Long) : ForwardingSource(delegate) {
+  /** OkHttp's own WebSocket upgrade request carries `Upgrade: websocket`; no other request of this client does. */
+  fun isWebSocketUpgrade(request: Request): Boolean = request.header(UPGRADE).equals(WEBSOCKET, ignoreCase = true)
+
+  /**
+   * Fails [call] with [MalformedAnswerException], reading nothing more: the call is cancelled first, which closes its
+   * socket, so OkHttp does not read the rest of the refused body to keep the connection.
+   */
+  private fun refuse(call: Call, response: Response, message: String): Nothing {
+    call.cancel()
+    response.close()
+    throw MalformedAnswerException(message)
+  }
+
+  private class CappedSource(
+    delegate: Source,
+    private val cap: Long,
+    private val call: Call,
+  ) : ForwardingSource(delegate) {
     private var read = 0L
 
     override fun read(sink: Buffer, byteCount: Long): Long {
       val count = super.read(sink, byteCount)
       if (count > 0) {
         read += count
-        if (read > cap) throw MalformedAnswerException("The answer is larger than $cap bytes.")
+        if (read > cap) {
+          call.cancel()
+          throw MalformedAnswerException("The answer is larger than $cap bytes.")
+        }
       }
       return count
     }
