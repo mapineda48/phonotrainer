@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The core instrumented suite of :core:requests (work-plan WP-09): a provider of test media and an activity that
+     stands for the share sheet. WorkManager is initialised by the tests with their own worker factory. The test package
+     holds FOREGROUND_SERVICE_DATA_SYNC, as the app's merged manifest will by change request CR-WP09-1, so the visible
+     upload's foreground service can be proved on the device. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+
+    <application>
+        <activity
+            android:name="com.mapineda48.phonotrainer.core.requests.SheetStandInActivity"
+            android:exported="false" />
+
+        <provider
+            android:name="com.mapineda48.phonotrainer.core.requests.TestMediaProvider"
+            android:authorities="${applicationId}.media"
+            android:exported="false" />
+
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
+    </application>
+
+</manifest>
