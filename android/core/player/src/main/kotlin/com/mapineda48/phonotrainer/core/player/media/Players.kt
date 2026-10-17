@@ -9,6 +9,7 @@ import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.FileDataSource
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.RenderersFactory
@@ -49,10 +50,25 @@ internal class DefaultExoPlayerFactory(
   override fun create(): ExoPlayer = ExoPlayer.Builder(context, renderers)
     .setAudioAttributes(SPEECH, false)
     .setHandleAudioBecomingNoisy(true)
+    .setLoadControl(localFiles())
     .setLooper(Looper.getMainLooper())
     .build()
 
   companion object {
+    /**
+     * Buffering for local files (spec D-12: the feed never streams): playback starts with 0.1 s buffered instead of
+     * Media3's 1 s, so a short prepared from scratch starts sound in time, and at most 10 s are kept ahead, so three
+     * prepared shorts hold little memory.
+     */
+    fun localFiles(): DefaultLoadControl = DefaultLoadControl.Builder()
+      .setBufferDurationsMs(MIN_BUFFER_MS, MAX_BUFFER_MS, START_BUFFER_MS, REBUFFER_MS)
+      .build()
+
+    private const val MIN_BUFFER_MS = 2_000
+    private const val MAX_BUFFER_MS = 10_000
+    private const val START_BUFFER_MS = 100
+    private const val REBUFFER_MS = 500
+
     val SPEECH: AudioAttributes = AudioAttributes.Builder()
       .setUsage(C.USAGE_MEDIA)
       .setContentType(C.AUDIO_CONTENT_TYPE_SPEECH)

@@ -9,6 +9,7 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.Tracks
+import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlaybackException
 import androidx.media3.exoplayer.ExoPlayer
@@ -327,7 +328,10 @@ internal class FeedPlayerPool @Inject constructor(
       if (i in held) continue
       val slot = free.removeFirstOrNull() ?: newSlot()
       slot.index = i
-      slot.load(planFor(i))
+      // After a jump the current short prepares alone; its neighbours wait until it is ready, so their decoders do
+      // not compete with its start (spec SC-08).
+      val currentReady = held[current]?.player?.playbackState == Player.STATE_READY
+      slot.load(planFor(i), prepare = i == current || currentReady)
       held[i] = slot
     }
     free.forEach { it.clear() }
@@ -335,6 +339,7 @@ internal class FeedPlayerPool @Inject constructor(
       if (i == current) continue
       slot.player.repeatMode = Player.REPEAT_MODE_OFF
       slot.player.playWhenReady = false
+      slot.enableVideo()
     }
   }
 
@@ -358,6 +363,7 @@ internal class FeedPlayerPool @Inject constructor(
     val slot = currentSlot() ?: return
     slot.player.playWhenReady = false
     slot.player.repeatMode = Player.REPEAT_MODE_OFF
+    slot.enableVideo()
     if (slot.player.playbackState != Player.STATE_IDLE) slot.player.seekTo(0)
     slot.ended = false
     slot.follower?.sync()
@@ -397,7 +403,11 @@ internal class FeedPlayerPool @Inject constructor(
         trackFallback = plan?.trackFallback,
       )
     }
-    surfaces.value = if (active && slot != null) SurfaceTarget(current, slot.follower?.player ?: slot.player) else null
+    surfaces.value = if (active && slot != null) {
+      SurfaceTarget(current, slot.follower?.player ?: slot.player, slot.aspectRatio ?: listedAspect(items.getOrNull(current)?.media))
+    } else {
+      null
+    }
     val following = active && slot?.follower != null
     if (following && follower?.isActive != true) {
       follower = scope.launch {
@@ -410,6 +420,13 @@ internal class FeedPlayerPool @Inject constructor(
       follower?.cancel()
       follower = null
     }
+  }
+
+  /** The stored size from the listing, turned when the video is rotated a quarter; 16:9 when unknown. */
+  private fun listedAspect(media: ClipMedia?): Float {
+    val width = media?.videoWidth?.takeIf { it > 0 } ?: return DEFAULT_ASPECT
+    val height = media.videoHeight?.takeIf { it > 0 } ?: return DEFAULT_ASPECT
+    return if (media.videoRotation % HALF_TURN == QUARTER_TURN) height.toFloat() / width else width.toFloat() / height
   }
 
   private fun errorOf(slot: Slot): AppError.Media? = when {
@@ -551,6 +568,7 @@ internal class FeedPlayerPool @Inject constructor(
     }
     slot.audioFailed = true
     slot.player.playWhenReady = false
+    if (slot.index == current) slots.forEach { it.prepareWaiting() }
     if (slot.index == current) arbiter.release(PlaybackOwner.FEED, this)
     refreshState()
   }
@@ -562,8 +580,23 @@ internal class FeedPlayerPool @Inject constructor(
     var firstFrame = false
     var ended = false
     var audioFailed = false
+
+    /**
+     * A short loaded while it is already the current one (a jump, the feed's first short, a track switch) starts
+     * with its video track off: the audio plays at once and the video joins as soon as it plays, instead of
+     * holding the sound until the decoder has worked from the previous key frame to the start (spec SC-08).
+     */
+    var videoDeferred = false
+
+    /** Loaded but not prepared yet: a neighbour waiting for the current short to be ready. */
+    var pending = false
+
+    /** The display aspect ratio the decoder reported for this short's video; null until it did. */
+    var aspectRatio: Float? = null
     private val followerListener = object : Player.Listener {
       override fun onRenderedFirstFrame() = onFirstFrame()
+
+      override fun onVideoSizeChanged(videoSize: VideoSize) = onSize(videoSize)
 
       override fun onPlayerError(error: PlaybackException) = dropFollower()
 
@@ -576,19 +609,35 @@ internal class FeedPlayerPool @Inject constructor(
       player.addListener(this)
     }
 
-    fun load(plan: ShortPlan, positionMs: Long = 0) {
+    fun load(plan: ShortPlan, positionMs: Long = 0, prepare: Boolean = true) {
       this.plan = plan
       firstFrame = false
       ended = false
       audioFailed = false
+      aspectRatio = null
       follower?.release()
       follower = null
+      videoDeferred = plan.videoMode == VideoMode.MERGED && index == current
+      player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+        .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, videoDeferred)
+        .build()
       player.setMediaSource(sources.short(plan), positionMs)
       val video = plan.video
       if (plan.videoMode == VideoMode.FOLLOWER && video != null) {
         follower = FollowerVideo(players.create(), player, plan, video, sources).also { it.player.addListener(followerListener) }
       }
-      if (active) {
+      pending = !prepare
+      if (active && prepare) {
+        player.prepare()
+        follower?.prepare()
+      }
+    }
+
+    /** Prepares a neighbour that waited for the current short. */
+    fun prepareWaiting() {
+      if (!pending) return
+      pending = false
+      if (active && plan != null) {
         player.prepare()
         follower?.prepare()
       }
@@ -597,6 +646,7 @@ internal class FeedPlayerPool @Inject constructor(
     fun clear() {
       plan = null
       index = -1
+      pending = false
       firstFrame = false
       ended = false
       audioFailed = false
@@ -615,6 +665,7 @@ internal class FeedPlayerPool @Inject constructor(
 
     fun resume() {
       if (plan == null) return
+      pending = false
       player.prepare()
       follower?.prepare()
     }
@@ -626,9 +677,27 @@ internal class FeedPlayerPool @Inject constructor(
       follower = null
     }
 
+    fun enableVideo() {
+      if (!videoDeferred) return
+      videoDeferred = false
+      player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+        .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, false)
+        .build()
+    }
+
     fun onFirstFrame() {
       firstFrame = true
       if (index == current) refreshState()
+    }
+
+    fun onSize(size: VideoSize) {
+      if (size.width <= 0 || size.height <= 0) return
+      aspectRatio = size.width * size.pixelWidthHeightRatio / size.height
+      if (index == current) refreshState()
+    }
+
+    override fun onVideoSizeChanged(videoSize: VideoSize) {
+      if (follower == null) onSize(videoSize)
     }
 
     private fun dropFollower() {
@@ -644,7 +713,13 @@ internal class FeedPlayerPool @Inject constructor(
       if (follower == null) onFirstFrame()
     }
 
+    override fun onIsPlayingChanged(isPlaying: Boolean) {
+      if (isPlaying) enableVideo()
+    }
+
     override fun onPlaybackStateChanged(playbackState: Int) {
+      if (playbackState == Player.STATE_READY && !player.playWhenReady) enableVideo()
+      if (playbackState == Player.STATE_READY && index == current) slots.forEach { it.prepareWaiting() }
       if (playbackState != Player.STATE_ENDED || index != current || plan == null) return
       ended = true
       player.playWhenReady = false
@@ -667,7 +742,7 @@ internal class FeedPlayerPool @Inject constructor(
 
     override fun onTracksChanged(tracks: Tracks) {
       val plan = plan ?: return
-      if (plan.videoMode != VideoMode.MERGED || tracks.isEmpty) return
+      if (plan.videoMode != VideoMode.MERGED || tracks.isEmpty || videoDeferred) return
       // No decoder for the video at all: Media3 plays the audio and leaves the video unselected, with no error.
       if (!tracks.isTypeSelected(C.TRACK_TYPE_VIDEO)) fallBackToAudio(this)
     }
@@ -682,6 +757,10 @@ internal class FeedPlayerPool @Inject constructor(
 
     /** "Hold to slow down" (spec F-07 gestures). */
     const val HOLD_SPEED = 0.5f
+
+    const val DEFAULT_ASPECT = 16f / 9f
+    const val QUARTER_TURN = 90
+    const val HALF_TURN = 180
 
     /** The phrase loop's message fires at the phrase end; this finds the phrase that just ended, not the next. */
     const val LOOP_BACK_MS = 50L

@@ -17,8 +17,11 @@ interface FeedVisibility {
   fun setVisible(visible: Boolean)
 }
 
-/** The player that renders page [index] (the current short's; its follower in follower mode). */
-internal data class SurfaceTarget(val index: Int, val player: Player)
+/**
+ * The player that renders page [index] (the current short's; its follower in follower mode) and the video's display
+ * aspect ratio (width / height): what the decoder reported, else the listing's stored size and rotation.
+ */
+internal data class SurfaceTarget(val index: Int, val player: Player, val aspectRatio: Float)
 
 /** What `PlayerSurface` reads from the pool: the one page that may render video, or null while the pool is stopped. */
 internal interface FeedSurfaces {
