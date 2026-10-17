@@ -11,6 +11,7 @@ import com.mapineda48.phonotrainer.core.domain.model.ShadowingState
 import com.mapineda48.phonotrainer.core.domain.model.ShortId
 import com.mapineda48.phonotrainer.core.domain.model.Track
 import com.mapineda48.phonotrainer.core.domain.model.UserSettings
+import com.mapineda48.phonotrainer.core.domain.model.WordRef
 
 /** The player's state before the pool reports anything. */
 internal val IdlePlayback = FeedPlaybackState(
@@ -133,4 +134,16 @@ internal data class WatchUiState(
         )
       }
     }
+}
+
+/** Where a word target leaves the feed for (spec 5.4; [WatchViewModel.startExit]). */
+internal sealed interface WatchExit {
+  /** The lesson sheet on the word, over its short. */
+  data class Lesson(val word: WordRef) : WatchExit
+
+  /** The clip is listed but has no shorts on this phone: its Clip page. */
+  data class ClipPage(val jobId: JobId) : WatchExit
+
+  /** The clip is gone: the Library, with the notice already posted. */
+  data object Library : WatchExit
 }

@@ -33,6 +33,7 @@ import com.mapineda48.phonotrainer.core.navigation.LearnKey
 import com.mapineda48.phonotrainer.core.navigation.LessonKey
 import com.mapineda48.phonotrainer.core.navigation.LessonOrigin
 import com.mapineda48.phonotrainer.core.navigation.LessonPresentation
+import com.mapineda48.phonotrainer.core.navigation.LibraryKey
 import com.mapineda48.phonotrainer.core.navigation.Navigator
 import com.mapineda48.phonotrainer.core.navigation.PhenomenonKey
 import com.mapineda48.phonotrainer.core.navigation.PhraseDetailsKey
@@ -73,7 +74,12 @@ internal fun WatchRoute(key: WatchKey, navigator: Navigator) {
     }
   }
   LaunchedEffect(viewModel) {
-    viewModel.pendingLesson()?.let { navigator.navigate(lessonKey(it)) }
+    when (val exit = viewModel.startExit()) {
+      is WatchExit.Lesson -> navigator.navigate(lessonKey(exit.word))
+      is WatchExit.ClipPage -> navigator.navigate(ClipKey(exit.jobId))
+      WatchExit.Library -> navigator.navigate(LibraryKey)
+      null -> Unit
+    }
   }
   val muted = rememberMediaVolumeMuted()
   val openLesson: (WordRef) -> Unit = { word ->

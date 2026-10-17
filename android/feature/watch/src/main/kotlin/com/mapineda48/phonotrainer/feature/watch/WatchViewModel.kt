@@ -21,6 +21,7 @@ import com.mapineda48.phonotrainer.core.domain.api.ShadowingRunner
 import com.mapineda48.phonotrainer.core.domain.api.ShortRepository
 import com.mapineda48.phonotrainer.core.domain.api.SpanPlayer
 import com.mapineda48.phonotrainer.core.domain.api.SyncController
+import com.mapineda48.phonotrainer.core.domain.api.UserMessages
 import com.mapineda48.phonotrainer.core.domain.model.AnswerResult
 import com.mapineda48.phonotrainer.core.domain.model.CaptionMode
 import com.mapineda48.phonotrainer.core.domain.model.ClipAvailability
@@ -34,8 +35,8 @@ import com.mapineda48.phonotrainer.core.domain.model.ComputerStatus
 import com.mapineda48.phonotrainer.core.domain.model.EndOfShort
 import com.mapineda48.phonotrainer.core.domain.model.Family
 import com.mapineda48.phonotrainer.core.domain.model.FeedItem
-import com.mapineda48.phonotrainer.core.domain.model.FeedPlaybackState
 import com.mapineda48.phonotrainer.core.domain.model.FeedMode
+import com.mapineda48.phonotrainer.core.domain.model.FeedPlaybackState
 import com.mapineda48.phonotrainer.core.domain.model.FeedPosition
 import com.mapineda48.phonotrainer.core.domain.model.GlossaryEntry
 import com.mapineda48.phonotrainer.core.domain.model.JobId
@@ -52,6 +53,7 @@ import com.mapineda48.phonotrainer.core.domain.model.StudySetItem
 import com.mapineda48.phonotrainer.core.domain.model.StudySetKind
 import com.mapineda48.phonotrainer.core.domain.model.SyncState
 import com.mapineda48.phonotrainer.core.domain.model.Track
+import com.mapineda48.phonotrainer.core.domain.model.UserMessageKind
 import com.mapineda48.phonotrainer.core.domain.model.UserSettings
 import com.mapineda48.phonotrainer.core.domain.model.WordRef
 import com.mapineda48.phonotrainer.core.domain.model.familyFor
@@ -100,6 +102,7 @@ internal class WatchViewModel @AssistedInject constructor(
   private val content: ClipContentRepository,
   private val occurrences: OccurrenceRepository,
   private val clips: ClipRepository,
+  private val messages: UserMessages,
   private val sets: SetRepository,
   private val progress: ProgressRepository,
   private val saved: SavedRepository,
@@ -269,12 +272,26 @@ internal class WatchViewModel @AssistedInject constructor(
     }
   }
 
-  /** The lesson [FeedStart.AtWord] asks for, once per entry (a recreation never opens it again). */
-  fun pendingLesson(): WordRef? {
+  /**
+   * Where a [FeedStart.AtWord] start goes once the feed has loaded, once per entry (a recreation never goes again;
+   * spec 5.4): the lesson sheet on the word when its clip has shorts on this phone; the Clip page when the clip is
+   * still listed but has none here; the Library with "That clip is no longer on your computer or this phone."
+   * (`WORD_CLIP_GONE`, decision I-14) when the clip is gone.
+   */
+  suspend fun startExit(): WatchExit? {
     val start = key.start as? FeedStart.AtWord ?: return null
-    if (!start.openLesson || savedState.get<Boolean>(KEY_LESSON_OPENED) == true) return null
+    if (savedState.get<Boolean>(KEY_LESSON_OPENED) == true) return null
+    val loaded = feed.first { !it.loading }
     savedState[KEY_LESSON_OPENED] = true
-    return WordRef(start.jobId, start.segment, start.word)
+    return when {
+      loaded.pages.any { it is FeedPage.Short } ->
+        if (start.openLesson) WatchExit.Lesson(WordRef(start.jobId, start.segment, start.word)) else null
+      clips.clip(start.jobId).first() != null -> WatchExit.ClipPage(start.jobId)
+      else -> {
+        messages.post(UserMessageKind.WORD_CLIP_GONE)
+        WatchExit.Library
+      }
+    }
   }
 
   private fun restoredShort(): ShortId? {

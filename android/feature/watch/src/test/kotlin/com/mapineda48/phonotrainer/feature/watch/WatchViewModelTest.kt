@@ -36,6 +36,7 @@ import com.mapineda48.phonotrainer.core.domain.model.StudySet
 import com.mapineda48.phonotrainer.core.domain.model.StudySetItem
 import com.mapineda48.phonotrainer.core.domain.model.StudySetKind
 import com.mapineda48.phonotrainer.core.domain.model.Track
+import com.mapineda48.phonotrainer.core.domain.model.UserMessageKind
 import com.mapineda48.phonotrainer.core.domain.model.UserSettings
 import com.mapineda48.phonotrainer.core.domain.model.VideoAvailability
 import com.mapineda48.phonotrainer.core.domain.model.WordRef
@@ -47,6 +48,7 @@ import com.mapineda48.phonotrainer.core.testing.MainDispatcherRule
 import com.mapineda48.phonotrainer.core.testing.TestClock
 import com.mapineda48.phonotrainer.core.testing.fake.app.FakeCoachMarkRepository
 import com.mapineda48.phonotrainer.core.testing.fake.app.FakeSettingsRepository
+import com.mapineda48.phonotrainer.core.testing.fake.app.FakeUserMessages
 import com.mapineda48.phonotrainer.core.testing.fake.connectivity.FakeComputerStatusRepository
 import com.mapineda48.phonotrainer.core.testing.fake.content.FakeDidacticContent
 import com.mapineda48.phonotrainer.core.testing.fake.content.FakeReferenceRepository
@@ -71,6 +73,7 @@ import java.time.LocalDate
 import java.util.Optional
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import org.junit.After
 import org.junit.Rule
 import org.junit.Test
@@ -90,6 +93,7 @@ class WatchViewModelTest {
   private val content = FakeClipContentRepository()
   private val occurrences = FakeOccurrenceRepository()
   private val clips = FakeClipRepository()
+  private val messages = FakeUserMessages()
   private val sets = FakeSetRepository()
   private val progress = FakeProgressRepository()
   private val saved = FakeSavedRepository()
@@ -157,6 +161,7 @@ class WatchViewModelTest {
     content = content,
     occurrences = occurrences,
     clips = clips,
+    messages = messages,
     sets = sets,
     progress = progress,
     saved = this.saved,
@@ -266,9 +271,38 @@ class WatchViewModelTest {
     val handle = SavedStateHandle()
     val vm = viewModel(FeedStart.AtWord(job, segment = 9, word = 1, openLesson = true), saved = handle)
     assertThat(vm.state.value.current).isEqualTo(4)
-    assertThat(vm.pendingLesson()).isEqualTo(WordRef(job, 9, 1))
-    assertThat(vm.pendingLesson()).isNull()
-    assertThat(viewModel(FeedStart.AtWord(job, 9, 1, openLesson = true), saved = handle).pendingLesson()).isNull()
+    assertThat(exitOf(vm)).isEqualTo(WatchExit.Lesson(WordRef(job, 9, 1)))
+    assertThat(exitOf(vm)).isNull()
+    assertThat(exitOf(viewModel(FeedStart.AtWord(job, 9, 1, openLesson = true), saved = handle))).isNull()
+    assertThat(messages.posted).isEmpty()
+  }
+
+  @Test
+  fun aWordTargetWhoseClipHasNoShortsHereOpensTheClipPage() {
+    // Spec 5.4: the clip is still listed (on the computer, not on this phone): its Clip page, no notice.
+    clips.details.value = mapOf(job to detail(ArtifactLocalState.READY))
+    val vm = viewModel(FeedStart.AtWord(job, segment = 9, word = 1, openLesson = true))
+    assertThat(exitOf(vm)).isEqualTo(WatchExit.ClipPage(job))
+    assertThat(messages.posted).isEmpty()
+  }
+
+  @Test
+  fun aWordTargetWhoseClipIsGoneGoesToTheLibraryWithItsNotice() {
+    // Spec 5.4 and decision I-14: "That clip is no longer on your computer or this phone." (WORD_CLIP_GONE), once.
+    val handle = SavedStateHandle()
+    val vm = viewModel(FeedStart.AtWord(job, segment = 9, word = 1, openLesson = true), saved = handle)
+    assertThat(exitOf(vm)).isEqualTo(WatchExit.Library)
+    assertThat(messages.posted.map { it.kind }).containsExactly(UserMessageKind.WORD_CLIP_GONE)
+    assertThat(exitOf(viewModel(FeedStart.AtWord(job, 9, 1, openLesson = true), saved = handle))).isNull()
+    assertThat(messages.posted).hasSize(1)
+  }
+
+  /** What the route does once with a word target ([WatchViewModel.startExit]). */
+  private fun exitOf(vm: WatchViewModel): WatchExit? {
+    var exit: WatchExit? = null
+    vm.viewModelScope.launch { exit = vm.startExit() }
+    advance(0)
+    return exit
   }
 
   // --- Sets (F-08) ----------------------------------------------------------------------------------------------
