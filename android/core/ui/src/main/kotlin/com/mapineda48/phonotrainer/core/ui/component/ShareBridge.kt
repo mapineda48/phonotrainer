@@ -33,7 +33,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -303,7 +303,7 @@ private fun PhoneNode(phone: BridgePhone, parked: Boolean) {
 }
 
 @Composable
-private fun Badge(@DrawableRes icon: Int, modifier: Modifier) {
+private fun Badge(@DrawableRes icon: Int, modifier: Modifier = Modifier) {
   val colors = PhonoTheme.colors
   Box(
     modifier = modifier
@@ -358,7 +358,7 @@ private fun ComputerNode(look: BridgeLook, status: ComputerStatus) {
 @Composable
 fun ConnectionLine(status: ComputerStatus, modifier: Modifier = Modifier, checking: Boolean = false) {
   val colors = PhonoTheme.colors
-  val words = ConnectionLineCopy.of(status, checking, LocalContext.current.resources)
+  val words = ConnectionLineCopy.of(status, checking, LocalResources.current)
   Row(
     modifier = modifier
       .fillMaxWidth()
