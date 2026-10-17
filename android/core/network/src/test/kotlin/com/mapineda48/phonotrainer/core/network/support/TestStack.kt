@@ -172,7 +172,7 @@ internal class TestStack(
   val clock: Clock = phoneClock ?: PhoneClock { computer.clock.now() }
   val binder: ComputerNetworkBinder = platform?.let(::NetworkBinding) ?: UnboundBinder
   val peers = ComputerPeers()
-  val verified = ComputerVerifiedPeers(binder)
+  val verified = ComputerVerifiedPeers(binder, peers)
   val clockOffset = LearnedClockOffset(clock, store, scope)
   val guard = CleartextGuard(peers, policy)
   val pool = ComputerHttp.pool(timeouts).also { pool -> (binder as? NetworkBinding)?.addListener { pool.evictAll() } }

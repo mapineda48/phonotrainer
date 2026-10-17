@@ -3,6 +3,7 @@ package com.mapineda48.phonotrainer.core.network.signing
 import com.google.common.truth.Truth.assertThat
 import com.mapineda48.phonotrainer.core.domain.model.AppError
 import com.mapineda48.phonotrainer.core.domain.model.DeviceId
+import com.mapineda48.phonotrainer.core.domain.model.HostPort
 import com.mapineda48.phonotrainer.core.network.api.ApiResult
 import com.mapineda48.phonotrainer.core.network.support.RecordingPlatform
 import com.mapineda48.phonotrainer.core.network.support.TestStack
@@ -163,6 +164,39 @@ class ProofAndSigningTest {
         assertThat(bound.client.library()).isInstanceOf(ApiResult.Ok::class.java)
       }
     }
+  }
+
+  @Test
+  fun anAddressChangeForgetsTheVerifiedAddressEvenWhenItMovesBack() = runBlocking<Unit> {
+    val device = DeviceId(stack.pair().deviceId)
+    val elsewhere = HostPort(FakeComputer.HOST, computer.address.port + 1)
+    assertThat(stack.verified.isVerified(computer.address)).isTrue()
+
+    stack.peers.setCurrent(elsewhere)
+    stack.peers.setCurrent(computer.address)
+    val library = computer.requests.count { it.path == "/api/phone/library" }
+
+    assertThat(stack.verified.isVerified(computer.address)).isFalse()
+    assertThat(stack.client.library()).isEqualTo(ApiResult.Failed(AppError.Computer.Guarded))
+    assertThat(computer.requests.count { it.path == "/api/phone/library" }).isEqualTo(library)
+
+    assertThat((stack.client.hello(computer.address, device) as ApiResult.Ok).value.proofValid).isTrue()
+    assertThat(stack.client.library()).isInstanceOf(ApiResult.Ok::class.java)
+  }
+
+  @Test
+  fun aCandidateThatProvedItselfStaysVerifiedWhenItBecomesTheCurrentAddress() = runBlocking<Unit> {
+    val device = DeviceId(stack.pair().deviceId)
+    stack.peers.setCurrent(null)
+    assertThat(stack.verified.isVerified(computer.address)).isFalse()
+
+    // Re-discovery (architecture 6.2 rule 2): the proof at the candidate, then the candidate becomes the address.
+    val proof = stack.peers.withCandidate(computer.address) { stack.client.hello(computer.address, device) }
+    assertThat((proof as ApiResult.Ok).value.proofValid).isTrue()
+    stack.peers.setCurrent(computer.address)
+
+    assertThat(stack.verified.isVerified(computer.address)).isTrue()
+    assertThat(stack.client.library()).isInstanceOf(ApiResult.Ok::class.java)
   }
 
   private companion object {

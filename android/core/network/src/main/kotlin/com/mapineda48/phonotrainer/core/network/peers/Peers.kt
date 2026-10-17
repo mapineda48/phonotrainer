@@ -11,6 +11,7 @@ import com.mapineda48.phonotrainer.core.network.api.ComputerNetworkBinder
 import com.mapineda48.phonotrainer.core.network.api.VerifiedPeers
 import com.mapineda48.phonotrainer.core.network.binding.NetworkBinding
 import java.io.IOException
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -21,6 +22,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.getAndUpdate
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -36,13 +38,20 @@ import kotlinx.coroutines.withContext
 internal class ComputerPeers @Inject constructor() : AllowedPeers {
   private val currentAddress = MutableStateFlow<HostPort?>(null)
   private val candidateLock = Mutex()
+  private val currentListeners = CopyOnWriteArrayList<(HostPort?) -> Unit>()
 
   @Volatile private var candidate: HostPort? = null
 
   override val current: StateFlow<HostPort?> = currentAddress.asStateFlow()
 
   override fun setCurrent(address: HostPort?) {
-    currentAddress.value = address
+    val previous = currentAddress.getAndUpdate { address }
+    if (previous != address) currentListeners.forEach { it(address) }
+  }
+
+  /** Runs [listener] with the new address every time the current address changes (not when it is set again). */
+  fun addCurrentListener(listener: (HostPort?) -> Unit) {
+    currentListeners += listener
   }
 
   override suspend fun <T> withCandidate(address: HostPort, block: suspend () -> T): T {
@@ -76,15 +85,20 @@ internal class ComputerPeers @Inject constructor() : AllowedPeers {
 
 /**
  * The address whose `hello` proof verified for the paired server id (architecture 5.3). One address at a time: a new
- * proof replaces the previous one, so an address change needs a new proof, and every network change resets it
- * (the binding's listener), so after a change nothing is signed before a new proof.
+ * proof replaces the previous one. Verification is reset on every network change (the binding's listener) and every
+ * address change (the current address moving to any other address, or to none, forgets it), so after either change
+ * nothing is signed before a new proof, not even when the address later moves back.
  */
 @Singleton
-internal class ComputerVerifiedPeers @Inject constructor(binder: ComputerNetworkBinder) : VerifiedPeers {
+internal class ComputerVerifiedPeers @Inject constructor(
+  binder: ComputerNetworkBinder,
+  peers: ComputerPeers,
+) : VerifiedPeers {
   private val verified = AtomicReference<Pair<HostPort, ServerId>?>(null)
 
   init {
     (binder as? NetworkBinding)?.addListener { reset() }
+    peers.addCurrentListener { address -> verified.updateAndGet { if (it?.first == address) it else null } }
   }
 
   override fun markVerified(address: HostPort, serverId: ServerId) {
