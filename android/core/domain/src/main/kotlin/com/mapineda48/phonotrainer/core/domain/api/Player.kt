@@ -69,6 +69,13 @@ interface FeedPlayer {
   /** Read every frame for captions (architecture 11.3). */
   fun positionMs(): Long
 
+  /**
+   * Whether Watch is the visible tab (architecture 11.2): false stops every player of the pool (codecs released,
+   * positions kept), true prepares them again, paused. The pool does the same by itself when the app leaves the
+   * foreground.
+   */
+  fun setVisible(visible: Boolean) {}
+
   fun release()
 }
 
