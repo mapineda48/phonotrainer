@@ -3,6 +3,8 @@ package com.mapineda48.phonotrainer.core.connectivity.status
 import android.app.usage.UsageStatsManager
 import com.google.common.truth.Truth.assertThat
 import com.mapineda48.phonotrainer.core.connectivity.support.Harness
+import com.mapineda48.phonotrainer.core.connectivity.support.RelayingClient
+import com.mapineda48.phonotrainer.core.connectivity.support.relayDatagram
 import com.mapineda48.phonotrainer.core.domain.model.AppError
 import com.mapineda48.phonotrainer.core.domain.model.ComputerStatus
 import com.mapineda48.phonotrainer.core.domain.model.DeviceId
@@ -181,6 +183,7 @@ class ComputerStatusRepositoryTest {
 
     assertThat(h.status.status.value).isEqualTo(ComputerStatus.ComputerTooOld)
     assertThat(h.computer.requests.map { it.route() }).contains("GET /api/health")
+    assertThat(h.guarded.refused).isEmpty()
   }
 
   @Test
@@ -276,6 +279,29 @@ class ComputerStatusRepositoryTest {
     assertThat(h.status.diagnostics.value.addressChangedAt).isNotNull()
     assertThat(impostor.requests.none { it.signed() }).isTrue()
     impostor.close()
+  }
+
+  @Test
+  fun aRelayThatPassesTheChallengeOnIsNeverStoredAsTheNewAddress() = runTest {
+    // A host on the Wi-Fi answers discovery with the paired server id and hands every hello to the real computer, so
+    // its proof verifies; the real computer answers discovery too, so two addresses prove and neither is accepted.
+    val computer = computer()
+    val relay = HostPort(FakeComputer.HOST, 10)
+    val h = Harness(this, listOf(computer), clientOverride = { RelayingClient(it, relay, computer) })
+    h.discovery.respond { probe -> relayDatagram(probe, computer, relay) }
+    h.answerDiscovery()
+    val stored = HostPort(FakeComputer.HOST, 9)
+    h.seedPairing(address = stored)
+    h.status
+    runCurrent()
+    advanceTimeBy(11_000)
+
+    assertThat(h.status.status.value).isEqualTo(ComputerStatus.DifferentComputer("Study desk"))
+    assertThat(h.store.value?.address).isEqualTo(stored)
+    assertThat(h.status.diagnostics.value.addressChangedAt).isNull()
+    assertThat(h.peers.current.value).isEqualTo(stored)
+    assertThat(h.computer.requests.none { it.signed() }).isTrue()
+    assertThat(h.guarded.refused).isEmpty()
   }
 
   @Test

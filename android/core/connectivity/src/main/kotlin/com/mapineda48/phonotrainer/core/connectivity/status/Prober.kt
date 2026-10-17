@@ -1,7 +1,9 @@
 package com.mapineda48.phonotrainer.core.connectivity.status
 
 import com.mapineda48.phonotrainer.core.connectivity.ConnectivitySession
+import com.mapineda48.phonotrainer.core.connectivity.discovery.DiscoveredAddress
 import com.mapineda48.phonotrainer.core.connectivity.discovery.DiscoveryClient
+import com.mapineda48.phonotrainer.core.connectivity.discovery.DiscoveryProtocol
 import com.mapineda48.phonotrainer.core.connectivity.platform.AppVersion
 import com.mapineda48.phonotrainer.core.datastore.pairing.DeviceKeyResult
 import com.mapineda48.phonotrainer.core.datastore.pairing.PairingStore
@@ -13,8 +15,14 @@ import com.mapineda48.phonotrainer.core.network.api.ComputerClient
 import java.io.IOException
 import java.time.Duration
 import javax.inject.Inject
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.ReceiveChannel
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -64,9 +72,17 @@ internal class Prober @Inject constructor(
 /**
  * Re-discovery of the paired computer (spec 7.3 item 5, architecture 6.1 and 6.2 rule 2): one discovery search, and
  * for every answer carrying the paired server id, `hello` with a fresh challenge at that address as the single
- * candidate. Only an address whose proof verifies is accepted; answers with the paired id and no valid proof make the
- * result [RediscoveryResult.Impostor], so the status says a different computer answered. Answers with other server
- * ids are other computers and are ignored. Foreground only (NFR-04): the machine never asks for it in the background.
+ * candidate. Answers with other server ids are other computers and are ignored. Foreground only (NFR-04): the machine
+ * never asks for it in the background.
+ *
+ * Only an address whose proof verifies is accepted, and only if it is the **only** one. A proof says that some host
+ * could get it, not that it comes from the address that answered: a host on the Wi-Fi can answer discovery with the
+ * paired server id and pass the phone's challenge on to the real computer. Such a relay can only prove while the real
+ * computer answers too, so the search does not stop at the first proof: it goes on until [SETTLE_FLOOR] has passed
+ * since it started (one second after the last probe) and [SETTLE_AFTER] since the first proof, or until the search
+ * window ends. Two addresses that both prove make the result [RediscoveryResult.Impostor]: nothing is accepted, the
+ * status says a different computer answered, and "Enter the new address" stays the way back. Answers with the paired
+ * id and no valid proof make it [RediscoveryResult.Impostor] too when nothing proved.
  */
 internal class Rediscovery @Inject constructor(
   private val discovery: DiscoveryClient,
@@ -74,37 +90,71 @@ internal class Rediscovery @Inject constructor(
   private val peers: AllowedPeers,
   private val session: ConnectivitySession,
 ) {
-  suspend fun find(target: ProbeTarget, network: NetworkSnapshot): RediscoveryResult {
+  suspend fun find(target: ProbeTarget, network: NetworkSnapshot): RediscoveryResult = coroutineScope {
+    val answers = Channel<DiscoveredAddress>(Channel.UNLIMITED)
+    val search = launch {
+      try {
+        discovery.search(network).filter { it.reply.serverId == target.serverId }.collect { answers.send(it) }
+      } finally {
+        answers.close()
+      }
+    }
+    val floor = launch { delay(SETTLE_FLOOR.toMillis()) }
+    var settled: Job? = null
+    // Every address whose proof verified, and whether the computer said this phone is revoked there.
+    val proving = LinkedHashMap<HostPort, Boolean>()
     var impostor = false
-    var revoked = false
-    val found: HostPort? = discovery.search(network)
-      .filter { it.reply.serverId == target.serverId }
-      .firstOrNull { candidate ->
+    try {
+      while (true) {
+        val candidate = next(answers, settled) ?: break
         val answer = session.lock.withLock {
           peers.withCandidate(candidate.address) { client.hello(candidate.address, challengeFor = target.deviceId) }
         }
         when (val verdict = ProbeVerdicts.hello(answer, target)) {
-          ProbeVerdicts.Hello.Proven -> true
-          ProbeVerdicts.Hello.ProofFailed -> {
-            impostor = true
-            false
+          ProbeVerdicts.Hello.Proven -> proving[candidate.address] = false
+          ProbeVerdicts.Hello.ProofFailed -> impostor = true
+          is ProbeVerdicts.Hello.Report -> when (verdict.report) {
+            ProbeReport.ConnectAgain -> proving[candidate.address] = true
+            ProbeReport.DifferentComputer -> impostor = true
+            else -> Unit
           }
-          is ProbeVerdicts.Hello.Report -> {
-            when (verdict.report) {
-              ProbeReport.ConnectAgain -> revoked = true
-              ProbeReport.DifferentComputer -> impostor = true
-              else -> Unit
-            }
-            false
-          }
-          ProbeVerdicts.Hello.NeedLegacy -> false
+          ProbeVerdicts.Hello.NeedLegacy -> Unit
         }
-      }?.address
-    return when {
-      found != null -> RediscoveryResult.Found(found)
-      revoked -> RediscoveryResult.Revoked
+        if (proving.isNotEmpty() && settled == null) {
+          settled = launch {
+            delay(SETTLE_AFTER.toMillis())
+            floor.join()
+          }
+        }
+      }
+    } finally {
+      search.cancel()
+      floor.cancel()
+      settled?.cancel()
+    }
+    val only = proving.entries.singleOrNull()
+    when {
+      proving.size > 1 -> RediscoveryResult.Impostor
+      only != null -> if (only.value) RediscoveryResult.Revoked else RediscoveryResult.Found(only.key)
       impostor -> RediscoveryResult.Impostor
       else -> RediscoveryResult.NothingFound
     }
+  }
+
+  /** The next answer, or null once the search ended or, after a proof, once the search [settled]. */
+  private suspend fun next(answers: ReceiveChannel<DiscoveredAddress>, settled: Job?): DiscoveredAddress? {
+    if (settled == null) return answers.receiveCatching().getOrNull()
+    return select {
+      answers.onReceiveCatching { it.getOrNull() }
+      settled.onJoin { null }
+    }
+  }
+
+  companion object {
+    /** No address is accepted before one second after the last probe (0, 1 and 3 s), when every answer is in. */
+    val SETTLE_FLOOR: Duration = DiscoveryProtocol.SCHEDULE.last().plusSeconds(1)
+
+    /** After the first proof, how long the search keeps listening for a second address that proves too. */
+    val SETTLE_AFTER: Duration = Duration.ofSeconds(1)
   }
 }
