@@ -88,33 +88,50 @@ internal class ComputerPeers @Inject constructor() : AllowedPeers {
  * proof replaces the previous one. Verification is reset on every network change (the binding's listener) and every
  * address change (the current address moving to any other address, or to none, forgets it), so after either change
  * nothing is signed before a new proof, not even when the address later moves back.
+ *
+ * Each reset and each address change starts a new epoch. A proof counts only for the epoch in which its `hello` was
+ * sent ([markVerified] with `since`), so an answer that was on its way across a change of network or address never
+ * verifies the address after it.
  */
 @Singleton
 internal class ComputerVerifiedPeers @Inject constructor(
   binder: ComputerNetworkBinder,
   peers: ComputerPeers,
 ) : VerifiedPeers {
-  private val verified = AtomicReference<Pair<HostPort, ServerId>?>(null)
+  private val state = AtomicReference(State(epoch = 0, address = null))
 
   init {
     (binder as? NetworkBinding)?.addListener { reset() }
-    peers.addCurrentListener { address -> verified.updateAndGet { if (it?.first == address) it else null } }
+    peers.addCurrentListener { address ->
+      state.updateAndGet { State(it.epoch + 1, it.address?.takeIf { verified -> verified.first == address }) }
+    }
+  }
+
+  /** The current epoch: read before a `hello` with a challenge is sent. */
+  fun epoch(): Long = state.get().epoch
+
+  /** Marks [address] verified only if no reset or address change happened since [since] was read; false otherwise. */
+  fun markVerified(address: HostPort, serverId: ServerId, since: Long): Boolean {
+    val verified = address to serverId
+    return state.updateAndGet { if (it.epoch == since) it.copy(address = verified) else it }.address === verified
   }
 
   override fun markVerified(address: HostPort, serverId: ServerId) {
-    verified.set(address to serverId)
+    state.updateAndGet { it.copy(address = address to serverId) }
   }
 
-  override fun isVerified(address: HostPort): Boolean = verified.get()?.first == address
+  override fun isVerified(address: HostPort): Boolean = state.get().address?.first == address
 
   override fun reset() {
-    verified.set(null)
+    state.updateAndGet { State(it.epoch + 1, null) }
   }
 
   /** Forgets [address] only, when an answer there no longer proves it (a wrong or missing proof). */
   fun forget(address: HostPort) {
-    verified.updateAndGet { if (it?.first == address) null else it }
+    state.updateAndGet { if (it.address?.first == address) it.copy(address = null) else it }
   }
+
+  private data class State(val epoch: Long, val address: Pair<HostPort, ServerId>?)
 }
 
 /**

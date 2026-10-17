@@ -40,6 +40,7 @@ import com.mapineda48.phonotrainer.core.network.dto.toLibrary
 import com.mapineda48.phonotrainer.core.network.dto.toUploadState
 import com.mapineda48.phonotrainer.core.network.http.Failures
 import com.mapineda48.phonotrainer.core.network.http.Profile
+import com.mapineda48.phonotrainer.core.network.http.StaleProofException
 import com.mapineda48.phonotrainer.core.network.peers.ComputerPeers
 import com.mapineda48.phonotrainer.core.network.peers.ComputerVerifiedPeers
 import com.mapineda48.phonotrainer.core.network.service.ApiFactory
@@ -83,9 +84,14 @@ internal class HttpComputerClient @Inject constructor(
 
   override suspend fun hello(at: HostPort, challengeFor: DeviceId?): ApiResult<ComputerIdentity> {
     val challenge = challengeFor?.let { Pt1.newNonce() }
+    val epoch = verified.epoch()
     return call(at, probe(), { hello(challengeFor?.value, challenge) }) { response ->
       val answer = response.body() ?: malformed("hello")
-      val proofValid = if (challengeFor != null && challenge != null) prove(at, answer, challengeFor, challenge) else null
+      val proofValid = if (challengeFor != null && challenge != null) {
+        prove(at, answer, challengeFor, challenge, epoch)
+      } else {
+        null
+      }
       answer.toIdentity(proofValid)
     }
   }
@@ -219,9 +225,11 @@ internal class HttpComputerClient @Inject constructor(
 
   /**
    * Checks `hello`'s proof for the paired computer (architecture 5.3) and records the outcome: verified (and the clock
-   * offset learned) only for a valid proof of the paired server id, from a device that is not revoked.
+   * offset learned) only for a valid proof of the paired server id, from a device that is not revoked, and only if
+   * verification was not reset since the challenge was sent ([epoch]): a proof that was on its way across a change of
+   * network or address fails the probe with [StaleProofException] instead, to be made again.
    */
-  private suspend fun prove(at: HostPort, answer: HelloDto, device: DeviceId, challenge: String): Boolean {
+  private suspend fun prove(at: HostPort, answer: HelloDto, device: DeviceId, challenge: String, epoch: Long): Boolean {
     val pairing = store.current()
     val proof = answer.proof
     val valid = pairing != null && pairing.deviceId == device && proof != null &&
@@ -231,8 +239,12 @@ internal class HttpComputerClient @Inject constructor(
         else -> false
       }
     if (valid) {
+      if (answer.revoked == true) {
+        verified.forget(at)
+      } else if (!verified.markVerified(at, pairing.serverId, since = epoch)) {
+        throw StaleProofException()
+      }
       answer.serverTime?.let(clockOffset::update)
-      if (answer.revoked == true) verified.forget(at) else verified.markVerified(at, pairing.serverId)
     } else {
       verified.forget(at)
     }

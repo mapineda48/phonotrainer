@@ -3,6 +3,7 @@ package com.mapineda48.phonotrainer.core.network.client
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import com.mapineda48.phonotrainer.core.common.hash.Sha256
+import com.mapineda48.phonotrainer.core.domain.model.DeviceId
 import com.mapineda48.phonotrainer.core.domain.model.HostPort
 import com.mapineda48.phonotrainer.core.domain.model.RequestId
 import com.mapineda48.phonotrainer.core.domain.model.remote.ChannelEvent
@@ -13,6 +14,7 @@ import com.mapineda48.phonotrainer.core.network.api.DownloadRequest
 import com.mapineda48.phonotrainer.core.network.api.PairRequest
 import com.mapineda48.phonotrainer.core.network.api.RerunBody
 import com.mapineda48.phonotrainer.core.network.api.UploadDeclaration
+import com.mapineda48.phonotrainer.core.network.support.LostAnswerProxy
 import com.mapineda48.phonotrainer.core.network.support.PhoneClock
 import com.mapineda48.phonotrainer.core.network.support.TestStack
 import com.mapineda48.phonotrainer.core.testing.computer.FakeComputer
@@ -35,8 +37,9 @@ import org.junit.rules.TemporaryFolder
  * (`android/scripts/device-qa/host_computer.py`, the server built from this checkout with fake analyses and a
  * downloader that refuses every link). It runs only when `PHONOTRAINER_HOST_COMPUTER` (`127.0.0.1:<port>`) and a fresh
  * `PHONOTRAINER_PAIRING_CODE` are set, and is skipped otherwise (the hand-off of WP-05b says how it was run). It proves
- * what the JVM fake cannot: the uploads' answers as the server gives them, and a request after uvicorn has closed an
- * idle keep-alive connection (5 s), which a client must survive (wave-1 review). It never sends a link (spec D-36).
+ * what the JVM fake cannot: the uploads' answers as the server gives them, a request after uvicorn has closed an idle
+ * keep-alive connection (5 s), which a client must survive (wave-1 review), and an answer lost on a reused connection,
+ * sent again with a fresh signature that the server accepts (WP-05b reviews). It never sends a link (spec D-36).
  */
 class HostComputerSessionTest {
   @get:Rule
@@ -82,6 +85,8 @@ class HostComputerSessionTest {
     assertThat(Sha256.of(part).sha256).isEqualTo(analysis.sha256)
     assertThat((client.reference() as ApiResult.Ok).value).contains("{")
 
+    lostAnswer(stack, at, grant.value.deviceId)
+
     // After more than uvicorn's 5 s keep-alive, the next requests still go through.
     delay(IDLE_MS)
     assertThat(client.library()).isInstanceOf(ApiResult.Ok::class.java)
@@ -122,6 +127,29 @@ class HostComputerSessionTest {
 
     assertThat(client.unpairSelf()).isEqualTo(ApiResult.Ok(Unit, 204))
     expectRefusal(client.health(), 401, "credential_rejected")
+  }
+
+  /**
+   * An answer lost on a reused connection (the WP-05b reviews): OkHttp sends the request again on a new connection,
+   * signed again with a fresh nonce, so the server, which refuses a nonce it has seen with `401 credential_rejected`
+   * (server-contract 4.3), answers it and the phone stays paired. Through [LostAnswerProxy], a new address for the
+   * phone, so it proves the computer there first and again back at [at].
+   */
+  private suspend fun lostAnswer(stack: TestStack, at: HostPort, device: DeviceId) {
+    val client = stack.client
+    LostAnswerProxy(at, "/api/phone/reference", nth = 2).use { proxy ->
+      stack.peers.setCurrent(proxy.address)
+      assertThat((client.hello(proxy.address, device) as ApiResult.Ok).value.proofValid).isTrue()
+      assertThat(client.reference()).isInstanceOf(ApiResult.Ok::class.java)
+
+      assertThat(client.reference()).isInstanceOf(ApiResult.Ok::class.java)
+
+      assertThat(proxy.nonces).hasSize(3)
+      assertThat(proxy.nonces.toSet()).hasSize(3)
+      assertThat(client.health()).isInstanceOf(ApiResult.Ok::class.java)
+    }
+    stack.peers.setCurrent(at)
+    assertThat((client.hello(at, device) as ApiResult.Ok).value.proofValid).isTrue()
   }
 
   private fun expectRefusal(result: ApiResult<*>, status: Int, code: String) {

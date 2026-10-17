@@ -62,11 +62,17 @@ internal class PairingRequestSigner(
 }
 
 /**
- * Adds `Authorization: PT1 …` (architecture 5.3, security review M-1) to every signed route, and only when the
- * request's `host:port` is the verified address: a signed route to any other address is never sent
- * ([UnverifiedPeerException]), so no request, file or recording reaches a computer that has not proved itself.
- * `hello`, `pair` and `/api/health` never carry the header. A `401 clock_skew` teaches the offset from its
- * `server_time` and the request is signed again and sent once more (server-contract 4.3).
+ * PT1 signing, application half (architecture 5.3, security review M-1). A signed route goes out only when its
+ * `host:port` is the verified address: to any other address it fails with [UnverifiedPeerException] before a
+ * connection is made, so no request, file or recording reaches a computer that has not proved itself. `hello`, `pair`
+ * and `/api/health` never carry the header. A `401 clock_skew` teaches the offset from its `server_time` and the
+ * request is sent once more, signed again with the new offset (server-contract 4.3).
+ *
+ * HTTP requests are signed by [AttemptSigner], once per network attempt: OkHttp retries a request on a new connection
+ * when a reused one fails before the answer, and a resent signature would carry a nonce the computer has already seen,
+ * which it refuses as a replay with `401 credential_rejected` (a lost pairing, architecture 6.2 rule 5). OkHttp runs no
+ * network interceptor for a WebSocket upgrade, so the job channel's upgrade is signed here; the channel's client never
+ * retries by itself and never reuses a pooled connection (`ComputerHttp`, `Profile.CHANNEL`).
  */
 internal class SigningInterceptor(
   private val signer: RequestSigner,
@@ -79,15 +85,16 @@ internal class SigningInterceptor(
     if (!Routes.isSigned(url)) return chain.proceed(request)
     if (!verified.isVerified(HostPort(url.host, url.port))) throw UnverifiedPeerException()
 
-    val first = chain.proceed(signed(request))
+    val first = chain.proceed(signedIfUpgrade(request))
     val serverTime = clockSkewOf(first) ?: return first
     first.close()
     clockOffset.update(serverTime)
-    return chain.proceed(signed(request))
+    return chain.proceed(signedIfUpgrade(request))
   }
 
-  private fun signed(request: Request): Request =
-    request.newBuilder().header(AUTHORIZATION, signer.authorization(request.method, target(request.url))).build()
+  /** A WebSocket upgrade, which no network interceptor sees, signed here; any other request left to [AttemptSigner]. */
+  private fun signedIfUpgrade(request: Request): Request =
+    if (request.header(UPGRADE).equals(WEBSOCKET, ignoreCase = true)) signed(signer, request) else request
 
   /** The `server_time` of a `401 clock_skew`, or null for any other answer. */
   private fun clockSkewOf(response: Response): Long? {
@@ -104,11 +111,38 @@ internal class SigningInterceptor(
 
   companion object {
     const val AUTHORIZATION = "Authorization"
+    private const val UPGRADE = "Upgrade"
+    private const val WEBSOCKET = "websocket"
     private const val UNAUTHORIZED = 401
     private const val CLOCK_SKEW = "clock_skew"
     private const val PEEK_BYTES = 64L * 1024L
 
     /** The request target exactly as sent, still percent-encoded: `encodedPath` plus `?encodedQuery` (4.3). */
     fun target(url: HttpUrl): String = url.encodedPath + (url.encodedQuery?.let { "?$it" } ?: "")
+
+    /** [request] with a fresh `Authorization: PT1 …` (a new `ts` and nonce every time). */
+    fun signed(signer: RequestSigner, request: Request): Request =
+      request.newBuilder().header(AUTHORIZATION, signer.authorization(request.method, target(request.url))).build()
+  }
+}
+
+/**
+ * PT1 signing, network half: runs once per network attempt for every signed route, OkHttp's transparent retries
+ * included. Each attempt checks again that the address actually connected is the verified one (a change of network
+ * resets verification, architecture 5.3, and a retry opens its socket on the network current then) and is signed with a
+ * fresh `ts` and nonce, so no attempt resends a signature the computer has seen. A refusal here happens before a byte
+ * of the request is written, and OkHttp does not retry it. Ordered before the debug log, which shows the header
+ * redacted.
+ */
+internal class AttemptSigner(private val signer: RequestSigner, private val verified: VerifiedPeers) : Interceptor {
+  override fun intercept(chain: Interceptor.Chain): Response {
+    val request = chain.request()
+    val url = request.url
+    if (!Routes.isSigned(url)) return chain.proceed(request)
+    val target = HostPort(url.host, url.port)
+    val connected = chain.connection()?.route()?.socketAddress
+    val sameAddress = connected?.port == target.port && connected.address?.hostAddress == target.host
+    if (!sameAddress || !verified.isVerified(target)) throw UnverifiedPeerException()
+    return chain.proceed(SigningInterceptor.signed(signer, request))
   }
 }

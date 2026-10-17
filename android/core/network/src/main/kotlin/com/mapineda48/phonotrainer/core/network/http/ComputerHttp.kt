@@ -1,12 +1,22 @@
 package com.mapineda48.phonotrainer.core.network.http
 
+import com.mapineda48.phonotrainer.core.network.api.ClockOffset
+import com.mapineda48.phonotrainer.core.network.api.ComputerNetworkBinder
+import com.mapineda48.phonotrainer.core.network.api.VerifiedPeers
+import com.mapineda48.phonotrainer.core.network.binding.CurrentNetworkInterceptor
+import com.mapineda48.phonotrainer.core.network.binding.NetworkBinding
+import com.mapineda48.phonotrainer.core.network.binding.RetiredConnectionRetry
 import com.mapineda48.phonotrainer.core.network.guard.CleartextGuard
+import com.mapineda48.phonotrainer.core.network.guard.ComputerSocketFactory
 import com.mapineda48.phonotrainer.core.network.guard.GuardEventListener
 import com.mapineda48.phonotrainer.core.network.guard.NoDns
+import com.mapineda48.phonotrainer.core.network.signing.AttemptSigner
+import com.mapineda48.phonotrainer.core.network.signing.RequestSigner
+import com.mapineda48.phonotrainer.core.network.signing.SigningInterceptor
 import java.net.Proxy
 import java.time.Duration
 import java.util.EnumMap
-import javax.net.SocketFactory
+import java.util.concurrent.TimeUnit
 import okhttp3.ConnectionPool
 import okhttp3.Dns
 import okhttp3.HttpUrl
@@ -46,7 +56,8 @@ internal data class NetworkTimeouts(
 /**
  * The one OkHttp client of architecture 5.1 and the clients derived from it per [Profile]: they share the connection
  * pool, the dispatcher, the guard, the signer, the network binding and the absence of DNS and proxies, and differ only
- * in their timeouts.
+ * in their timeouts. The channel's client is the exception: it never reuses a pooled connection and never retries by
+ * itself, because OkHttp runs no network interceptor for a WebSocket upgrade (see [create]).
  */
 internal class ComputerHttp(val base: OkHttpClient, private val timeouts: NetworkTimeouts) {
   private val clients = EnumMap<Profile, OkHttpClient>(Profile::class.java)
@@ -76,28 +87,37 @@ internal class ComputerHttp(val base: OkHttpClient, private val timeouts: Networ
       Profile.DOWNLOAD -> builder.readTimeout(timeouts.downloadRead).writeTimeout(timeouts.apiWrite).callTimeout(Duration.ZERO)
       Profile.UPLOAD -> builder.readTimeout(timeouts.uploadRead).writeTimeout(timeouts.uploadWrite).callTimeout(Duration.ZERO)
       Profile.CHANNEL -> builder.readTimeout(Duration.ZERO).callTimeout(Duration.ZERO).pingInterval(timeouts.channelPing)
+        // The upgrade is signed once, by the application interceptor: it is never resent on another connection,
+        // and it always opens a fresh socket, bound to the network current at that moment.
+        .retryOnConnectionFailure(false)
+        .connectionPool(ConnectionPool(0, CHANNEL_POOL_KEEP_ALIVE_MS, TimeUnit.MILLISECONDS))
     }
     return builder.build()
   }
 
   companion object {
     /**
-     * The base client: no DNS ([dns] is replaced only by tests that count lookups), no proxy, no redirects, HTTP/1.1,
-     * the guard first, then the signer and the caps.
+     * The base client: no DNS ([dns] is replaced only by tests that count lookups), no proxy, no redirects, HTTP/1.1.
+     * Application interceptors: the guard first, the retired-connection retry, the signer's checks and its
+     * `clock_skew` retry, the caps. Network interceptors, once per attempt (OkHttp's transparent retries included):
+     * the retirement of connections from an earlier network (only with the client's own [NetworkBinding]), the PT1
+     * signature with a fresh nonce, then the debug log. `NetworkModule` and the tests build it only through here.
      */
     fun create(
       guard: CleartextGuard,
-      signing: Interceptor,
-      socketFactory: SocketFactory,
+      signer: RequestSigner,
+      verified: VerifiedPeers,
+      clockOffset: ClockOffset,
+      binder: ComputerNetworkBinder,
       pool: ConnectionPool,
       timeouts: NetworkTimeouts,
       debugLog: Interceptor?,
       dns: Dns = NoDns,
     ): ComputerHttp {
-      val base = OkHttpClient.Builder()
+      val builder = OkHttpClient.Builder()
         .dns(dns)
         .proxy(Proxy.NO_PROXY)
-        .socketFactory(socketFactory)
+        .socketFactory(ComputerSocketFactory(binder, guard))
         .connectionPool(pool)
         .eventListener(GuardEventListener(guard))
         .protocols(listOf(Protocol.HTTP_1_1))
@@ -105,18 +125,21 @@ internal class ComputerHttp(val base: OkHttpClient, private val timeouts: Networ
         .followSslRedirects(false)
         .retryOnConnectionFailure(true)
         .addInterceptor(guard)
-        .addInterceptor(signing)
+        .addInterceptor(RetiredConnectionRetry)
+        .addInterceptor(SigningInterceptor(signer, verified, clockOffset))
         .addInterceptor(BodyCapInterceptor)
-        .apply { debugLog?.let(::addNetworkInterceptor) }
-        .build()
-      return ComputerHttp(base, timeouts)
+      (binder as? NetworkBinding)?.let { builder.addNetworkInterceptor(CurrentNetworkInterceptor(it, pool)) }
+      builder.addNetworkInterceptor(AttemptSigner(signer, verified))
+      debugLog?.let(builder::addNetworkInterceptor)
+      return ComputerHttp(builder.build(), timeouts)
     }
 
     /** The pool every derived client shares; idle connections close before the server's keep-alive ends. */
     fun pool(timeouts: NetworkTimeouts): ConnectionPool =
-      ConnectionPool(MAX_IDLE_CONNECTIONS, timeouts.idleConnection.toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS)
+      ConnectionPool(MAX_IDLE_CONNECTIONS, timeouts.idleConnection.toMillis(), TimeUnit.MILLISECONDS)
 
     private const val MAX_IDLE_CONNECTIONS = 4
+    private const val CHANNEL_POOL_KEEP_ALIVE_MS = 1_000L
   }
 }
 

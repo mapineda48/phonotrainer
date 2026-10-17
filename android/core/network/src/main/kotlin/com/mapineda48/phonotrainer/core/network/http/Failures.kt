@@ -36,6 +36,18 @@ internal class VpnBlocksException(cause: Throwable) : IOException("A VPN blocks 
 /** An answer the client refuses to read: over its size cap, not the documented shape, or failing validation (M-3). */
 internal class MalformedAnswerException(message: String, cause: Throwable? = null) : IOException(message, cause)
 
+/**
+ * A request was about to be written on a connection opened on an earlier network (architecture 5.1, Android review
+ * M11). Its socket is closed first, so the call is tried once more on a fresh connection; nothing was sent.
+ */
+internal class RetiredConnectionException : IOException("The connection belongs to an earlier network.")
+
+/**
+ * A `hello` proof arrived after the network or the address changed (architecture 5.3): it says nothing about the
+ * address now, so it does not verify it and the probe is answered as a reset connection, to be made again.
+ */
+internal class StaleProofException : IOException("The network or address changed while the proof was on its way.")
+
 /** A host name was asked of the resolver: the client never resolves names (architecture 5.1). */
 internal class NoDnsException(host: String) : UnknownHostException("Host names are never resolved ($host).")
 
@@ -46,6 +58,7 @@ internal object Failures {
     is CredentialUnreadableException -> AppError.Computer.CredentialRejected
     is NotOnWifiException -> AppError.Computer.NotOnWifi
     is VpnBlocksException -> AppError.Computer.Unreachable(ProbeOutcome.VpnBlocks)
+    is RetiredConnectionException, is StaleProofException -> AppError.Computer.Unreachable(ProbeOutcome.Reset)
     is MalformedAnswerException, is SerializationException -> AppError.Computer.Malformed
     is IllegalArgumentException -> AppError.Computer.Malformed
     is InterruptedIOException -> AppError.Computer.Unreachable(ProbeOutcome.NoAnswer(noAnswerAfterS))

@@ -3,6 +3,7 @@ package com.mapineda48.phonotrainer.core.network.guard
 import com.mapineda48.phonotrainer.core.domain.model.HostPort
 import com.mapineda48.phonotrainer.core.network.api.AddressPolicy
 import com.mapineda48.phonotrainer.core.network.api.ComputerNetworkBinder
+import com.mapineda48.phonotrainer.core.network.binding.CurrentNetworkInterceptor
 import com.mapineda48.phonotrainer.core.network.binding.NetworkBinding
 import com.mapineda48.phonotrainer.core.network.http.GuardedException
 import com.mapineda48.phonotrainer.core.network.http.NoDnsException
@@ -105,7 +106,7 @@ internal class ComputerSocketFactory(
 ) : SocketFactory() {
   override fun createSocket(): Socket = GuardedSocket(guard).also { socket ->
     try {
-      (binder as? NetworkBinding)?.bindSocket(socket)
+      socket.networkHandle = (binder as? NetworkBinding)?.bindSocket(socket)
     } catch (e: java.io.IOException) {
       socket.close()
       throw e
@@ -124,8 +125,13 @@ internal class ComputerSocketFactory(
     throw GuardedException("Sockets are never bound to a chosen local address.")
 }
 
-/** A socket that connects only where the guard allows. */
+/**
+ * A socket that connects only where the guard allows, and remembers the network it was bound to (null when the binder
+ * binds nothing), so a connection from an earlier network is never reused ([CurrentNetworkInterceptor]).
+ */
 internal class GuardedSocket(private val guard: CleartextGuard) : Socket() {
+  @Volatile var networkHandle: Long? = null
+
   override fun connect(endpoint: SocketAddress?, timeout: Int) {
     if (!guard.allows(endpoint)) throw GuardedException("The address is not the computer's.")
     super.connect(endpoint, timeout)

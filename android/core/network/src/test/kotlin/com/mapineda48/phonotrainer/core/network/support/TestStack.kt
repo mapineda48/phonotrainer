@@ -21,7 +21,6 @@ import com.mapineda48.phonotrainer.core.network.binding.NetworkPlatform
 import com.mapineda48.phonotrainer.core.network.channel.WebSocketJobChannel
 import com.mapineda48.phonotrainer.core.network.client.HttpComputerClient
 import com.mapineda48.phonotrainer.core.network.guard.CleartextGuard
-import com.mapineda48.phonotrainer.core.network.guard.ComputerSocketFactory
 import com.mapineda48.phonotrainer.core.network.guard.NoDns
 import com.mapineda48.phonotrainer.core.network.http.ComputerHttp
 import com.mapineda48.phonotrainer.core.network.http.NetworkTimeouts
@@ -30,7 +29,6 @@ import com.mapineda48.phonotrainer.core.network.peers.ComputerVerifiedPeers
 import com.mapineda48.phonotrainer.core.network.peers.LearnedClockOffset
 import com.mapineda48.phonotrainer.core.network.service.ApiFactory
 import com.mapineda48.phonotrainer.core.network.signing.PairingRequestSigner
-import com.mapineda48.phonotrainer.core.network.signing.SigningInterceptor
 import com.mapineda48.phonotrainer.core.network.transfer.HttpArtifactTransfer
 import com.mapineda48.phonotrainer.core.testing.computer.FakeComputer
 import java.io.IOException
@@ -178,8 +176,10 @@ internal class TestStack(
   val pool = ComputerHttp.pool(timeouts).also { pool -> (binder as? NetworkBinding)?.addListener { pool.evictAll() } }
   val http = ComputerHttp.create(
     guard = guard,
-    signing = SigningInterceptor(PairingRequestSigner(store, clock, clockOffset), verified, clockOffset),
-    socketFactory = ComputerSocketFactory(binder, guard),
+    signer = PairingRequestSigner(store, clock, clockOffset),
+    verified = verified,
+    clockOffset = clockOffset,
+    binder = binder,
     pool = pool,
     timeouts = timeouts,
     debugLog = debugLog,

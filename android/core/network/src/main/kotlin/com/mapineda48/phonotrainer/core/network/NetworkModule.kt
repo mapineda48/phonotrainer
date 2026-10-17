@@ -15,7 +15,6 @@ import com.mapineda48.phonotrainer.core.network.binding.NetworkBinding
 import com.mapineda48.phonotrainer.core.network.channel.WebSocketJobChannel
 import com.mapineda48.phonotrainer.core.network.client.HttpComputerClient
 import com.mapineda48.phonotrainer.core.network.guard.CleartextGuard
-import com.mapineda48.phonotrainer.core.network.guard.ComputerSocketFactory
 import com.mapineda48.phonotrainer.core.network.http.ComputerHttp
 import com.mapineda48.phonotrainer.core.network.http.HttpDebugLog
 import com.mapineda48.phonotrainer.core.network.http.NetworkTimeouts
@@ -24,7 +23,6 @@ import com.mapineda48.phonotrainer.core.network.peers.ComputerVerifiedPeers
 import com.mapineda48.phonotrainer.core.network.peers.LearnedClockOffset
 import com.mapineda48.phonotrainer.core.network.service.ApiFactory
 import com.mapineda48.phonotrainer.core.network.signing.PairingRequestSigner
-import com.mapineda48.phonotrainer.core.network.signing.SigningInterceptor
 import com.mapineda48.phonotrainer.core.network.transfer.HttpArtifactTransfer
 import dagger.Binds
 import dagger.Module
@@ -68,8 +66,10 @@ internal object NetworkModule {
     log: PhonoLog,
   ): ComputerHttp = ComputerHttp.create(
     guard = guard,
-    signing = SigningInterceptor(PairingRequestSigner(store, clock, clockOffset), verified, clockOffset),
-    socketFactory = ComputerSocketFactory(binder, guard),
+    signer = PairingRequestSigner(store, clock, clockOffset),
+    verified = verified,
+    clockOffset = clockOffset,
+    binder = binder,
     pool = pool,
     timeouts = timeouts,
     debugLog = HttpDebugLog.interceptor(log),
