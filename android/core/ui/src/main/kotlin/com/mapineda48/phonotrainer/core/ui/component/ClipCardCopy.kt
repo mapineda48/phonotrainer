@@ -173,7 +173,7 @@ object ClipCardCopy {
     fun scaled(value: Double): String =
       if (value < 10) String.format(Locale.US, "%.1f", value).removeSuffix(".0") else value.roundToLong().toString()
     return when {
-      bytes < KB -> resources.getString(R.string.clip_size_bytes, bytes.coerceAtLeast(0).toInt())
+      bytes < KB -> bytes.coerceAtLeast(0).toInt().let { resources.getQuantityString(R.plurals.clip_size_bytes, it, it) }
       bytes < MB -> resources.getString(R.string.clip_size_kb, scaled(bytes / KB.toDouble()))
       bytes < GB -> resources.getString(R.string.clip_size_mb, scaled(bytes / MB.toDouble()))
       else -> resources.getString(R.string.clip_size_gb, scaled(bytes / GB.toDouble()))

@@ -143,7 +143,6 @@
     <string name="clip_page_about_rules">Rules version</string>
     <string name="clip_page_about_source">Source</string>
     <string name="clip_page_about_file">File</string>
-    <string name="clip_page_about_open_link">Open in your browser</string>
 
     <!-- The "On this phone" block (design 9.26, v1-core part) -->
     <string name="clip_page_on_phone">On this phone</string>

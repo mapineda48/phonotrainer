@@ -47,7 +47,10 @@
     <string name="clip_family_count">%1$s %2$d</string>
 
     <!-- Sizes, in decimal units as the system shows them: "640 KB", "2.1 MB", "17 MB", "1.2 GB". -->
-    <string name="clip_size_bytes">%1$d bytes</string>
+    <plurals name="clip_size_bytes">
+        <item quantity="one">%1$d byte</item>
+        <item quantity="other">%1$d bytes</item>
+    </plurals>
     <string name="clip_size_kb">%1$s KB</string>
     <string name="clip_size_mb">%1$s MB</string>
     <string name="clip_size_gb">%1$s GB</string>

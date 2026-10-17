@@ -171,8 +171,8 @@ class ClipCardCopyTest {
 
   @Test
   fun sizesUseDecimalUnits() {
-    val sizes = listOf(512L, 640_000L, 2_100_000L, 2_000_000L, 17_000_000L, 1_200_000_000L)
+    val sizes = listOf(1L, 512L, 640_000L, 2_100_000L, 2_000_000L, 17_000_000L, 1_200_000_000L)
       .map { ClipCardCopy.bytes(it, resources) }
-    assertThat(sizes).containsExactly("512 bytes", "640 KB", "2.1 MB", "2 MB", "17 MB", "1.2 GB").inOrder()
+    assertThat(sizes).containsExactly("1 byte", "512 bytes", "640 KB", "2.1 MB", "2 MB", "17 MB", "1.2 GB").inOrder()
   }
 }
