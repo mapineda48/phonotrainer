@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The device queue's own words (spec 8.2 rule 5): a request's title before the computer reports the real one. -->
+<resources>
+    <string name="requests_title_youtube_link">YouTube link</string>
+    <string name="requests_title_shorts_link">YouTube Shorts link</string>
+    <string name="requests_title_x_link">X link</string>
+    <string name="requests_title_website_link">Website link</string>
+    <string name="requests_title_video">Video</string>
+    <string name="requests_title_audio">Audio file</string>
+</resources>
