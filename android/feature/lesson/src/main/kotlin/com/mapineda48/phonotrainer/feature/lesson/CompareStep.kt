@@ -189,7 +189,7 @@ private fun Legend() {
   )
   val description = stringResource(R.string.lesson_legend) + ": " + items.joinToString(", ") { (mark, word) -> "$mark $word" }
   Row(
-    modifier = Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = description }.testTag(LessonTags.LEGEND),
+    modifier = Modifier.fillMaxWidth().testTag(LessonTags.LEGEND).clearAndSetSemantics { contentDescription = description },
     horizontalArrangement = Arrangement.spacedBy(PhonoSpacing.s12),
   ) {
     items.forEach { (mark, word) ->
@@ -239,7 +239,7 @@ private fun Sorts(compare: CompareUi, onPick: (Int) -> Unit) {
 private fun SortGroup(word: String, sorts: List<SortUi>, selected: Int?, width: Dp, onPick: (Int) -> Unit, next: Boolean) {
   val colors = PhonoTheme.colors
   Column(verticalArrangement = Arrangement.spacedBy(PhonoSpacing.s6)) {
-    Column(Modifier.testTag(LessonTags.sortGroup(next))) {
+    Column(Modifier.testTag(LessonTags.sortGroup(next)).semantics(mergeDescendants = true) {}) {
       PhonoText(stringResource(R.string.lesson_word, word), style = PhonoTheme.type.accentItalic, color = colors.ink2)
       Box(Modifier.width(width).height(PhonoSizes.hairline).background(colors.lineStrong))
     }
@@ -427,7 +427,8 @@ private fun GapBox(gap: GapUi, word: String, next: String) {
       .background(colors.family.tintOf(gap.family))
       .border(PhonoSizes.ring, colors.family.of(gap.family), shape)
       .padding(PhonoSpacing.s12)
-      .testTag(LessonTags.GAP),
+      .testTag(LessonTags.GAP)
+      .semantics(mergeDescendants = true) {},
     horizontalArrangement = Arrangement.spacedBy(PhonoSpacing.s10),
   ) {
     Icon(painterResource(MarkLines.iconOf(gap.family)), null, tint = colors.ink, modifier = Modifier.size(PhonoSizes.iconBar))

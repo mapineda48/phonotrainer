@@ -113,7 +113,8 @@ internal typealias RecordSlot = @Composable (ClipSpan, RecordTarget, Modifier) -
  *
  * "What's this?" sheets are local UI state (architecture 16.1); closing one returns the focus to its "?" (F-14-AC1).
  * [glossary] answers the "?" of a term (a term the content lacks shows no "?"), [mouth] draws step 4 when WP-29's
- * module is present, [playheadMs] is where the span player is (for that drawing), and [record] is WP-30's section.
+ * module is present, [playheadMs] is where the span player is while it plays this clip (for that drawing; the player
+ * updates it every 50 ms), and [record] is WP-30's section.
  */
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
@@ -124,7 +125,7 @@ internal fun LessonScreen(
   modifier: Modifier = Modifier,
   glossary: (String) -> GlossaryEntry? = { null },
   mouth: MouthRenderer? = null,
-  playheadMs: () -> Long? = { null },
+  playheadMs: Long? = null,
   record: RecordSlot? = null,
 ) {
   val colors = PhonoTheme.colors
@@ -182,7 +183,7 @@ private fun ReadyContent(
   actions: LessonActions,
   glossary: (String) -> GlossaryEntry?,
   mouth: MouthRenderer?,
-  playheadMs: () -> Long?,
+  playheadMs: Long?,
   record: RecordSlot?,
 ) {
   val scroll = rememberScrollState()
@@ -284,7 +285,8 @@ private fun PausedPill(paused: PausedUi) {
       .clip(CircleShape)
       .background(colors.galley)
       .padding(horizontal = PhonoSpacing.s12, vertical = PhonoSpacing.s6)
-      .testTag(LessonTags.PAUSED),
+      .testTag(LessonTags.PAUSED)
+      .semantics(mergeDescendants = true) {},
     verticalAlignment = Alignment.CenterVertically,
     horizontalArrangement = Arrangement.spacedBy(PhonoSpacing.s8),
   ) {
@@ -353,7 +355,7 @@ private fun LessonHeader(header: HeaderUi, actions: LessonActions) {
               if (header.reliability == Reliability.NOTHING_HEARD) R.string.lesson_nothing_heard else R.string.lesson_low_confidence,
             ),
             dashed = true,
-            modifier = Modifier.testTag(LessonTags.RELIABILITY),
+            modifier = Modifier.testTag(LessonTags.RELIABILITY).semantics(mergeDescendants = true) {},
           )
         }
       }

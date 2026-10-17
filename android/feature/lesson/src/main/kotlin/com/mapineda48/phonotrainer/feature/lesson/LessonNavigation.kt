@@ -59,6 +59,13 @@ internal fun LessonRoute(key: LessonKey, navigator: Navigator, modifier: Modifie
     onStopShadowing = viewModel::stopShadowing,
     onLearnMore = { navigator.navigate(it.toKey()) },
   )
+  // Step 4's drawing follows the span player (WP-29's module only; v1-core draws nothing, so nothing is collected).
+  val playhead = if (viewModel.mouth != null) {
+    val playback by viewModel.playback.collectAsStateWithLifecycle()
+    playback.takeIf { it.playing && it.span?.jobId == key.jobId }?.positionMs
+  } else {
+    null
+  }
   val record = viewModel.record
   LessonScreen(
     state = state,
@@ -67,10 +74,7 @@ internal fun LessonRoute(key: LessonKey, navigator: Navigator, modifier: Modifie
     modifier = modifier,
     glossary = viewModel::glossary,
     mouth = viewModel.mouth,
-    playheadMs = {
-      val playback = viewModel.playback.value
-      if (playback.span?.jobId == key.jobId) playback.positionMs else null
-    },
+    playheadMs = playhead,
     record = record?.let { section -> { span, target, slotModifier -> section.Section(span, target, slotModifier) } },
   )
 }

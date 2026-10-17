@@ -22,9 +22,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
-import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -80,7 +77,7 @@ internal fun LessonSteps(
   requesters: Map<LessonStep, BringIntoViewRequester>,
   explainer: Explainer,
   mouth: MouthRenderer?,
-  playheadMs: () -> Long?,
+  playheadMs: Long?,
   record: RecordSlot?,
 ) {
   @Composable
@@ -514,7 +511,7 @@ internal fun ChangeExplainSheet(card: ChangeCardUi, onDismiss: () -> Unit, onWat
  * is disabled with "No drawing for this sound yet."
  */
 @Composable
-private fun SeeStep(see: SeeUi, actions: LessonActions, mouth: MouthRenderer?, playheadMs: () -> Long?) {
+private fun SeeStep(see: SeeUi, actions: LessonActions, mouth: MouthRenderer?, playheadMs: Long?) {
   val colors = PhonoTheme.colors
   Labelled(stringResource(R.string.lesson_mouth_for)) {
     SegmentedControl(
@@ -571,17 +568,13 @@ private fun MouthSoundButton(sound: MouthSoundUi, held: Boolean, onClick: () -> 
 
 /** The side view of the mouth (WP-29) with its live caption: the held sound, else the sound under the playhead. */
 @Composable
-private fun MouthDrawing(see: SeeUi, mouth: MouthRenderer, playheadMs: () -> Long?) {
+private fun MouthDrawing(see: SeeUi, mouth: MouthRenderer, playheadMs: Long?) {
   val colors = PhonoTheme.colors
   val track = androidx.compose.runtime.remember(see.track) {
     mouth.track(see.track, com.mapineda48.phonotrainer.core.domain.model.MouthMode.FOLLOW_AUDIO)
   }
-  // The playhead is read every frame while the drawing is on screen (content animation: not reduced, architecture 18).
-  val playhead by produceState<Long?>(initialValue = playheadMs(), playheadMs) {
-    while (true) withFrameMillis { value = playheadMs() }
-  }
   val held = see.held?.let(see.sounds::getOrNull)
-  val at = held?.let { (it.startMs + it.endMs) / 2 } ?: playhead ?: see.sounds.firstOrNull()?.startMs ?: 0L
+  val at = held?.let { (it.startMs + it.endMs) / 2 } ?: playheadMs ?: see.sounds.firstOrNull()?.startMs ?: 0L
   val current = held ?: see.sounds.firstOrNull { at in it.startMs..it.endMs }
   val description = current?.name?.let { stringResource(R.string.lesson_mouth_view, current.symbol, it) }
     ?: stringResource(R.string.lesson_mouth_rest)
@@ -593,8 +586,8 @@ private fun MouthDrawing(see: SeeUi, mouth: MouthRenderer, playheadMs: () -> Lon
         .clip(RoundedCornerShape(PhonoRadius.sort))
         .background(colors.tract.air)
         .border(PhonoSizes.hairline, colors.hairline, RoundedCornerShape(PhonoRadius.sort))
-        .clearAndSetSemantics { contentDescription = description }
-        .testTag(LessonTags.MOUTH_DRAWING),
+        .testTag(LessonTags.MOUTH_DRAWING)
+        .clearAndSetSemantics { contentDescription = description },
     ) {
       mouth.Mouth(track.frameAt(at), Modifier.fillMaxWidth().height(MouthHeight))
     }
