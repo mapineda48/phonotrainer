@@ -1,8 +1,126 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Strings of :feature:share. At the contract freeze: the placeholder sheet (WP-23 replaces it). -->
+<!-- Strings of :feature:share: the share confirmation sheet (spec 8.4, 8.4.1; design 9.22). -->
 <resources>
     <string name="share_label" translatable="false">PhonoTrainer</string>
-    <string name="share_title">Add to PhonoTrainer</string>
-    <string name="share_lede">Adding shared links and files arrives with the share sheet. Nothing was added.</string>
+    <string name="share_title">Analyze with PhonoTrainer</string>
+
+    <!-- What was shared (spec 8.4 item 2). -->
+    <string name="share_site_youtube">YouTube link</string>
+    <string name="share_site_shorts">YouTube Shorts link</string>
+    <string name="share_site_x">X link</string>
+    <string name="share_site_other">Website link</string>
+    <string name="share_show_all">Show it all</string>
+    <string name="share_show_less">Show less</string>
+    <string name="share_kind_video">Video</string>
+    <string name="share_kind_audio">Audio</string>
+    <plurals name="share_many_videos">
+        <item quantity="one">%d video</item>
+        <item quantity="other">%d videos</item>
+    </plurals>
+    <plurals name="share_many_audios">
+        <item quantity="one">%d audio file</item>
+        <item quantity="other">%d audio files</item>
+    </plurals>
+    <plurals name="share_many_files">
+        <item quantity="one">%d file</item>
+        <item quantity="other">%d files</item>
+    </plurals>
+
+    <!-- Options, guidance and the legal line (spec 8.4 items 4 to 6). -->
+    <string name="share_audio_only">Audio only</string>
+    <string name="share_audio_only_body">Smaller and faster. There is no video to watch with the shorts.</string>
+    <string name="share_large_file">Large file: sending takes a few minutes on Wi-Fi.</string>
+    <string name="share_tip">Short, clear dialogue (30–60 seconds) teaches the most; analysis takes about as long as the clip.</string>
+    <string name="share_legal">Downloading may breach the website\'s terms of service; that responsibility is yours.</string>
+    <string name="share_other_site">PhonoTrainer is made for YouTube and X links. Other websites may not download.</string>
+
+    <!-- Buttons (spec 8.4 item 7). -->
+    <string name="share_cancel">Cancel</string>
+    <string name="share_analyze">Analyze</string>
+    <string name="share_add_to_queue">Add to queue</string>
     <string name="share_close">Close</string>
+
+    <!-- Empty and errors (spec 8.3, 8.4.1, 7.7). -->
+    <string name="share_no_link">There\'s no link in what you shared.</string>
+    <string name="share_nothing_readable">PhonoTrainer couldn\'t read what you shared. Nothing was added.</string>
+    <string name="share_record_out_of_space">PhonoTrainer couldn\'t save this request: your phone is out of space.</string>
+    <string name="share_unsupported">This file type can\'t be analyzed. Supported: MP4, MOV, MKV, WebM, AVI, M4V, MP3, M4A, AAC, WAV, FLAC, OGG, Opus.</string>
+    <string name="share_too_large">This file is larger than your computer accepts (%1$s).</string>
+    <string name="share_no_space_video">Not enough space on this phone to keep this video until your computer is reachable. Free %1$s MB or choose Audio only.</string>
+    <string name="share_no_space_file">Not enough space on this phone to keep this file until your computer is reachable. Free %1$s MB.</string>
+    <string name="share_unreadable">PhonoTrainer couldn\'t read this file. Open it once in the app that has it, then share it again.</string>
+    <string name="share_too_many">Only 10 files can be added at once.</string>
+
+    <!-- A multiple share that added only some (spec 8.3, SH-AC14). -->
+    <plurals name="share_partial_added">
+        <item quantity="one">%1$d of %2$d added.</item>
+        <item quantity="other">%1$d of %2$d added.</item>
+    </plurals>
+    <plurals name="share_partial_unsupported">
+        <item quantity="one">%1$d file type isn\'t supported: %2$s.</item>
+        <item quantity="other">%1$d file types aren\'t supported: %2$s.</item>
+    </plurals>
+    <plurals name="share_partial_unsupported_unnamed">
+        <item quantity="one">%1$d file type isn\'t supported.</item>
+        <item quantity="other">%1$d file types aren\'t supported.</item>
+    </plurals>
+    <plurals name="share_partial_too_large">
+        <item quantity="one">%1$d file is larger than your computer accepts: %2$s.</item>
+        <item quantity="other">%1$d files are larger than your computer accepts: %2$s.</item>
+    </plurals>
+    <plurals name="share_partial_too_large_unnamed">
+        <item quantity="one">%1$d file is larger than your computer accepts.</item>
+        <item quantity="other">%1$d files are larger than your computer accepts.</item>
+    </plurals>
+    <plurals name="share_partial_no_space">
+        <item quantity="one">%1$d file doesn\'t fit on this phone: %2$s.</item>
+        <item quantity="other">%1$d files don\'t fit on this phone: %2$s.</item>
+    </plurals>
+    <plurals name="share_partial_no_space_unnamed">
+        <item quantity="one">%1$d file doesn\'t fit on this phone.</item>
+        <item quantity="other">%1$d files don\'t fit on this phone.</item>
+    </plurals>
+    <plurals name="share_partial_unreadable">
+        <item quantity="one">%1$d file couldn\'t be read: %2$s.</item>
+        <item quantity="other">%1$d files couldn\'t be read: %2$s.</item>
+    </plurals>
+    <plurals name="share_partial_unreadable_unnamed">
+        <item quantity="one">%1$d file couldn\'t be read.</item>
+        <item quantity="other">%1$d files couldn\'t be read.</item>
+    </plurals>
+    <plurals name="share_partial_too_many">
+        <item quantity="one">%1$d file over the limit of 10 wasn\'t added.</item>
+        <item quantity="other">%1$d files over the limit of 10 weren\'t added.</item>
+    </plurals>
+
+    <!-- The duplicate (spec 7.7, SH-AC8). -->
+    <string name="share_duplicate">You already added this link.</string>
+    <string name="share_open_it">Open it</string>
+    <string name="share_analyze_again">Analyze again anyway</string>
+
+    <!-- The copy (spec 7.7, SH-AC13, SH-AC15). -->
+    <string name="share_preparing">Preparing the file… %1$d %%</string>
+    <string name="share_preparing_files">Preparing the files… %1$d %%</string>
+    <string name="share_preparing_unknown">Preparing the file…</string>
+    <string name="share_stop_title_video">Stop adding this video?</string>
+    <string name="share_stop_title_file">Stop adding this file?</string>
+    <string name="share_stop_body">What was copied so far is deleted, and nothing is added.</string>
+    <string name="share_keep_adding">Keep adding</string>
+    <string name="share_stop">Stop</string>
+    <string name="share_try_audio_only">Try audio only</string>
+    <string name="share_remove">Remove</string>
+
+    <!-- After the tap (spec 8.4 item 8). -->
+    <string name="share_done_added">Added to your queue.</string>
+    <string name="share_done_sending">Sending to your computer…</string>
+    <string name="share_done_sent">Sent to your computer.</string>
+    <string name="share_done_refused">Your computer couldn\'t take it. Requests says what you can do.</string>
+    <string name="share_open_app">Open PhonoTrainer</string>
+    <string name="share_see_requests">See requests</string>
+
+    <!-- The notification question (spec F-23, 8.4 item 9). -->
+    <string name="share_notify_title">Get a notification when your clip is ready?</string>
+    <string name="share_notify_body">PhonoTrainer tells you when a clip is ready to watch or needs your attention, and nothing else.</string>
+    <string name="share_not_now">Not now</string>
+    <string name="share_notify_me">Notify me</string>
 </resources>

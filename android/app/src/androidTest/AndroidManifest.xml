@@ -10,6 +10,19 @@
             android:name="androidx.startup.InitializationProvider"
             android:authorities="${applicationId}.androidx-startup"
             tools:node="remove" />
+
+        <!-- The share tests' sharing app (WP-23, change request CR-WP23-1): the activity that shares and its media,
+             which only a share's URI grant opens (not exported, like any app's FileProvider). Both run in the test
+             package's own process, so the read grants, the sharing app's task and the provider's lies are real. -->
+        <activity
+            android:name="com.mapineda48.phonotrainer.e2e.share.SharingAppActivity"
+            android:exported="true" />
+
+        <provider
+            android:name="com.mapineda48.phonotrainer.e2e.share.TestMediaProvider"
+            android:authorities="phonotrainer.e2e.sharedmedia"
+            android:exported="false"
+            android:grantUriPermissions="true" />
     </application>
 
 </manifest>

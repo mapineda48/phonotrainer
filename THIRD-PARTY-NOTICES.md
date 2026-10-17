@@ -393,7 +393,8 @@ Component, Version and Licence (others may follow). A licence is an SPDX identif
 ### 7.2 Runtime libraries
 
 Every library on the release runtime classpath, as the licence report lists it. The AndroidX, Jetpack Compose, Hilt and
-Dagger libraries are by The Android Open Source Project and Google; Kotlin and kotlinx by JetBrains; Okio by Square.
+Dagger libraries are by The Android Open Source Project and Google; Kotlin and kotlinx by JetBrains; OkHttp, Okio and
+Retrofit by Square.
 
 | Library | Coordinates | Version | Licence |
 |---|---|---|---|
@@ -529,7 +530,7 @@ Dagger libraries are by The Android Open Source Project and Google; Kotlin and k
 | SQLite | `androidx.sqlite:sqlite-android` | 2.6.2 | Apache-2.0 |
 | SQLite Framework Integration | `androidx.sqlite:sqlite-framework` | 2.6.2 | Apache-2.0 |
 | SQLite Framework Integration | `androidx.sqlite:sqlite-framework-android` | 2.6.2 | Apache-2.0 |
-| Android App Startup Runtime | `androidx.startup:startup-runtime` | 1.1.1 | Apache-2.0 |
+| Android App Startup Runtime | `androidx.startup:startup-runtime` | 1.2.0 | Apache-2.0 |
 | Android Tracing | `androidx.tracing:tracing` | 1.2.0 | Apache-2.0 |
 | Android Tracing Runtime Kotlin Extensions | `androidx.tracing:tracing-ktx` | 1.2.0 | Apache-2.0 |
 | Support VectorDrawable | `androidx.vectordrawable:vectordrawable` | 1.1.0 | Apache-2.0 |
@@ -549,8 +550,12 @@ Dagger libraries are by The Android Open Source Project and Google; Kotlin and k
 | Guava InternalFutureFailureAccess and InternalFutures | `com.google.guava:failureaccess` | 1.0.2 | Apache-2.0 |
 | Guava: Google Core Libraries for Java | `com.google.guava:guava` | 33.3.1-android | Apache-2.0 |
 | Guava ListenableFuture only | `com.google.guava:listenablefuture` | 9999.0-empty-to-avoid-conflict-with-guava | Apache-2.0 |
+| okhttp | `com.squareup.okhttp3:okhttp` | 5.5.0 | Apache-2.0 |
+| okhttp | `com.squareup.okhttp3:okhttp-android` | 5.5.0 | Apache-2.0 |
 | okio | `com.squareup.okio:okio` | 3.18.1 | Apache-2.0 |
 | okio | `com.squareup.okio:okio-jvm` | 3.18.1 | Apache-2.0 |
+| Converter: kotlinx.serialization | `com.squareup.retrofit2:converter-kotlinx-serialization` | 3.0.0 | Apache-2.0 |
+| Retrofit | `com.squareup.retrofit2:retrofit` | 3.0.0 | Apache-2.0 |
 | Jakarta Dependency Injection | `jakarta.inject:jakarta.inject-api` | 2.0.1 | Apache-2.0 |
 | javax.inject | `javax.inject:javax.inject` | 1 | Apache-2.0 |
 | Kotlin Stdlib | `org.jetbrains.kotlin:kotlin-stdlib` | 2.4.20 | Apache-2.0 |
