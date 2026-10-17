@@ -230,7 +230,7 @@ internal class HttpComputerClient @Inject constructor(
         is DeviceKeyResult.Ok -> Pt1.sameMac(result.value, proof)
         else -> false
       }
-    if (valid && pairing != null) {
+    if (valid) {
       answer.serverTime?.let(clockOffset::update)
       if (answer.revoked == true) verified.forget(at) else verified.markVerified(at, pairing.serverId)
     } else {
