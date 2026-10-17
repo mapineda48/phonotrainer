@@ -1,13 +1,158 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Strings of :feature:library. At the contract freeze: the title and lede of each stub destination
-     (WP-16 replaces them with its screens). -->
+<!-- Strings of :feature:library: the Library (spec F-04) and the Clip page (spec F-05, v1-core). The words of the
+     clip rows themselves are :core:ui's strings_clip.xml (ClipCard, ClipRow). -->
 <resources>
+    <!-- The Library (P-01) -->
     <string name="library_title">All clips</string>
-    <string name="library_lede">Every clip on this phone and on your computer.</string>
+    <string name="library_lede">Every clip on your computer, and what is on this phone. Open one to study how each word was really said.</string>
+    <string name="library_back">Back</string>
+    <string name="library_add">Add a clip</string>
+    <string name="library_in_progress">In progress</string>
+    <plurals name="library_started_more">
+        <item quantity="one">%1$d more started on your computer</item>
+        <item quantity="other">%1$d more started on your computer</item>
+    </plurals>
+    <plurals name="library_started">
+        <item quantity="one">%1$d started on your computer</item>
+        <item quantity="other">%1$d started on your computer</item>
+    </plurals>
     <string name="library_search">Search your clips…</string>
-    <string name="library_row">Placeholder clip %1$d</string>
-    <string name="library_instance">Placeholder list %1$s</string>
-    <string name="library_clip_title">Clip</string>
-    <string name="library_clip_lede">Its shorts, its transcript and what changes in it.</string>
-    <string name="library_clip_link_watch">Watch from the start</string>
+    <string name="library_filter_on_phone">On this phone</string>
+    <string name="library_filter_not_on_phone">Not on this phone</string>
+    <plurals name="library_count_of">
+        <item quantity="one">%1$d of %2$d clip</item>
+        <item quantity="other">%1$d of %2$d clips</item>
+    </plurals>
+    <plurals name="library_count_all">
+        <item quantity="one">%1$d clip</item>
+        <item quantity="other">%1$d clips</item>
+    </plurals>
+    <string name="library_sort_newest">Newest first</string>
+    <string name="library_sort_oldest">Oldest first</string>
+    <string name="library_sort_title">Name A–Z</string>
+    <string name="library_sort_longest">Longest first</string>
+    <string name="library_sort_label">Sort: %1$s</string>
+    <string name="library_loading">Loading your clips…</string>
+    <string name="library_error">Your clips could not be loaded.</string>
+    <string name="library_retry">Try again</string>
+    <string name="library_offline">Showing what this phone knows. Last synced %1$s.</string>
+    <string name="library_offline_never">Showing what this phone knows.</string>
+    <string name="library_no_match">No clip matches “%1$s”.</string>
+    <string name="library_clear_search">Clear the search</string>
+    <string name="library_none_on_phone">No clip is on this phone yet.</string>
+    <string name="library_none_elsewhere">Every clip is on this phone.</string>
+    <string name="library_show_all">Show every clip</string>
+    <string name="library_first_title">No clips yet</string>
+    <string name="library_first_body">1. Share a clip from YouTube or X, or pick one on this phone. 2. Your computer analyzes it. 3. Swipe through it short by short.</string>
+    <string name="library_connect">Connect to your computer</string>
+    <string name="library_explore_learn">Explore Learn</string>
+    <string name="library_empty_title">Your computer has no clips yet.</string>
+    <string name="library_empty_body">Start with a short clip (30–60 seconds) of natural dialogue.</string>
+
+    <!-- A row's "More actions" menu (spec F-04) -->
+    <string name="library_menu_watch">Watch</string>
+    <string name="library_menu_open">Open clip page</string>
+    <string name="library_menu_keep">Keep on this phone</string>
+    <string name="library_menu_stop_keeping">Stop keeping</string>
+    <string name="library_menu_download">Download to this phone</string>
+    <string name="library_menu_remove">Remove from this phone…</string>
+    <string name="library_menu_remove_video">Remove the video only</string>
+
+    <!-- The "Remove from this phone?" confirmation (spec F-05 item 5, F-05-AC11; design 9.23, 9.26) -->
+    <string name="library_remove_title">Remove “%1$s” from this phone?</string>
+    <string name="library_remove_body">Its clip data, audio and video are deleted from this phone only. It stays on your computer, and you can download it again at any time. Your saved items and progress stay.</string>
+    <string name="library_remove_cancel">Cancel</string>
+    <string name="library_remove_confirm">Remove from this phone</string>
+
+    <!-- Times, in the app's English words -->
+    <string name="library_time_just_now">just now</string>
+    <string name="library_time_today">today at %1$s</string>
+    <string name="library_time_yesterday">yesterday at %1$s</string>
+    <string name="library_time_date">on %1$s</string>
+
+    <!-- The Clip page (P-02): header -->
+    <string name="clip_page_back">Back</string>
+    <plurals name="clip_page_phrases">
+        <item quantity="one">%1$s phrase</item>
+        <item quantity="other">%1$s phrases</item>
+    </plurals>
+    <string name="clip_page_kind_video">Video</string>
+    <string name="clip_page_kind_audio">Audio only</string>
+    <string name="clip_page_added_today">added today</string>
+    <string name="clip_page_added_yesterday">added yesterday</string>
+    <plurals name="clip_page_added_days">
+        <item quantity="one">added %1$d day ago</item>
+        <item quantity="other">added %1$d days ago</item>
+    </plurals>
+    <string name="clip_page_added_on">added on %1$s</string>
+    <string name="clip_page_watch">Watch</string>
+    <string name="clip_page_watch_short">Watch · short %1$d</string>
+    <string name="clip_page_from_start">From the start</string>
+    <string name="clip_page_getting_audio">Getting the audio… %1$d %%</string>
+    <string name="clip_page_not_here_offline">This clip isn\'t on this phone yet. It downloads the next time your computer is reachable.</string>
+    <string name="clip_page_not_here">This clip isn\'t on this phone.</string>
+    <string name="clip_page_wanted">It downloads the next time your computer is reachable.</string>
+    <string name="clip_page_download_when_connected">Download when connected</string>
+    <string name="clip_page_download">Download to this phone</string>
+    <string name="clip_page_needs_again">This clip needs downloading again.</string>
+    <string name="clip_page_older_rules">Analyzed with older rules. Re-analyze it on your computer to update.</string>
+    <string name="clip_page_no_audio">This clip came without its audio: you can read it, but not listen to it.</string>
+    <string name="clip_page_video_not_available">Video not available from your computer. Listening and study work.</string>
+    <string name="clip_page_video_cannot_play">This video can\'t play on this phone. Listening still works.</string>
+    <string name="clip_page_deleted">This clip was deleted on your computer. It stays until you leave this page.</string>
+    <string name="clip_page_gone">That clip is no longer on this phone.</string>
+    <string name="clip_page_gone_body">It may have been deleted on your computer.</string>
+    <string name="clip_page_see_all">See all clips</string>
+    <string name="clip_page_processing">Getting ready on your computer</string>
+    <string name="clip_page_processing_body">This page turns into the clip by itself when it\'s ready.</string>
+
+    <!-- Tabs -->
+    <string name="clip_page_tab_shorts">Shorts</string>
+    <string name="clip_page_tab_transcript">Transcript</string>
+    <string name="clip_page_tab_summary">Summary</string>
+
+    <!-- Shorts tab -->
+    <string name="clip_page_opening">Opening the transcript…</string>
+    <string name="clip_page_comes_with_clip">The transcript comes with the clip.</string>
+    <string name="clip_page_no_shorts">This clip has no shorts yet.</string>
+    <string name="clip_page_short_in">in “%1$s”</string>
+    <string name="clip_page_short_in_prefix">in</string>
+    <string name="clip_page_short_quote">“%1$s”</string>
+    <string name="clip_page_short_no_change">No labelled change here: listen to the rhythm.</string>
+    <string name="clip_page_short_range">%1$s–%2$s</string>
+    <plurals name="clip_page_short_marked">
+        <item quantity="one">%1$d marked word</item>
+        <item quantity="other">%1$d marked words</item>
+    </plurals>
+    <string name="clip_page_short_seen">Seen</string>
+    <string name="clip_page_short_next">Next</string>
+    <string name="clip_page_short_number">Short %1$d</string>
+    <string name="clip_page_short_watch">Watch from this short</string>
+
+    <!-- Summary tab -->
+    <string name="clip_page_changes">Changes in this clip</string>
+    <string name="clip_page_changes_none">No labelled change in this clip yet.</string>
+    <string name="clip_page_change_description">%1$s, %2$d in this clip, %3$s</string>
+    <string name="clip_page_change_watch">Watch the shorts with this change</string>
+    <string name="clip_page_about">About this clip</string>
+    <string name="clip_page_about_engine">Phone engine</string>
+    <string name="clip_page_about_speech">Speech model</string>
+    <string name="clip_page_about_separation">Dialogue separation</string>
+    <string name="clip_page_about_separation_on">On</string>
+    <string name="clip_page_about_separation_off">Off</string>
+    <string name="clip_page_about_rules">Rules version</string>
+    <string name="clip_page_about_source">Source</string>
+    <string name="clip_page_about_file">File</string>
+    <string name="clip_page_about_open_link">Open in your browser</string>
+
+    <!-- The "On this phone" block (design 9.26, v1-core part) -->
+    <string name="clip_page_on_phone">On this phone</string>
+    <string name="clip_page_size_pack">Clip data and audio</string>
+    <string name="clip_page_size_video">Video</string>
+    <string name="clip_page_nothing_here">Nothing of this clip is on this phone.</string>
+    <string name="clip_page_keep">Keep on this phone</string>
+    <string name="clip_page_keep_description">A kept clip keeps its video when space runs low.</string>
+    <string name="clip_page_download_video">Download the video</string>
+    <string name="clip_page_remove_video">Remove the video</string>
+    <string name="clip_page_remove_from_phone">Remove from this phone…</string>
 </resources>
