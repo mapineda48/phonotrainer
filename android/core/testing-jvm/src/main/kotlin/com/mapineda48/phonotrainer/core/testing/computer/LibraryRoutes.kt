@@ -55,7 +55,7 @@ internal fun ComputerCore.reference(@Suppress("UNUSED_PARAMETER") call: Call): M
   .setHeader("Content-Type", "application/json")
   .setHeader("Cache-Control", "no-store")
   .setHeader("ETag", "\"api-$apiVersion\"")
-  .body(Buffer().writeUtf8(referenceJson))
+  .body(Buffer().writeUtf8(referenceBody()))
   .build()
 
 /** The job named by a path segment, or `404 unknown_job`. */

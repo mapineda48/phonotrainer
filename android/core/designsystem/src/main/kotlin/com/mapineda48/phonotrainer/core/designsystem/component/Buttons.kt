@@ -231,7 +231,7 @@ fun MenuButton(
 
 @PreviewLightDark
 @Composable
-private fun ButtonsPreview() {
+internal fun ButtonsPreview() {
   PhonoPreviewSurface {
     PhonoBaseButton("Start", {}, emphasis = ButtonEmphasis.PRIMARY, buttonSize = ButtonSize.LARGE, fillWidth = true)
     PhonoBaseButton("All clips", {}, emphasis = ButtonEmphasis.SECONDARY, trailingIcon = PhonoIcons.ArrowRight)

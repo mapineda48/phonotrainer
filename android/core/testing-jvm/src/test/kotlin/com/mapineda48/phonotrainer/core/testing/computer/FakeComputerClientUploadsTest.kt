@@ -119,6 +119,8 @@ class FakeComputerClientUploadsTest {
     assertThat(newest.status()).isEqualTo(201)
     assertThat(computer.uploadsInFlight).isEmpty()
     assertThat(computer.jobsWithKey(key)).hasSize(1)
+    // The busy body, then the stalled one answered as replaced (to no one: its call already gave up), then the newest.
+    assertThat(computer.requests.filter { it.method == "PUT" }.map { it.status }).containsExactly(409, 409, 201).inOrder()
   }
 
   @Test
@@ -131,9 +133,23 @@ class FakeComputerClientUploadsTest {
     computer.clock.advanceSeconds(30)
 
     assertThat(computer.uploadsInFlight).isEmpty()
-    assertThat(computer.requests.last { it.method == "PUT" }.status).isNull()
+    assertThat(computer.requests.last { it.method == "PUT" }.status).isEqualTo(400)
     assertThat(computer.uploadSessions.single().offset).isEqualTo(0)
     assertThat(client.putUpload(key, file) {}.status()).isEqualTo(201)
+  }
+
+  @Test
+  fun aKeyHeldByAnotherPhonesSessionIsAConflictAndADifferentFileIsNotDone() = runTest {
+    val key = RequestId(newRequestKey())
+    val other = FakeComputerClient(computer, computer.pairDevice("Other phone"))
+    client.openUpload(declaration(key))
+
+    val foreign = other.openUpload(declaration(key)).refused()
+    client.putUpload(key, file) {}
+    val different = client.openUpload(declaration(key, sha256 = "0".repeat(64))).refused()
+
+    assertThat(foreign.status to foreign.code).isEqualTo(409 to "key_conflict")
+    assertThat(different.status to different.code).isEqualTo(409 to "key_conflict")
   }
 
   @Test

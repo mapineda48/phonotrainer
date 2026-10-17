@@ -115,7 +115,7 @@ class GlobalTestSetTest {
     assertThat(work.workInfos()).isEmpty()
   }
 
-  /** CR-01-A1: the in-memory learning database names its history as a real one does, with one `learning_id`. */
+  /** Decision I-16: both SPI sets resolve even when no core contributes to them, and every startup task is ordered. */
   @Test
   fun theSpiSetsAreDeclaredAndEveryStartupTaskCarriesItsOrder() {
     // Declared with @Multibinds in :app (decision I-16), so StartupCheck (WP-08) and the clip removal (WP-08) can
@@ -126,6 +126,7 @@ class GlobalTestSetTest {
     assertThat(removalHooks.size).isAtLeast(0)
   }
 
+  /** CR-01-A1: the in-memory learning database names its history as a real one does, with one `learning_id`. */
   @Test
   fun theInMemoryLearningDatabaseHasItsLearningId() {
     val rows = learning.openHelper.writableDatabase.query("SELECT `key`, `value` FROM learning_meta").use { cursor ->

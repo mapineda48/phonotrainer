@@ -99,7 +99,7 @@ fun TypeSort(
 
 @PreviewLightDark
 @Composable
-private fun TypeSortPreview() {
+internal fun TypeSortPreview() {
   PhonoPreviewSurface {
     Row(horizontalArrangement = Arrangement.spacedBy(PhonoSpacing.s8)) {
       TypeSort("w", "w, same", onClick = {})

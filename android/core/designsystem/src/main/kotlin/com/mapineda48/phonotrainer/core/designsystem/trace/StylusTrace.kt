@@ -278,7 +278,7 @@ fun sampleContour(points: Int = 48, seed: Int = 7): List<TraceSample> = List(poi
 
 @PreviewLightDark
 @Composable
-private fun StylusTracePreview() {
+internal fun StylusTracePreview() {
   PhonoPreviewSurface {
     StylusTrace(sampleContour(), progress = 0.62f, ticks = listOf(0.3f, 0.7f), pin = 0.4f, pinNow = true,
       modifier = Modifier.fillMaxWidth().height(36.dp))

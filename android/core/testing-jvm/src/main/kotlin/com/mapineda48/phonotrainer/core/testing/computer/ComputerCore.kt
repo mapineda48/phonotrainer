@@ -29,7 +29,39 @@ internal class Refusal(
   val detail: String,
   val extra: Map<String, JsonElement> = emptyMap(),
   val headers: Map<String, String> = emptyMap(),
-) : RuntimeException(code ?: detail)
+) : RuntimeException(code ?: detail) {
+  /** The same refusal, answered before the request body was read: the connection closes after it (4.7, 6.6). */
+  fun closing(): Refusal = Refusal(status, code, detail, extra, headers + ("Connection" to "close"))
+
+  /** `{"detail": …, "code": …}` and any extra fields (server-contract 6.1). */
+  fun envelope(): JsonObject = JsonObject(
+    buildMap {
+      put("detail", JsonPrimitive(detail))
+      code?.let { put("code", JsonPrimitive(it)) }
+      putAll(extra)
+    },
+  )
+
+  /**
+   * The answer as HTTP/1.1 bytes, with the headers of [ComputerCore.refusalResponse]: what a connection writes itself
+   * when the computer answers a body it ended before the dispatcher saw the request (6.6).
+   */
+  fun wireBytes(): ByteArray {
+    val body = envelope().toString().toByteArray(Charsets.UTF_8)
+    val head = buildString {
+      append("HTTP/1.1 ").append(status).append(' ').append(REASONS[status] ?: "Error").append("\r\n")
+      append("Content-Type: application/json; charset=utf-8\r\n")
+      append("Cache-Control: no-store\r\n")
+      headers.forEach { (name, value) -> append(name).append(": ").append(value).append("\r\n") }
+      append("Content-Length: ").append(body.size).append("\r\n\r\n")
+    }
+    return head.toByteArray(Charsets.ISO_8859_1) + body
+  }
+
+  private companion object {
+    val REASONS = mapOf(400 to "Bad Request", 409 to "Conflict")
+  }
+}
 
 /**
  * One request being dispatched, from the network layer or from the in-memory exchange; [watch] is its upload body
@@ -48,6 +80,11 @@ internal class Call(val request: RecordedRequest, val peer: Peer?, val watch: Bo
   fun query(name: String): String? = request.url.queryParameter(name)
 
   val wantsWebSocket: Boolean get() = header("Upgrade")?.equals("websocket", ignoreCase = true) == true
+
+  /** A `Transfer-Encoding` or a non-zero `Content-Length`: a body the server reads only if the request is admitted. */
+  val announcesBody: Boolean
+    get() = header("Transfer-Encoding") != null ||
+      request.headers.values("Content-Length").any { it.trim() != "" && it.trim() != "0" }
 
   /** The source address for the rate limits. */
   val source: String get() = peer?.remoteAddress ?: "unknown"
@@ -82,7 +119,8 @@ internal class ComputerCore(
   var rateLimits = true
   var deferRunningCancel = false
   var renditionStatus = ArtifactStatus.READY
-  var referenceJson: String = DEFAULT_REFERENCE
+  /** The `/reference` body a test set; null serves [ReferenceSnapshot] at the current [apiVersion]. */
+  var referenceOverride: String? = null
   val linkHosts = HashMap<String, LinkHostAnswer>()
 
   @Volatile var reachability: Reachability = Reachability.Reachable
@@ -96,7 +134,8 @@ internal class ComputerCore(
   // Job store and uploads (6.3 to 6.7).
   val jobs = TreeMap<String, Job>()
   private var nextSeq = 0L
-  val sessions = LinkedHashMap<Pair<String, String>, UploadSession>()
+  /** Upload sessions by key alone, as the server names their files (3.2): a key belongs to one device at a time. */
+  val sessions = LinkedHashMap<String, UploadSession>()
   val inFlight = mutableListOf<BodyWatch>()
   val channels = mutableListOf<Channel>()
 
@@ -116,6 +155,9 @@ internal class ComputerCore(
   fun serverTimeS(): Long = clock.nowSeconds() + skewS
 
   fun serverNowMillis(): Long = clock.nowMillis() + skewS * MILLIS
+
+  /** The body of `GET /api/phone/reference` (6.8). */
+  fun referenceBody(): String = referenceOverride ?: ReferenceSnapshot.body(apiVersion)
 
   // ---------------------------------------------------------------------------------------------------------------
   // Dispatch
@@ -152,13 +194,32 @@ internal class ComputerCore(
   /**
    * The order of the server's middleware and routing (server-contract 4.2 to 4.4, 4.7; WP-01's
    * `PhoneAccessMiddleware`): suspension, Host, non-phone paths, unsafe paths, phone access, body framing, the route,
-   * the signature, the handler.
+   * the signature, the handler. A middleware refusal never reads the body: when the request announces one, the
+   * connection closes after the answer (4.7).
    */
   private fun handle(call: Call): MockResponse {
     sweepIdleBodies()
     expireUploads()
     takeRule(faults, call.method, call.rawPath)?.let { return faultResponse(it) }
     if (apiVersion < API_VERSION_CORE) return oldServer(call)
+    val route = try {
+      admit(call)
+    } catch (refusal: Refusal) {
+      throw if (call.announcesBody) refusal.closing() else refusal
+    }
+    if (route == null || !route.available(capabilities)) {
+      throw Refusal(HTTP_NOT_FOUND, "unknown_route", "There is no such phone route.")
+    }
+    if (route.signed) authenticate(call)
+    val response = route.handler(this, call)
+    takeRule(drops, call.method, call.rawPath)?.let {
+      return response.newBuilder().onResponseStart(SocketEffect.CloseSocket()).build()
+    }
+    return response
+  }
+
+  /** The middleware's rules (4.2 to 4.4, 4.7); returns the route the request names, if any. */
+  private fun admit(call: Call): Route? {
     if (lanForbidden) throw lanForbiddenRefusal()
     checkHost(call)
     val raw = call.rawPath.split('/').filter { it.isNotEmpty() }
@@ -170,15 +231,7 @@ internal class ComputerCore(
     }
     val route = Route.match(call.method, call.segments.drop(2))
     checkBodyFraming(call, route)
-    if (route == null || !route.available(capabilities)) {
-      throw Refusal(HTTP_NOT_FOUND, "unknown_route", "There is no such phone route.")
-    }
-    if (route.signed) authenticate(call)
-    val response = route.handler(this, call)
-    takeRule(drops, call.method, call.rawPath)?.let {
-      return response.newBuilder().onResponseStart(SocketEffect.CloseSocket()).build()
-    }
-    return response
+    return route
   }
 
   /** A server older than API 6 has no phone routes: `/api/health` answers with its version (6.2). */
@@ -225,23 +278,24 @@ internal class ComputerCore(
     Refusal(HTTP_FORBIDDEN, "lan_forbidden", "This part of PhonoTrainer is only available on the computer itself.")
 
   /**
-   * Body framing before any route runs (4.7): a JSON route needs `Content-Length`, a chunked body needs one too,
-   * and only the file routes (upload bodies, compare) may exceed 16 KiB.
+   * Body framing before any route runs (4.7): a `Transfer-Encoding` (even beside a `Content-Length`) is refused on
+   * every route that does not stream a file, a JSON route needs `Content-Length`, and only the file routes (upload
+   * bodies, compare) may exceed 16 KiB.
    */
   private fun checkBodyFraming(call: Call, route: Route?) {
     if (route != null && route.fileBody) return
-    val length = call.header("Content-Length")
-    val chunked = call.header("Transfer-Encoding")?.contains("chunked", ignoreCase = true) == true
-    if (length == null) {
-      if (route?.jsonBody == true || chunked) {
-        throw Refusal(HTTP_LENGTH_REQUIRED, "length_required", "The request must declare its length.")
-      }
+    if (call.header("Transfer-Encoding") != null) throw lengthRequired()
+    val lengths = call.request.headers.values("Content-Length")
+    if (lengths.isEmpty()) {
+      if (route?.jsonBody == true) throw lengthRequired()
       return
     }
-    val bytes = length.trim().takeIf { it.isNotEmpty() && it.all(Char::isDigit) }?.toLongOrNull()
+    val bytes = lengths.singleOrNull()?.trim()?.takeIf { it.isNotEmpty() && it.all(Char::isDigit) }?.toLongOrNull()
       ?: throw invalidRequest("Content-Length is not valid.")
     if (bytes > MAX_JSON_BYTES) throw Refusal(HTTP_TOO_LARGE, "too_large", "The request body is too large.")
   }
+
+  fun lengthRequired() = Refusal(HTTP_LENGTH_REQUIRED, "length_required", "The request must declare its length.")
 
   // ---------------------------------------------------------------------------------------------------------------
   // Signatures (4.3)
@@ -344,6 +398,9 @@ internal class ComputerCore(
   fun jobForKey(deviceId: String, key: String): Job? =
     jobs.values.firstOrNull { it.deviceId == deviceId && it.clientRequestId == key }
 
+  /** [deviceId]'s open upload session for [key]; another device's session under the same key is not its own. */
+  fun ownSession(deviceId: String, key: String): UploadSession? = sessions[key]?.takeIf { it.deviceId == deviceId }
+
   /** Sends the job to every channel (and the queue positions it may have moved). */
   fun publish(job: Job) {
     // Over a copy: an in-memory channel's collector may run in place and close its channel.
@@ -409,7 +466,7 @@ internal class ComputerCore(
     sweepIdleBodies()
     expireUploads()
     val deviceId = peekSignature(head)
-    val session = deviceId?.let { sessions[it to key] }
+    val session = deviceId?.let { ownSession(it, key) }
     val acceptable = session != null && phoneAccess && !lanForbidden && apiVersion >= API_VERSION_CORE &&
       when (method) {
         "PUT" -> length == session.bytes
@@ -423,7 +480,7 @@ internal class ComputerCore(
       val now = clock.nowMillis()
       val others = inFlight.filter { it.deviceId == deviceId && !it.ended }
       if (others.all { it.key == key && now - it.lastByteAtMillis >= NEWEST_WINS_IDLE_MS }) {
-        others.forEach { abortWatch(it) }
+        others.forEach(::supersede)
         admitted = true
         stallAt = takeRule(stalls, method, head.path)?.atBytes
       } else {
@@ -449,27 +506,36 @@ internal class ComputerCore(
     watch.receivedBytes += length
     if (!watch.admitted) return
     watch.lastByteAtMillis = clock.nowMillis()
-    val session = watch.deviceId?.let { sessions[it to watch.key] } ?: return
+    val session = watch.deviceId?.let { ownSession(it, watch.key) } ?: return
     session.lastActivityMillis = watch.lastByteAtMillis
     if (watch.streamsToPart) session.part.write(bytes, offset, length)
   }
 
   override fun bodyInterrupted(watch: BodyWatch): Unit = synchronized(lock) {
     if (watch.ended) return
-    finishInterrupted(watch)
+    endBody(watch, answer = null)
   }
 
   override fun abortIfIdle(watch: BodyWatch): Boolean = synchronized(lock) {
     if (!watch.admitted || watch.ended) return false
     if (clock.nowMillis() - watch.lastByteAtMillis < IDLE_ABORT_MS) return false
-    finishInterrupted(watch)
+    endBody(watch, idleAbort())
     true
   }
 
-  /** Newest wins: an older idle body for the same key is cancelled (4.7). */
+  /**
+   * Newest wins, or "Remove" while the body arrives: the body ends and its call is answered `409 upload_busy` (6.6),
+   * which its connection writes if the phone still reads.
+   */
+  fun supersede(watch: BodyWatch) {
+    if (watch.ended) return
+    endBody(watch, superseded())
+  }
+
+  /** The computer goes away under the body (a restart): no answer, the connection closes. */
   fun abortWatch(watch: BodyWatch) {
     if (watch.ended) return
-    finishInterrupted(watch)
+    endBody(watch, answer = null)
     watch.peer.abort()
   }
 
@@ -480,7 +546,7 @@ internal class ComputerCore(
   fun sweepIdleBodies() {
     val now = clock.nowMillis()
     inFlight.filter { it.peer.inMemory && it.admitted && !it.ended && now - it.lastByteAtMillis >= IDLE_ABORT_MS }
-      .forEach(::finishInterrupted)
+      .forEach { endBody(it, idleAbort()) }
   }
 
   /** Closes the in-memory channels (an unreachable computer answers no ping, so the phone's channel fails). */
@@ -490,11 +556,16 @@ internal class ComputerCore(
     lost.forEach(Channel::drop)
   }
 
-  private fun finishInterrupted(watch: BodyWatch) {
+  /**
+   * Ends a body before the dispatcher saw it: with [answer] when the computer answers it (the idle abort, a newer body,
+   * "Remove"; recorded with its status), or without one when the connection is lost or the computer restarts.
+   */
+  private fun endBody(watch: BodyWatch, answer: Refusal?) {
+    watch.answer = answer
     watch.ended = true
     inFlight -= watch
     if (watch.admitted) {
-      val session = watch.deviceId?.let { sessions[it to watch.key] }
+      val session = watch.deviceId?.let { ownSession(it, watch.key) }
       if (session != null) {
         session.lastActivityMillis = clock.nowMillis()
         // Core: the part is deleted. Complete: the bytes that reached the disk are kept (they are already there).
@@ -503,10 +574,16 @@ internal class ComputerCore(
     }
     calls += RecordedCall(
       method = watch.head.method, target = watch.head.target, headers = watch.head.headers,
-      bodySize = watch.receivedBytes, atEpochMillis = clock.nowMillis(), status = null,
+      bodySize = watch.receivedBytes, atEpochMillis = clock.nowMillis(), status = answer?.status,
       signedBy = watch.deviceId?.let(::DeviceId),
     )
   }
+
+  private fun idleAbort() =
+    Refusal(HTTP_BAD_REQUEST, "length_mismatch", "The upload sent nothing for 30 seconds; send it again.").closing()
+
+  private fun superseded() =
+    Refusal(HTTP_CONFLICT, "upload_busy", "A newer upload of this file replaced this one.").closing()
 
   /** The dispatcher handled the request: its body no longer holds the device's upload slot. */
   private fun endWatch(watch: BodyWatch) {
@@ -557,14 +634,7 @@ internal class ComputerCore(
     )
   }
 
-  fun refusalResponse(refusal: Refusal): MockResponse {
-    val body = buildMap<String, JsonElement> {
-      put("detail", JsonPrimitive(refusal.detail))
-      refusal.code?.let { put("code", JsonPrimitive(it)) }
-      putAll(refusal.extra)
-    }
-    return json(refusal.status, JsonObject(body), refusal.headers)
-  }
+  fun refusalResponse(refusal: Refusal): MockResponse = json(refusal.status, refusal.envelope(), refusal.headers)
 
   fun json(status: Int, body: JsonElement, headers: Map<String, String> = emptyMap()): MockResponse {
     val builder = MockResponse.Builder()
@@ -659,9 +729,6 @@ internal class ComputerCore(
     )
     val UUID_RE = Regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
     val JOB_ID_RE = Regex("^\\d{8}-\\d{6}-[0-9a-f]{4}$")
-
-    /** A minimal `/api/reference` body; tests that need the real one set [FakeComputer.referenceJson]. */
-    const val DEFAULT_REFERENCE = """{"api_version": 6, "families": [], "phenomena": []}"""
 
     /** Decodes `%XX` escapes (not `+`); null when an escape is malformed. */
     fun percentDecode(segment: String): String? {

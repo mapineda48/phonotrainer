@@ -16,3 +16,12 @@ dependencies {
   api(libs.okhttp)
   api(libs.okhttp.mockwebserver3)
 }
+
+// ReferenceBodyTest (WP-05a) reads the reference snapshot bundled by :core:content (WP-04), relative to this module's
+// directory (the test working directory), to keep the fake computer's default /reference body equal to it. Declaring
+// the file as an input keeps the tests' up-to-date check and build cache honest when the snapshot is re-exported.
+tasks.withType<Test>().configureEach {
+  inputs.file(layout.projectDirectory.file("../content/src/main/assets/reference/reference.json"))
+    .withPropertyName("referenceSnapshot")
+    .withPathSensitivity(PathSensitivity.NONE)
+}

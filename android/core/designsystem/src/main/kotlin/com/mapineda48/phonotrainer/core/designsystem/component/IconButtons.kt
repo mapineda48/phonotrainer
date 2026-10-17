@@ -102,7 +102,7 @@ fun PhonoIconToggle(
 
 @PreviewLightDark
 @Composable
-private fun IconButtonsPreview() {
+internal fun IconButtonsPreview() {
   PhonoPreviewSurface {
     Row {
       PhonoIconButton(PhonoIcons.Back, "Back", {})

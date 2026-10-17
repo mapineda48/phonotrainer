@@ -84,6 +84,10 @@ internal class Job(
 
   /** The uploaded file or the downloaded original; null once gone (`410 source_gone`, `original` unavailable). */
   var source: ByteArray? = null
+
+  /** The size and SHA-256 a phone declared for the file it uploaded (`job.json`'s `upload_bytes`, `upload_sha256`). */
+  var uploadBytes: Long? = null
+  var uploadSha256: String? = null
   var sourceGone = false
 
   /** In the listing's order (the table of server-contract 6.4.1). */

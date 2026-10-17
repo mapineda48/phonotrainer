@@ -83,7 +83,7 @@ fun ExplainContent(entry: GlossaryEntry, onDismiss: () -> Unit, onLearnMore: (Li
 
 @PreviewLightDark
 @Composable
-private fun ExplainPreview() {
+internal fun ExplainPreview() {
   PhonoPreviewSurface {
     ExplainButton(term = "schwa", onClick = {})
     ExplainContent(
