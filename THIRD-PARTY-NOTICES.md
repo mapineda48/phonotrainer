@@ -465,6 +465,7 @@ Dagger libraries are by The Android Open Source Project and Google; Kotlin and k
 | Preferences External Protobuf | `androidx.datastore:datastore-preferences-external-protobuf` | 1.2.1 | BSD-3-Clause |
 | Preferences DataStore Proto | `androidx.datastore:datastore-preferences-proto` | 1.2.1 | Apache-2.0 |
 | Emoji2 | `androidx.emoji2:emoji2` | 1.4.0 | Apache-2.0 |
+| Support ExifInterface | `androidx.exifinterface:exifinterface` | 1.3.6 | Apache-2.0 |
 | Support fragment | `androidx.fragment:fragment` | 1.5.1 | Apache-2.0 |
 | Android Graphics Path | `androidx.graphics:graphics-path` | 1.0.1 | Apache-2.0 |
 | Hilt Common | `androidx.hilt:hilt-common` | 1.4.0 | Apache-2.0 |
@@ -496,6 +497,15 @@ Dagger libraries are by The Android Open Source Project and Google; Kotlin and k
 | Lifecycle ViewModel with SavedState | `androidx.lifecycle:lifecycle-viewmodel-savedstate` | 2.11.0 | Apache-2.0 |
 | Lifecycle ViewModel with SavedState | `androidx.lifecycle:lifecycle-viewmodel-savedstate-android` | 2.11.0 | Apache-2.0 |
 | Support loader | `androidx.loader:loader` | 1.0.0 | Apache-2.0 |
+| Media3 common module | `androidx.media3:media3-common` | 1.11.1 | Apache-2.0 |
+| Media3 common KTX module | `androidx.media3:media3-common-ktx` | 1.11.1 | Apache-2.0 |
+| Media3 Container module | `androidx.media3:media3-container` | 1.11.1 | Apache-2.0 |
+| Media3 database module | `androidx.media3:media3-database` | 1.11.1 | Apache-2.0 |
+| Media3 DataSource module | `androidx.media3:media3-datasource` | 1.11.1 | Apache-2.0 |
+| Media3 decoder module | `androidx.media3:media3-decoder` | 1.11.1 | Apache-2.0 |
+| Media3 ExoPlayer module | `androidx.media3:media3-exoplayer` | 1.11.1 | Apache-2.0 |
+| Media3 Extractor module | `androidx.media3:media3-extractor` | 1.11.1 | Apache-2.0 |
+| Media3 UI Compose module | `androidx.media3:media3-ui-compose` | 1.11.1 | Apache-2.0 |
 | Androidx Navigation 3 Runtime | `androidx.navigation3:navigation3-runtime` | 1.2.0 | Apache-2.0 |
 | Androidx Navigation 3 Runtime | `androidx.navigation3:navigation3-runtime-android` | 1.2.0 | Apache-2.0 |
 | Androidx Navigation 3 UI | `androidx.navigation3:navigation3-ui` | 1.2.0 | Apache-2.0 |
@@ -536,7 +546,9 @@ Dagger libraries are by The Android Open Source Project and Google; Kotlin and k
 | Dagger Lint Rules AAR Distribution | `com.google.dagger:dagger-lint-aar` | 2.60.1 | Apache-2.0 |
 | Hilt Android | `com.google.dagger:hilt-android` | 2.60.1 | Apache-2.0 |
 | Hilt Core | `com.google.dagger:hilt-core` | 2.60.1 | Apache-2.0 |
-| Guava ListenableFuture only | `com.google.guava:listenablefuture` | 1.0 | Apache-2.0 |
+| Guava InternalFutureFailureAccess and InternalFutures | `com.google.guava:failureaccess` | 1.0.2 | Apache-2.0 |
+| Guava: Google Core Libraries for Java | `com.google.guava:guava` | 33.3.1-android | Apache-2.0 |
+| Guava ListenableFuture only | `com.google.guava:listenablefuture` | 9999.0-empty-to-avoid-conflict-with-guava | Apache-2.0 |
 | okio | `com.squareup.okio:okio` | 3.18.1 | Apache-2.0 |
 | okio | `com.squareup.okio:okio-jvm` | 3.18.1 | Apache-2.0 |
 | Jakarta Dependency Injection | `jakarta.inject:jakarta.inject-api` | 2.0.1 | Apache-2.0 |
