@@ -29,33 +29,61 @@ import kotlinx.coroutines.flow.map
 
 // Settable fakes of the :core:corpus interfaces (work-plan 4.6; WP-10 owns this folder after B1).
 
+/**
+ * A settable [ClipContentRepository]. [clipData] answers [data], else throws the error of [failures] (a corrupt clip:
+ * "Needs downloading again"), else `Missing`, like the real one. Leases are counted per clip, so two screens on one
+ * clip keep it open until both close and a lease closed twice counts once.
+ */
 class FakeClipContentRepository : ClipContentRepository {
   val data = mutableMapOf<JobId, ClipData>()
+  val failures = mutableMapOf<JobId, AppError.Content>()
   val mediaById = mutableMapOf<JobId, ClipMedia>()
   val compare = mutableMapOf<WordRef, List<CompareRow>>()
-  val openLeases = mutableSetOf<JobId>()
 
-  override suspend fun clipData(id: JobId): ClipData = data[id] ?: throw ClipDataException(AppError.Content.Missing)
+  /** The clips with at least one open lease. */
+  val openLeases = mutableSetOf<JobId>()
+  private val leaseCounts = mutableMapOf<JobId, Int>()
+
+  override suspend fun clipData(id: JobId): ClipData =
+    data[id] ?: throw ClipDataException(failures[id] ?: AppError.Content.Missing)
 
   override suspend fun media(id: JobId): ClipMedia? = mediaById[id]
 
   override fun open(id: JobId): ClipLease {
+    leaseCounts[id] = (leaseCounts[id] ?: 0) + 1
     openLeases += id
     return object : ClipLease {
+      private var closed = false
       override val id: JobId = id
 
       override fun close() {
-        openLeases -= id
+        if (closed) return
+        closed = true
+        val left = (leaseCounts[id] ?: 1) - 1
+        if (left > 0) {
+          leaseCounts[id] = left
+        } else {
+          leaseCounts -= id
+          openLeases -= id
+        }
       }
     }
   }
 
+  /** The leases open on [id] now. */
+  fun leaseCount(id: JobId): Int = leaseCounts[id] ?: 0
+
   override suspend fun compareRows(word: WordRef): List<CompareRow> = compare[word].orEmpty()
 }
 
+/**
+ * A settable [ShortRepository] over [shortsById]. By default [sequence] answers like the real one on those shorts: In
+ * order plays one clip's shorts, a change mode the shorts spotlit on that change (in [shortsById]'s order), Saved and
+ * Mix nothing; set [sequenceFor] to answer anything else.
+ */
 class FakeShortRepository : ShortRepository {
   val shortsById = MutableStateFlow(emptyMap<JobId, List<ShortInfo>>())
-  var sequenceFor: (FeedMode) -> FeedSequence = { FeedSequence(it, emptyList(), 0) }
+  var sequenceFor: (FeedMode) -> FeedSequence = { mode -> FeedSequence(mode, defaultItems(mode), 0) }
 
   override fun shorts(id: JobId): Flow<List<ShortInfo>> = shortsById.map { it[id].orEmpty() }
 
@@ -63,6 +91,15 @@ class FakeShortRepository : ShortRepository {
 
   override suspend fun shortContaining(word: WordRef): ShortInfo? =
     shortsById.value[word.jobId].orEmpty().lastOrNull { it.id.firstSegment <= word.segment && word.segment <= it.lastSegment }
+
+  private fun defaultItems(mode: FeedMode): List<ShortInfo> = when (mode) {
+    is FeedMode.InOrder -> shortsById.value[mode.jobId].orEmpty()
+    is FeedMode.Change -> shortsById.value
+      .filterKeys { mode.onlyClip == null || it == mode.onlyClip }
+      .values.flatten()
+      .filter { it.spotlight?.change == mode.label }
+    is FeedMode.Mix, FeedMode.Saved -> emptyList()
+  }
 }
 
 class FakeOccurrenceRepository : OccurrenceRepository {
