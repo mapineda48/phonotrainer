@@ -2,14 +2,17 @@ package com.mapineda48.phonotrainer.core.connectivity.pairing
 
 import com.google.common.truth.Truth.assertThat
 import com.mapineda48.phonotrainer.core.connectivity.support.Harness
+import com.mapineda48.phonotrainer.core.connectivity.support.relayDatagram
 import com.mapineda48.phonotrainer.core.domain.model.AppError
 import com.mapineda48.phonotrainer.core.domain.model.CheckResult
 import com.mapineda48.phonotrainer.core.domain.model.ComputerStatus
+import com.mapineda48.phonotrainer.core.domain.model.Datagram
 import com.mapineda48.phonotrainer.core.domain.model.DeviceId
 import com.mapineda48.phonotrainer.core.domain.model.ForgetResult
 import com.mapineda48.phonotrainer.core.domain.model.HostPort
 import com.mapineda48.phonotrainer.core.domain.model.PairResult
 import com.mapineda48.phonotrainer.core.domain.model.PairingTarget
+import com.mapineda48.phonotrainer.core.domain.model.SearchState
 import com.mapineda48.phonotrainer.core.domain.model.ServerId
 import com.mapineda48.phonotrainer.core.domain.model.SyncReason
 import com.mapineda48.phonotrainer.core.domain.model.remote.ComputerIdentity
@@ -24,6 +27,7 @@ import com.mapineda48.phonotrainer.core.testing.fake.connectivity.FakeNetworkMon
 import java.time.Duration
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runCurrent
@@ -149,9 +153,14 @@ class PairingRepositoryTest {
     h.computer.revokeDevice()
     assertThat(h.status.checkNow()).isEqualTo(ComputerStatus.ConnectAgain)
 
+    val before = h.computer.requests.size
     val again = (h.pairNow() as PairResult.Paired).computer
     runCurrent()
 
+    // The address proves it is the paired computer (a revoked phone's proof counts) before the code is sent.
+    val calls = h.computer.requests.drop(before)
+    assertThat(calls.take(2).map { it.route() }).containsExactly("GET /api/phone/hello", "POST /api/phone/pair").inOrder()
+    assertThat(calls[0].target).contains("challenge=")
     assertThat(again.deviceId).isEqualTo(first.deviceId)
     assertThat(sent.last().previousDeviceId).isEqualTo(first.deviceId)
     assertThat(sent.last().previousTokenProof).matches("^[0-9a-f]{64}$")
@@ -166,14 +175,137 @@ class PairingRepositoryTest {
     h.computer.revokeDevice()
     h.store.unreadable = true
 
+    val before = h.computer.requests.size
     val again = h.pairNow()
     h.store.unreadable = false
     runCurrent()
+
+    // A phone that cannot read its key cannot prove anything: it asks without a challenge and pairs as new.
+    assertThat(h.computer.requests[before].target).doesNotContain("challenge")
 
     assertThat((again as PairResult.Paired).computer.deviceId).isNotEqualTo(first.deviceId)
     assertThat(sent.last().previousDeviceId).isNull()
     assertThat(sent.last().previousTokenProof).isNull()
     assertThat(h.computer.pairedDevices).hasSize(2)
+  }
+
+  @Test
+  fun connectAgainSendsNothingToAnAddressThatOnlyRepeatsThePairedServerId() = runTest {
+    val h = harness()
+    h.pairNow()
+    runCurrent()
+    h.computer.revokeDevice()
+    assertThat(h.status.checkNow()).isEqualTo(ComputerStatus.ConnectAgain)
+    val record = h.store.value
+    ProofMode.entries.forEach { mode ->
+      val impostor = h.computer.impersonate(mode)
+      val sentBefore = sent.size
+
+      val result = h.pairing.pair(PairingTarget(impostor.address, h.computer.serverId, h.computer.name), h.computer.newPairingCode(), "Pixel 9")
+
+      assertThat(result).isEqualTo(PairResult.Failed(AppError.Computer.DifferentComputer))
+      // Only the challenge reached it: no code, no previous device id, no re-activation proof.
+      assertThat(impostor.requests.map { it.route() }).containsExactly("GET /api/phone/hello")
+      assertThat(impostor.requests.single().target).contains("challenge=")
+      assertThat(sent).hasSize(sentBefore)
+      impostor.close()
+    }
+    runCurrent()
+    assertThat(h.store.value).isEqualTo(record)
+    assertThat(h.status.status.value).isEqualTo(ComputerStatus.ConnectAgain)
+    assertThat(h.guarded.refused).isEmpty()
+  }
+
+  @Test
+  fun aComputerWithTheSameServerIdButNotThisPhonesKeyNeverReplacesTheProvenPairing() = runTest {
+    // Same seed: the same public server id and name, at another address, without this phone's key.
+    val rogue = computer(seed = 11)
+    val h = harness(rogue)
+    assertThat(rogue.serverId).isEqualTo(h.computer.serverId)
+    assertThat(rogue.address).isNotEqualTo(h.computer.address)
+    h.pairNow()
+    runCurrent()
+    val record = h.store.value
+
+    val whileConnected = h.pairing.pair(h.target(rogue), rogue.newPairingCode(), "Pixel 9")
+    runCurrent()
+    h.computer.revokeDevice()
+    assertThat(h.status.checkNow()).isEqualTo(ComputerStatus.ConnectAgain)
+    val whileRevoked = h.pairing.pair(h.target(rogue), rogue.newPairingCode(), "Pixel 9")
+    runCurrent()
+
+    assertThat(whileConnected).isEqualTo(PairResult.Failed(AppError.Computer.DifferentComputer))
+    assertThat(whileRevoked).isEqualTo(PairResult.Failed(AppError.Computer.DifferentComputer))
+    assertThat(rogue.requests.map { it.route() }.distinct()).containsExactly("GET /api/phone/hello")
+    assertThat(rogue.requests.none { it.hadAuthorization }).isTrue()
+    assertThat(rogue.pairedDevices).isEmpty()
+    assertThat(h.store.value).isEqualTo(record)
+    assertThat(h.peers.current.value).isEqualTo(h.computer.address)
+  }
+
+  @Test
+  fun whilePairedOnlyAnswersThatProveThePairedComputerAreOfferedToConnectAgain() = runTest {
+    val rogue = computer(seed = 11)
+    val kitchen = computer(name = "Kitchen", seed = 12)
+    val h = harness(rogue, kitchen)
+    h.pairNow()
+    runCurrent()
+    h.computer.revokeDevice()
+    assertThat(h.status.checkNow()).isEqualTo(ComputerStatus.ConnectAgain)
+    val impostors = ProofMode.entries.map { h.computer.impersonate(it) }
+    h.answerDiscovery(h.computer)
+    h.answerDiscovery(rogue)
+    h.answerDiscovery(kitchen)
+    impostors.forEach { impostor ->
+      h.discovery.respond { probe -> impostor.answerProbe(probe)?.let { Datagram(it, FakeComputer.HOST, Harness.DISCOVERY_PORT) } }
+    }
+
+    val found = h.pairing.search().toList().last() as SearchState.Found
+
+    // The paired computer, and another computer (pairing it says "Forget it first"); never a copy of the paired id.
+    assertThat(found.computers.map { it.address }).containsExactly(h.computer.address, kitchen.address).inOrder()
+    assertThat(found.conflict).isFalse()
+    (impostors.map { it.requests } + listOf(rogue.requests)).forEach { requests ->
+      assertThat(requests.map { it.route() }).containsExactly("GET /api/phone/hello")
+      assertThat(requests.single().target).contains("challenge=")
+    }
+    impostors.forEach { it.close() }
+  }
+
+  @Test
+  fun computerNamesAreCleanedWhereverThePhoneShowsThem() = runTest {
+    val raw = "Study\ndesk\u202E\u200B " + "x".repeat(200)
+    val h = Harness(this, listOf(computer(name = raw)))
+    h.computer.rateLimits = false
+    fun String.isClean() = none { Character.getType(it).toByte() in UNSEEN } && codePointCount(0, length) <= 60
+
+    val checked = (h.pairing.check(h.computer.address) as CheckResult.Ok).computer.name
+    val paired = (h.pairNow() as PairResult.Paired).computer.name
+    runCurrent()
+    val connected = (h.status.status.value as ComputerStatus.Connected).name
+
+    val announced = h.announcer.announced.single().removePrefix("Connected to ")
+    listOf(checked, paired, connected, h.store.value!!.serverName, announced).forEach { name ->
+      assertThat(name.isClean()).isTrue()
+    }
+    assertThat(paired).startsWith("Study desk xxx")
+    assertThat(paired).endsWith("\u2026")
+    assertThat(connected).isEqualTo(paired)
+  }
+
+  @Test
+  fun aSearchRowShowsACleanedNameAndAHelloThatNamesAnotherComputerIsAConflict() = runTest {
+    val h = Harness(this, listOf(computer(name = "Study desk\nTap here\u202E" + "y".repeat(3_000))))
+    h.discovery.respond { probe -> relayDatagram(probe, h.computer, h.computer.address, name = "Study desk") }
+
+    val found = h.pairing.search().toList().last() as SearchState.Found
+
+    val row = found.computers.single()
+    assertThat(row.name).startsWith("Study desk Tap hereyyy")
+    assertThat(row.name.codePointCount(0, row.name.length)).isEqualTo(60)
+    assertThat(row.conflict).isTrue()
+    assertThat(found.conflict).isTrue()
+    assertThat(found.preselected).isNull()
   }
 
   @Test
@@ -220,6 +352,8 @@ class PairingRepositoryTest {
 
     assertThat(h.pairNow()).isEqualTo(PairResult.Failed(AppError.Computer.ComputerTooOld))
     assertThat(h.computer.requests.map { it.route() }).containsExactly("GET /api/phone/hello", "GET /api/health").inOrder()
+    // The legacy health went to the candidate while it was the candidate: the guard let it through.
+    assertThat(h.guarded.refused).isEmpty()
   }
 
   @Test
@@ -459,5 +593,10 @@ class PairingRepositoryTest {
 
     assertThat(ReactivationProof.of(key, "482913"))
       .isEqualTo("6c25019dd33f72685983eea58450f519b69da49f1b31857490345bdd61e497b7") // hygiene: test-vector
+  }
+
+  private companion object {
+    /** Unicode categories a cleaned name never contains: format, control, line and paragraph separators. */
+    val UNSEEN = setOf(Character.FORMAT, Character.CONTROL, Character.LINE_SEPARATOR, Character.PARAGRAPH_SEPARATOR)
   }
 }

@@ -28,6 +28,7 @@ import com.mapineda48.phonotrainer.core.domain.model.ProbeOutcome
 import com.mapineda48.phonotrainer.core.domain.model.ServerId
 import com.mapineda48.phonotrainer.core.domain.model.remote.Capabilities
 import com.mapineda48.phonotrainer.core.domain.model.remote.PairGrant
+import com.mapineda48.phonotrainer.core.domain.spi.DiscoveryTransport
 import com.mapineda48.phonotrainer.core.network.api.ComputerClient
 import com.mapineda48.phonotrainer.core.testing.computer.FakeComputer
 import com.mapineda48.phonotrainer.core.testing.computer.FakeComputerClient
@@ -37,9 +38,7 @@ import com.mapineda48.phonotrainer.core.testing.fake.app.FakeSyncTrigger
 import com.mapineda48.phonotrainer.core.testing.fake.connectivity.FakeDiscoveryTransport
 import com.mapineda48.phonotrainer.core.testing.fake.connectivity.FakeNetworkMonitor
 import com.mapineda48.phonotrainer.core.testing.fake.network.FakeAddressPolicy
-import com.mapineda48.phonotrainer.core.testing.fake.network.FakeAllowedPeers
 import com.mapineda48.phonotrainer.core.testing.fake.network.FakeComputerNetworkBinder
-import com.mapineda48.phonotrainer.core.testing.fake.network.FakeVerifiedPeers
 import com.mapineda48.phonotrainer.core.testing.fake.player.FakeDecoderCapabilities
 import com.mapineda48.phonotrainer.core.testing.fake.requests.FakeRequestRepository
 import com.mapineda48.phonotrainer.core.testing.fake.sync.FakeSyncController
@@ -207,26 +206,33 @@ internal object PlainStatusWords : StatusWords {
 /**
  * The connectivity core wired by hand as Hilt wires it, over [FakeComputer]s reached in memory through
  * [FakeComputerClient] (which checks identity proofs and signs as the real client does), with the network-api and
- * app fakes of work-plan 4.6 for everything WP-07 does not own. Probes, the 5 s re-probe and the schedule run on the
- * test's virtual time.
+ * app fakes of work-plan 4.6 for everything WP-07 does not own. The cleartext guard and the verified address of
+ * `:core:network` are modelled ([GuardedPeers], [ModelVerifiedPeers], [GuardedClient]): a call to an address that is
+ * neither current nor the candidate being checked fails with `Guarded` and is recorded in [guarded]'s `refused`, and
+ * requests are signed only for an address whose proof verified, as in production. Probes, the 5 s re-probe and the
+ * schedule run on the test's virtual time.
  */
 internal class Harness(
   val scope: TestScope,
   val computers: List<FakeComputer> = listOf(FakeComputer()),
   foreground: Boolean = true,
   clientOverride: ((ComputerClient) -> ComputerClient)? = null,
+  transport: DiscoveryTransport? = null,
 ) {
   val computer: FakeComputer get() = computers.first()
   val clock = SchedulerClock(scope.testScheduler)
   val store = InMemoryPairingStore()
-  val peers = FakeAllowedPeers()
-  val verified = FakeVerifiedPeers()
+  val peers = GuardedPeers()
+  val verified = ModelVerifiedPeers(peers)
   val binder = FakeComputerNetworkBinder()
   val monitor = FakeNetworkMonitor()
   val discovery = FakeDiscoveryTransport()
   val policy = FakeAddressPolicy()
-  val fakeClient = FakeComputerClient(computers, credentials = null, currentPeer = { peers.current.value })
-  val client: ComputerClient = clientOverride?.invoke(fakeClient) ?: fakeClient
+  val fakeClient = FakeComputerClient(
+    computers, credentials = null, currentPeer = { peers.current.value }, verifiedPeers = verified,
+  )
+  val guarded = GuardedClient(clientOverride?.invoke(fakeClient) ?: fakeClient, peers, verified)
+  val client: ComputerClient = guarded
   val announcer = FakeAnnouncer()
   val syncTrigger = FakeSyncTrigger()
   val requests = FakeRequestRepository()
@@ -239,7 +245,7 @@ internal class Harness(
   val cleanup = FakeForgetCleanup()
   val session = ConnectivitySession()
   val appVersion = FixedAppVersion()
-  val discoveryClient = DiscoveryClient(discovery, policy)
+  val discoveryClient = DiscoveryClient(transport ?: discovery, policy)
   val prober = Prober(client, peers, store, appVersion, session)
   val rediscovery = Rediscovery(discoveryClient, client, peers, session)
   val sinks = StatusSinks(store, peers, verified, binder, announcer, PlainStatusWords, clock, scope.backgroundScope, PhonoLog.NONE)

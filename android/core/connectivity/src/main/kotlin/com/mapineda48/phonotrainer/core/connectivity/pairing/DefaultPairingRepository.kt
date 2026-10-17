@@ -1,6 +1,7 @@
 package com.mapineda48.phonotrainer.core.connectivity.pairing
 
 import com.mapineda48.phonotrainer.core.common.log.PhonoLog
+import com.mapineda48.phonotrainer.core.connectivity.ComputerNames
 import com.mapineda48.phonotrainer.core.connectivity.ConnectivityRules
 import com.mapineda48.phonotrainer.core.connectivity.ConnectivitySession
 import com.mapineda48.phonotrainer.core.connectivity.discovery.DiscoveredAddress
@@ -59,7 +60,11 @@ import kotlinx.coroutines.withTimeoutOrNull
  * address accepted only with a valid proof for the paired computer, and "Forget this computer".
  *
  * Every address is reached as the single candidate of the cleartext guard ([AllowedPeers.withCandidate]) until it
- * proved it is the paired computer; only then does it become the current address that signed calls may reach.
+ * proved it is the paired computer; only then does it become the current address that signed calls may reach. While a
+ * pairing exists, nothing is sent to an address (no code, no re-activation proof) before it proved it is the paired
+ * computer with this phone's key (spec 7.4, D-37); only a phone that cannot read its own key any more pairs without
+ * that proof, as a new device (architecture 6.3, 20.3). Every computer name is cleaned before it leaves the module
+ * ([ComputerNames]).
  */
 @Singleton
 internal class DefaultPairingRepository @Inject constructor(
@@ -84,7 +89,10 @@ internal class DefaultPairingRepository @Inject constructor(
   /**
    * "Looking for your computer…" for at most 10 s: every answer is confirmed with `hello` at its address (identity
    * only, no credential) before it is listed; answers that do not confirm, or whose computer has phone access off,
-   * are left out. Conflicts and preselection follow [FoundList].
+   * are left out. While paired ("Connect again"), an answer carrying the paired server id is listed only if its
+   * `hello` proves it is the paired computer with this phone's key (a revoked phone's proof counts), so an address
+   * that merely repeats the public server id is never offered (spec 7.4, D-37). Conflicts and preselection follow
+   * [FoundList].
    */
   override fun search(): Flow<SearchState> = channelFlow {
     send(SearchState.Searching)
@@ -93,10 +101,11 @@ internal class DefaultPairingRepository @Inject constructor(
       send(SearchState.NotOnWifi)
       return@channelFlow
     }
+    val paired = current()?.takeIf { canProve() }
     val rows = mutableListOf<FoundComputer>()
     withTimeoutOrNull(DiscoveryProtocol.LISTEN.toMillis()) {
       discovery.search(network).collect { answer ->
-        val row = confirm(answer) ?: return@collect
+        val row = confirm(answer, paired) ?: return@collect
         rows += row
         send(FoundList.state(rows.toList()))
       }
@@ -104,18 +113,31 @@ internal class DefaultPairingRepository @Inject constructor(
     if (rows.isEmpty()) send(SearchState.NothingFound)
   }
 
-  private suspend fun confirm(answer: DiscoveredAddress): FoundComputer? {
-    val identity = peers.withCandidate(answer.address) { client.hello(answer.address) }
+  private suspend fun confirm(answer: DiscoveredAddress, paired: PairingRecord?): FoundComputer? {
+    val proveAs = paired?.takeIf { it.serverId == answer.reply.serverId }
+    val identity = if (proveAs == null) {
+      peers.withCandidate(answer.address) { client.hello(answer.address) }
+    } else {
+      session.lock.withLock {
+        peers.withCandidate(answer.address) { client.hello(answer.address, challengeFor = proveAs.deviceId) }
+      }
+    }
     val value = (identity as? ApiResult.Ok)?.value ?: return null
     if (!value.phoneAccess || value.serverId != answer.reply.serverId) return null
+    if (proveAs != null && !proves(value, proveAs, answer.address)) {
+      log.w("connectivity.search_unproven")
+      return null
+    }
+    val name = ComputerNames.clean(value.name, fallback = answer.reply.name)
     return FoundComputer(
       serverId = answer.reply.serverId,
-      name = value.name?.takeIf { it.isNotBlank() } ?: answer.reply.name,
+      name = name,
       address = answer.address,
       apiVersion = value.apiVersion,
       phoneAccess = true,
       tooOld = value.apiVersion < ConnectivityRules.MIN_SERVER_API,
-      conflict = false,
+      // A `hello` that names another computer than its own discovery reply is not trusted to be the one it says.
+      conflict = ComputerNames.conflictKey(name) != ComputerNames.conflictKey(answer.reply.name),
     )
   }
 
@@ -137,8 +159,9 @@ internal class DefaultPairingRepository @Inject constructor(
     if (!identity.phoneAccess) return CheckResult.PhoneAccessOff
     val serverId = identity.serverId ?: return CheckResult.NotPhonoTrainer
     if (identity.apiVersion < ConnectivityRules.MIN_SERVER_API) return CheckResult.TooOld
+    val name = ComputerNames.clean(identity.name)
     return CheckResult.Ok(
-      FoundComputer(serverId, identity.name.orEmpty(), address, identity.apiVersion, phoneAccess = true, tooOld = false, conflict = false),
+      FoundComputer(serverId, name, address, identity.apiVersion, phoneAccess = true, tooOld = false, conflict = false),
     )
   }
 
@@ -156,7 +179,10 @@ internal class DefaultPairingRepository @Inject constructor(
     else -> CheckResult.NoAnswer
   }
 
-  /** After a `404` on `hello`: `GET /api/health` with an `api_version` is an older PhonoTrainer (D-15). */
+  /**
+   * After a `404` on `hello`: `GET /api/health` with an `api_version` is an older PhonoTrainer (D-15). It goes to the
+   * same candidate, so the caller runs it inside that address's [AllowedPeers.withCandidate] block.
+   */
   private suspend fun olderPhonoTrainer(address: HostPort): Boolean =
     ProbeVerdicts.legacy(client.legacyHealth(address)) == ProbeReport.ComputerTooOld
 
@@ -172,10 +198,12 @@ internal class DefaultPairingRepository @Inject constructor(
   private suspend fun pairLocked(target: PairingTarget, code: String, deviceName: String): PairResult {
     val address = target.address
     val existing = current()
-    val identity = when (val hello = peers.withCandidate(address) { client.hello(address) }) {
-      is ApiResult.Ok -> hello.value
-      is ApiResult.Refused -> return refusedHello(hello, address)
-      is ApiResult.Failed -> return PairResult.Failed(hello.error)
+    // While paired, the address must first prove it is the paired computer with this phone's key; a phone that can no
+    // longer read its key cannot prove anything and pairs as a new device (architecture 6.3, 20.3).
+    val proveAs = existing?.takeIf { canProve() }
+    val identity = when (val hello = helloAt(address, challengeFor = proveAs?.deviceId)) {
+      is Hello.Answered -> hello.identity
+      is Hello.Ended -> return hello.result
     }
     if (!identity.phoneAccess) return PairResult.PhoneAccessOff
     if (identity.apiVersion < ConnectivityRules.MIN_SERVER_API) return PairResult.Failed(AppError.Computer.ComputerTooOld)
@@ -183,8 +211,13 @@ internal class DefaultPairingRepository @Inject constructor(
     // The answer at this address must be the computer the learner picked, and one computer at a time (D-29).
     if (target.serverId != null && target.serverId != serverId) return PairResult.Failed(AppError.Computer.DifferentComputer)
     if (existing != null && existing.serverId != serverId) return PairResult.Failed(AppError.Computer.DifferentComputer)
+    if (proveAs != null && !proves(identity, proveAs, address)) {
+      // The public server id without this phone's proof: no code, no re-activation proof, the pairing untouched.
+      log.w("connectivity.pairing_address_unproven")
+      return PairResult.Failed(AppError.Computer.DifferentComputer)
+    }
 
-    val previous = existing?.let { reactivation(it, code) }
+    val previous = proveAs?.let { reactivation(it, code) }
     val request = PairRequest(
       code = code,
       deviceName = deviceName,
@@ -202,7 +235,52 @@ internal class DefaultPairingRepository @Inject constructor(
       grant.token.fill(Char(0))
       return PairResult.Failed(AppError.Computer.DifferentComputer)
     }
-    return adoptGrant(grant, address, deviceName)
+    return adoptGrant(grant.copy(name = ComputerNames.clean(grant.name, fallback = identity.name)), address, deviceName)
+  }
+
+  /** What `hello` at a candidate gave pairing: an identity to go on with, or the result pairing ends with. */
+  private sealed interface Hello {
+    data class Answered(val identity: ComputerIdentity) : Hello
+
+    data class Ended(val result: PairResult) : Hello
+  }
+
+  /**
+   * `hello` at [address] as the single candidate (with a challenge for [challengeFor]); after a `404`, the legacy
+   * health at the same candidate, inside the same block, so the guard lets it through (server-contract 6.2).
+   */
+  private suspend fun helloAt(address: HostPort, challengeFor: DeviceId?): Hello = peers.withCandidate(address) {
+    when (val hello = client.hello(address, challengeFor)) {
+      is ApiResult.Ok -> Hello.Answered(hello.value)
+      is ApiResult.Refused -> Hello.Ended(refusedHello(hello, address))
+      is ApiResult.Failed -> Hello.Ended(PairResult.Failed(hello.error))
+    }
+  }
+
+  /**
+   * Whether [identity], the answer to a challenge for [paired]'s device at [address], proves it is the paired computer:
+   * a valid proof for the paired server id, from a device the computer knows, revoked or not (a revoked phone must be
+   * able to connect again, spec 7.4). Anything else is a different computer (D-37).
+   */
+  private fun proves(identity: ComputerIdentity, paired: PairingRecord, address: HostPort): Boolean {
+    val target = ProbeTarget(paired.serverId, paired.serverName, paired.deviceId, address)
+    return when (val verdict = ProbeVerdicts.hello(ApiResult.Ok(identity, OK), target)) {
+      ProbeVerdicts.Hello.Proven -> true
+      is ProbeVerdicts.Hello.Report -> verdict.report == ProbeReport.ConnectAgain
+      else -> false
+    }
+  }
+
+  /**
+   * Whether this phone can still compute proofs with its stored key: false only when the store says the key cannot be
+   * read (restored to another phone, key store cleared; architecture 20.3) or is gone. A store that fails to read
+   * (DataStore's `IOException`) does not count as unreadable: the proof is still asked for, and fails safe.
+   */
+  private suspend fun canProve(): Boolean = try {
+    store.withDeviceKey { } is DeviceKeyResult.Ok
+  } catch (e: IOException) {
+    log.w("connectivity.key_check_failed", e)
+    true
   }
 
   /**
@@ -246,6 +324,7 @@ internal class DefaultPairingRepository @Inject constructor(
     return PairResult.Paired(computer)
   }
 
+  /** A refused `hello` (runs inside the candidate block: the legacy health after a `404` goes to the same address). */
   private suspend fun refusedHello(refused: ApiResult.Refused, address: HostPort): PairResult = when {
     refused.status == NOT_FOUND ->
       PairResult.Failed(if (olderPhonoTrainer(address)) AppError.Computer.ComputerTooOld else AppError.Computer.Malformed)
@@ -264,8 +343,9 @@ internal class DefaultPairingRepository @Inject constructor(
   }
 
   /**
-   * "Connect again" with the same computer: the stored device id and the proof made with its key, so the computer
-   * re-activates the same device (security review L-1). A key that cannot be read pairs as a new device, silently.
+   * "Connect again" with the same computer, once its address proved it is that computer: the stored device id and the
+   * proof made with its key, so the computer re-activates the same device (security review L-1). A key that cannot be
+   * read pairs as a new device, silently.
    */
   private suspend fun reactivation(existing: PairingRecord, code: String): Pair<DeviceId, String>? = try {
     when (val proof = store.withDeviceKey { key -> ReactivationProof.of(key, code) }) {
@@ -389,6 +469,7 @@ internal class DefaultPairingRepository @Inject constructor(
   private companion object {
     val CODE = Regex("^[0-9]{6}$")
     val PHONE_ACCESS_CODES = setOf("phone_access_off", "lan_forbidden")
+    const val OK = 200
     const val NOT_FOUND = 404
     const val UPGRADE_REQUIRED = 426
     const val TOO_MANY = 429
