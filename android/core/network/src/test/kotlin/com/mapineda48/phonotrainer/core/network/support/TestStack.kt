@@ -166,9 +166,10 @@ internal class TestStack(
   debugLog: Interceptor? = null,
   val store: InMemoryPairingStore = InMemoryPairingStore(),
   policy: AddressPolicy = LoopbackPolicy,
+  phoneClock: Clock? = null,
 ) : AutoCloseable {
   val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-  val clock = PhoneClock { computer.clock.now() }
+  val clock: Clock = phoneClock ?: PhoneClock { computer.clock.now() }
   val binder: ComputerNetworkBinder = platform?.let(::NetworkBinding) ?: UnboundBinder
   val peers = ComputerPeers()
   val verified = ComputerVerifiedPeers(binder)
