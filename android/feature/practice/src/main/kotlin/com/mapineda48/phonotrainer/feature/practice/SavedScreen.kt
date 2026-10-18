@@ -3,8 +3,6 @@ package com.mapineda48.phonotrainer.feature.practice
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
@@ -47,6 +45,7 @@ import com.mapineda48.phonotrainer.core.ui.MarkedWordSpan
 import com.mapineda48.phonotrainer.core.ui.PhonoButton
 import com.mapineda48.phonotrainer.core.ui.PhonoButtonKind
 import com.mapineda48.phonotrainer.core.ui.a11y.paneTitle
+import com.mapineda48.phonotrainer.core.ui.component.IntrinsicFlowRow
 import com.mapineda48.phonotrainer.core.ui.component.OccurrenceRow
 import com.mapineda48.phonotrainer.core.ui.component.OccurrenceRowState
 import java.time.format.DateTimeFormatter
@@ -134,7 +133,6 @@ internal fun SavedScreen(state: SavedUiState, actions: SavedActions, modifier: M
  * which also opens the word's lesson), the change chip and "Last watched {time}", the bookmark-check toggle that
  * unsaves, and "Watch this short"; a clip not on this phone reads "Download the clip to watch it." instead.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SavedRowView(row: SavedRowUi, actions: SavedActions) {
   val colors = PhonoTheme.colors
@@ -153,6 +151,7 @@ private fun SavedRowView(row: SavedRowUi, actions: SavedActions) {
             stringResource(if (row.kind == SavedKind.SHORT) R.string.saved_kind_short else R.string.saved_kind_word),
             style = MaterialTheme.typography.labelMedium,
             color = colors.ink2,
+            modifier = Modifier.weight(1f, fill = false),
           )
         }
         val occurrence = row.occurrence
@@ -175,11 +174,8 @@ private fun SavedRowView(row: SavedRowUi, actions: SavedActions) {
         modifier = Modifier.testTag(PracticeTags.savedUnsave(row.id)),
       )
     }
-    FlowRow(
-      horizontalArrangement = Arrangement.spacedBy(PhonoSpacing.s8),
-      verticalArrangement = Arrangement.spacedBy(PhonoSpacing.s4),
-      itemVerticalAlignment = Alignment.CenterVertically,
-    ) {
+    // Not a FlowRow: the card takes its content's intrinsic height, which a FlowRow understates.
+    IntrinsicFlowRow(horizontalSpacing = PhonoSpacing.s8, verticalSpacing = PhonoSpacing.s4) {
       row.change?.let { change -> ChangeChip(capitalized(change.name), change.family, onClick = { actions.onLearn(row) }) }
       PhonoText(
         lastWatchedText(row.lastWatched),

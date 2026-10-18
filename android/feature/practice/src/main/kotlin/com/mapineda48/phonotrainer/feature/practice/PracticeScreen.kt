@@ -79,6 +79,7 @@ import com.mapineda48.phonotrainer.core.ui.PhonoButtonKind
 import com.mapineda48.phonotrainer.core.ui.PhonoCard
 import com.mapineda48.phonotrainer.core.ui.a11y.paneTitle
 import com.mapineda48.phonotrainer.core.ui.component.AnswerFeedback
+import com.mapineda48.phonotrainer.core.ui.component.IntrinsicFlowRow
 import com.mapineda48.phonotrainer.core.ui.component.QuestionCard
 import com.mapineda48.phonotrainer.core.ui.component.QuestionCardState
 import com.mapineda48.phonotrainer.core.ui.component.QuestionKindCopy
@@ -267,7 +268,6 @@ private fun KindRow(kind: QuestionKind) {
 }
 
 /** "Only: flapping ✕" + "Practice everything instead"; an unknown key practises everything (web). */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun Focus(focus: FocusUi, actions: PracticeActions) {
   val everything = stringResource(R.string.practice_focus_everything)
@@ -397,7 +397,7 @@ private fun Tile(icon: Int, label: String, value: String) {
   val colors = PhonoTheme.colors
   Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(PhonoSpacing.s8)) {
     Icon(painterResource(icon), null, tint = colors.ink, modifier = Modifier.size(PhonoSizes.iconButton))
-    PhonoText(label, style = MaterialTheme.typography.labelLarge, color = colors.ink2)
+    PhonoText(label, style = MaterialTheme.typography.labelLarge, color = colors.ink2, modifier = Modifier.weight(1f, fill = false))
   }
   PhonoText(value, style = MaterialTheme.typography.headlineMedium.tabular(), color = colors.ink)
 }
@@ -547,7 +547,6 @@ private fun Beads(beads: List<Bead>) {
  * "7 of 10 right" (displayLarge), the partial line when the pool ran out early, "Worth reviewing" chips, the list of
  * the questions, "Practice again", "Practice my weak spots" and "Back to the start" (web `SessionSummary`).
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun Results(results: ResultsUi, actions: PracticeActions) {
   val colors = PhonoTheme.colors
@@ -581,7 +580,8 @@ private fun Results(results: ResultsUi, actions: PracticeActions) {
             color = colors.ink,
             modifier = Modifier.semantics { heading() },
           )
-          FlowRow(horizontalArrangement = Arrangement.spacedBy(PhonoSpacing.chipGap), verticalArrangement = Arrangement.spacedBy(PhonoSpacing.s4)) {
+          // Not a FlowRow: the card takes its content's intrinsic height, which a FlowRow of chips understates.
+          IntrinsicFlowRow(horizontalSpacing = PhonoSpacing.chipGap, verticalSpacing = PhonoSpacing.s4) {
             results.missed.forEach { change ->
               Box(Modifier.testTag(PracticeTags.review(change.label))) {
                 ChangeChip(capitalized(change.name), change.family, onClick = { actions.onLearn(change.label) })
@@ -640,7 +640,7 @@ private fun ResultLineView(line: ResultLine) {
       tint = if (line.correct) colors.good else colors.critical,
       modifier = Modifier.padding(top = PhonoSpacing.s2).size(PhonoSizes.iconInline),
     )
-    PhonoText(text, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Normal), color = colors.ink)
+    PhonoText(text, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Normal), color = colors.ink, modifier = Modifier.weight(1f))
   }
 }
 
