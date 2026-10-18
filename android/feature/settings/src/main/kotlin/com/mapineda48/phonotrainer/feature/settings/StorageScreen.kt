@@ -375,12 +375,16 @@ internal fun downloadParts(artifacts: List<ArtifactProgress>): List<ArtifactProg
   return if (shown.all { it.state == ArtifactLocalState.READY }) emptyList() else shown
 }
 
-/** The per-clip download line with its thin bar, while a file of the clip is still on its way. */
+/**
+ * The per-clip download line with its thin bar, while a file of the clip is still on its way: each file's name and
+ * state, "·" between them; a file that is here shows the check icon (design 4.1: never a check character). TalkBack
+ * reads it as words: "Clip data ready, Audio 60%, Video waiting".
+ */
 @Composable
 private fun DownloadLine(artifacts: List<ArtifactProgress>, modifier: Modifier = Modifier) {
   val parts = downloadParts(artifacts)
   if (parts.isEmpty()) return
-  val shown = parts.map { artifactWords(it, spoken = false) }.joinToString(" · ")
+  val colors = PhonoTheme.colors
   val spoken = parts.map { artifactWords(it, spoken = true) }.joinToString(", ")
   val progress = parts.map {
     when (it.state) {
@@ -390,11 +394,24 @@ private fun DownloadLine(artifacts: List<ArtifactProgress>, modifier: Modifier =
     }
   }.average().toFloat()
   Column(modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = spoken }, verticalArrangement = Arrangement.spacedBy(PhonoSpacing.s4)) {
-    PhonoText(shown, style = MaterialTheme.typography.bodyMedium, color = PhonoTheme.colors.ink)
+    IntrinsicFlowRow(horizontalSpacing = PhonoSpacing.s6, verticalSpacing = PhonoSpacing.s2) {
+      parts.forEachIndexed { index, part ->
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(PhonoSpacing.s4)) {
+          PhonoText(artifactWords(part, spoken = false), style = MaterialTheme.typography.bodyMedium, color = colors.ink)
+          if (part.state == ArtifactLocalState.READY) {
+            Icon(painterResource(PhonoIcons.StepDone), null, tint = colors.ink, modifier = Modifier.size(PhonoSizes.iconInline))
+          }
+          if (index < parts.lastIndex) {
+            PhonoText(stringResource(R.string.storage_artifact_separator), style = MaterialTheme.typography.bodyMedium, color = colors.ink2)
+          }
+        }
+      }
+    }
     PhonoProgressBar(progress = progress)
   }
 }
 
+/** One file of the line: "Audio 60 %", "Video waiting"; a file that is here is its name alone on screen (the icon follows). */
 @Composable
 private fun artifactWords(artifact: ArtifactProgress, spoken: Boolean): String {
   val name = stringResource(
@@ -406,7 +423,7 @@ private fun artifactWords(artifact: ArtifactProgress, spoken: Boolean): String {
   )
   val percent = artifact.percent
   return when (artifact.state) {
-    ArtifactLocalState.READY -> stringResource(if (spoken) R.string.storage_artifact_ready_spoken else R.string.storage_artifact_ready, name)
+    ArtifactLocalState.READY -> if (spoken) stringResource(R.string.storage_artifact_ready_spoken, name) else name
     ArtifactLocalState.DOWNLOADING -> if (percent != null) {
       stringResource(if (spoken) R.string.storage_artifact_percent_spoken else R.string.storage_artifact_percent, name, percent)
     } else {

@@ -110,7 +110,9 @@ class StorageScreenTest {
   @Test
   fun aClipOnItsWaySaysWhereEachFileIsAndADamagedFileOffersToTryAgain() {
     screen.checkEach(ScreenVariant.REQUIRED, { StorageScreen(SettingsSamples.storage, actions) }) {
-      assertThat(compose.textsOf(SettingsTags.storageDownload(SettingsSamples.park))).contains("Clip data ✓ · Audio 60 % · Video waiting")
+      // On screen: "Clip data" with the check icon, "·", "Audio 60 %", "·", "Video waiting".
+      val line = compose.textsOf(SettingsTags.storageDownload(SettingsSamples.park))
+      listOf("Clip data", "Audio 60 %", "Video waiting").forEach { assertThat(line).contains(it) }
       assertThat(compose.spokenOf(SettingsTags.storageDownload(SettingsSamples.park))).isEqualTo("Clip data ready, Audio 60%, Video waiting")
       // Every file of the kept clip is here: no line.
       compose.onNodeWithTag(SettingsTags.storageDownload(SettingsSamples.coffee)).assertDoesNotExist()
