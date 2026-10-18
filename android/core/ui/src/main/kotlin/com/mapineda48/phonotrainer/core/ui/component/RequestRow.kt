@@ -81,6 +81,7 @@ data class RequestRowState(
 object RequestRowTags {
   const val OPEN = "ui.request.open"
   const val STATE = "ui.request.state"
+  const val TITLE = "ui.request.title"
   const val SOURCE = "ui.request.source"
   const val BODY = "ui.request.body"
   const val REASON = "ui.request.reason"
@@ -112,7 +113,7 @@ fun RequestAction.labelRes(): Int = when (this) {
 
 /**
  * A request card (design 9.19, render `17`; WP-22, API frozen at M2, work-plan 4.5): the state line (icon + words), the
- * source line, the sentence and reason lines, the bar, the route line or the stepper, and the actions grid (two
+ * request's title, the source line, the sentence and reason lines, the bar, the route line or the stepper, and the actions grid (two
  * columns, one at large text). A failure is the alert card: the 4 dp ink bar, circle-alert in `critical`, the title
  * and body of its spec 8.6 row ([RequestFailureCopy]) and "Remove" as the danger button. The card shows only what
  * `Request.actions` holds (architecture 8.4, the one authority); [onAction] carries out one, [onOpen] opens the
@@ -158,6 +159,14 @@ private fun FullCard(
     onClickLabel = stringResource(R.string.request_open_label),
   ) {
     RequestStateLine(words, Modifier.testTag(RequestRowTags.STATE))
+    PhonoText(
+      request.title,
+      style = MaterialTheme.typography.titleMedium,
+      color = colors.ink,
+      maxLines = TITLE_LINES,
+      overflow = TextOverflow.Ellipsis,
+      modifier = Modifier.testTag(RequestRowTags.TITLE),
+    )
     IconLine(words.sourceIcon, words.source, Modifier.testTag(RequestRowTags.SOURCE))
     words.body?.let {
       PhonoText(it, style = MaterialTheme.typography.bodyLarge, color = colors.ink, modifier = Modifier.testTag(RequestRowTags.BODY))
@@ -312,6 +321,7 @@ fun RequestStateLine(words: RequestRowWords, modifier: Modifier = Modifier) {
 }
 
 private const val FULL_TURN = 360f
+private const val TITLE_LINES = 3
 private const val TURN_MS = 1_000
 
 /**

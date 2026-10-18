@@ -175,24 +175,20 @@ object RequestRowCopy {
   }
 
   /**
-   * The source line (design 9.19, render `17`): the site word and the clip's title ("X · How to order coffee like a
-   * local"), or the shortened link while the title is only the provisional "{site} link" (spec 8.2 rule 5); or the
-   * file's title and size; while the request is on this phone, its age ("added 3 min ago", spec F-20 item 1).
+   * The source line under the card's title (design 9.19): the site word and the shortened link, or the file's kind and
+   * size (and its name when the computer gave the clip another title); while the request is on this phone, its age
+   * ("added 3 min ago", spec F-20 item 1).
    */
   fun source(request: Request, now: Instant, resources: Resources): String {
     val parts = mutableListOf<String>()
     when (request.kind) {
       RequestKind.LINK -> {
         parts += resources.getString(siteWord(request.site))
-        val title = request.title.trim()
-        when {
-          hasOwnTitle(title) -> parts += title
-          request.link != null -> parts += shortLink(request.link.orEmpty())
-        }
+        request.link?.let { parts += shortLink(it) }
       }
       RequestKind.FILE -> {
-        parts += request.title.takeIf { it.isNotBlank() } ?: request.fileName?.takeIf { it.isNotBlank() }
-          ?: resources.getString(if (isVideo(request) == false) R.string.request_file_audio else R.string.request_file_video)
+        request.fileName?.takeIf { it.isNotBlank() && it != request.title }?.let { parts += it }
+        parts += resources.getString(if (isVideo(request) == false) R.string.request_file_audio else R.string.request_file_video)
         request.fileBytes?.takeIf { it > 0 }?.let { parts += bytes(it, resources) }
       }
     }
@@ -201,13 +197,6 @@ object RequestRowCopy {
     }
     return parts.joinToString(" · ")
   }
-
-  /**
-   * Whether a link request's [title] names the clip: not empty, not a link, and not the provisional "{site} link"
-   * (`:core:requests` words it so until the computer reports the real title, spec 8.2 rule 5).
-   */
-  fun hasOwnTitle(title: String): Boolean =
-    title.isNotBlank() && !title.contains("://") && !title.endsWith(PROVISIONAL_SUFFIX)
 
   /** The reason lines of a waiting request (spec F-20 item 1, D-41, D-46, D-61): held, or the D-61 reason; large file. */
   fun reasons(request: Request, status: ComputerStatus?, now: Instant, resources: Resources): List<RequestReason> {
@@ -436,5 +425,4 @@ object RequestRowCopy {
   private const val SHORT_LINK_CHARS = 30
   private const val SHORT_LINK_HEAD = 24
   private const val SHORT_LINK_TAIL = 3
-  private const val PROVISIONAL_SUFFIX = " link"
 }

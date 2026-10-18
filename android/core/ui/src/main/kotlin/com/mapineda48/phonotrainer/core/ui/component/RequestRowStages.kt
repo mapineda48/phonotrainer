@@ -129,8 +129,8 @@ object RequestRowStages {
         resources.getString(name(stages[index].stage)),
       )
       stages.isNotEmpty() && stages.all { it.state == StepState.DONE } ->
-        resources.getString(R.string.request_stepper_done, stages.size)
-      else -> resources.getString(R.string.request_stepper_waiting, stages.size)
+        resources.getQuantityString(R.plurals.request_stepper_done, stages.size, stages.size)
+      else -> resources.getQuantityString(R.plurals.request_stepper_waiting, stages.size, stages.size)
     }
   }
 

@@ -81,13 +81,14 @@ class RequestRowCopyTest {
   }
 
   @Test
-  fun theSourceLineNamesTheSiteAndTitleOrTheLinkAndAFilesSizeAndAge() {
-    assertThat(words(RequestRowSamples.analyzing).source).isEqualTo("X · How to order coffee like a local")
+  fun theSourceLineNamesTheSiteAndLinkOrTheFilesKindAndSizeAndTheAge() {
+    assertThat(words(RequestRowSamples.analyzing).source).isEqualTo("X · x.com/someone/status/189…041")
     assertThat(words(RequestRowSamples.downloadForbidden).source).isEqualTo("YouTube · youtube.com/watch?v=Ab3x…Qx7")
-    assertThat(words(RequestRowSamples.waiting).source).isEqualTo("bus-stop-chat.mp4 · 48 MB · added 3 min ago")
-    assertThat(words(RequestRowSamples.waitingLarge).source).isEqualTo("long-interview.mp4 · 600 MB · added 15 days ago")
+    assertThat(words(RequestRowSamples.waiting).source).isEqualTo("Video · 48 MB · added 3 min ago")
+    assertThat(words(RequestRowSamples.waitingLarge).source).isEqualTo("Video · 600 MB · added 15 days ago")
+    assertThat(words(RequestRowSamples.waiting.copy(title = "Bus stop chat")).source).isEqualTo("bus-stop-chat.mp4 · Video · 48 MB · added 3 min ago")
     assertThat(words(RequestRowSamples.waitingHeld.copy(createdAt = now.minus(Duration.ofHours(30)))).source)
-      .isEqualTo("YouTube · How to order coffee like a local · added yesterday")
+      .isEqualTo("YouTube · youtube.com/watch?v=Ab3x…Qx7 · added yesterday")
   }
 
   @Test
@@ -177,8 +178,6 @@ class RequestRowCopyTest {
     assertThat(RequestRowCopy.bytes(2L * 1024 * 1024 * 1024, resources)).isEqualTo("2 GB")
     assertThat(RequestRowCopy.bytesOf(850 * 1024, 1_288_490_189, resources)).isEqualTo("850 KB of 1.2 GB")
     assertThat(RequestRowCopy.shortLink("https://youtu.be/abc")).isEqualTo("youtu.be/abc")
-    assertThat(RequestRowCopy.hasOwnTitle("YouTube link")).isFalse()
-    assertThat(RequestRowCopy.hasOwnTitle("Ordering coffee")).isTrue()
     assertThat(RequestRowCopy.isVideo(RequestRowSamples.waiting)).isTrue()
     assertThat(RequestRowCopy.isVideo(RequestRowSamples.request("a", RequestState.WAITING, kind = RequestKind.FILE, fileName = "talk.opus"))).isFalse()
     assertThat(RequestRowCopy.sourceIcon(RequestRowSamples.request("x", RequestState.WAITING, site = Site.X))).isEqualTo(PhonoIcons.SiteX)

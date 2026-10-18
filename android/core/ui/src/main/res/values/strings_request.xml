@@ -4,7 +4,6 @@
      words and teaching lines of spec F-20 item 2 (the web's stepper). -->
 <resources>
     <!-- The card. -->
-    <string name="request_open">Open “%1$s”</string>
     <string name="request_open_label">open the request</string>
     <string name="request_watch">Watch</string>
 
@@ -121,8 +120,14 @@
     <string name="request_stage_status_cancelled">cancelled</string>
     <string name="request_step_of">Step %1$d of %2$d</string>
     <string name="request_stepper_current">Step %1$d of %2$d: %3$s, in progress.</string>
-    <string name="request_stepper_waiting">%1$d steps on your computer, not started yet.</string>
-    <string name="request_stepper_done">All %1$d steps done.</string>
+    <plurals name="request_stepper_waiting">
+        <item quantity="one">%1$d step on your computer, not started yet.</item>
+        <item quantity="other">%1$d steps on your computer, not started yet.</item>
+    </plurals>
+    <plurals name="request_stepper_done">
+        <item quantity="one">%1$d step done.</item>
+        <item quantity="other">All %1$d steps done.</item>
+    </plurals>
     <string name="request_stage_announcement">Now: %1$s.</string>
 
     <!-- Failure copy (spec 8.6; the phone-side copy codes of 7.7; architecture 19). -->
