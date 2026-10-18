@@ -5,8 +5,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -199,13 +197,10 @@ fun QuestionCard(
   }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+/** In an [IntrinsicFlowRow]: the card takes its content's intrinsic height, which a `FlowRow` understates. */
 @Composable
 private fun PlayButtons(hasContext: Boolean, onPlay: () -> Unit, onSlow: () -> Unit, onContext: () -> Unit) {
-  FlowRow(
-    horizontalArrangement = Arrangement.spacedBy(PhonoSpacing.s8),
-    verticalArrangement = Arrangement.spacedBy(PhonoSpacing.s8),
-  ) {
+  IntrinsicFlowRow(horizontalSpacing = PhonoSpacing.s8, verticalSpacing = PhonoSpacing.s8) {
     PhonoButton(
       text = stringResource(R.string.question_play),
       onClick = onPlay,
@@ -319,6 +314,7 @@ private fun OptionWords(option: QuestionOption, family: Family?, bold: Boolean) 
         style = MaterialTheme.typography.titleMedium.copy(fontWeight = weight ?: FontWeight.Medium),
         color = colors.ink,
         textAlign = TextAlign.Center,
+        modifier = Modifier.weight(1f, fill = false),
       )
     }
     else -> PhonoText(
@@ -338,7 +334,8 @@ private fun OptionMark(id: String, @DrawableRes icon: Int, tint: androidx.compos
     horizontalArrangement = Arrangement.spacedBy(PhonoSpacing.s4),
   ) {
     Icon(painterResource(icon), null, tint = tint, modifier = Modifier.size(PhonoSizes.iconInline))
-    PhonoText(words, style = MaterialTheme.typography.labelLarge, color = PhonoTheme.colors.ink)
+    // Weighted, so a mark that wraps at a large font scale is measured as wrapped by the card's intrinsic height.
+    PhonoText(words, style = MaterialTheme.typography.labelLarge, color = PhonoTheme.colors.ink, modifier = Modifier.weight(1f, fill = false))
   }
 }
 
