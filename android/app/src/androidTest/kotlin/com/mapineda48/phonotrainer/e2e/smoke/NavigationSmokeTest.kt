@@ -17,6 +17,7 @@ import com.mapineda48.phonotrainer.core.navigation.AboutKey
 import com.mapineda48.phonotrainer.core.navigation.AddClipKey
 import com.mapineda48.phonotrainer.core.navigation.ClipKey
 import com.mapineda48.phonotrainer.core.navigation.ConnectKey
+import com.mapineda48.phonotrainer.core.navigation.ConnectMode
 import com.mapineda48.phonotrainer.core.navigation.ConnectionDetailsKey
 import com.mapineda48.phonotrainer.core.navigation.FeedStart
 import com.mapineda48.phonotrainer.core.navigation.GlossaryIndexKey
@@ -210,11 +211,14 @@ class NavigationSmokeTest {
   }
 
   @Test
-  fun theWelcomeShowsOnTheFirstLaunchUntilGetStarted() {
+  fun theWelcomeShowsOnTheFirstLaunchUntilItIsSkipped() {
     start(welcomeDone = false)
     robot.assertShown(WelcomeKey())
-    robot.tap(OnboardingTags.GET_STARTED)
+    // WP-13's Welcome: "Skip" (on every page) goes on to Connect in its first-run mode, whose Back is Home.
+    robot.tap(OnboardingTags.SKIP)
     robot.assertNotShown(WelcomeKey())
+    robot.assertShown(ConnectKey(ConnectMode.FIRST_RUN))
+    robot.back()
     robot.assertShown(HomeKey)
     assertThat(settings.settings.value.welcomeDone).isTrue()
   }
