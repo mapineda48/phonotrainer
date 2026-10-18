@@ -2,6 +2,8 @@ package com.mapineda48.phonotrainer.core.sync
 
 import com.google.common.truth.Truth.assertThat
 import com.mapineda48.phonotrainer.core.common.files.FileLayout
+import com.mapineda48.phonotrainer.core.domain.model.ClipAvailability
+import com.mapineda48.phonotrainer.core.domain.model.ClipQuery
 import com.mapineda48.phonotrainer.core.domain.model.SyncReason
 import com.mapineda48.phonotrainer.core.domain.spi.StartupOrder
 import com.mapineda48.phonotrainer.core.domain.spi.StartupTask
@@ -12,6 +14,7 @@ import java.time.Duration
 import java.time.Instant
 import java.util.Collections
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
@@ -56,7 +59,7 @@ class StartupCheckTest {
   private fun sync(block: suspend TestScope.(SyncHarness) -> Unit) = runTest { SyncHarness().use { block(it) } }
 
   private fun SyncHarness.check(processStart: Instant, tasks: Set<StartupTask> = emptySet()) = StartupCheck(
-    processStart, { tasks }, clips, artifacts, files, SyncDirs(filesDir, cacheDir), refresh, backgroundScopeForChecks,
+    processStart, { tasks }, db, clips, artifacts, files, SyncDirs(filesDir, cacheDir), refresh, backgroundScopeForChecks,
     Dispatchers.IO, log,
   )
 
@@ -143,6 +146,35 @@ class StartupCheckTest {
     assertThat(seen).containsExactly(start)
     assertThat(h.refresh.ticks.value).isEqualTo(ticks + 1)
     assertThat(h.logged).contains("sync.startup_task_failed (java.lang.IllegalStateException)")
+  }
+
+  @Test
+  fun aVerifiedFileGoneFromThePhoneIsDownloadedAgain() = sync { h ->
+    val id = h.computer.addFinishedClip("Ordering coffee", video = false)
+    h.syncAndDownload()
+    h.files.resolve(h.artifact(id, Names.MIX).localFile)!!.delete()
+
+    h.check(h.clock.now()).run()
+
+    assertThat(h.artifact(id, Names.MIX).localState).isEqualTo("ABSENT")
+    assertThat(h.clipRepository.clips(ClipQuery()).first().single().availability)
+      .isEqualTo(ClipAvailability.NeedsDownloadingAgain)
+
+    h.syncAndDownload()
+    assertThat(h.clipRepository.clips(ClipQuery()).first().single().availability).isEqualTo(ClipAvailability.OnThisPhone)
+  }
+
+  @Test
+  fun theDeviceQueuesCopiesAreNeverTheSyncSweepsBusiness() = sync { h ->
+    // A share that cold-starts the app keeps its copy: only the queue's own start-up task judges requests/.
+    val copy = File(FileLayout.requestsRoot(h.filesDir), "00000000-0000-4000-8000-000000000001/source.mp4").apply {
+      parentFile!!.mkdirs()
+      writeBytes(ByteArray(8))
+    }.aged(0)
+
+    h.check(Instant.now()).run()
+
+    assertThat(copy.exists()).isTrue()
   }
 
   @Test

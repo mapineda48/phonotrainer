@@ -5,11 +5,15 @@ import com.mapineda48.phonotrainer.core.common.di.IoDispatcher
 import com.mapineda48.phonotrainer.core.common.di.ProcessStart
 import com.mapineda48.phonotrainer.core.common.files.FileLayout
 import com.mapineda48.phonotrainer.core.common.log.PhonoLog
+import androidx.room.withTransaction
+import com.mapineda48.phonotrainer.core.database.library.LibraryDatabase
 import com.mapineda48.phonotrainer.core.database.library.dao.ArtifactDao
 import com.mapineda48.phonotrainer.core.database.library.dao.ClipDao
 import com.mapineda48.phonotrainer.core.domain.spi.StartupGate
 import com.mapineda48.phonotrainer.core.domain.spi.StartupOrder
 import com.mapineda48.phonotrainer.core.domain.spi.StartupTask
+import com.mapineda48.phonotrainer.core.sync.catalogue.ArtifactErrors
+import com.mapineda48.phonotrainer.core.sync.catalogue.LocalStates
 import com.mapineda48.phonotrainer.core.sync.storage.StorageRefresh
 import com.mapineda48.phonotrainer.core.sync.transfer.ClipFiles
 import java.io.File
@@ -42,6 +46,7 @@ internal data class SyncDirs(val filesDir: File, val cacheDir: File)
 class StartupCheck @Inject internal constructor(
   @param:ProcessStart private val processStart: Instant,
   private val tasks: Provider<Set<@JvmSuppressWildcards StartupTask>>,
+  private val db: LibraryDatabase,
   private val clips: ClipDao,
   private val artifacts: ArtifactDao,
   private val files: ClipFiles,
@@ -84,6 +89,7 @@ class StartupCheck @Inject internal constructor(
   private suspend fun sweep(before: Long) {
     val requeued = artifacts.requeueInterrupted(before)
     if (requeued > 0) log.d { "$requeued interrupted downloads go back to the queue" }
+    repairMissing()
     val known = clips.all().mapTo(HashSet()) { it.jobId }
     val rows = artifacts.files()
     val inUse = rows.mapNotNullTo(HashSet()) { it.localFile }
@@ -104,6 +110,29 @@ class StartupCheck @Inject internal constructor(
       }
       deleteOlder(File(File(dirs.filesDir, FileLayout.REFERENCE), REFERENCE_PART), before)
       FileLayout.takesDir(dirs.cacheDir).listFiles().orEmpty().forEach { deleteOlder(it, before) }
+    }
+  }
+
+  /**
+   * A verified file that is no longer on this phone (deleted outside the app, a restored backup without media) is
+   * downloaded again: its row goes back to `ABSENT`, and the clip reads "Needs downloading again" until it is here.
+   */
+  private suspend fun repairMissing() {
+    val missing = artifacts.all().filter { row ->
+      row.localState == LocalStates.READY && withContext(io) { files.resolve(row.localFile)?.isFile != true }
+    }
+    if (missing.isEmpty()) return
+    log.w("sync.verified_file_missing")
+    db.withTransaction {
+      for (row in missing) {
+        artifacts.update(
+          row.copy(
+            localState = LocalStates.ABSENT, localFile = null, localSha256 = null, localBytes = null,
+            lastError = ArtifactErrors.MISSING,
+          ),
+        )
+        clips.clearOnPhone(row.jobId)
+      }
     }
   }
 

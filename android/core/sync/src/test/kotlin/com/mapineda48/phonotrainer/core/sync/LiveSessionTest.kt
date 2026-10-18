@@ -6,6 +6,10 @@ import com.mapineda48.phonotrainer.core.domain.model.NetworkKind
 import com.mapineda48.phonotrainer.core.domain.model.SyncReason
 import com.mapineda48.phonotrainer.core.domain.spi.StartupOrder
 import com.mapineda48.phonotrainer.core.domain.spi.StartupTask
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
+import com.mapineda48.phonotrainer.core.sync.work.SyncWorkNames
+import com.mapineda48.phonotrainer.core.sync.work.WorkManagerSyncWork
 import com.mapineda48.phonotrainer.core.testing.computer.JobSeed
 import com.mapineda48.phonotrainer.core.testing.computer.JobStage
 import com.mapineda48.phonotrainer.core.testing.computer.JobStatus
@@ -119,6 +123,21 @@ class LiveSessionTest {
     assertThat(h.work.periodic).isTrue()
     h.pairing.state.value = null
     until("no periodic work without a computer") { !h.work.periodic }
+  }
+
+  @Test
+  fun thePeriodicWorkExistsInWorkManagerOnlyWhileAComputerIsPaired() = live { h, scope ->
+    initWorkManager(h.context, SyncWorkerFactory({ ScriptedPasses() }, { NO_DOWNLOADS }, { h.work }, { h.meta }))
+    val work = WorkManagerSyncWork(h.context, h.log)
+    val manager = WorkManager.getInstance(h.context)
+    fun periodic() = manager.getWorkInfosForUniqueWork(SyncWorkNames.PERIODIC).get()
+    h.session(SettableForeground(), scope, work = work).start()
+
+    until("periodic while paired") { periodic().any { it.state == WorkInfo.State.ENQUEUED } }
+    h.pairing.state.value = null
+    until("no periodic once forgotten") { periodic().all { it.state == WorkInfo.State.CANCELLED } }
+    h.pairing.state.value = SyncHarness.record(h.computer.serverId, h.computer.libraryId, h.phone.deviceId)
+    until("periodic again") { periodic().any { it.state == WorkInfo.State.ENQUEUED } }
   }
 
   @Test

@@ -89,7 +89,8 @@ internal object ClipMapping {
       return ClipAvailability.GettingReadyOnComputer
     }
     val waiting = pack.filter { it.localState != LocalStates.READY }
-    if (waiting.any { it.localState == LocalStates.FAILED || it.lastError == ArtifactErrors.CORRUPT }) {
+    val damaged = setOf(ArtifactErrors.CORRUPT, ArtifactErrors.MISSING)
+    if (waiting.any { it.localState == LocalStates.FAILED || it.lastError in damaged }) {
       return ClipAvailability.NeedsDownloadingAgain
     }
     waiting.firstNotNullOfOrNull { row -> Pauses.of(row.pauseReason)?.takeIf { row.localState == LocalStates.PAUSED } }

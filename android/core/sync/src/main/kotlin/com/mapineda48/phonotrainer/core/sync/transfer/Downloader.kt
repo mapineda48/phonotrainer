@@ -40,6 +40,7 @@ import javax.inject.Provider
 import javax.inject.Singleton
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -215,6 +216,10 @@ internal class Downloader @Inject constructor(
       board.started(want.jobId, want.name, from, want.bytes)
       val outcome = try {
         download(want, part, url, from, etag, filesLeft, progress)
+      } catch (stopped: CancellationException) {
+        // Stopped by Android or the learner: back to the queue with what arrived, resumed by the next run.
+        withContext(NonCancellable) { requeue(want, part, revision, etag) }
+        throw stopped
       } finally {
         board.finished()
       }
@@ -422,6 +427,7 @@ internal class Downloader @Inject constructor(
           partRevision = revision,
           etag = etag,
           pauseReason = null,
+          lastError = current.lastError.takeIf { it == ArtifactErrors.DAMAGED || it == ArtifactErrors.CANNOT_PLAY },
           updatedAt = now(),
         ),
       )

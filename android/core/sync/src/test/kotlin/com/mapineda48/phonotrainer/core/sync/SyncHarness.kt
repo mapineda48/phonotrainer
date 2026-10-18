@@ -68,7 +68,6 @@ import com.mapineda48.phonotrainer.core.testing.computer.FakeComputerClock
 import com.mapineda48.phonotrainer.core.testing.computer.PhoneCredentials
 import com.mapineda48.phonotrainer.core.testing.fake.app.FakeSettingsRepository
 import com.mapineda48.phonotrainer.core.testing.fake.app.FakeStartupGate
-import com.mapineda48.phonotrainer.core.testing.fake.app.FakeSyncTrigger
 import com.mapineda48.phonotrainer.core.testing.fake.app.FakeUserMessages
 import com.mapineda48.phonotrainer.core.testing.fake.connectivity.FakeComputerStatusRepository
 import com.mapineda48.phonotrainer.core.testing.fake.content.FakeReferenceRepository
@@ -116,7 +115,7 @@ internal class SyncHarness : AutoCloseable {
   val reference = FakeReferenceRepository()
   val requests = FakeRequestRepository()
   val progress = FakeProgressRepository()
-  val trigger = FakeSyncTrigger()
+  val trigger = RecordingTrigger()
   val work = RecordingWork(events)
   val hooks = RecordingHooks(events)
   val logged: MutableList<String> = Collections.synchronizedList(mutableListOf())
@@ -167,10 +166,15 @@ internal class SyncHarness : AutoCloseable {
   )
 
   /** The foreground session over [channelSession], with [foreground] and [scope] as given. */
-  fun session(foreground: ForegroundState, scope: CoroutineScope, startupTasks: Set<StartupTask> = emptySet()) =
+  fun session(
+    foreground: ForegroundState,
+    scope: CoroutineScope,
+    startupTasks: Set<StartupTask> = emptySet(),
+    work: SyncWork = this.work,
+  ) =
     ForegroundSession(
       foreground, status, pairing, network, channelSession, leases, removal, work, meta,
-      StartupCheck(clock.now(), { startupTasks }, clips, artifacts, files, SyncDirs(filesDir, cacheDir), refresh, scope, Dispatchers.IO, log),
+      StartupCheck(clock.now(), { startupTasks }, db, clips, artifacts, files, SyncDirs(filesDir, cacheDir), refresh, scope, Dispatchers.IO, log),
       Provider<SyncTrigger> { trigger }, scope, log,
     )
 
@@ -250,6 +254,15 @@ internal class SyncHarness : AutoCloseable {
     }
   }
 
+  /** The sync trigger, recording every reason from any thread. */
+  class RecordingTrigger : SyncTrigger {
+    val reasons: MutableList<SyncReason> = Collections.synchronizedList(mutableListOf())
+
+    override fun request(reason: SyncReason) {
+      reasons += reason
+    }
+  }
+
   class RecordingIndexer(private val events: MutableList<String>) : ClipIndexer {
     var outcome: (JobId) -> IndexOutcome = { IndexOutcome.Indexed(shorts = 3, occurrences = 5) }
     val indexed = mutableListOf<JobId>()
@@ -281,33 +294,39 @@ internal class SyncHarness : AutoCloseable {
   }
 
   class RecordingWork(private val events: MutableList<String>) : SyncWork {
-    val downloads = mutableListOf<Boolean>()
-    var sendNows = 0
-    var onWifi = 0
-    val nextOnWifi = mutableListOf<Duration>()
-    var periodic = false
+    val downloads: MutableList<Boolean> = Collections.synchronizedList(mutableListOf())
+    @Volatile var sendNows = 0
+    @Volatile var onWifi = 0
+    val nextOnWifi: MutableList<Duration> = Collections.synchronizedList(mutableListOf())
+    @Volatile var periodic = false
 
+    @Synchronized
     override fun scheduleDownloads(userVisible: Boolean) {
       events += "downloads"
       downloads += userVisible
     }
 
+    @Synchronized
     override fun sendNow() {
       sendNows++
     }
 
+    @Synchronized
     override fun ensureOnWifi() {
       onWifi++
     }
 
+    @Synchronized
     override fun nextOnWifi(delay: Duration) {
       nextOnWifi += delay
     }
 
+    @Synchronized
     override fun ensurePeriodic() {
       periodic = true
     }
 
+    @Synchronized
     override fun cancelUnpaired() {
       periodic = false
     }

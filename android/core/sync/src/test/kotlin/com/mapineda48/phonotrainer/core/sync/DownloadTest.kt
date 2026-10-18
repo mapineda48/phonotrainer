@@ -23,6 +23,11 @@ import com.mapineda48.phonotrainer.core.testing.computer.JobSeed
 import com.mapineda48.phonotrainer.core.testing.computer.Reachability
 import com.mapineda48.phonotrainer.core.testing.fixtures.AnalysisFixtures
 import java.time.Instant
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
@@ -324,6 +329,42 @@ class DownloadTest {
     assertThat(h.summary(id).video).isEqualTo(VideoAvailability.NotOnThisPhone)
     assertThat(h.summary(id).availability).isEqualTo(ClipAvailability.OnThisPhone)
     assertThat(h.artifactGets(Names.ORIGINAL)).hasSize(1)
+  }
+
+  @Test
+  fun aRunStoppedInTheMiddleOfAFileKeepsWhatArrivedAndTheNextRunResumesFromThere() = sync { h ->
+    val id = h.computer.addFinishedClip("Ordering coffee", video = false)
+    h.orchestrator.pass(SyncReason.SYNC_NOW)
+    val row = h.artifact(id, Names.MIX)
+    val half = row.remoteBytes!! / 2
+    val real = h.transfer
+    val whole = java.io.File(h.cacheDir, "whole.part")
+    h.fakeClient.transfer.download(DownloadRequest(row.remoteUrl!!, whole, 0, null, row.remoteBytes!!)) {}
+    val firstHalf = whole.readBytes().copyOf(half.toInt())
+    val arrived = CompletableDeferred<Unit>()
+    h.transfer = object : ArtifactTransfer {
+      override suspend fun download(request: DownloadRequest, onProgress: (Long) -> Unit): DownloadOutcome {
+        if (!request.target.name.startsWith(".audio_mix")) return real.download(request, onProgress)
+        request.target.parentFile!!.mkdirs()
+        request.target.writeBytes(firstHalf)
+        onProgress(half)
+        arrived.complete(Unit)
+        awaitCancellation()
+      }
+    }
+    val run = launch(Dispatchers.Default) { h.downloader.run {} }
+    arrived.await()
+
+    run.cancelAndJoin()
+
+    val stopped = h.artifact(id, Names.MIX)
+    assertThat(stopped.localState).isEqualTo("QUEUED")
+    assertThat(stopped.partBytes).isEqualTo(half)
+    h.transfer = real
+    h.downloader.run {}
+    assertThat(h.transfers.last { it.target.name.startsWith(".audio_mix") }.resumeFrom).isEqualTo(half)
+    assertThat(h.artifact(id, Names.MIX).localState).isEqualTo("READY")
+    assertThat(h.artifact(id, Names.MIX).verifyFailures).isEqualTo(0)
   }
 
   @Test
