@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -32,7 +34,9 @@ import androidx.navigation3.runtime.NavKey
 import com.mapineda48.phonotrainer.core.designsystem.component.DoubleRule
 import com.mapineda48.phonotrainer.core.designsystem.component.PhonoIconButton
 import com.mapineda48.phonotrainer.core.designsystem.component.PhonoText
+import com.mapineda48.phonotrainer.core.designsystem.component.paperDepth
 import com.mapineda48.phonotrainer.core.designsystem.icons.PhonoIcons
+import com.mapineda48.phonotrainer.core.designsystem.theme.PhonoRadius
 import com.mapineda48.phonotrainer.core.designsystem.theme.PhonoSizes
 import com.mapineda48.phonotrainer.core.designsystem.theme.PhonoSpacing
 import com.mapineda48.phonotrainer.core.designsystem.theme.PhonoTheme
@@ -88,7 +92,7 @@ internal fun LearnTopBar(
       verticalAlignment = Alignment.CenterVertically,
     ) {
       PhonoIconButton(PhonoIcons.Back, contentDescription = backLabel, onClick = onBack, modifier = Modifier.testTag(LearnTags.BACK))
-      Box(Modifier.weight(1f).padding(horizontal = PhonoSpacing.s8, vertical = PhonoSpacing.s8).semantics { heading() }) {
+      Box(Modifier.weight(1f).padding(horizontal = PhonoSpacing.s8, vertical = PhonoSpacing.s8).semantics(mergeDescendants = true) { heading() }) {
         if (family != null) {
           MarkedWordSpan(text = title, family = family, style = MaterialTheme.typography.headlineLarge)
         } else {
@@ -99,6 +103,27 @@ internal fun LearnTopBar(
     }
     if (scrolled) Box(Modifier.fillMaxWidth().height(PhonoSizes.hairline).background(colors.hairline))
   }
+}
+
+/**
+ * A card of Learn's pages with the look of `PaperCard` (design 9.1: sheet paper, 14 dp corners, 16 dp padding, the
+ * depth of design 5.3) but without its intrinsic height, which wrapping rows (the IPA chart's groups) cannot answer
+ * reliably: measured that way, a group of symbol buttons got less height than it needed and clipped its symbols.
+ */
+@Composable
+internal fun LearnCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+  val colors = PhonoTheme.colors
+  val shape = RoundedCornerShape(PhonoRadius.large)
+  Column(
+    modifier = modifier
+      .fillMaxWidth()
+      .paperDepth(colors, shape)
+      .clip(shape)
+      .background(colors.sheet)
+      .padding(PhonoSpacing.cardPadding),
+    verticalArrangement = Arrangement.spacedBy(PhonoSpacing.s10),
+    content = content,
+  )
 }
 
 /** A section title of a page (headlineSmall, a heading). */
@@ -159,7 +184,7 @@ internal fun FamilyHeader(family: Family?, title: String, modifier: Modifier = M
 @Composable
 internal fun FamilyPill(family: Family, name: String, modifier: Modifier = Modifier) {
   val colors = PhonoTheme.colors
-  val description = stringResource(R.string.learn_family_line, name, familyLineName(family))
+  val description = stringResource(R.string.learn_family_pill, name, familyLineName(family))
   Row(
     modifier = modifier
       .heightIn(min = 32.dp)

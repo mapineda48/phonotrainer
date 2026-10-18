@@ -162,7 +162,7 @@ private fun ChooseASymbol() {
 /** A card of the chart: its title (a heading), what its groups mean, then [content]. */
 @Composable
 private fun ChartSection(title: String, lede: String, tag: String, content: @Composable () -> Unit) {
-  PaperCard(modifier = Modifier.fillMaxWidth().testTag(LearnTags.ipaSection(tag))) {
+  LearnCard(modifier = Modifier.testTag(LearnTags.ipaSection(tag))) {
     PhonoText(title, style = MaterialTheme.typography.headlineSmall, color = PhonoTheme.colors.ink, modifier = Modifier.semantics { heading() })
     IpaText(lede, style = MaterialTheme.typography.bodyMedium, color = PhonoTheme.colors.ink2)
     content()
@@ -265,11 +265,12 @@ private fun SymbolButton(symbol: String, buttons: SymbolButtons) {
     horizontalAlignment = Alignment.CenterHorizontally,
     verticalArrangement = Arrangement.spacedBy(PhonoSpacing.s2, Alignment.CenterVertically),
   ) {
+    // No text alignment: the column centres it, and the text keeps its own width (a centred text takes the whole width
+    // it is offered, which reads as overflow when it is measured).
     Text(
       text = symbol,
       style = PhonoTheme.type.ipaForm,
       color = ink,
-      textAlign = TextAlign.Center,
       modifier = if (weak) Modifier.dottedUnderline(ink) else Modifier,
     )
     if (weak) PhonoText(stringResource(R.string.ipa_weak), style = MaterialTheme.typography.labelSmall, color = ink)

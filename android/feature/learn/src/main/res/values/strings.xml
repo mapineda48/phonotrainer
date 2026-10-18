@@ -15,6 +15,8 @@
     <string name="learn_whole_word">Whole-word changes</string>
     <!-- Under a family's name: "Dashed line · the stop is clipped". -->
     <string name="learn_family_line">%1$s · %2$s</string>
+    <!-- What TalkBack reads on a phenomenon page's family pill: "t/d processes, dashed line". -->
+    <string name="learn_family_pill">%1$s, %2$s</string>
     <!-- The short count of a change card (spec D-48: the shorts its feed plays, as the Home chip). -->
     <plurals name="learn_shorts">
         <item quantity="one">%d short in your clips</item>
