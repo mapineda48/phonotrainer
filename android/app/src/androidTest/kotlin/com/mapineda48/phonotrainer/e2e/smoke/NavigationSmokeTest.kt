@@ -4,6 +4,8 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performScrollTo
 import androidx.navigation3.runtime.NavKey
 import androidx.test.platform.app.InstrumentationRegistry
 import com.google.common.truth.Truth.assertThat
@@ -151,6 +153,9 @@ class NavigationSmokeTest {
   @Test
   fun backClosesPopsThenGoesHomeThenLeaves() {
     start()
+    // Home is one scrolling page (WP-15): "All clips" is below the fold on a phone.
+    robot.waitForTag(HomeTags.LINK_LIBRARY)
+    compose.onNodeWithTag(HomeTags.LINK_LIBRARY).performScrollTo()
     robot.tap(HomeTags.LINK_LIBRARY)
     robot.assertShown(LibraryKey)
     robot.tab(Tab.LEARN)
