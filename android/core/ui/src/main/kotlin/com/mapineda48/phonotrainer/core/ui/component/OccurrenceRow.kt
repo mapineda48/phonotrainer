@@ -134,9 +134,9 @@ fun OccurrenceRow(
 /** "/wɔtɚ/ → [wɔɾɚ]", or only "[…]" when the dictionary has no form for the word. */
 @Composable
 private fun forms(occurrence: Occurrence): String {
-  val said = "[${OccurrenceRowPlayback.saidForm(occurrence)}]"
-  val dictionary = OccurrenceRowPlayback.dictionaryForm(occurrence) ?: return said
-  return stringResource(R.string.occurrence_forms, "/$dictionary/", said)
+  val said = OccurrenceRowPlayback.saidForm(occurrence)
+  val dictionary = OccurrenceRowPlayback.dictionaryForm(occurrence) ?: return stringResource(R.string.occurrence_said, said)
+  return stringResource(R.string.occurrence_forms, dictionary, said)
 }
 
 /** The 44 dp play circle (an ink ring; ink-filled with a stop square while playing) in a 48 dp target. */

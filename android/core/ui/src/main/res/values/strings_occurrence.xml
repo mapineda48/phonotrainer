@@ -10,8 +10,9 @@
     <string name="occurrence_lesson">Open in its lesson</string>
     <!-- A change that runs into the next word: "get it". -->
     <string name="occurrence_words">%1$s %2$s</string>
-    <!-- The dictionary form and what was said: "/wɔtɚ/ → [wɔɾɚ]". -->
-    <string name="occurrence_forms">%1$s → %2$s</string>
+    <!-- The dictionary form and what was said: "/wɔtɚ/ → [wɔɾɚ]"; only what was said when the dictionary has no form. -->
+    <string name="occurrence_forms">/%1$s/ → [%2$s]</string>
+    <string name="occurrence_said">[%1$s]</string>
     <!-- The clip and the time of the word in it: "Two friends at the lake · 0:45". -->
     <string name="occurrence_meta">%1$s · %2$s</string>
 </resources>

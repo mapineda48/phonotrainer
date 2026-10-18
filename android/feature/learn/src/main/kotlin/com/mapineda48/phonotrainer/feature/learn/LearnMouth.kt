@@ -75,8 +75,8 @@ internal fun MouthDemoCard(demo: MouthDemoUi, mouth: MouthRenderer?, onIpaChart:
       stringResource(
         R.string.phenomenon_mouth_forms,
         demo.word,
-        "/" + demo.dictionary.joinToString("") + "/",
-        "[" + demo.said.joinToString("") + "]",
+        demo.dictionary.joinToString(""),
+        demo.said.joinToString(""),
       ),
       style = MaterialTheme.typography.bodyLarge,
     )

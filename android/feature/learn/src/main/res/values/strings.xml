@@ -43,7 +43,7 @@
     <string name="phenomenon_register_marked_meaning">Tied to a region or a social group.</string>
     <string name="phenomenon_mouth_title">The mouth</string>
     <!-- "“does”: /dʌz/ → [dəz]" -->
-    <string name="phenomenon_mouth_forms">“%1$s”: %2$s → %3$s</string>
+    <string name="phenomenon_mouth_forms">“%1$s”: /%2$s/ → [%3$s]</string>
     <string name="phenomenon_mouth_hint">Switch between the two and watch what changes.</string>
     <string name="phenomenon_mouth_dictionary">Dictionary form</string>
     <string name="phenomenon_mouth_said">What is said</string>
