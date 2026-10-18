@@ -51,6 +51,7 @@ import com.mapineda48.phonotrainer.core.testing.fake.sync.FakeClipRepository
 import com.mapineda48.phonotrainer.core.testing.fake.sync.FakeStorageRepository
 import com.mapineda48.phonotrainer.core.testing.fake.sync.FakeSyncController
 import com.mapineda48.phonotrainer.core.ui.extension.InsightsAvailability
+import java.time.Duration
 import java.time.Instant
 import java.util.Optional
 import kotlinx.coroutines.CompletableDeferred
@@ -302,6 +303,18 @@ class HomeViewModelTest {
     vm.perform(RequestId("failed"), RequestAction.TRY_AGAIN)
     runCurrent()
     assertThat(requests.performed).hasSize(2)
+  }
+
+  @Test
+  fun theTimesOnTheCardStayTrueWhileHomeIsShown() = runTest {
+    computer.diagnosticsState.value = computer.diagnosticsState.value.copy(lastProbeAt = now.minusSeconds(10))
+    val vm = collected()
+    assertThat(vm.state.value.extras.now).isEqualTo(now)
+    clock.advanceBy(Duration.ofSeconds(30))
+    advanceTimeBy(30_001)
+    // "Checked 40 s ago" a moment later, without any other change.
+    assertThat(vm.state.value.extras.now).isEqualTo(now.plusSeconds(30))
+    assertThat(vm.state.value.now).isEqualTo(now.plusSeconds(30))
   }
 
   @Test

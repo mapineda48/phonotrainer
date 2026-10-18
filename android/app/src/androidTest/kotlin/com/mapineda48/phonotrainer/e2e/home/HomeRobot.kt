@@ -83,9 +83,13 @@ class HomeRobot(private val compose: ComposeTestRule, val phono: PhonoRobot) {
 
   private fun shelfCard(id: JobId) = hasTestTag(ClipCardTags.OPEN) and hasAnyAncestor(hasTestTag(HomeTags.shelfCard(id)))
 
-  /** Scrolls Home until the shelf card of [id] is on screen (it waits for the clip to reach the shelf). */
+  /**
+   * Scrolls Home until the shelf card of [id] is on screen (it waits for the clip to reach the shelf): the page first,
+   * to the shelf block (the card's nearest scrolling parent is the shelf's own row), then the row to the card.
+   */
   fun scrollToShelf(id: JobId) {
     compose.waitUntilAtLeastOneExists(shelfCard(id), SYNC_TIMEOUT_MS)
+    compose.onNodeWithTag(HomeTags.block("shelf")).performScrollTo()
     compose.onNode(shelfCard(id)).performScrollTo()
     compose.waitForIdle()
   }

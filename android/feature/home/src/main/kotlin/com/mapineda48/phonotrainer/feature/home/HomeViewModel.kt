@@ -55,6 +55,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
@@ -175,7 +176,15 @@ internal class HomeViewModel @Inject constructor(
 
   private val study = combine(today, keepWatching, newOnPhone, shelf) { t, k, n, s -> Study(t, k, n, s) }
   private val learn = combine(changes, practiceCard, teaser) { c, p, i -> Learning(c, p, i) }
-  private val transient = combine(refreshing, notice) { r, n -> r to n }
+  /** The clock, read again every [TICK_MS] while Home is shown, so "Checked 10 s ago" and "last seen" stay true. */
+  private val ticks: Flow<Instant> = flow {
+    while (true) {
+      emit(clock.now())
+      delay(TICK_MS)
+    }
+  }
+
+  private val transient = combine(refreshing, notice, ticks) { r, n, now -> Triple(r, n, now) }
 
   val state: StateFlow<HomeUiState> = combine(
     combine(connection, queue, storageFull) { c, q, s -> Triple(c, q, s) },
@@ -183,8 +192,7 @@ internal class HomeViewModel @Inject constructor(
     catalogueState,
     combine(study, learn) { s, l -> s to l },
     transient,
-  ) { (link, queue, full), list, catalogueState, (study, learn), (refreshing, notice) ->
-    val now = clock.now()
+  ) { (link, queue, full), list, catalogueState, (study, learn), (refreshing, notice, now) ->
     HomeUiState(
       status = link.status,
       paired = link.paired,
@@ -397,5 +405,6 @@ internal class HomeViewModel @Inject constructor(
     const val REFRESH_MIN_MS = 600L
     const val REFRESH_MAX_MS = 10_000L
     const val NOTICE_MS = 4_000L
+    const val TICK_MS = 30_000L
   }
 }
