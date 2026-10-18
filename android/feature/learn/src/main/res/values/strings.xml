@@ -67,7 +67,6 @@
     <string name="phenomenon_examples_title">Examples from your clips</string>
     <string name="phenomenon_examples_lede">The clearest examples first. Play one, compare the dictionary form with what was said, then open its full lesson.</string>
     <string name="phenomenon_examples_loading">Loading examples…</string>
-    <string name="phenomenon_examples_label">Examples of %1$s</string>
     <string name="phenomenon_no_examples_title">No examples in your clips yet</string>
     <string name="phenomenon_no_examples_body">When an analysis finds this change, its clearest cases will appear here.</string>
     <string name="phenomenon_add_clip">Add a clip</string>
@@ -105,7 +104,6 @@
     <string name="ipa_in_your_clips">In your clips</string>
     <string name="ipa_examples_loading">Looking through your clips…</string>
     <string name="ipa_no_examples">No examples in your clips yet.</string>
-    <string name="ipa_examples_label">Words from your clips with [%1$s]</string>
     <string name="ipa_close">Close</string>
 
     <!-- Words we use (F-14, D-47) -->
