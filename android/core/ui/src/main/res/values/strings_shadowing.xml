@@ -1,9 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Strings of ShadowingPanel (WP-18; placeholder copy at the contract freeze). -->
+<!-- Strings of ShadowingPanel (WP-18; spec F-12, design 9.11 step 5). The live lines repeat :core:player's announced
+     words (the web's describePhase), so what is read and what is shown agree. -->
 <resources>
+    <string name="shadowing_intro">Shadowing: listen, then say it in the silence that follows — copying the rhythm and the reductions, not just the sounds. Start slow; the last round is at full speed.</string>
+    <string name="shadowing_recognize_only">You can shadow it to train your ear; you don\'t need to copy it.</string>
+    <string name="shadowing_target_word_and_next">The word and the next</string>
+    <string name="shadowing_target_word">The word</string>
+    <string name="shadowing_target_phrase">The whole phrase</string>
+    <string name="shadowing_speed_option">%1$s×</string>
     <string name="shadowing_start">Start shadowing</string>
     <string name="shadowing_stop">Stop</string>
-    <string name="shadowing_round">Round %1$d of %2$d</string>
-    <string name="shadowing_listen">Listen</string>
-    <string name="shadowing_your_turn">Your turn</string>
+    <string name="shadowing_listen">Round %1$d of %2$d: listen at %3$s×</string>
+    <string name="shadowing_listen_full">Round %1$d of %2$d: listen at full speed</string>
+    <string name="shadowing_your_turn">Round %1$d of %2$d: your turn — say it now</string>
+    <string name="shadowing_plan_line">Listen · your turn, × %1$d · the last at 1×</string>
+    <string name="shadowing_phases">Phase %1$d of %2$d</string>
 </resources>
