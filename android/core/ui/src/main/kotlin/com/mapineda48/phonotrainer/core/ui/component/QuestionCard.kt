@@ -32,6 +32,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
@@ -167,10 +168,15 @@ fun QuestionCard(
   val kindTitle = QuestionKindCopy.title(question.kind)
   PhonoCard(modifier = modifier.testTag(QuestionTags.CARD), variant = CardVariant.STACK) {
     Column(verticalArrangement = Arrangement.spacedBy(PhonoSpacing.s12)) {
+      // TalkBack hears the place in the session with the kind ("Question 3 of 10: Which pronunciation?"); the screen
+      // draws the visible position (the session header, the feed's header).
+      val heard = if (state.of > 1) stringResource(R.string.question_kicker_description, state.number, state.of, kindTitle) else kindTitle
       Kicker(
         text = kindTitle,
         icon = QuestionKindCopy.icon(question.kind),
-        modifier = Modifier.testTag(QuestionTags.KIND),
+        modifier = Modifier
+          .testTag(QuestionTags.KIND)
+          .semantics { contentDescription = heard },
       )
       PhonoText(
         text = question.prompt,

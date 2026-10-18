@@ -10,6 +10,7 @@
     <string name="question_kind_count_text">Hear a short phrase and count its words — small reduced words are the ones the ear misses.</string>
 
     <!-- The card. -->
+    <string name="question_kicker_description">Question %1$d of %2$d: %3$s</string>
     <string name="question_from_clip">From “%1$s”.</string>
     <string name="question_play">Play</string>
     <string name="question_slow">Slowly</string>

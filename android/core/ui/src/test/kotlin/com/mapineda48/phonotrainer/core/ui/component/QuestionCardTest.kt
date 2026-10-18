@@ -17,6 +17,7 @@ import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithTag
@@ -73,6 +74,7 @@ class QuestionCardTest {
     val calls = Calls()
     screen.checkEach(ScreenVariant.REQUIRED, card(QuestionCardState(form, number = 3, of = 10), calls)) {
       compose.onNodeWithTag(QuestionTags.KIND).assertTextContains("WHICH PRONUNCIATION?")
+        .assert(hasContentDescription("Question 3 of 10: Which pronunciation?"))
       compose.onNodeWithTag(QuestionTags.PROMPT).assertTextEquals("Listen to “water”. Which pronunciation did you hear?")
       compose.onNodeWithTag(QuestionTags.LEDE).assertTextEquals("From “A walk in the park”.")
       compose.onNodeWithTag(QuestionTags.PLAY).assertTextContains("Play")
