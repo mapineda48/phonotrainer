@@ -1,6 +1,8 @@
 package com.mapineda48.phonotrainer.e2e.settings
 
 import android.content.Context
+import android.view.KeyEvent
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
@@ -16,6 +18,7 @@ import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mapineda48.phonotrainer.core.navigation.SettingsKey
 import com.mapineda48.phonotrainer.e2e.PhonoRobot
@@ -94,12 +97,32 @@ class SettingsRobot(private val compose: ComposeTestRule, val phono: PhonoRobot)
 
   // --- Confirmations ---
 
-  /** A confirmation is open with [title] and [body]; "Cancel" has the input focus (design 9.23). */
+  /** A confirmation is open with [title], [body] and its "Cancel" button. */
   fun assertDialog(titleTag: String, title: String, bodyTag: String, body: String, cancelTag: String) {
     compose.waitUntilAtLeastOneExists(isDialog(), PhonoRobot.TIMEOUT_MS)
     compose.onNode(hasTestTag(titleTag) and hasText(title)).assertIsDisplayed()
     compose.onNode(hasTestTag(bodyTag) and hasText(body)).assertIsDisplayed()
     compose.onNodeWithTag(cancelTag).assertIsDisplayed()
+  }
+
+  /**
+   * Input focus exists out of touch mode only (WP-16's finding): the phone leaves touch mode as it does when a keyboard
+   * is used. Controls are then opened with [openWithoutTouch], since a touch puts the phone back in touch mode.
+   */
+  fun leaveTouchMode() {
+    phono.device.pressKeyCode(KeyEvent.KEYCODE_TAB)
+    compose.waitForIdle()
+  }
+
+  /** Scrolls [list] to the control tagged [tag] and activates it as a keyboard or TalkBack user does, without a touch. */
+  fun openWithoutTouch(list: String, tag: String) {
+    scrollTo(list, tag)
+    compose.onNodeWithTag(tag).performSemanticsAction(SemanticsActions.OnClick)
+    compose.waitForIdle()
+  }
+
+  /** "Cancel" has the input focus (design 9.23: a keyboard user lands on it). */
+  fun assertCancelFocused(cancelTag: String) {
     compose.waitUntil(PhonoRobot.TIMEOUT_MS) {
       compose.onNodeWithTag(cancelTag).fetchSemanticsNode().config.getOrNull(SemanticsProperties.Focused) == true
     }

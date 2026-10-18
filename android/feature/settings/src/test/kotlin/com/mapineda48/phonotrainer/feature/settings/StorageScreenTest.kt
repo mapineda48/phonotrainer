@@ -76,7 +76,9 @@ class StorageScreenTest {
 
   @Test
   fun theClipsAreListedLargestFirstWithTheirSizesAndActions() {
-    screen.checkEach(ScreenVariant.REQUIRED, { StorageScreen(SettingsSamples.storage, actions) }) {
+    // Given smallest first: the page still lists them largest first.
+    val reversed = StorageUiState(read = StorageRead.Ready(SettingsSamples.usage.copy(perClip = SettingsSamples.usage.perClip.reversed())))
+    screen.checkEach(ScreenVariant.REQUIRED, { StorageScreen(reversed, actions) }) {
       val coffee = compose.textsOf(SettingsTags.storageClip(SettingsSamples.coffee))
       assertThat(coffee).contains("Coffee shop small talk")
       assertThat(coffee).contains("Clip data and audio · 21 MB")

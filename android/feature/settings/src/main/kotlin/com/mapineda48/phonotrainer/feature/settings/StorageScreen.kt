@@ -181,7 +181,9 @@ private fun LazyListScope.ready(
       )
     }
   }
-  items(usage.perClip, key = { "clip:" + it.id.value }) { clip ->
+  // Largest first (spec F-21), whatever order the repository gives.
+  val clips = usage.perClip.sortedByDescending { it.studyPackBytes + it.videoBytes }
+  items(clips, key = { "clip:" + it.id.value }) { clip ->
     ClipStorageCard(clip, busy = clip.id in state.busy, actions = actions, onRemove = { onRemove(clip.id) })
   }
   if (usage.videosBytes > 0 || usage.perClip.any { it.videoBytes > 0 }) {

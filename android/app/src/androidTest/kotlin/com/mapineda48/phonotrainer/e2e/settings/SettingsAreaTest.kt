@@ -219,8 +219,10 @@ class SettingsAreaTest {
     robot.waitForTag(SettingsTags.COMPUTER_FACTS)
     assertThat(robot.text(SettingsTags.COMPUTER_FACTS)).contains(name)
 
-    // D-60: the title, F-22's body with the computer's name, and "Cancel" focused; Cancel forgets nothing.
-    robot.tapIn(SettingsTags.COMPUTER_LIST, SettingsTags.COMPUTER_FORGET)
+    // D-60: the title, F-22's body with the computer's name, and "Cancel" focused for a keyboard user; Cancel forgets
+    // nothing.
+    robot.leaveTouchMode()
+    robot.openWithoutTouch(SettingsTags.COMPUTER_LIST, SettingsTags.COMPUTER_FORGET)
     robot.assertDialog(
       SettingsTags.FORGET_TITLE,
       robot.words(R.string.computer_forget_title),
@@ -228,6 +230,7 @@ class SettingsAreaTest {
       robot.words(R.string.computer_forget_body, name),
       SettingsTags.FORGET_CANCEL,
     )
+    robot.assertCancelFocused(SettingsTags.FORGET_CANCEL)
     assertThat(robot.text(SettingsTags.FORGET_CONFIRM)).isEqualTo(robot.words(R.string.computer_forget_confirm))
     robot.answerDialog(SettingsTags.FORGET_CANCEL)
     assertThat(status.paired.value).isNotNull()
@@ -257,7 +260,8 @@ class SettingsAreaTest {
     robot.scrollTo(SettingsTags.STORAGE_LIST, SettingsTags.storageClip(id))
     assertThat(robot.text(SettingsTags.storageClip(id))).contains(title)
 
-    robot.tapIn(SettingsTags.STORAGE_LIST, SettingsTags.storageRemove(id))
+    robot.leaveTouchMode()
+    robot.openWithoutTouch(SettingsTags.STORAGE_LIST, SettingsTags.storageRemove(id))
     robot.assertDialog(
       SettingsTags.REMOVE_TITLE,
       robot.words(R.string.storage_remove_title, title),
@@ -265,6 +269,7 @@ class SettingsAreaTest {
       robot.words(R.string.storage_remove_body),
       SettingsTags.REMOVE_CANCEL,
     )
+    robot.assertCancelFocused(SettingsTags.REMOVE_CANCEL)
     val sent = seeder.computer.requests.size
     robot.answerDialog(SettingsTags.REMOVE_CONFIRM)
 
