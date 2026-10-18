@@ -121,6 +121,7 @@ internal fun StorageRoute(navigator: Navigator, viewModel: StorageViewModel = hi
       onRemoveVideo = viewModel::removeVideo,
       onRemoveFromPhone = viewModel::removeFromPhone,
       onKeep = viewModel::setKept,
+      onDownloadAgain = viewModel::downloadAgain,
       onRemoveAllVideos = viewModel::removeAllVideos,
       onBatterySettings = { SystemScreens.appDetails(context) },
     )

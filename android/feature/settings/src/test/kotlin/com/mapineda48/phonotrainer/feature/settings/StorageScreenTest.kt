@@ -14,7 +14,11 @@ import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import com.google.common.truth.Truth.assertThat
+import com.mapineda48.phonotrainer.core.domain.model.ArtifactLocalState
+import com.mapineda48.phonotrainer.core.domain.model.ArtifactProgress
+import com.mapineda48.phonotrainer.core.domain.model.PauseReason
 import com.mapineda48.phonotrainer.core.domain.model.StorageBudget
+import com.mapineda48.phonotrainer.core.domain.model.remote.ArtifactRole
 import com.mapineda48.phonotrainer.core.testing.screen.PhonoScreenRule
 import com.mapineda48.phonotrainer.core.testing.screen.ScreenVariant
 import org.junit.Rule
@@ -46,6 +50,7 @@ class StorageScreenTest {
     onRemoveVideo = { calls += "removeVideo:${it.value}" },
     onRemoveFromPhone = { calls += "removeFromPhone:${it.value}" },
     onKeep = { id, kept -> calls += "keep:${id.value}:$kept" },
+    onDownloadAgain = { calls += "downloadAgain:${it.value}" },
     onRemoveAllVideos = { calls += "removeAllVideos" },
     onBatterySettings = { calls += "battery" },
   )
@@ -100,6 +105,31 @@ class StorageScreenTest {
       SettingsTags.storageClip(SettingsSamples.park),
       SettingsTags.storageClip(SettingsSamples.market),
     ).inOrder()
+  }
+
+  @Test
+  fun aClipOnItsWaySaysWhereEachFileIsAndADamagedFileOffersToTryAgain() {
+    screen.checkEach(ScreenVariant.REQUIRED, { StorageScreen(SettingsSamples.storage, actions) }) {
+      assertThat(compose.textsOf(SettingsTags.storageDownload(SettingsSamples.park))).contains("Clip data ✓ · Audio 60 % · Video waiting")
+      assertThat(compose.spokenOf(SettingsTags.storageDownload(SettingsSamples.park))).isEqualTo("Clip data ready, Audio 60%, Video waiting")
+      // Every file of the kept clip is here: no line.
+      compose.onNodeWithTag(SettingsTags.storageDownload(SettingsSamples.coffee)).assertDoesNotExist()
+      assertThat(compose.textsOf(SettingsTags.storageDamaged(SettingsSamples.market))).contains("Download failed: the file was damaged on the way.")
+      compose.onNodeWithTag(SettingsTags.storageDamaged(SettingsSamples.park)).assertDoesNotExist()
+    }
+    compose.onNodeWithTag(SettingsTags.storageTryAgain(SettingsSamples.market)).performClick()
+    assertThat(calls).containsExactly("downloadAgain:${SettingsSamples.market.value}")
+  }
+
+  @Test
+  fun theDownloadLineLeavesOutWhatIsReadyAndAVideoThisPhoneDoesNotWant() {
+    val ready = ArtifactProgress(ArtifactRole.CLIP_DATA, ArtifactLocalState.READY, 100, null, 0)
+    val audio = ArtifactProgress(ArtifactRole.AUDIO_MIX, ArtifactLocalState.READY, 100, null, 0)
+    val unwanted = ArtifactProgress(ArtifactRole.VIDEO, ArtifactLocalState.ABSENT, null, PauseReason.NOT_WANTED, 0)
+    val poster = ArtifactProgress(ArtifactRole.POSTER, ArtifactLocalState.QUEUED, null, null, 0)
+    assertThat(downloadParts(listOf(unwanted, audio, ready, poster))).isEmpty()
+    val paused = audio.copy(state = ArtifactLocalState.PAUSED, pauseReason = PauseReason.NOT_CONNECTED)
+    assertThat(downloadParts(listOf(paused, ready)).map { it.role }).containsExactly(ArtifactRole.CLIP_DATA, ArtifactRole.AUDIO_MIX).inOrder()
   }
 
   @Test

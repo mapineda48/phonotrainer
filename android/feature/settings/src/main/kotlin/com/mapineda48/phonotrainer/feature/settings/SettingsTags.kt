@@ -98,6 +98,13 @@ object SettingsTags {
 
   fun storageKeep(id: JobId): String = "settings.storage.clip.${id.value}.keep"
 
+  /** The per-clip download line (design 9.20). */
+  fun storageDownload(id: JobId): String = "settings.storage.clip.${id.value}.download"
+
+  fun storageDamaged(id: JobId): String = "settings.storage.clip.${id.value}.damaged"
+
+  fun storageTryAgain(id: JobId): String = "settings.storage.clip.${id.value}.tryAgain"
+
   // Notifications (NotificationSettingsKey).
   const val NOTIFY_LIST = "settings.notifications.list"
   const val NOTIFY_OFF = "settings.notifications.off"

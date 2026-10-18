@@ -6,6 +6,7 @@ import com.mapineda48.phonotrainer.core.testing.MainDispatcherRule
 import com.mapineda48.phonotrainer.core.testing.fake.FakeNotifier
 import com.mapineda48.phonotrainer.core.testing.fake.app.FakeNotificationPermissionAsker
 import com.mapineda48.phonotrainer.core.testing.fake.app.FakeSettingsRepository
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
@@ -13,6 +14,7 @@ import org.junit.Rule
 import org.junit.Test
 
 /** Settings > Notifications' state and actions (spec F-23): the two kinds and the way to turn notifications on. */
+@OptIn(ExperimentalCoroutinesApi::class)
 class NotificationSettingsViewModelTest {
   @get:Rule
   val main = MainDispatcherRule()

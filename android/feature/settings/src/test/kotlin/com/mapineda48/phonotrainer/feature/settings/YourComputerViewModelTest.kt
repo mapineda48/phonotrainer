@@ -14,6 +14,7 @@ import com.mapineda48.phonotrainer.core.testing.fake.connectivity.FakePairingRep
 import com.mapineda48.phonotrainer.core.testing.fake.sync.FakeSyncController
 import java.time.Instant
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
@@ -27,6 +28,7 @@ import org.junit.Test
  * Your computer's state and actions (spec F-22, F-22-AC3): forgetting goes through the pairing repository only and
  * keeps the page's words; "Check now" asks the status repository once at a time.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class YourComputerViewModelTest {
   @get:Rule
   val main = MainDispatcherRule()

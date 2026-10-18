@@ -9,6 +9,8 @@ import com.mapineda48.phonotrainer.core.domain.api.SettingsRepository
 import com.mapineda48.phonotrainer.core.domain.api.StorageRepository
 import com.mapineda48.phonotrainer.core.domain.api.SyncController
 import com.mapineda48.phonotrainer.core.domain.api.SyncTrigger
+import com.mapineda48.phonotrainer.core.domain.model.ArtifactProgress
+import com.mapineda48.phonotrainer.core.domain.model.ClipStorage
 import com.mapineda48.phonotrainer.core.domain.model.JobId
 import com.mapineda48.phonotrainer.core.domain.model.PauseReason
 import com.mapineda48.phonotrainer.core.domain.model.StorageBudget
@@ -25,8 +27,12 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -50,6 +56,8 @@ data class StorageUiState(
   val backgroundRestricted: Boolean = false,
   /** The clips whose action is running (no second tap until it ends). */
   val busy: Set<JobId> = emptySet(),
+  /** Each listed clip's files as the sync engine has them (design 9.20's per-clip download line). */
+  val artifacts: Map<JobId, List<ArtifactProgress>> = emptyMap(),
 ) {
   val usage: StorageUsage? get() = (read as? StorageRead.Ready)?.usage
 }
@@ -88,14 +96,35 @@ internal class StorageViewModel @Inject constructor(
 
   private val paused: Flow<PauseReason?> = sync.state.map { (it as? SyncState.Paused)?.reason }
 
+  private val sharedRead = read.shareIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), replay = 1)
+
+  /** The files of each listed clip, from its detail (a clip that cannot be read shows no line). */
+  private val artifacts: Flow<Map<JobId, List<ArtifactProgress>>> = sharedRead
+    .map { (it as? StorageRead.Ready)?.usage?.perClip?.map(ClipStorage::id).orEmpty() }
+    .distinctUntilChanged()
+    .flatMapLatest { ids ->
+      if (ids.isEmpty()) {
+        flowOf(emptyMap())
+      } else {
+        combine(
+          ids.map { id ->
+            clips.clip(id)
+              .map { id to it?.artifacts.orEmpty() }
+              .catch { if (it is CancellationException) throw it else emit(id to emptyList()) }
+              .onStart { emit(id to emptyList()) }
+          },
+        ) { pairs -> pairs.toMap() }
+      }
+    }
+
   val state: StateFlow<StorageUiState> = combine(
-    read,
+    sharedRead,
     settings.settings,
     paused,
     computer.backgroundRestricted,
-    busy,
-  ) { read, current, reason, restricted, working ->
-    StorageUiState(read, current.downloadVideos, reason, restricted, working)
+    combine(busy, artifacts) { working, files -> working to files },
+  ) { read, current, reason, restricted, (working, files) ->
+    StorageUiState(read, current.downloadVideos, reason, restricted, working, files)
   }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), StorageUiState(downloadVideos = settings.settings.value.downloadVideos))
 
   fun retry() {
@@ -120,6 +149,9 @@ internal class StorageViewModel @Inject constructor(
   fun removeFromPhone(id: JobId) = perform(id) { clips.removeFromPhone(id) }
 
   fun setKept(id: JobId, kept: Boolean) = perform(id) { clips.setKept(id, kept) }
+
+  /** "Try again" after a file failed its verification twice: the clip is asked for again (spec F-21 Error). */
+  fun downloadAgain(id: JobId) = perform(id) { clips.downloadToPhone(id) }
 
   fun removeAllVideos() {
     viewModelScope.launch { quietly { storage.removeAllVideos() } }

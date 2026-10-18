@@ -30,6 +30,7 @@ import com.mapineda48.phonotrainer.core.testing.fake.sync.FakeClipRepository
 import com.mapineda48.phonotrainer.core.testing.fake.sync.FakeStorageRepository
 import com.mapineda48.phonotrainer.core.testing.fake.sync.FakeSyncController
 import java.time.Instant
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
@@ -40,6 +41,7 @@ import org.junit.Rule
 import org.junit.Test
 
 /** The Settings page's state and choices (spec F-22): every choice is written at once to the settings store. */
+@OptIn(ExperimentalCoroutinesApi::class)
 class SettingsViewModelTest {
   @get:Rule
   val main = MainDispatcherRule()

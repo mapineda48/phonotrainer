@@ -21,11 +21,14 @@ import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import com.mapineda48.phonotrainer.core.designsystem.component.Kicker
 import com.mapineda48.phonotrainer.core.designsystem.component.Notice
 import com.mapineda48.phonotrainer.core.designsystem.component.NoticeKind
+import com.mapineda48.phonotrainer.core.designsystem.component.PhonoProgressBar
 import com.mapineda48.phonotrainer.core.designsystem.component.PhonoSwitch
 import com.mapineda48.phonotrainer.core.designsystem.component.PhonoText
 import com.mapineda48.phonotrainer.core.designsystem.component.SegmentedControl
@@ -34,11 +37,14 @@ import com.mapineda48.phonotrainer.core.designsystem.icons.PhonoIcons
 import com.mapineda48.phonotrainer.core.designsystem.theme.PhonoSizes
 import com.mapineda48.phonotrainer.core.designsystem.theme.PhonoSpacing
 import com.mapineda48.phonotrainer.core.designsystem.theme.PhonoTheme
+import com.mapineda48.phonotrainer.core.domain.model.ArtifactLocalState
+import com.mapineda48.phonotrainer.core.domain.model.ArtifactProgress
 import com.mapineda48.phonotrainer.core.domain.model.ClipStorage
 import com.mapineda48.phonotrainer.core.domain.model.JobId
 import com.mapineda48.phonotrainer.core.domain.model.PauseReason
 import com.mapineda48.phonotrainer.core.domain.model.StorageBudget
 import com.mapineda48.phonotrainer.core.domain.model.StorageUsage
+import com.mapineda48.phonotrainer.core.domain.model.remote.ArtifactRole
 import com.mapineda48.phonotrainer.core.ui.EmptyState
 import com.mapineda48.phonotrainer.core.ui.LoadingGate
 import com.mapineda48.phonotrainer.core.ui.PhonoButton
@@ -56,6 +62,8 @@ internal class StorageActions(
   val onRemoveVideo: (JobId) -> Unit = {},
   val onRemoveFromPhone: (JobId) -> Unit = {},
   val onKeep: (JobId, Boolean) -> Unit = { _, _ -> },
+  /** "Try again" after a file was damaged on the way (spec F-21 Error). */
+  val onDownloadAgain: (JobId) -> Unit = {},
   val onRemoveAllVideos: () -> Unit = {},
   val onBatterySettings: () -> Unit = {},
 )
@@ -184,7 +192,13 @@ private fun LazyListScope.ready(
   // Largest first (spec F-21), whatever order the repository gives.
   val clips = usage.perClip.sortedByDescending { it.studyPackBytes + it.videoBytes }
   items(clips, key = { "clip:" + it.id.value }) { clip ->
-    ClipStorageCard(clip, busy = clip.id in state.busy, actions = actions, onRemove = { onRemove(clip.id) })
+    ClipStorageCard(
+      clip,
+      artifacts = state.artifacts[clip.id].orEmpty(),
+      busy = clip.id in state.busy,
+      actions = actions,
+      onRemove = { onRemove(clip.id) },
+    )
   }
   if (usage.videosBytes > 0 || usage.perClip.any { it.videoBytes > 0 }) {
     item(key = "remove-all") {
@@ -263,7 +277,7 @@ private fun Total(usage: StorageUsage) {
 
 /** One clip on this phone (spec F-21): its sizes, whether it is kept, and its three actions. */
 @Composable
-private fun ClipStorageCard(clip: ClipStorage, busy: Boolean, actions: StorageActions, onRemove: () -> Unit) {
+private fun ClipStorageCard(clip: ClipStorage, artifacts: List<ArtifactProgress>, busy: Boolean, actions: StorageActions, onRemove: () -> Unit) {
   val resources = LocalResources.current
   val colors = PhonoTheme.colors
   PhonoCard(modifier = Modifier.fillMaxWidth().testTag(SettingsTags.storageClip(clip.id))) {
@@ -279,6 +293,23 @@ private fun ClipStorageCard(clip: ClipStorage, busy: Boolean, actions: StorageAc
           stringResource(R.string.storage_clip_video, ClipCardCopy.bytes(clip.videoBytes, resources)),
           style = MaterialTheme.typography.bodyMedium,
           color = colors.ink2,
+        )
+      }
+      DownloadLine(artifacts, Modifier.testTag(SettingsTags.storageDownload(clip.id)))
+      if (artifacts.any { it.verifyFailures >= DAMAGED_AFTER }) {
+        Notice(
+          body = stringResource(R.string.storage_damaged),
+          kind = NoticeKind.CAUTION,
+          modifier = Modifier.testTag(SettingsTags.storageDamaged(clip.id)),
+          action = {
+            PhonoButton(
+              text = stringResource(R.string.storage_try_again),
+              onClick = { actions.onDownloadAgain(clip.id) },
+              kind = PhonoButtonKind.SECONDARY,
+              enabled = !busy,
+              modifier = Modifier.testTag(SettingsTags.storageTryAgain(clip.id)),
+            )
+          },
         )
       }
       if (clip.kept) {
@@ -322,6 +353,68 @@ private fun ClipStorageCard(clip: ClipStorage, busy: Boolean, actions: StorageAc
         )
       }
     }
+  }
+}
+
+/** The files the per-clip download line speaks of, in its order (design 9.20). */
+private val LINE_ROLES = listOf(ArtifactRole.CLIP_DATA, ArtifactRole.AUDIO_MIX, ArtifactRole.VIDEO)
+
+/** A file verified this many times without matching is damaged on the way (architecture 7; `ArtifactProgress`). */
+internal const val DAMAGED_AFTER = 2
+
+/**
+ * The parts of design 9.20's per-clip download line ("Clip data ✓ · Audio 60 % · Video waiting"), in its order; empty
+ * when every file the clip needs is on this phone. A video this phone does not want (downloads off, or removed by the
+ * learner) is not waited for, so it is left out.
+ */
+internal fun downloadParts(artifacts: List<ArtifactProgress>): List<ArtifactProgress> {
+  val shown = artifacts
+    .filter { it.role in LINE_ROLES }
+    .filterNot { it.state == ArtifactLocalState.ABSENT && it.pauseReason == PauseReason.NOT_WANTED }
+    .sortedBy { LINE_ROLES.indexOf(it.role) }
+  return if (shown.all { it.state == ArtifactLocalState.READY }) emptyList() else shown
+}
+
+/** The per-clip download line with its thin bar, while a file of the clip is still on its way. */
+@Composable
+private fun DownloadLine(artifacts: List<ArtifactProgress>, modifier: Modifier = Modifier) {
+  val parts = downloadParts(artifacts)
+  if (parts.isEmpty()) return
+  val shown = parts.map { artifactWords(it, spoken = false) }.joinToString(" · ")
+  val spoken = parts.map { artifactWords(it, spoken = true) }.joinToString(", ")
+  val progress = parts.map {
+    when (it.state) {
+      ArtifactLocalState.READY -> 1f
+      ArtifactLocalState.DOWNLOADING -> (it.percent ?: 0) / 100f
+      else -> 0f
+    }
+  }.average().toFloat()
+  Column(modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = spoken }, verticalArrangement = Arrangement.spacedBy(PhonoSpacing.s4)) {
+    PhonoText(shown, style = MaterialTheme.typography.bodyMedium, color = PhonoTheme.colors.ink)
+    PhonoProgressBar(progress = progress)
+  }
+}
+
+@Composable
+private fun artifactWords(artifact: ArtifactProgress, spoken: Boolean): String {
+  val name = stringResource(
+    when (artifact.role) {
+      ArtifactRole.CLIP_DATA -> R.string.storage_artifact_clip_data
+      ArtifactRole.VIDEO -> R.string.storage_artifact_video
+      else -> R.string.storage_artifact_audio
+    },
+  )
+  val percent = artifact.percent
+  return when (artifact.state) {
+    ArtifactLocalState.READY -> stringResource(if (spoken) R.string.storage_artifact_ready_spoken else R.string.storage_artifact_ready, name)
+    ArtifactLocalState.DOWNLOADING -> if (percent != null) {
+      stringResource(if (spoken) R.string.storage_artifact_percent_spoken else R.string.storage_artifact_percent, name, percent)
+    } else {
+      stringResource(R.string.storage_artifact_downloading, name)
+    }
+    ArtifactLocalState.QUEUED, ArtifactLocalState.ABSENT -> stringResource(R.string.storage_artifact_waiting, name)
+    ArtifactLocalState.PAUSED -> stringResource(R.string.storage_artifact_paused, name)
+    ArtifactLocalState.FAILED -> stringResource(R.string.storage_artifact_failed, name)
   }
 }
 

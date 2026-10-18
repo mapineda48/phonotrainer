@@ -1,5 +1,7 @@
 package com.mapineda48.phonotrainer.feature.settings
 
+import com.mapineda48.phonotrainer.core.domain.model.ArtifactLocalState
+import com.mapineda48.phonotrainer.core.domain.model.ArtifactProgress
 import com.mapineda48.phonotrainer.core.domain.model.ClipStorage
 import com.mapineda48.phonotrainer.core.domain.model.ColorChoice
 import com.mapineda48.phonotrainer.core.domain.model.ComputerStatus
@@ -15,6 +17,7 @@ import com.mapineda48.phonotrainer.core.domain.model.ServerId
 import com.mapineda48.phonotrainer.core.domain.model.StorageBudget
 import com.mapineda48.phonotrainer.core.domain.model.StorageUsage
 import com.mapineda48.phonotrainer.core.domain.model.UserSettings
+import com.mapineda48.phonotrainer.core.domain.model.remote.ArtifactRole
 import java.time.Instant
 
 /** Sample states of every page of :feature:settings, for the previews (design 12.2) and the screen tests. */
@@ -94,7 +97,20 @@ internal object SettingsSamples {
     ),
   )
 
-  val storage = StorageUiState(read = StorageRead.Ready(usage))
+  /** A clip whose audio is on its way and whose video waits (design 9.20's line). */
+  val parkArtifacts = listOf(
+    ArtifactProgress(ArtifactRole.CLIP_DATA, ArtifactLocalState.READY, 100, null, 0),
+    ArtifactProgress(ArtifactRole.AUDIO_MIX, ArtifactLocalState.DOWNLOADING, 60, null, 0),
+    ArtifactProgress(ArtifactRole.VIDEO, ArtifactLocalState.QUEUED, null, null, 0),
+  )
+
+  /** A clip whose audio failed its verification twice (spec F-21 Error). */
+  val marketArtifacts = listOf(
+    ArtifactProgress(ArtifactRole.CLIP_DATA, ArtifactLocalState.READY, 100, null, 0),
+    ArtifactProgress(ArtifactRole.AUDIO_MIX, ArtifactLocalState.FAILED, null, null, 2),
+  )
+
+  val storage = StorageUiState(read = StorageRead.Ready(usage), artifacts = mapOf(park to parkArtifacts, market to marketArtifacts))
 
   val storageLimits = StorageUiState(
     read = StorageRead.Ready(usage.copy(budgetReached = true, budget = StorageBudget.Limit(1_000_000_000))),

@@ -145,6 +145,20 @@
     <string name="storage_clip_data">Clip data and audio · %1$s</string>
     <string name="storage_clip_video">Video · %1$s</string>
     <string name="storage_clip_kept">Kept on this phone</string>
+    <!-- The per-clip download line (design 9.20: ClipDetail.artifacts) and its spoken form. -->
+    <string name="storage_artifact_clip_data">Clip data</string>
+    <string name="storage_artifact_audio">Audio</string>
+    <string name="storage_artifact_video">Video</string>
+    <string name="storage_artifact_ready">%1$s ✓</string>
+    <string name="storage_artifact_ready_spoken">%1$s ready</string>
+    <string name="storage_artifact_percent">%1$s %2$d %%</string>
+    <string name="storage_artifact_percent_spoken">%1$s %2$d%%</string>
+    <string name="storage_artifact_downloading">%1$s downloading</string>
+    <string name="storage_artifact_waiting">%1$s waiting</string>
+    <string name="storage_artifact_paused">%1$s paused</string>
+    <string name="storage_artifact_failed">%1$s failed</string>
+    <string name="storage_damaged">Download failed: the file was damaged on the way.</string>
+    <string name="storage_try_again">Try again</string>
     <string name="storage_remove_video">Remove the video</string>
     <string name="storage_remove">Remove from this phone…</string>
     <string name="storage_keep">Keep on this phone</string>

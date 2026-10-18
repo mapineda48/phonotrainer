@@ -3,6 +3,7 @@ package com.mapineda48.phonotrainer.feature.settings
 import com.google.common.truth.Truth.assertThat
 import com.mapineda48.phonotrainer.core.testing.MainDispatcherRule
 import com.mapineda48.phonotrainer.core.testing.fake.connectivity.FakeComputerStatusRepository
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
@@ -10,6 +11,7 @@ import org.junit.Rule
 import org.junit.Test
 
 /** About's state (spec F-24): the version, the computer's API version last seen, and the app's licence text. */
+@OptIn(ExperimentalCoroutinesApi::class)
 class AboutViewModelTest {
   @get:Rule
   val main = MainDispatcherRule()

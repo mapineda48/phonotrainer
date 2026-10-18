@@ -2,11 +2,20 @@ package com.mapineda48.phonotrainer.feature.settings
 
 import com.google.common.truth.Truth.assertThat
 import com.mapineda48.phonotrainer.core.domain.api.StorageRepository
+import com.mapineda48.phonotrainer.core.domain.model.ArtifactProgress
+import com.mapineda48.phonotrainer.core.domain.model.ClipAvailability
+import com.mapineda48.phonotrainer.core.domain.model.ClipDetail
+import com.mapineda48.phonotrainer.core.domain.model.ClipOrigin
+import com.mapineda48.phonotrainer.core.domain.model.ClipSource
+import com.mapineda48.phonotrainer.core.domain.model.ClipSummary
+import com.mapineda48.phonotrainer.core.domain.model.JobId
 import com.mapineda48.phonotrainer.core.domain.model.PauseReason
 import com.mapineda48.phonotrainer.core.domain.model.StorageBudget
 import com.mapineda48.phonotrainer.core.domain.model.StorageUsage
 import com.mapineda48.phonotrainer.core.domain.model.SyncReason
 import com.mapineda48.phonotrainer.core.domain.model.SyncState
+import com.mapineda48.phonotrainer.core.domain.model.VideoAvailability
+import com.mapineda48.phonotrainer.core.domain.model.remote.SourceKind
 import com.mapineda48.phonotrainer.core.testing.MainDispatcherRule
 import com.mapineda48.phonotrainer.core.testing.fake.app.FakeSettingsRepository
 import com.mapineda48.phonotrainer.core.testing.fake.app.FakeSyncTrigger
@@ -14,6 +23,8 @@ import com.mapineda48.phonotrainer.core.testing.fake.connectivity.FakeComputerSt
 import com.mapineda48.phonotrainer.core.testing.fake.sync.FakeClipRepository
 import com.mapineda48.phonotrainer.core.testing.fake.sync.FakeStorageRepository
 import com.mapineda48.phonotrainer.core.testing.fake.sync.FakeSyncController
+import java.time.Instant
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
@@ -24,6 +35,7 @@ import org.junit.Rule
 import org.junit.Test
 
 /** Storage's state and actions (spec F-21, F-05-AC11): every action stays on this phone. */
+@OptIn(ExperimentalCoroutinesApi::class)
 class StorageViewModelTest {
   @get:Rule
   val main = MainDispatcherRule()
@@ -36,6 +48,38 @@ class StorageViewModelTest {
   private val computer = FakeComputerStatusRepository()
 
   private fun viewModel(repository: StorageRepository = storage) = StorageViewModel(repository, settings, clips, trigger, sync, computer)
+
+  private fun detail(id: JobId, artifacts: List<ArtifactProgress>) = ClipDetail(
+    summary = ClipSummary(
+      id = id,
+      title = "A walk in the park",
+      durationS = 60.0,
+      words = 100,
+      changeCount = 10,
+      source = ClipSource(SourceKind.UPLOAD, null, null, "park.mp4"),
+      availability = ClipAvailability.Bringing(60),
+      video = VideoAvailability.NotOnThisPhone,
+      kept = false,
+      origin = ClipOrigin.ACTIVE,
+      olderRules = false,
+      shortsSeen = 0,
+      shortsTotal = 10,
+      addedAt = Instant.EPOCH,
+    ),
+    durationS = 60.0,
+    segments = 10,
+    changeCounts = emptyMap(),
+    rulesVersion = null,
+    phoneEngine = null,
+    dialogueSeparation = null,
+    hasDialogueTrack = false,
+    studyPackBytes = null,
+    videoBytes = null,
+    lastWatched = null,
+    resume = null,
+    computerError = null,
+    artifacts = artifacts,
+  )
 
   private fun TestScope.subscribe(viewModel: StorageViewModel) {
     backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.state.collect {} }
@@ -105,6 +149,22 @@ class StorageViewModelTest {
     assertThat(trigger.reasons).isEmpty()
     assertThat(sync.reasons).isEmpty()
     assertThat(viewModel.state.value.busy).isEmpty()
+  }
+
+  @Test
+  fun eachListedClipCarriesItsFilesAndTryAgainAsksForTheClipAgain() = runTest {
+    storage.usageState.value = SettingsSamples.usage
+    clips.details.value = mapOf(SettingsSamples.park to detail(SettingsSamples.park, SettingsSamples.parkArtifacts))
+    val viewModel = viewModel()
+    subscribe(viewModel)
+
+    val files = viewModel.state.value.artifacts
+    assertThat(files[SettingsSamples.park]).isEqualTo(SettingsSamples.parkArtifacts)
+    // A clip without a detail has no files to show.
+    assertThat(files[SettingsSamples.coffee]).isEmpty()
+
+    viewModel.downloadAgain(SettingsSamples.park)
+    assertThat(clips.actions).containsExactly("downloadToPhone:${SettingsSamples.park.value}")
   }
 
   @Test
