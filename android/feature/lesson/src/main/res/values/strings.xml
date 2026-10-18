@@ -59,7 +59,8 @@
     <string name="lesson_aligner">Expected by the aligner</string>
     <string name="lesson_dictionary_form">/%1$s/</string>
     <string name="lesson_said_form">[%1$s]</string>
-    <string name="lesson_nothing">∅</string>
+    <string name="lesson_dictionary_form_none">/∅/</string>
+    <string name="lesson_said_form_none">[∅]</string>
     <string name="lesson_spoken">Written “%1$s”, said as “%2$s”: the comparison uses the spoken form.</string>
     <string name="lesson_no_dictionary_title">No dictionary form</string>
     <string name="lesson_no_dictionary">“%1$s” is a number or symbol the dictionary cannot spell out, so there is nothing to compare what was said against.</string>

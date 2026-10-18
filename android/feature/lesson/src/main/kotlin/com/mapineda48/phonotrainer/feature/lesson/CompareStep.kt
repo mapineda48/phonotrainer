@@ -108,12 +108,11 @@ internal fun CompareStep(compare: CompareUi, hasAudio: Boolean, actions: LessonA
 /** "Dictionary /…/" (sheet, lineStrong ring) beside "What was said […]" (ink fill), and espeak's aligner row. */
 @Composable
 private fun Forms(compare: CompareUi, explainer: Explainer) {
-  val colors = PhonoTheme.colors
-  val nothing = stringResource(R.string.lesson_nothing)
   Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(PhonoSpacing.s10)) {
     FormCard(
       label = stringResource(R.string.lesson_dictionary),
-      form = stringResource(R.string.lesson_dictionary_form, compare.dictionary ?: nothing),
+      form = compare.dictionary?.let { stringResource(R.string.lesson_dictionary_form, it) }
+        ?: stringResource(R.string.lesson_dictionary_form_none),
       term = DICTIONARY_KEY,
       inked = false,
       explainer = explainer,
@@ -121,7 +120,7 @@ private fun Forms(compare: CompareUi, explainer: Explainer) {
     )
     FormCard(
       label = stringResource(R.string.lesson_said),
-      form = stringResource(R.string.lesson_said_form, compare.said ?: nothing),
+      form = compare.said?.let { stringResource(R.string.lesson_said_form, it) } ?: stringResource(R.string.lesson_said_form_none),
       term = SAID_KEY,
       inked = true,
       explainer = explainer,
