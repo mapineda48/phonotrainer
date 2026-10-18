@@ -1,10 +1,91 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Strings of :feature:practice. At the contract freeze: the title and lede of each stub destination
-     (WP-21 replaces them with its screens). -->
+<!-- Strings of :feature:practice: Practice (spec F-17, design 10.1 T4) and Saved (spec F-09, design 10.2 P-11).
+     The web client's copy where it has one. -->
 <resources>
+    <!-- Practice: the tab root. -->
     <string name="practice_title">Practice</string>
-    <string name="practice_lede">Train your ear: hear a phrase, then say which change you heard.</string>
-    <string name="practice_link_saved">Saved</string>
-    <string name="practice_saved_title">Saved</string>
-    <string name="practice_saved_lede">The shorts and words you saved, ready to watch again.</string>
+    <string name="practice_lede">Train your ear with words and phrases from your own clips. A few minutes a day is enough.</string>
+    <string name="practice_loading">Gathering words from your clips…</string>
+
+    <!-- Practice: the start card. -->
+    <string name="practice_start_kinds">10 questions, in three kinds:</string>
+    <string name="practice_focus_only">Only: %1$s</string>
+    <string name="practice_focus_everything">Practice everything instead</string>
+    <string name="practice_focus_unknown">Unknown focus “%1$s”: practicing everything.</string>
+    <string name="practice_focus_none_title">No playable examples of %1$s yet</string>
+    <string name="practice_focus_none_body">Add more clips, or practice everything for now.</string>
+    <string name="practice_weak_spots">Focus on my weak spots</string>
+    <string name="practice_weak_spots_text">Changes you get wrong come up more often.</string>
+    <string name="practice_start">Start practicing</string>
+    <string name="practice_resume">Your last session stopped at question %1$d of %2$d.</string>
+    <string name="practice_resume_action">Continue</string>
+
+    <!-- Practice: nothing to practice yet (spec F-17 States). -->
+    <string name="practice_empty_title">Nothing to practice yet</string>
+    <string name="practice_empty_body">Practice builds its questions from the changes found in your clips. Add a clip first — a minute of conversation already gives dozens of questions.</string>
+    <string name="practice_empty_add">Add a clip</string>
+
+    <!-- Practice: a session. -->
+    <string name="practice_session_position">Question %1$d of %2$d</string>
+    <string name="practice_session_tally">%1$d right · %2$d wrong</string>
+    <string name="practice_session_leave">Leave the session</string>
+    <string name="practice_next">Next question</string>
+    <string name="practice_see_results">See your results</string>
+
+    <!-- Practice: the results. -->
+    <string name="practice_results_kicker">Session finished</string>
+    <string name="practice_results_score">%1$d of %2$d right</string>
+    <string name="practice_results_partial">There were not enough clips to build questions this time.</string>
+    <string name="practice_results_review">Worth reviewing</string>
+    <string name="practice_results_right">Right: %1$s</string>
+    <string name="practice_results_wrong">Wrong: %1$s</string>
+    <string name="practice_results_line">%1$d. %2$s “%3$s” — %4$s</string>
+    <string name="practice_again">Practice again</string>
+    <string name="practice_weak_spots_again">Practice my weak spots</string>
+    <string name="practice_back_to_start">Back to the start</string>
+
+    <!-- Practice: progress (spec F-17 item 5). -->
+    <string name="practice_progress_title">Your accuracy so far</string>
+    <string name="practice_progress_kept">Kept only on this phone.</string>
+    <string name="practice_progress_none">Answer a few questions and your results per change will appear here.</string>
+    <string name="practice_progress_row">%1$d of %2$d · %3$d %%</string>
+    <string name="practice_progress_row_description">%1$s: %2$d of %3$d right, %4$d percent</string>
+    <string name="practice_progress_weakest">Weak spots are the changes at the top.</string>
+    <string name="practice_reset">Reset</string>
+    <string name="practice_saved_tile">Saved</string>
+    <string name="practice_met_tile">Changes you have met</string>
+    <string name="practice_met_count">%1$d of %2$d</string>
+    <string name="practice_not_met">Not met yet</string>
+
+    <!-- Practice: the reset confirmation (spec F-17 item 6, phone-only; the web's sentence, adapted). -->
+    <string name="practice_reset_title">Forget your practice history?</string>
+    <string name="practice_reset_body">Your accuracy per change is kept only on this phone. This clears it; your clips are not touched.</string>
+    <string name="practice_reset_confirm">Forget it</string>
+    <string name="practice_reset_cancel">Cancel</string>
+
+    <!-- Saved (spec F-09 item 3, design P-11). -->
+    <string name="saved_title">Saved</string>
+    <string name="saved_back">Back</string>
+    <string name="saved_lede">Shorts and words you want to hear again. Saved shorts come back in your sets.</string>
+    <string name="saved_loading">Loading your saved items…</string>
+    <string name="saved_watch">Watch saved</string>
+    <string name="saved_empty_title">Nothing saved yet</string>
+    <string name="saved_empty_body">Tap “Save” on a short or a word you want to hear again.</string>
+    <string name="saved_empty_watch">Go to Watch</string>
+    <string name="saved_kind_short">Saved short</string>
+    <string name="saved_kind_word">Saved word</string>
+    <string name="saved_watch_short">Watch this short</string>
+    <string name="saved_unsave">Remove “%1$s” from Saved</string>
+    <string name="saved_unsave_unknown">Remove this item from Saved</string>
+    <string name="saved_not_on_phone">Download the clip to watch it.</string>
+    <string name="saved_open_clip">Open the clip</string>
+    <string name="saved_from_clip">From “%1$s”</string>
+    <string name="saved_last_never">Not watched since you saved it</string>
+    <string name="saved_last_today">Last watched today</string>
+    <string name="saved_last_yesterday">Last watched yesterday</string>
+    <plurals name="saved_last_days">
+        <item quantity="one">Last watched %1$d day ago</item>
+        <item quantity="other">Last watched %1$d days ago</item>
+    </plurals>
+    <string name="saved_last_on">Last watched on %1$s</string>
 </resources>
