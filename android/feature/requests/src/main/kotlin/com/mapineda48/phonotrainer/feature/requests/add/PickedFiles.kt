@@ -5,6 +5,7 @@ import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.compose.runtime.Immutable
+import androidx.core.net.toUri
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -48,7 +49,7 @@ internal class ContentPickedFiles @Inject constructor(@ApplicationContext privat
   }
 
   private fun inspectOne(text: String): PickedFile {
-    val uri = Uri.parse(text)
+    val uri = text.toUri()
     val resolver = context.contentResolver
     var name: String? = null
     var bytes: Long? = null

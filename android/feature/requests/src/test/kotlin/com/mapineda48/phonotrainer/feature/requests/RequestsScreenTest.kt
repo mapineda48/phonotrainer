@@ -33,7 +33,7 @@ import org.robolectric.annotation.Config
  * and "Started on your computer" is collapsed and counted only in its own head (F-20-AC8).
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(qualifiers = "w412dp-h3000dp")
+@Config(qualifiers = "w412dp-h8000dp")
 class RequestsScreenTest {
   @get:Rule
   val screen = PhonoScreenRule()
