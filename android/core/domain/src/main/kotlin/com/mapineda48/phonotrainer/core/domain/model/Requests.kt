@@ -126,7 +126,17 @@ data class RequestCounts(
   val inLine: Int = 0,
 )
 
-data class LinkInput(val sharedText: String, val subject: String?, val audioOnly: Boolean, val force: Boolean = false)
+/**
+ * [separateDialogue]: "Separate the dialogue from music and effects" (spec F-19), sent as the link route's
+ * `separate_dialogue` (server-contract 6.5), as [FileOptions.separateDialogue] is for files.
+ */
+data class LinkInput(
+  val sharedText: String,
+  val subject: String?,
+  val audioOnly: Boolean,
+  val force: Boolean = false,
+  val separateDialogue: Boolean = true,
+)
 
 data class ParsedLink(val shared: String, val sent: String, val key: String, val site: Site)
 
