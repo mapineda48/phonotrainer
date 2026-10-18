@@ -8,13 +8,13 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 
-/** Contributes the Welcome to the shell (architecture 16.3). */
+/** Contributes the Welcome (P-13, spec F-01) to the shell (architecture 16.3). */
 @Module
 @InstallIn(SingletonComponent::class)
 object OnboardingNavigationModule {
   @Provides
   @IntoSet
   fun entries(): EntryInstaller = EntryInstaller { navigator ->
-    entry<WelcomeKey> { WelcomeRoute(onDone = navigator::back) }
+    entry<WelcomeKey> { key -> WelcomeRoute(key, navigator) }
   }
 }
