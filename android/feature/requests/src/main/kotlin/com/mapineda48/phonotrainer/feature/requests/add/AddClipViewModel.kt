@@ -77,7 +77,10 @@ internal sealed interface AddProblem {
 /** The message after a link is stored (spec 8.4 item 8). */
 internal enum class DoneMessage { ADDED, SENDING, SENT, REFUSED }
 
-/** One added file and its own copy (F-19-AC3): "Preparing the file… 40 %", then "Added", or its failure. */
+/**
+ * One added file and its own copy (F-19-AC3): "Preparing the file… 40 %", then "Added", or its failure. [name] and
+ * [bytes] are its own request's, never a picked file's by position.
+ */
 @Immutable
 internal data class AddedFile(val id: RequestId, val name: String?, val bytes: Long?, val progress: IntakeProgress?, val request: Request?) {
   /** Its copy is complete: the request is waiting or further along ("Added" only now). */
@@ -300,11 +303,7 @@ internal class AddClipViewModel @AssistedInject constructor(
       return
     }
     stored()
-    val names = result.added.mapIndexed { index, id ->
-      val file = current.files.getOrNull(index)
-      Triple(id, file?.name, file?.bytes)
-    }
-    watchFiles(names, sources.size, result.refused)
+    watchFiles(result.added, sources.size, result.refused)
   }
 
   /** The first request is safely stored: the notification question of F-23 comes now, once. */
@@ -321,13 +320,17 @@ internal class AddClipViewModel @AssistedInject constructor(
     }
   }
 
-  private fun watchFiles(added: List<Triple<RequestId, String?, Long?>>, total: Int, refusals: List<FileRefusal>) {
+  /**
+   * Each added request shows its own name and size, read from the request itself (as the share sheet does): the
+   * intake skips refused and repeated sources, so [added] is not aligned with the picked files (SH-AC14, F-19-AC3).
+   */
+  private fun watchFiles(added: List<RequestId>, total: Int, refusals: List<FileRefusal>) {
     watch?.cancel()
-    val each: List<Flow<AddedFile>> = added.map { (id, name, bytes) ->
+    val each: List<Flow<AddedFile>> = added.map { id ->
       combine(
         requests.intake(id).onStart<IntakeProgress?> { emit(null) },
         requests.request(id),
-      ) { progress, request -> AddedFile(id, name ?: request?.fileName, bytes ?: request?.fileBytes, progress, request) }
+      ) { progress, request -> AddedFile(id, request?.fileName, request?.fileBytes, progress, request) }
     }
     watch = viewModelScope.launch {
       (if (each.isEmpty()) flowOf(emptyArray<AddedFile>()) else combine(each) { it })

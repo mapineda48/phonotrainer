@@ -166,7 +166,9 @@ class AddClipViewModelTest {
     requests.fake.addFilesResult = { AddFilesResult(ids, emptyList()) }
     val copies = ids.associateWith { MutableStateFlow(IntakeProgress(it, 0, 40L * 1024 * 1024, done = false, failed = null)) }
     copies.forEach { (id, flow) -> requests.fake.intakes[id] = flow }
-    requests.fake.all.value = ids.map { RequestRowSamples.request(it.value, RequestState.PREPARING, kind = RequestKind.FILE) }
+    requests.fake.all.value = ids.mapIndexed { index, id ->
+      RequestRowSamples.request(id.value, RequestState.PREPARING, kind = RequestKind.FILE, fileName = "clip-$index.mp4")
+    }
     val vm = viewModel()
 
     vm.pick(listOf("content://picker/1", "content://picker/2", "content://picker/3"))
@@ -189,6 +191,54 @@ class AddClipViewModelTest {
     requests.fake.all.value = requests.fake.all.value.map { if (it.id == ids[1]) it.copy(state = RequestState.WAITING) else it }
     assertThat(added()).containsExactly(false, true, false).inOrder()
     assertThat((vm.state.value.phase as AddPhase.FilesAdded).files.map { it.name }).containsExactly("clip-0.mp4", "clip-1.mp4", "clip-2.mp4").inOrder()
+  }
+
+  @Test
+  fun aFileRefusedInTheMiddleLeavesEachAddedFileWithItsOwnNameSizeAndCopy() = runTest(main.dispatcher) {
+    // F-19-AC3 with SH-AC14's partial multi-select: the intake skips the refused source, so the added ids are not
+    // aligned with the picked files; each row must still show its own request's name, size and copy progress.
+    val mb = 1024L * 1024
+    picked.answer = { uris ->
+      listOf(
+        PickedFile(uris[0], "a.mp4", "video/mp4", 10 * mb, 12_000, PickedKind.VIDEO),
+        PickedFile(uris[1], "b.amr", "audio/amr", 2 * mb, 30_000, PickedKind.AUDIO),
+        PickedFile(uris[2], "c.mp4", "video/mp4", 30 * mb, 40_000, PickedKind.VIDEO),
+      )
+    }
+    val idA = RequestId("a")
+    val idC = RequestId("c")
+    val refusal = FileRefusal("b.amr", FileRefusalReason.UNSUPPORTED_TYPE, null)
+    requests.fake.addFilesResult = { AddFilesResult(listOf(idA, idC), listOf(refusal)) }
+    val copyA = MutableStateFlow(IntakeProgress(idA, 0, 10 * mb, done = false, failed = null))
+    val copyC = MutableStateFlow(IntakeProgress(idC, 12 * mb, 30 * mb, done = false, failed = null))
+    requests.fake.intakes[idA] = copyA
+    requests.fake.intakes[idC] = copyC
+    requests.fake.all.value = listOf(
+      RequestRowSamples.request("a", RequestState.PREPARING, kind = RequestKind.FILE, fileName = "a.mp4", fileBytes = 10 * mb),
+      RequestRowSamples.request("c", RequestState.PREPARING, kind = RequestKind.FILE, fileName = "c.mp4", fileBytes = 30 * mb),
+    )
+    val vm = viewModel()
+
+    vm.pick(listOf("content://picker/a", "content://picker/b", "content://picker/c"))
+    runCurrent()
+    vm.submit()
+    runCurrent()
+
+    val phase = vm.state.value.phase as AddPhase.FilesAdded
+    assertThat(phase.total).isEqualTo(3)
+    assertThat(phase.refusals).containsExactly(refusal)
+    assertThat(phase.files.map { Triple(it.id, it.name, it.bytes) })
+      .containsExactly(Triple(idA, "a.mp4", 10 * mb), Triple(idC, "c.mp4", 30 * mb))
+      .inOrder()
+    assertThat(phase.files.map { it.progress?.id }).containsExactly(idA, idC).inOrder()
+    assertThat(phase.files.none { it.name == "b.amr" || it.bytes == 2 * mb }).isTrue()
+
+    copyC.value = IntakeProgress(idC, 30 * mb, 30 * mb, done = true, failed = null)
+    requests.fake.all.value = requests.fake.all.value.map { if (it.id == idC) it.copy(state = RequestState.WAITING) else it }
+    val after = (vm.state.value.phase as AddPhase.FilesAdded).files
+    assertThat(after.map { it.added }).containsExactly(false, true).inOrder()
+    assertThat(after[1].name).isEqualTo("c.mp4")
+    assertThat(after[1].bytes).isEqualTo(30 * mb)
   }
 
   @Test
