@@ -1,6 +1,7 @@
 package com.mapineda48.phonotrainer.core.sync
 
 import com.google.common.truth.Truth.assertThat
+import com.mapineda48.phonotrainer.core.database.library.entity.ClipEntity
 import com.mapineda48.phonotrainer.core.domain.model.SyncReason
 import com.mapineda48.phonotrainer.core.domain.model.UserMessageKind
 import com.mapineda48.phonotrainer.core.testing.computer.JobSeed
@@ -80,5 +81,25 @@ class DeletionTest {
     assertThat(h.removal.deletedOnComputer(listOf("20261010-000000-0000"))).isEmpty()
     assertThat(h.clips.count()).isEqualTo(1)
     assertThat(h.messages.posted).isEmpty()
+  }
+
+  @Test
+  fun aDeletionOfMoreClipsThanOneStatementMayBindIsAppliedWhole() = sync { h ->
+    // SQLite before 3.32 (Android 10) binds at most 999 variables in one statement.
+    val ids = (1..1_200).map { "20261010-000000-${it.toString().padStart(4, '0')}" }
+    for (id in ids) {
+      h.clips.insert(
+        ClipEntity(
+          jobId = id, serverId = h.computer.serverId.value, libraryId = h.computer.libraryId.value, origin = "ACTIVE",
+          revision = "r", status = "DONE", title = id, submittedByDevice = null, createdAt = 1, firstSeenAt = 1,
+        ),
+      )
+    }
+
+    val removed = h.removal.deletedOnComputer(ids)
+
+    assertThat(removed).hasSize(1_200)
+    assertThat(h.clips.count()).isEqualTo(0)
+    assertThat(h.messages.posted.single().args).containsExactly("1200")
   }
 }
