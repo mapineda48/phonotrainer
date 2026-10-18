@@ -255,6 +255,7 @@ class RoomClipRepository @Inject internal constructor(
       resume = resume,
       computerError = ClipMapping.error(clip),
       artifacts = ClipMapping.progress(rows, context, videosWanted && summary.video != VideoAvailability.AudioOnlyClip),
+      deletedOnComputer = clip.deletedOnComputer,
     )
   }
 

@@ -90,6 +90,8 @@ data class ClipDetail(
   val computerError: RequestError?,
   /** Per-file download state (F-21 "Clip data ✓ · Audio 60 % · Video waiting"). */
   val artifacts: List<ArtifactProgress> = emptyList(),
+  /** Deleted on the computer while a screen holds it open: "It stays until you leave this page." (F-05, QT-10). */
+  val deletedOnComputer: Boolean = false,
 )
 
 /** [verifyFailures] ≥ 2: "Download failed: the file was damaged on the way." */
