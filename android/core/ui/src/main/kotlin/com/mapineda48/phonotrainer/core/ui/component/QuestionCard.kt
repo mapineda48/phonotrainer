@@ -266,8 +266,8 @@ private fun OptionCell(state: QuestionCardState, option: QuestionOption, onAnswe
   }
   Column(
     modifier = modifier
-      .heightIn(min = PhonoSizes.quizAnswerMin)
       .focusRing(shape)
+      .heightIn(min = PhonoSizes.quizAnswerMin)
       .alpha(if (look == OptionLook.OTHER) DIMMED else 1f)
       .clip(shape)
       .background(colors.sheet)
