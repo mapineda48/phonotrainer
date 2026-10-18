@@ -1,5 +1,6 @@
 package com.mapineda48.phonotrainer.core.domain.model
 
+import com.mapineda48.phonotrainer.core.domain.model.remote.SeparationNote
 import com.mapineda48.phonotrainer.core.domain.model.remote.Stage
 import java.time.Instant
 
@@ -27,6 +28,12 @@ data class Request(
   val rerunPending: Boolean = false,
   /** "Last known: Analyzing 40 % (10 min ago)". */
   val updatedAt: Instant? = null,
+  /**
+   * The clip's length in seconds once it is known: the picked or shared file's facts, or the job's `media.duration_s`
+   * or `summary.duration_s` (server-contract 6.3); null before (a link before its download). The request detail's
+   * source line and its estimate "Usually takes about as long as the clip (about 4 min)." (spec F-20 item 2).
+   */
+  val durationS: Double? = null,
 )
 
 enum class RequestState {
@@ -95,6 +102,12 @@ data class RequestProgress(
   val downloadPercent: Int?,
   val segment: Int? = null,
   val segments: Int? = null,
+  /**
+   * The job's `separation` (server-contract 6.3): [SeparationNote.OFF] (the option was off), [SeparationNote.SKIPPED]
+   * (the computer skipped it), [SeparationNote.UNKNOWN] (a value this app does not know); null otherwise. The
+   * stepper's "skipped" node for "Separate the dialogue" (spec F-20 item 2, design 9.19).
+   */
+  val separation: SeparationNote? = null,
 )
 
 /**
@@ -120,7 +133,17 @@ data class RequestCounts(
   val inLine: Int = 0,
 )
 
-data class LinkInput(val sharedText: String, val subject: String?, val audioOnly: Boolean, val force: Boolean = false)
+/**
+ * [separateDialogue]: "Separate the dialogue from music and effects" (spec F-19), sent as the link route's
+ * `separate_dialogue` (server-contract 6.5), as [FileOptions.separateDialogue] is for files.
+ */
+data class LinkInput(
+  val sharedText: String,
+  val subject: String?,
+  val audioOnly: Boolean,
+  val force: Boolean = false,
+  val separateDialogue: Boolean = true,
+)
 
 data class ParsedLink(val shared: String, val sent: String, val key: String, val site: Site)
 
