@@ -1,14 +1,40 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Strings of QuestionCard and AnswerFeedback (WP-21; placeholder copy at the contract freeze). -->
+<!-- Strings of QuestionCard and AnswerFeedback (WP-21; spec F-17 items 2 and 3, design 9.14; the web's copy). -->
 <resources>
+    <!-- The three kinds of question (web KIND_TEXT). -->
+    <string name="question_kind_form">Which pronunciation?</string>
+    <string name="question_kind_change">Which change?</string>
+    <string name="question_kind_count">How many words?</string>
+    <string name="question_kind_form_text">Hear a word and pick how it was really said: the dictionary form or a reduced one.</string>
+    <string name="question_kind_change_text">Hear a word and name the change: a flap, a dropped h, a reduced vowel…</string>
+    <string name="question_kind_count_text">Hear a short phrase and count its words — small reduced words are the ones the ear misses.</string>
+
+    <!-- The card. -->
+    <string name="question_from_clip">From “%1$s”.</string>
     <string name="question_play">Play</string>
-    <string name="question_slow">Slower</string>
-    <string name="question_context">Hear the whole phrase</string>
-    <string name="question_progress">Question %1$d of %2$d</string>
-    <string name="feedback_right">Right</string>
-    <string name="feedback_wrong">Not quite: the answer is %1$s</string>
+    <string name="question_slow">Slowly</string>
+    <string name="question_context">With context</string>
+    <string name="question_correct_answer">Correct answer</string>
+    <string name="question_your_answer">Your answer</string>
+    <string name="question_correct">Correct!</string>
+    <string name="question_wrong">Not quite — the answer was %1$s.</string>
+
+    <!-- The feedback. -->
+    <plurals name="feedback_phrase_words">
+        <item quantity="one">%1$d word</item>
+        <item quantity="other">%1$d words</item>
+    </plurals>
+    <string name="feedback_phrase_lead">The phrase has %1$s. Underlined words changed in fast speech — the ones a learner usually misses:</string>
+    <string name="feedback_phrase_changed">(changed)</string>
+    <string name="feedback_forms">“%1$s” /%2$s/ → [%3$s]</string>
+    <string name="feedback_forms_said">“%1$s” → [%2$s]</string>
+    <string name="feedback_register_universal">universal</string>
+    <string name="feedback_register_casual">casual</string>
+    <string name="feedback_register_marked">marked</string>
+    <string name="feedback_again_slow">Again at 0.5×</string>
     <string name="feedback_lesson">Open the lesson</string>
-    <string name="feedback_learn">Learn this change</string>
-    <string name="feedback_watch_more">Watch more like this</string>
     <string name="feedback_save">Save</string>
+    <string name="feedback_saved">Saved</string>
+    <string name="feedback_learn">Learn about %1$s</string>
+    <string name="feedback_watch_more">Watch more like this</string>
 </resources>
