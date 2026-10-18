@@ -1,18 +1,124 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Strings of :feature:learn. At the contract freeze: the title and lede of each stub destination
-     (WP-20 replaces them with its screens). -->
+<!-- Strings of :feature:learn (spec F-14 "Words we use", F-15 Learn and the phenomenon pages, F-16 the IPA chart; design
+     9.25, 10.1). The copy marked "web" is the browser client's; D-47 and D-48 fix the rest. -->
 <resources>
+    <!-- Learn (T3) -->
     <string name="learn_title">Learn</string>
     <string name="learn_lede">How native speakers change words when they talk — and which of those changes you can copy.</string>
+    <string name="learn_how_title">How to study a change</string>
+    <string name="learn_how_1">Read what happens and whether you can copy it.</string>
+    <string name="learn_how_2">Watch it in your clips, slowly if you need to.</string>
+    <string name="learn_how_3">Train your ear in Practice.</string>
     <string name="learn_link_ipa">IPA chart</string>
     <string name="learn_link_glossary">Words we use</string>
     <string name="learn_link_insights">Insights</string>
-    <string name="learn_link_flapping">Flapping</string>
-    <string name="learn_phenomenon_title">Change</string>
-    <string name="learn_phenomenon_lede">What this change is, how to hear it, and examples from your clips.</string>
-    <string name="learn_phenomenon_link_examples">Watch examples</string>
-    <string name="learn_ipa_title">IPA chart</string>
-    <string name="learn_ipa_lede">Each symbol is one sound. Choose one to hear it in your clips.</string>
-    <string name="learn_glossary_title">Words we use</string>
-    <string name="learn_glossary_lede">Plain-English explanations of the terms and measures PhonoTrainer uses. Each one also opens from the “?” next to it.</string>
+    <string name="learn_whole_word">Whole-word changes</string>
+    <!-- Under a family's name: "Dashed line · the stop is clipped". -->
+    <string name="learn_family_line">%1$s · %2$s</string>
+    <!-- What TalkBack reads on a phenomenon page's family pill: "t/d processes, dashed line". -->
+    <string name="learn_family_pill">%1$s, %2$s</string>
+    <!-- The short count of a change card (spec D-48: the shorts its feed plays, as the Home chip). -->
+    <plurals name="learn_shorts">
+        <item quantity="one">%d short in your clips</item>
+        <item quantity="other">%d shorts in your clips</item>
+    </plurals>
+    <string name="learn_not_in_clips">Not in your clips yet</string>
+    <string name="learn_counted_here">Counted in the clips on this phone.</string>
+    <string name="learn_counts_failed">Your clip counts could not be loaded; the explanations still work.</string>
+    <string name="learn_open_change">Open the page</string>
+
+    <!-- Phenomenon page (P-08) -->
+    <string name="phenomenon_back">Back</string>
+    <string name="phenomenon_how_to_hear">How to hear it</string>
+    <string name="phenomenon_spanish_lead">For Spanish speakers:</string>
+    <string name="phenomenon_copy_title">Can you copy it?</string>
+    <string name="phenomenon_register">Register</string>
+    <!-- "Register: universal — Every speaker does this, in almost every style." (web) -->
+    <string name="phenomenon_register_line">%1$s — %2$s</string>
+    <string name="phenomenon_register_universal">universal</string>
+    <string name="phenomenon_register_casual">casual</string>
+    <string name="phenomenon_register_marked">marked</string>
+    <string name="phenomenon_register_universal_meaning">Every speaker does this, in almost every style.</string>
+    <string name="phenomenon_register_casual_meaning">Common, but it belongs to relaxed, fast speech.</string>
+    <string name="phenomenon_register_marked_meaning">Tied to a region or a social group.</string>
+    <string name="phenomenon_mouth_title">The mouth</string>
+    <!-- "“does”: /dʌz/ → [dəz]" -->
+    <string name="phenomenon_mouth_forms">“%1$s”: /%2$s/ → [%3$s]</string>
+    <string name="phenomenon_mouth_hint">Switch between the two and watch what changes.</string>
+    <string name="phenomenon_mouth_dictionary">Dictionary form</string>
+    <string name="phenomenon_mouth_said">What is said</string>
+    <string name="phenomenon_mouth_from">In the dictionary form</string>
+    <string name="phenomenon_mouth_to">In what is said</string>
+    <string name="phenomenon_mouth_dropped">The sound is dropped: nothing is said in its place.</string>
+    <string name="phenomenon_mouth_slow">Slow</string>
+    <string name="phenomenon_mouth_normal">Normal</string>
+    <string name="phenomenon_mouth_play">Play the movement</string>
+    <string name="phenomenon_mouth_view">The mouth making %1$s</string>
+    <string name="phenomenon_mouth_chart">See it in the IPA chart</string>
+    <!-- "[ɾ] Alveolar tap" -->
+    <string name="phenomenon_sound">[%1$s] %2$s</string>
+    <string name="phenomenon_watch">Watch examples</string>
+    <string name="phenomenon_practice">Practice this</string>
+    <!-- The occurrence count of the page (spec D-48: eligible occurrences, never shorts). -->
+    <plurals name="phenomenon_times">
+        <item quantity="one">%d time in your clips</item>
+        <item quantity="other">%d times in your clips</item>
+    </plurals>
+    <string name="phenomenon_examples_title">Examples from your clips</string>
+    <string name="phenomenon_examples_lede">The clearest examples first. Play one, compare the dictionary form with what was said, then open its full lesson.</string>
+    <string name="phenomenon_examples_loading">Loading examples…</string>
+    <string name="phenomenon_no_examples_title">No examples in your clips yet</string>
+    <string name="phenomenon_no_examples_body">When an analysis finds this change, its clearest cases will appear here.</string>
+    <string name="phenomenon_add_clip">Add a clip</string>
+    <string name="phenomenon_unknown_title">There is no lesson with that name</string>
+    <string name="phenomenon_unknown_body">The link may be out of date. Every change the analyzer can find is listed in Learn.</string>
+    <string name="phenomenon_unknown_action">See every change</string>
+    <string name="phenomenon_loading">Loading the page…</string>
+    <string name="phenomenon_watch_more">Watch more like this</string>
+    <string name="phenomenon_close">Close</string>
+
+    <!-- IPA chart (P-09) -->
+    <string name="ipa_title">IPA chart</string>
+    <string name="ipa_back">Back</string>
+    <string name="ipa_lede">Every sound the analyzer can write. Select a symbol to learn how the mouth makes it and to hear it in your own clips.</string>
+    <string name="ipa_choose_title">Choose a symbol</string>
+    <string name="ipa_choose_body">Each symbol is one sound. Start with [ɾ], [t̚] or [ə].</string>
+    <string name="ipa_consonants">Consonants</string>
+    <string name="ipa_consonants_lede">Grouped by how the air gets out, then by where the mouth closes. In a pair, the first has no voice and the second has voice.</string>
+    <string name="ipa_allophones">Sounds that replace t and d</string>
+    <string name="ipa_allophones_lede">American English often says these instead of a full t or d: they are what the analyzer looks for.</string>
+    <string name="ipa_syllabics">Syllabic consonants</string>
+    <string name="ipa_syllabics_lede">A consonant that makes a whole syllable, with no vowel.</string>
+    <string name="ipa_vowels">Vowels</string>
+    <string name="ipa_vowels_lede">Grouped by how high the tongue is, then by how far forward. A dotted underline and “weak” mark a weak vowel, the one unstressed syllables reduce to ([ə] is the most frequent).</string>
+    <string name="ipa_other">Other symbols</string>
+    <string name="ipa_other_lede">Not yet placed in the chart.</string>
+    <!-- A place in plain words with its technical term: "Gum ridge · alveolar". -->
+    <string name="ipa_place">%1$s · %2$s</string>
+    <string name="ipa_weak">weak</string>
+    <!-- What TalkBack reads on a symbol (F-16-AC2): "[ɾ] alveolar tap". -->
+    <string name="ipa_symbol_label">[%1$s] %2$s</string>
+    <string name="ipa_symbol_weak_label">[%1$s] %2$s, a weak vowel</string>
+    <string name="ipa_as_in">As in: %1$s</string>
+    <string name="ipa_signals">It is the sound of %1$s</string>
+    <string name="ipa_in_your_clips">In your clips</string>
+    <string name="ipa_examples_loading">Looking through your clips…</string>
+    <string name="ipa_no_examples">No examples in your clips yet.</string>
+    <string name="ipa_close">Close</string>
+
+    <!-- Words we use (F-14, D-47) -->
+    <string name="glossary_title">Words we use</string>
+    <string name="glossary_back">Back</string>
+    <string name="glossary_lede">Plain-English explanations of the terms and measures PhonoTrainer uses. Each one also opens from the “?” next to it.</string>
+    <string name="glossary_search">Search the words we use…</string>
+    <!-- The live count under the search (as the Library's): "39 of 39 terms", "0 of 39 terms". -->
+    <plurals name="glossary_count">
+        <item quantity="one">%1$d of %2$d term</item>
+        <item quantity="other">%1$d of %2$d terms</item>
+    </plurals>
+    <string name="glossary_terms">Terms</string>
+    <string name="glossary_measures">Measures</string>
+    <string name="glossary_no_match">No term matches “%1$s”.</string>
+    <string name="glossary_clear">Clear the search</string>
+    <string name="glossary_open">Open the explanation</string>
 </resources>
