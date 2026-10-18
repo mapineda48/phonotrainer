@@ -42,6 +42,7 @@ class LicencesTest {
   fun theReportsLibrariesAreSortedByNameWithTheirVersionAuthorsAndLicences() {
     val libraries = Licences.libraries(sample())
 
+    // One row per library, even when the report names one twice.
     assertThat(libraries.map { it.name })
       .containsExactly("Activity", "OkHttp", "org.example:with-text", "Preferences External Protobuf").inOrder()
     val activity = libraries.first()

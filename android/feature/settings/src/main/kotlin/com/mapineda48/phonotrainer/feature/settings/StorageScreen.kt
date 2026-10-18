@@ -2,8 +2,6 @@ package com.mapineda48.phonotrainer.feature.settings
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -47,6 +45,7 @@ import com.mapineda48.phonotrainer.core.ui.PhonoButton
 import com.mapineda48.phonotrainer.core.ui.PhonoButtonKind
 import com.mapineda48.phonotrainer.core.ui.PhonoCard
 import com.mapineda48.phonotrainer.core.ui.component.ClipCardCopy
+import com.mapineda48.phonotrainer.core.ui.component.IntrinsicFlowRow
 
 /** What Storage's controls ask for. */
 internal class StorageActions(
@@ -261,7 +260,6 @@ private fun Total(usage: StorageUsage) {
 }
 
 /** One clip on this phone (spec F-21): its sizes, whether it is kept, and its three actions. */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ClipStorageCard(clip: ClipStorage, busy: Boolean, actions: StorageActions, onRemove: () -> Unit) {
   val resources = LocalResources.current
@@ -287,10 +285,12 @@ private fun ClipStorageCard(clip: ClipStorage, busy: Boolean, actions: StorageAc
           PhonoText(stringResource(R.string.storage_clip_kept), style = MaterialTheme.typography.labelLarge, color = colors.ink)
         }
       }
-      FlowRow(
+      // Not Compose's FlowRow: inside a card (which takes its content's intrinsic height) it claims fewer lines than
+      // it lays out on a device and the actions are cut off (WP-21's finding); IntrinsicFlowRow measures what it takes.
+      IntrinsicFlowRow(
         modifier = Modifier.fillMaxWidth().padding(top = PhonoSpacing.s4),
-        horizontalArrangement = Arrangement.spacedBy(PhonoSpacing.s8),
-        verticalArrangement = Arrangement.spacedBy(PhonoSpacing.s4),
+        horizontalSpacing = PhonoSpacing.s8,
+        verticalSpacing = PhonoSpacing.s4,
       ) {
         if (clip.videoBytes > 0) {
           PhonoButton(

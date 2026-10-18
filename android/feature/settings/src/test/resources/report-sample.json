@@ -27,6 +27,12 @@
       "licenses": ["BSD-3-Clause"]
     },
     {
+      "uniqueId": "com.squareup.okhttp3:okhttp",
+      "artifactVersion": "5.1.0",
+      "name": "OkHttp",
+      "licenses": ["Apache-2.0"]
+    },
+    {
       "uniqueId": "org.example:with-text",
       "artifactVersion": "2.0",
       "name": "",

@@ -157,7 +157,10 @@ object Licences {
         holder = organisation ?: developers.takeIf { it.isNotEmpty() }?.joinToString(", "),
         source = library.string("website") ?: (library["scm"] as? JsonObject)?.string("url"),
       )
-    }.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER, LicenceEntry::name).thenBy(LicenceEntry::id))
+    }
+      // One row per library: the list is keyed by coordinates, and a report may name one twice.
+      .distinctBy(LicenceEntry::id)
+      .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER, LicenceEntry::name).thenBy(LicenceEntry::id))
   }
 
   /**
