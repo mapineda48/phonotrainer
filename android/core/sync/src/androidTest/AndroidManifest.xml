@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The core instrumented suite of :core:sync (work-plan WP-08): an activity that keeps the test app in the foreground,
+     so a download can be a visible transfer, and the test's own WorkManager initialisation with its worker factory.
+     FOREGROUND_SERVICE_DATA_SYNC and WorkManager's dataSync service entry come from :core:sync's own manifest. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <application>
+        <activity
+            android:name="com.mapineda48.phonotrainer.core.sync.ForegroundStandInActivity"
+            android:exported="false" />
+
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
+    </application>
+
+</manifest>
