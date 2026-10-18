@@ -39,6 +39,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -407,7 +408,7 @@ private fun Tile(icon: Int, label: String, value: String) {
 private fun AccuracyRowView(row: AccuracyRow) {
   val colors = PhonoTheme.colors
   val name = capitalized(row.change.name)
-  val description = stringResource(R.string.practice_progress_row_description, name, row.correct, row.seen, row.percent)
+  val description = pluralStringResource(R.plurals.practice_progress_row_description, row.seen, name, row.correct, row.seen, row.percent)
   Column(
     modifier = Modifier
       .fillMaxWidth()
@@ -554,7 +555,7 @@ private fun Results(results: ResultsUi, actions: PracticeActions) {
     Column(verticalArrangement = Arrangement.spacedBy(PhonoSpacing.s16)) {
       Kicker(stringResource(R.string.practice_results_kicker), icon = PhonoIcons.TabPractice)
       PhonoText(
-        text = stringResource(R.string.practice_results_score, results.right, results.total),
+        text = pluralStringResource(R.plurals.practice_results_score, results.total, results.right, results.total),
         style = MaterialTheme.typography.displayLarge,
         color = colors.ink,
         modifier = Modifier

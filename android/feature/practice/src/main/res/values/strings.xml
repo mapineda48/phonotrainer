@@ -27,14 +27,17 @@
 
     <!-- Practice: a session. -->
     <string name="practice_session_position">Question %1$d of %2$d</string>
-    <string name="practice_session_tally">%1$d right · %2$d wrong</string>
+    <string name="practice_session_tally">Right: %1$d · Wrong: %2$d</string>
     <string name="practice_session_leave">Leave the session</string>
     <string name="practice_next">Next question</string>
     <string name="practice_see_results">See your results</string>
 
     <!-- Practice: the results. -->
     <string name="practice_results_kicker">Session finished</string>
-    <string name="practice_results_score">%1$d of %2$d right</string>
+    <plurals name="practice_results_score">
+        <item quantity="one">%1$d of %2$d right</item>
+        <item quantity="other">%1$d of %2$d right</item>
+    </plurals>
     <string name="practice_results_partial">There were not enough clips to build questions this time.</string>
     <string name="practice_results_review">Worth reviewing</string>
     <string name="practice_results_right">Right: %1$s</string>
@@ -49,7 +52,10 @@
     <string name="practice_progress_kept">Kept only on this phone.</string>
     <string name="practice_progress_none">Answer a few questions and your results per change will appear here.</string>
     <string name="practice_progress_row">%1$d of %2$d · %3$d %%</string>
-    <string name="practice_progress_row_description">%1$s: %2$d of %3$d right, %4$d percent</string>
+    <plurals name="practice_progress_row_description">
+        <item quantity="one">%1$s: %2$d of %3$d right, %4$d percent</item>
+        <item quantity="other">%1$s: %2$d of %3$d right, %4$d percent</item>
+    </plurals>
     <string name="practice_progress_weakest">Weak spots are the changes at the top.</string>
     <string name="practice_reset">Reset</string>
     <string name="practice_saved_tile">Saved</string>

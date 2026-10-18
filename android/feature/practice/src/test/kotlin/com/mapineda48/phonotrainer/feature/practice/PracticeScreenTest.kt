@@ -222,7 +222,7 @@ class PracticeScreenTest {
   fun aQuestionShowsItsPositionTheBeadsAndTheCard() {
     show(PracticePreviewData.sessionState()) {
       compose.onNodeWithTag(PracticeTags.POSITION).assertTextEquals("Question 3 of 10")
-      compose.onNodeWithTag(PracticeTags.TALLY).assertTextEquals("1 right · 1 wrong")
+      compose.onNodeWithTag(PracticeTags.TALLY).assertTextEquals("Right: 1 · Wrong: 1")
       assertThat(compose.onAllNodesWithTag(PracticeTags.bead(9), useUnmergedTree = true).fetchSemanticsNodes()).hasSize(1)
       compose.onNodeWithTag(QuestionTags.PROMPT).assertTextEquals("Listen to “water”. Which pronunciation did you hear?")
       compose.onNodeWithTag(PracticeTags.NEXT).assertDoesNotExist()
