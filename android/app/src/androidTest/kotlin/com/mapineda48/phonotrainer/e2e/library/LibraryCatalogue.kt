@@ -13,24 +13,32 @@ import com.mapineda48.phonotrainer.core.domain.model.Site
 import com.mapineda48.phonotrainer.core.domain.model.VideoAvailability
 import com.mapineda48.phonotrainer.core.domain.model.remote.SourceKind
 import com.mapineda48.phonotrainer.core.testing.fake.sync.FakeClipRepository
+import com.mapineda48.phonotrainer.feature.library.RowMenuItem
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.flow.Flow
 
 /**
- * The settable [FakeClipRepository] of work-plan 4.6 that also counts subscriptions to the whole catalogue. The
+ * The settable [FakeClipRepository] of work-plan 4.6 that also counts the Library's subscriptions to the catalogue. The
  * Library subscribes once per ViewModel while it is shown, so a count that does not move across a tab switch or a
- * recreate tells a kept ViewModel from a new one (the per-tab state proof of architecture 16.2).
+ * recreate tells a kept ViewModel from a new one (the per-tab state proof of architecture 16.2). Only calls made from
+ * the Library's own package count: other screens read the catalogue too (the Watch feed counts the clips on the way
+ * when its ViewModel is made), and their reads say nothing about the Library's ViewModel.
  */
 class CountingClipRepository(val fake: FakeClipRepository = FakeClipRepository()) : ClipRepository by fake {
   private val reads = AtomicInteger()
 
-  /** How many times the catalogue was subscribed to. */
+  /** How many times the Library subscribed to the catalogue. */
   val catalogueReads: Int get() = reads.get()
 
   override fun clips(query: ClipQuery): Flow<List<ClipSummary>> {
-    reads.incrementAndGet()
+    if (Throwable().stackTrace.any { it.className.startsWith(LIBRARY_PACKAGE) }) reads.incrementAndGet()
     return fake.clips(query)
+  }
+
+  private companion object {
+    /** The Library feature's package, named through one of its public types. */
+    val LIBRARY_PACKAGE: String = RowMenuItem::class.java.name.substringBeforeLast('.') + "."
   }
 
   /** What the app asked the repository to do, oldest first ("removeFromPhone:<id>", …). */

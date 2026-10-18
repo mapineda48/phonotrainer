@@ -1,12 +1,164 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Strings of :feature:requests. At the contract freeze: the title and lede of each stub destination
-     (WP-22 replaces them with its screens). -->
+<!-- Strings of :feature:requests: Requests (spec F-20, design 10.2 P-03), the request detail (P-04) and "Add a clip"
+     (spec F-19, P-05). The card's own words are RequestRow's (core/ui strings_request.xml). -->
 <resources>
+    <!-- Requests (P-03). -->
     <string name="requests_title">Requests</string>
-    <string name="requests_lede">Clips you asked your computer to analyze, from waiting on this phone to ready to watch.</string>
-    <string name="requests_link_add">Add a clip</string>
-    <string name="requests_detail_title">Request</string>
-    <string name="requests_detail_lede">What happens to this clip, step by step.</string>
-    <string name="requests_add_title">Add a clip</string>
-    <string name="requests_add_lede">Pick a clip of native English speech. Short, clear dialogue (30–60 seconds) teaches the most.</string>
+    <string name="requests_lede">What you asked your computer to analyze, and where it is now.</string>
+    <string name="requests_back">Back</string>
+    <string name="requests_add">Add a clip</string>
+    <string name="requests_loading">Loading your requests…</string>
+    <string name="requests_error">Your requests could not be loaded.</string>
+    <string name="requests_error_body">Nothing was removed: they are still on this phone.</string>
+    <string name="requests_try_again">Try again</string>
+    <string name="requests_empty_title">Nothing in progress</string>
+    <string name="requests_empty_body">Share a video from YouTube or X, or add a file, to analyze a new clip.</string>
+    <string name="requests_group_attention">Needs your attention</string>
+    <string name="requests_group_preparing">Preparing</string>
+    <string name="requests_group_waiting">Waiting on this phone</string>
+    <string name="requests_group_sending">Sending</string>
+    <string name="requests_group_on_computer">On your computer</string>
+    <string name="requests_group_getting">Getting it on this phone</string>
+    <string name="requests_group_done">Done recently</string>
+    <string name="requests_group_browser">Started on your computer</string>
+    <string name="requests_browser_show">Show</string>
+    <string name="requests_browser_hide_group">Hide</string>
+    <string name="requests_browser_show_label">Show the clips started on your computer</string>
+    <string name="requests_browser_hide_label">Hide the clips started on your computer</string>
+    <string name="requests_browser_note">Started from the browser on your computer. They are never counted here or on Home.</string>
+    <string name="requests_browser_hide">Hide on this phone</string>
+    <string name="requests_browser_failed">Couldn\'t finish on your computer</string>
+    <string name="requests_browser_queued">Waiting in line on your computer</string>
+    <string name="requests_browser_running">Analyzing on your computer · %1$d %%</string>
+    <string name="requests_browser_untitled">A clip on your computer</string>
+
+    <!-- The connection line (spec 7.5 words). -->
+    <string name="requests_line_not_connected">Not connected to a computer</string>
+    <string name="requests_line_offline">Offline · requests wait on this phone</string>
+    <string name="requests_line_not_on_wifi">Not on Wi-Fi · your computer is reachable only at home</string>
+    <string name="requests_line_looking">Looking for your computer…</string>
+    <string name="requests_line_checking">Checking your computer…</string>
+    <string name="requests_line_connected">Connected to %1$s</string>
+    <string name="requests_line_unreachable">Your computer isn\'t reachable</string>
+    <string name="requests_line_different">A different computer answered</string>
+    <string name="requests_line_connect_again">Your computer no longer recognizes this phone</string>
+    <string name="requests_line_computer_too_old">Update PhonoTrainer on your computer</string>
+    <string name="requests_line_app_too_old">Update this app</string>
+
+    <!-- The queue's pause, as a header notice (design 9.19, architecture 8.4). -->
+    <string name="requests_paused">Nothing is sent until this is solved. Your requests wait on this phone.</string>
+    <string name="requests_paused_connect_again">Connect again</string>
+    <string name="requests_paused_why">Why?</string>
+    <string name="requests_paused_details">Details</string>
+
+    <!-- Confirmations (spec F-20 actions table; design 9.23). -->
+    <string name="requests_cancel_title">Stop analyzing “%1$s” on your computer?</string>
+    <string name="requests_cancel_body">You can try again later from Requests.</string>
+    <string name="requests_cancel_body_offline">Your computer isn\'t reachable now: it stops when this phone reaches it, and you can undo it until then.</string>
+    <string name="requests_cancel_confirm">Stop analyzing</string>
+    <string name="requests_cancel_dismiss">Keep analyzing</string>
+    <string name="requests_remove_title">Remove “%1$s”?</string>
+    <string name="requests_remove_body_link">It won\'t be sent to your computer.</string>
+    <string name="requests_remove_body_file">It won\'t be sent to your computer. The copy kept on this phone is deleted too.</string>
+    <string name="requests_remove_body_job">Its failed analysis is removed from your computer too.</string>
+    <string name="requests_remove_body_local">It is removed from this phone.</string>
+    <string name="requests_remove_confirm">Remove</string>
+    <string name="requests_remove_dismiss">Keep it</string>
+
+    <!-- The request detail (P-04). -->
+    <string name="detail_title">Request</string>
+    <string name="detail_lede">Where this clip is, and what your computer is doing with it.</string>
+    <string name="detail_back">Back</string>
+    <string name="detail_loading">Loading the request…</string>
+    <string name="detail_removed_title">This request was removed.</string>
+    <string name="detail_removed_body">It is no longer on this phone.</string>
+    <string name="detail_see_requests">See requests</string>
+    <string name="detail_show_all">Show it all</string>
+    <string name="detail_show_less">Show less</string>
+    <string name="detail_milestone_added">Added on this phone</string>
+    <string name="detail_milestone_sent">Sent to your computer</string>
+    <string name="detail_milestone_in_line">Waiting in line</string>
+    <string name="detail_milestone_analyzing">Analyzing</string>
+    <string name="detail_milestone_analyzing_percent">Analyzing · %1$d %%</string>
+    <string name="detail_milestone_ready">Ready on your computer</string>
+    <string name="detail_milestone_on_phone">On this phone</string>
+    <string name="detail_since">since %1$s</string>
+    <string name="detail_milestone_done">%1$s, done at %2$s</string>
+    <string name="detail_milestone_current">%1$s, now</string>
+    <string name="detail_milestone_next">%1$s, not yet</string>
+    <string name="detail_doing">What your computer is doing</string>
+    <string name="detail_estimate">Usually takes about as long as the clip (about %1$s).</string>
+    <string name="detail_estimate_link">Usually takes about as long as the clip, once it\'s downloaded.</string>
+    <plurals name="detail_minutes">
+        <item quantity="one">%d min</item>
+        <item quantity="other">%d min</item>
+    </plurals>
+    <string name="detail_first_run">The first analysis after your computer starts loads about 1.8 GB of models, so it starts slowly.</string>
+    <string name="detail_stage_row">%1$s — %2$s</string>
+    <string name="detail_show_details">Show details</string>
+    <string name="detail_hide_details">Hide details</string>
+    <string name="detail_details_none">Your computer gave no more details.</string>
+    <string name="detail_downloader">Downloader version on your computer: %1$s</string>
+
+    <!-- Add a clip (P-05; spec F-19). -->
+    <string name="add_title">Add a clip</string>
+    <string name="add_lede">Pick a clip of native English speech. Short, clear dialogue (30–60 seconds) teaches the most.</string>
+    <string name="add_back">Back</string>
+    <string name="add_link_heading">Paste a link</string>
+    <string name="add_link_label">Link to a video</string>
+    <string name="add_link_placeholder">https://…</string>
+    <string name="add_paste">Paste</string>
+    <string name="add_not_a_link">That doesn\'t look like a link.</string>
+    <string name="add_site_youtube">YouTube</string>
+    <string name="add_site_shorts">YouTube Shorts</string>
+    <string name="add_site_x">X</string>
+    <string name="add_site_other">Other website: downloads may not work.</string>
+    <string name="add_file_heading">Choose a file</string>
+    <string name="add_choose_file">Choose a file</string>
+    <string name="add_choose_other">Choose other files</string>
+    <string name="add_clear_files">Paste a link instead</string>
+    <string name="add_file_kind_video">Video</string>
+    <string name="add_file_kind_audio">Audio</string>
+    <string name="add_file_unnamed">Unnamed file</string>
+    <string name="add_options_heading">Options</string>
+    <string name="add_audio_only">Audio only</string>
+    <string name="add_audio_only_body">Smaller and faster. There is no video to watch with the shorts.</string>
+    <string name="add_separate">Separate the dialogue from music and effects</string>
+    <string name="add_separate_body">Slower (about 0.7× the clip\'s length), but much better on films and series with music.</string>
+    <string name="add_large_file">Large file: sending takes a few minutes on Wi-Fi.</string>
+    <string name="add_legal">Downloading may breach the website\'s terms of service; that responsibility is yours.</string>
+    <string name="add_queued_note">It starts when this phone can reach your computer.</string>
+    <string name="add_analyze">Analyze</string>
+    <string name="add_to_queue">Add to queue</string>
+    <string name="add_duplicate">You already added this link.</string>
+    <string name="add_open_it">Open it</string>
+    <string name="add_analyze_again">Analyze again anyway</string>
+    <string name="add_out_of_space">PhonoTrainer couldn\'t save this request: your phone is out of space.</string>
+    <string name="add_done_added">Added to your queue.</string>
+    <string name="add_done_sending">Sending to your computer…</string>
+    <string name="add_done_sent">Sent to your computer.</string>
+    <string name="add_done_refused">Your computer couldn\'t take it. Requests says what you can do.</string>
+    <string name="add_see_requests">See requests</string>
+    <string name="add_another">Add another clip</string>
+    <string name="add_file_added">Added</string>
+    <string name="add_file_preparing">Preparing the file… %1$d %%</string>
+    <string name="add_file_preparing_unknown">Preparing the file…</string>
+    <string name="add_unsupported">This file type can\'t be analyzed. Supported: MP4, MOV, MKV, WebM, AVI, M4V, MP3, M4A, AAC, WAV, FLAC, OGG, Opus.</string>
+    <string name="add_too_large">This file is larger than your computer accepts (%1$s).</string>
+    <string name="add_no_space_video">Not enough space on this phone to keep this video until your computer is reachable. Free %1$s MB or choose Audio only.</string>
+    <string name="add_no_space_file">Not enough space on this phone to keep this file until your computer is reachable. Free %1$s MB.</string>
+    <string name="add_unreadable">PhonoTrainer couldn\'t read this file. Open it once in the app that has it, then add it again.</string>
+    <string name="add_own_provider">This file can\'t be added from here.</string>
+    <string name="add_too_many">Only 10 files can be added at once.</string>
+    <plurals name="add_partial">
+        <item quantity="one">%1$d of %2$d added.</item>
+        <item quantity="other">%1$d of %2$d added.</item>
+    </plurals>
+    <string name="add_refused_named">%1$s: %2$s</string>
+
+    <!-- The notification question (spec F-23). -->
+    <string name="add_notify_title">Get a notification when your clip is ready?</string>
+    <string name="add_notify_body">PhonoTrainer tells you when a clip is ready to watch or needs your attention, and nothing else.</string>
+    <string name="add_not_now">Not now</string>
+    <string name="add_notify_me">Notify me</string>
 </resources>
