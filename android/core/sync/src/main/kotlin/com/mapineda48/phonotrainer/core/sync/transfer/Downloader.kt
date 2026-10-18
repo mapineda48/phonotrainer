@@ -142,6 +142,10 @@ internal class Downloader @Inject constructor(
   }
 
   private suspend fun loop(progress: (RunProgress) -> Unit): RunOutcome {
+    // A run WorkManager starts in a fresh process finds the status not probed yet: one probe decides.
+    if (status.status.value !is ComputerStatus.Connected && checkStatus() !is ComputerStatus.Connected) {
+      return RunOutcome.NOT_CONNECTED
+    }
     val skipped = HashSet<String>()
     while (true) {
       currentCoroutineContext().ensureActive()
@@ -510,14 +514,13 @@ internal class Downloader @Inject constructor(
     )
   }
 
-  private suspend fun checkStatus() {
-    try {
-      status.checkNow()
-    } catch (cancelled: CancellationException) {
-      throw cancelled
-    } catch (failed: RuntimeException) {
-      log.w("sync.check_failed", failed)
-    }
+  private suspend fun checkStatus(): ComputerStatus? = try {
+    status.checkNow()
+  } catch (cancelled: CancellationException) {
+    throw cancelled
+  } catch (failed: RuntimeException) {
+    log.w("sync.check_failed", failed)
+    null
   }
 
   private suspend fun partLength(want: Want): Long {

@@ -25,7 +25,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
@@ -64,8 +64,10 @@ internal class ForegroundSession @Inject constructor(
         first = false
       }
     }
+    // Both start from the values read here, so a change between start() and the collector's subscription still counts.
+    val connectedAtStart = status.status.value is ComputerStatus.Connected
     scope.launch {
-      status.status.map { it is ComputerStatus.Connected }.distinctUntilChanged().drop(1).collect { connected ->
+      status.status.map { it is ComputerStatus.Connected }.changesFrom(connectedAtStart).collect { connected ->
         if (connected) trigger.get().request(SyncReason.CONNECTED)
       }
     }
@@ -79,13 +81,25 @@ internal class ForegroundSession @Inject constructor(
         guarded("sync.periodic_not_scheduled") { if (paired) work.ensurePeriodic() else work.cancelUnpaired() }
       }
     }
+    val networkAtStart = network.network.value
     scope.launch {
-      network.network.drop(1).collect {
+      network.network.changesFrom(networkAtStart).collect {
         if (foreground.foreground.value) guarded("sync.backoff_not_reset") { meta.setWifiBackoffMs(0) }
       }
     }
     scope.launch {
       leases.released.collect { guarded("sync.deferred_removal_failed") { removal.applyDeferred() } }
+    }
+  }
+
+  /** The values that differ from the one before them, the first compared with [initial]. */
+  private fun <T> Flow<T>.changesFrom(initial: T): Flow<T> = flow {
+    var last = initial
+    collect { value ->
+      if (value != last) {
+        last = value
+        emit(value)
+      }
     }
   }
 

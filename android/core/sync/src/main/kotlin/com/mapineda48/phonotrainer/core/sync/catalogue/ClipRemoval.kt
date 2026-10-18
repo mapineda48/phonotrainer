@@ -44,7 +44,7 @@ internal class ClipRemoval @Inject constructor(
    */
   suspend fun deletedOnComputer(jobIds: Collection<String>): Set<String> {
     if (jobIds.isEmpty()) return emptySet()
-    val known = clips.getAll(jobIds.distinct())
+    val known = clips.getMany(jobIds)
     for (id in known.map { it.jobId }) {
       runCatching { reconciler.get().onJobDeleted(JobId(id)) }.onFailure { failed ->
         if (failed is CancellationException) throw failed
@@ -52,7 +52,7 @@ internal class ClipRemoval @Inject constructor(
       }
     }
     if (known.isEmpty()) return emptySet()
-    clips.markDeletedOnComputer(known.map { it.jobId })
+    clips.markDeletedOnComputerMany(known.map { it.jobId })
     return applyDeferred()
   }
 
@@ -63,8 +63,8 @@ internal class ClipRemoval @Inject constructor(
   suspend fun applyDeferred(): Set<String> = mutex.withLock {
     val due = clips.deferredRemovals().filterNot { leases.isOpen(JobId(it)) }
     if (due.isEmpty()) return@withLock emptySet()
-    val rows = clips.getAll(due)
-    db.withTransaction { clips.delete(due) }
+    val rows = clips.getMany(due)
+    db.withTransaction { clips.deleteMany(due) }
     due.forEach { id -> if (!files.deleteClip(id)) log.w("sync.clip_files_not_deleted") }
     val ids = due.mapTo(LinkedHashSet()) { JobId(it) }
     for (hook in hooks.get()) {

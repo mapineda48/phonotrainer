@@ -68,7 +68,7 @@ internal class CatalogueReconciler @Inject constructor(
     var activeCount = 0
     db.withTransaction {
       tagged = clips.tagOtherLibrary(server, libraryId)
-      val existing = clips.getAll(listed.toList()).associateBy { it.jobId }
+      val existing = clips.getMany(listed).associateBy { it.jobId }
       for (job in library.jobs) upsert(job, existing[job.id.value], server, libraryId, now)
       val active = clips.active(server, libraryId)
       activeCount = active.size
@@ -102,7 +102,7 @@ internal class CatalogueReconciler @Inject constructor(
   suspend fun resolveMassDeletion(remove: Boolean) {
     val prompt = meta.pendingMassDeletion() ?: return
     meta.setPendingMassDeletion(null)
-    val still = clips.getAll(prompt.jobIds).filter { it.origin == Origins.ACTIVE && it.missingListings >= DELETE_AFTER_MISSING }
+    val still = clips.getMany(prompt.jobIds).filter { it.origin == Origins.ACTIVE && it.missingListings >= DELETE_AFTER_MISSING }
     if (remove) {
       removal.deletedOnComputer(still.map { it.jobId })
     } else {
