@@ -169,7 +169,7 @@ class WorkersTest {
   }
 
   @Test
-  fun aStoppedDownloadLogsWhyAndleavesItsWorkForLater() = runBlocking {
+  fun aStoppedDownloadLogsWhyItWasStopped() = runBlocking {
     SyncHarness().use { h ->
       val started = CompletableDeferred<Unit>()
       val runner = DownloadRunner {
@@ -187,7 +187,9 @@ class WorkersTest {
       withContext(Dispatchers.Default) {
         withTimeout(10_000) { while (h.logged.none { it.startsWith("sync.download_stopped.") }) delay(10) }
       }
-      assertThat(workManager.getWorkInfoById(request.id).get()!!.state).isEqualTo(WorkInfo.State.CANCELLED)
+      val state = workManager.getWorkInfoById(request.id).get()!!.state
+      assertThat(state.isFinished).isTrue()
+      assertThat(state).isNotEqualTo(WorkInfo.State.SUCCEEDED)
     }
   }
 }

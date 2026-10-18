@@ -19,6 +19,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * The sync engine's face to the rest of the app: [SyncController] (the sync state, "Sync now") and the real
@@ -42,6 +44,7 @@ class SyncEngine @Inject internal constructor(
 ) : SyncController, SyncTrigger {
   private val waiting = AtomicBoolean(false)
   private val visibleWaiting = AtomicBoolean(false)
+  private val running = Mutex()
 
   override val state: StateFlow<SyncState> = stateSource.state
 
@@ -66,18 +69,21 @@ class SyncEngine @Inject internal constructor(
 
   private fun foregroundPass(reason: SyncReason) {
     if (foreground.foreground.value && reason in USER_VISIBLE) visibleWaiting.set(true)
+    // One pass waits to start at most: later reasons fold into it.
     if (!waiting.compareAndSet(false, true)) return
     scope.launch {
-      try {
+      running.withLock {
         waiting.set(false)
-        val outcome = passes.get().pass(reason, userVisible = visibleWaiting.getAndSet(false))
-        if (outcome is PassOutcome.NotConnected && passes.get().hasPendingWork()) work.ensureOnWifi()
-      } catch (cancelled: CancellationException) {
-        throw cancelled
-      } catch (failed: RuntimeException) {
-        log.e("sync.pass_failed", failed)
-      } catch (failed: IOException) {
-        log.e("sync.pass_failed", failed)
+        try {
+          val outcome = passes.get().pass(reason, userVisible = visibleWaiting.getAndSet(false))
+          if (outcome is PassOutcome.NotConnected && passes.get().hasPendingWork()) work.ensureOnWifi()
+        } catch (cancelled: CancellationException) {
+          throw cancelled
+        } catch (failed: RuntimeException) {
+          log.e("sync.pass_failed", failed)
+        } catch (failed: IOException) {
+          log.e("sync.pass_failed", failed)
+        }
       }
     }
   }

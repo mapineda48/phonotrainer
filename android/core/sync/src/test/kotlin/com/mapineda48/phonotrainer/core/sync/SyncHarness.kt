@@ -1,6 +1,16 @@
 package com.mapineda48.phonotrainer.core.sync
 
 import android.content.Context
+import com.mapineda48.phonotrainer.core.domain.api.SyncTrigger
+import com.mapineda48.phonotrainer.core.domain.spi.StartupTask
+import com.mapineda48.phonotrainer.core.sync.engine.ForegroundSession
+import com.mapineda48.phonotrainer.core.sync.engine.ForegroundState
+import com.mapineda48.phonotrainer.core.sync.live.JobChannelSession
+import com.mapineda48.phonotrainer.core.sync.startup.StartupCheck
+import com.mapineda48.phonotrainer.core.sync.startup.SyncDirs
+import com.mapineda48.phonotrainer.core.testing.fake.connectivity.FakeChannelLiveness
+import com.mapineda48.phonotrainer.core.testing.fake.connectivity.FakeNetworkMonitor
+import kotlinx.coroutines.CoroutineScope
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.mapineda48.phonotrainer.core.common.log.LeveledPhonoLog
@@ -146,6 +156,23 @@ internal class SyncHarness : AutoCloseable {
     trigger, clock, Dispatchers.IO, log,
   )
   val storage = RoomStorageRepository(db, clips, artifacts, settings, space, files, downloader, trigger, refresh, clock, Dispatchers.IO)
+
+  val liveness = FakeChannelLiveness()
+  val network = FakeNetworkMonitor()
+
+  /** The job channel session over the fake computer's in-memory channel. */
+  val channelSession = JobChannelSession(
+    fakeClient.channel, liveness, pairing, catalogue, removal, Provider<RequestReconciler> { reconciler },
+    Provider<SyncTrigger> { trigger }, meta, log,
+  )
+
+  /** The foreground session over [channelSession], with [foreground] and [scope] as given. */
+  fun session(foreground: ForegroundState, scope: CoroutineScope, startupTasks: Set<StartupTask> = emptySet()) =
+    ForegroundSession(
+      foreground, status, pairing, network, channelSession, leases, removal, work, meta,
+      StartupCheck(clock.now(), { startupTasks }, clips, artifacts, files, SyncDirs(filesDir, cacheDir), refresh, scope, Dispatchers.IO, log),
+      Provider<SyncTrigger> { trigger }, scope, log,
+    )
 
   /** A pass and then the downloads it scheduled, as WorkManager would run them. */
   suspend fun syncAndDownload() {
