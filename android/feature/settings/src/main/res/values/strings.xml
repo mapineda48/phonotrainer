@@ -1,26 +1,257 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Strings of :feature:settings. At the contract freeze: the title and lede of each stub destination
-     (WP-24 replaces them with its screens). -->
+<!-- Strings of :feature:settings: Settings and its sub-pages (spec F-21 Storage, F-22, F-23 Settings > Notifications,
+     F-24; design 9.20, 9.23, 9.25, 10.2 P-12). The app's own English words; no other language exists (spec 13). -->
 <resources>
+    <string name="settings_back">Back</string>
+
+    <!-- The Settings page (P-12, renders 22-settings-display and 22-settings-full) -->
     <string name="settings_title">Settings</string>
     <string name="settings_lede">All settings apply at once and are remembered on this phone.</string>
+
+    <string name="settings_group_display">Display</string>
+    <string name="settings_appearance">Appearance</string>
+    <string name="settings_appearance_system">System</string>
+    <string name="settings_appearance_light">Light</string>
+    <string name="settings_appearance_dark">Dark</string>
+    <string name="settings_colors">Colors</string>
+    <string name="settings_colors_standard">Standard</string>
+    <string name="settings_colors_standard_body">Calm blue, amber, plum and teal.</string>
+    <string name="settings_colors_cvd">Color-vision friendly</string>
+    <string name="settings_colors_cvd_body">Blue, orange, vermilion and sky — kept apart even with red-green or blue-yellow color blindness. Turns on pattern emphasis.</string>
+    <string name="settings_colors_sample">abc</string>
+    <string name="settings_patterns">Show patterns as well as colors</string>
+    <string name="settings_patterns_body">Adds the family icon after each marked word and thicker underlines.</string>
+    <string name="settings_patterns_follow">Follow Colors</string>
+    <string name="settings_patterns_on">On</string>
+    <string name="settings_patterns_off">Off</string>
+    <string name="settings_motion">Motion</string>
+    <string name="settings_motion_follow">Follow system</string>
+    <string name="settings_motion_reduce">Reduce</string>
+    <string name="settings_motion_body">Reduce makes every change of screen instant. The mouth drawings still move with the sound.</string>
+    <string name="settings_text_size">Text size follows your phone\'s font size, IPA included.</string>
+
+    <string name="settings_group_playback">Playback and captions</string>
+    <string name="settings_speed">Default speed</string>
+    <string name="settings_speed_half">0.5×</string>
+    <string name="settings_speed_three_quarters">0.75×</string>
+    <string name="settings_speed_normal">1×</string>
+    <string name="settings_play_each">Play each short when it appears</string>
+    <string name="settings_end_of_short">At the end of a short</string>
+    <string name="settings_end_replay">Replay it once</string>
+    <string name="settings_end_stop">Stop</string>
+    <string name="settings_end_next">Go to the next one</string>
+    <string name="settings_captions">Captions</string>
+    <string name="settings_captions_marks">Marks</string>
+    <string name="settings_captions_plain">Plain</string>
+    <string name="settings_captions_ipa">IPA</string>
+    <string name="settings_captions_off">Off</string>
+    <string name="settings_listen_first">Listen first</string>
+    <string name="settings_listen_first_body">Hear each phrase before you read it.</string>
+    <string name="settings_track">Listen to</string>
+    <string name="settings_track_mix">Original mix</string>
+    <string name="settings_track_dialogue">Dialogue only</string>
+    <string name="settings_track_body">Dialogue only plays the voices without the music, on clips whose dialogue your computer separated.</string>
+    <string name="settings_mix">Clips left out of the Mix</string>
+    <string name="settings_mix_none">None: every clip is in the Mix.</string>
+    <plurals name="settings_mix_count">
+        <item quantity="one">%1$d clip left out</item>
+        <item quantity="other">%1$d clips left out</item>
+    </plurals>
+
+    <string name="settings_group_learning">Learning</string>
+    <string name="settings_questions">Questions after each set</string>
+    <string name="settings_questions_body">A few questions on the changes you just met. Nothing is saved unless you tap Save.</string>
+    <string name="settings_guidance">Lesson guidance</string>
+    <string name="settings_guidance_full">Full</string>
+    <string name="settings_guidance_compact">Compact</string>
+    <string name="settings_guidance_body">Full opens the first four steps of each lesson; Compact shows only the step titles.</string>
+
     <string name="settings_link_computer">Your computer</string>
     <string name="settings_link_storage">Storage</string>
     <string name="settings_link_notifications">Notifications</string>
     <string name="settings_link_help">Help</string>
-    <string name="settings_link_about">About PhonoTrainer</string>
-    <string name="settings_storage_title">Storage</string>
-    <string name="settings_storage_lede">What PhonoTrainer keeps on this phone, and how much room it may use.</string>
-    <string name="settings_computer_title">Your computer</string>
-    <string name="settings_computer_lede">The computer this phone is connected to, and how to connect again or forget it.</string>
-    <string name="settings_notifications_title">Notifications</string>
-    <string name="settings_notifications_lede">Choose what PhonoTrainer tells you about.</string>
-    <string name="settings_about_title">About PhonoTrainer</string>
-    <string name="settings_about_lede">Version, licence and privacy: everything stays on this phone and your computer.</string>
-    <string name="settings_about_link_licences">Open-source licences</string>
-    <string name="settings_licences_title">Open-source licences</string>
-    <string name="settings_licences_lede">Every component, font and icon set this app is built with, and its licence.</string>
-    <string name="settings_help_title">Help</string>
-    <string name="settings_help_lede">Restart the tour, see what the marks mean, and learn how PhonoTrainer works.</string>
-    <string name="settings_help_link_tour">Restart the tour</string>
+    <string name="settings_link_about">About and licences</string>
+    <string name="settings_storage_line">%1$s of %2$s</string>
+    <string name="settings_storage_line_free">%1$s used</string>
+    <string name="settings_notifications_line_on">On</string>
+    <string name="settings_notifications_line_off">Off for PhonoTrainer</string>
+
+    <!-- "Clips left out of the Mix" (spec F-22, F-06: the Mix and new sets skip them) -->
+    <string name="mix_title">Clips in the Mix</string>
+    <string name="mix_lede">Turn a clip off to leave it out of the Mix and of new sets. It still plays in order from its clip page.</string>
+    <string name="mix_in">In the Mix</string>
+    <string name="mix_out">Left out of the Mix</string>
+    <string name="mix_empty">No clips yet. The clips your computer analyzes appear here.</string>
+    <string name="mix_done">Done</string>
+
+    <!-- Your computer (YourComputerKey; spec F-22 "Your computer", D-60; design 9.17, 9.23, render 31 specimen 4) -->
+    <string name="computer_title">Your computer</string>
+    <string name="computer_lede">The computer this phone is connected to, and how to connect again or forget it.</string>
+    <string name="computer_facts">About the connection</string>
+    <string name="computer_name">Computer</string>
+    <string name="computer_last_seen">Last seen</string>
+    <string name="computer_last_sync">Last synced</string>
+    <string name="computer_phone_name">This phone\'s name</string>
+    <string name="computer_not_yet">Not yet</string>
+    <string name="computer_actions">What you can do</string>
+    <string name="computer_check">Check now</string>
+    <string name="computer_check_body">Ask your computer again whether it is there.</string>
+    <string name="computer_checking">Checking your computer…</string>
+    <string name="computer_details">Connection details</string>
+    <string name="computer_details_body">Addresses, the last check in words and what to send if something goes wrong.</string>
+    <string name="computer_new_address">Enter the new address</string>
+    <string name="computer_new_address_body">If your computer joined another network, type the address it shows.</string>
+    <string name="computer_connect_again">Connect again</string>
+    <string name="computer_connect_again_body">If your computer asks this phone for a new code.</string>
+    <string name="computer_forget">Forget this computer…</string>
+    <string name="computer_forget_title">Forget this computer?</string>
+    <string name="computer_forget_body">This phone stops talking to %1$s. Your clips stay on this phone; requests waiting here stay too. Requests %1$s already accepted will no longer be followed here.</string>
+    <string name="computer_forget_cancel">Cancel</string>
+    <string name="computer_forget_confirm">Forget this computer</string>
+    <string name="computer_forget_failed">This phone couldn\'t forget %1$s. Try again.</string>
+    <string name="computer_forgotten">This phone forgot %1$s. Your clips and waiting requests stay here.</string>
+    <string name="computer_none_title">No computer connected</string>
+    <string name="computer_none_body">Connect this phone to the computer that runs PhonoTrainer, and your clips come here on their own.</string>
+    <string name="computer_connect">Connect to your computer</string>
+
+    <!-- Storage (StorageKey; spec F-21, F-05 item 5, F-05-AC11; design 9.20, 9.23) -->
+    <string name="storage_title">Storage</string>
+    <string name="storage_lede">What PhonoTrainer keeps on this phone, and how much room it may use.</string>
+    <string name="storage_total">%1$s of %2$s</string>
+    <string name="storage_total_unlimited">%1$s used</string>
+    <string name="storage_free">%1$s free on this phone</string>
+    <string name="storage_meter">%1$s used: %2$s</string>
+    <string name="storage_part">%1$s, %2$s</string>
+    <string name="storage_clips">Clips (text and audio)</string>
+    <string name="storage_videos">Videos</string>
+    <string name="storage_waiting">Waiting to send</string>
+    <string name="storage_cache">Cache</string>
+    <string name="storage_table">What uses the room</string>
+    <string name="storage_budget">Storage budget</string>
+    <string name="storage_budget_1">1 GB</string>
+    <string name="storage_budget_2">2 GB</string>
+    <string name="storage_budget_5">5 GB</string>
+    <string name="storage_budget_free">No limit except free space</string>
+    <string name="storage_budget_body">Over the budget, the videos of the clips you watched longest ago go first. Kept clips and today\'s set stay, and so do the clip data and audio.</string>
+    <string name="storage_download_videos">Download videos automatically</string>
+    <string name="storage_download_videos_body">When off, only the clip data and audio come to this phone. You can still download a video from its clip page.</string>
+    <string name="storage_floor">Your phone is almost full. Downloads are paused.</string>
+    <string name="storage_budget_reached">Storage budget reached. Remove clips or raise the budget.</string>
+    <string name="storage_paused">Downloads continue the next time this phone reaches your computer.</string>
+    <string name="storage_background">Android is limiting PhonoTrainer in the background: clips arrive when you open the app.</string>
+    <string name="storage_battery">Battery settings</string>
+    <string name="storage_per_clip">Clips on this phone</string>
+    <string name="storage_per_clip_order">Largest first</string>
+    <string name="storage_clip_data">Clip data and audio · %1$s</string>
+    <string name="storage_clip_video">Video · %1$s</string>
+    <string name="storage_clip_kept">Kept on this phone</string>
+    <string name="storage_remove_video">Remove the video</string>
+    <string name="storage_remove">Remove from this phone…</string>
+    <string name="storage_keep">Keep on this phone</string>
+    <string name="storage_stop_keeping">Stop keeping</string>
+    <string name="storage_empty_title">Nothing on this phone yet</string>
+    <string name="storage_empty_body">The clips your computer analyzes come here on their own, within the budget.</string>
+    <string name="storage_remove_all">Remove all videos</string>
+    <string name="storage_remove_all_title">Remove all videos?</string>
+    <string name="storage_remove_all_body">Every video is deleted from this phone. Clip data and audio stay, so every clip can still be studied, and you can download a video again from its clip page.</string>
+    <string name="storage_remove_all_cancel">Cancel</string>
+    <string name="storage_remove_all_confirm">Remove all videos</string>
+    <string name="storage_remove_title">Remove “%1$s” from this phone?</string>
+    <string name="storage_remove_body">Its clip data, audio and video are deleted from this phone only. It stays on your computer, and you can download it again at any time. Your saved items and progress stay.</string>
+    <string name="storage_remove_cancel">Cancel</string>
+    <string name="storage_remove_confirm">Remove from this phone</string>
+    <string name="storage_loading">Measuring what this phone keeps…</string>
+    <string name="storage_error">Couldn\'t measure what this phone keeps.</string>
+    <string name="storage_retry">Try again</string>
+
+    <!-- Notifications (NotificationSettingsKey; spec F-23) -->
+    <string name="notifications_title">Notifications</string>
+    <string name="notifications_lede">Choose what PhonoTrainer tells you about.</string>
+    <string name="notifications_off">Notifications are off for PhonoTrainer</string>
+    <string name="notifications_off_body">Home and Requests still show everything a notification would.</string>
+    <string name="notifications_open_settings">Open settings</string>
+    <string name="notifications_turn_on">Turn on notifications</string>
+    <string name="notifications_ready">When a clip is ready</string>
+    <string name="notifications_ready_body">“Ready to watch”, with the clip\'s shorts one tap away.</string>
+    <string name="notifications_attention">When a request needs attention</string>
+    <string name="notifications_attention_body">A link or file your computer couldn\'t analyze, and what you can do.</string>
+    <string name="notifications_system">Notification settings</string>
+    <string name="notifications_system_body">Sounds, the lock screen and each kind of notification, in Android\'s settings.</string>
+    <string name="notifications_scope">Only the links and files sent from this phone notify you. Nothing is posted for routine syncing.</string>
+
+    <!-- Help (HelpKey; spec F-01 item 4, F-01-AC5, F-22 "Help"; the web's "About the engines" and pipeline stepper) -->
+    <string name="help_title">Help</string>
+    <string name="help_lede">Restart the tour, see what the marks mean, and learn how PhonoTrainer works.</string>
+    <string name="help_tour">Restart the tour</string>
+    <string name="help_tour_body">See the welcome again and every tip once more. Your computer stays connected.</string>
+    <string name="help_marks">What do the marks mean?</string>
+    <string name="help_marks_body">The line style and the small icon of each kind of change.</string>
+    <string name="help_how">How PhonoTrainer works</string>
+    <string name="help_how_intro">Your computer does the listening; this phone is where you study. Each link or file you add goes through six steps on your computer.</string>
+    <string name="help_step_download">Download</string>
+    <string name="help_step_download_body">Fetching the video from the website (links only).</string>
+    <string name="help_step_extract">Extract the audio</string>
+    <string name="help_step_extract_body">Turning the file into a plain mono recording the models can read.</string>
+    <string name="help_step_separate">Separate the dialogue</string>
+    <string name="help_step_separate_body">Removing music and effects so that only the voices remain.</string>
+    <string name="help_step_transcribe">Transcribe the words</string>
+    <string name="help_step_transcribe_body">Whisper writes down every word and when it is said.</string>
+    <string name="help_step_phones">Hear the phones</string>
+    <string name="help_step_phones_body">The phone recognizer listens to each word and lines it up with its dictionary form.</string>
+    <string name="help_step_save">Compare and save</string>
+    <string name="help_step_save_body">Labelling what changed in each word and saving the results.</string>
+    <string name="help_step_number">Step %1$d of %2$d</string>
+    <string name="help_engines">The phone engines</string>
+    <string name="help_engines_body">The phone engine listens to the audio and writes down the sounds it hears. Each analysis says which engine produced it, and the figures of different engines are never mixed.</string>
+    <string name="help_engine_timit">TIMIT-61 (the default)</string>
+    <string name="help_engine_timit_body">A narrow phonetic recognizer: it hears flaps, glottal stops, unreleased stops and weak forms, the changes this app teaches.</string>
+    <string name="help_engine_espeak">espeak</string>
+    <string name="help_engine_espeak_body">The original engine, trained on dictionary-like transcriptions: it tends to hear the dictionary form instead of what was said.</string>
+    <string name="help_phone">On this phone</string>
+    <string name="help_phone_body">The finished analysis comes to this phone and becomes shorts: one phrase each, with every change marked. Nothing is analyzed on the phone, and nothing goes to the internet.</string>
+
+    <!-- About (AboutKey; spec F-24, F-22 privacy statement) -->
+    <string name="about_title">About PhonoTrainer</string>
+    <string name="about_lede">Version, licence and privacy: everything stays on this phone and your computer.</string>
+    <string name="about_version_label">This app</string>
+    <string name="about_version">Version %1$s</string>
+    <string name="about_api_label">Your computer</string>
+    <string name="about_api">API version %1$d, when last seen</string>
+    <string name="about_api_none">Not connected yet</string>
+    <string name="about_licence">PhonoTrainer is free software under the GNU GPL-3.0-or-later.</string>
+    <string name="about_licence_body">You may use, study, share and change it under the terms of that licence.</string>
+    <string name="about_read_licence">Read the licence</string>
+    <string name="about_source">Source code</string>
+    <string name="about_privacy">Privacy</string>
+    <string name="about_privacy_body">PhonoTrainer has no account and sends nothing to the internet. Your clips and recordings go only to your own computer.</string>
+    <string name="about_licences">Open-source licences</string>
+    <string name="about_licences_body">Every component, font and icon set this app is built with, and its licence.</string>
+
+    <!-- Open-source licences (LicencesKey; spec F-24-AC1, AC2; D-50) -->
+    <string name="licences_title">Open-source licences</string>
+    <string name="licences_lede">Every component, font and icon set this app is built with, and its licence. Everything here is read from this phone, with or without a network.</string>
+    <string name="licences_app">This app</string>
+    <string name="licences_bundled">Fonts and icons</string>
+    <string name="licences_libraries">Libraries</string>
+    <string name="licences_font">Font</string>
+    <string name="licences_icons">Icon set</string>
+    <plurals name="licences_icon_count">
+        <item quantity="one">%1$d icon</item>
+        <item quantity="other">%1$d icons</item>
+    </plurals>
+    <plurals name="licences_font_files">
+        <item quantity="one">%1$d font file</item>
+        <item quantity="other">%1$d font files</item>
+    </plurals>
+    <string name="licences_by">By %1$s</string>
+    <string name="licences_source">Source: %1$s</string>
+    <string name="licences_licence">Licence: %1$s</string>
+    <string name="licences_template">The licence\'s standard text: its copyright line stands for the holder named above.</string>
+    <string name="licences_missing">This licence\'s text is not bundled. It is published at %1$s.</string>
+    <string name="licences_text_missing">This licence\'s text is not bundled.</string>
+    <string name="licences_close">Close</string>
+    <string name="licences_loading">Reading the licences…</string>
+    <string name="licences_error">Couldn\'t read the licences on this phone.</string>
+    <string name="licences_retry">Try again</string>
+    <string name="licences_reading">Reading the licence…</string>
 </resources>

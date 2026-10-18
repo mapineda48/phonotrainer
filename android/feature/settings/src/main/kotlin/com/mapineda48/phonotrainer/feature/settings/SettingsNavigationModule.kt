@@ -14,19 +14,19 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 
-/** Contributes the destinations of :feature:settings to the shell (architecture 16.3). */
+/** Contributes Settings and its sub-pages to the shell (architecture 16.3; design 10.2 P-12). */
 @Module
 @InstallIn(SingletonComponent::class)
 object SettingsNavigationModule {
   @Provides
   @IntoSet
   fun entries(): EntryInstaller = EntryInstaller { navigator ->
-    entry<SettingsKey> { SettingsStubScreen(navigator::navigate) }
-    entry<StorageKey> { StorageStubScreen() }
-    entry<YourComputerKey> { YourComputerStubScreen() }
-    entry<NotificationSettingsKey> { NotificationSettingsStubScreen() }
-    entry<AboutKey> { AboutStubScreen(navigator::navigate) }
-    entry<LicencesKey> { LicencesStubScreen() }
-    entry<HelpKey> { HelpStubScreen(navigator::navigate) }
+    entry<SettingsKey> { SettingsRoute(navigator) }
+    entry<StorageKey> { StorageRoute(navigator) }
+    entry<YourComputerKey> { YourComputerRoute(navigator) }
+    entry<NotificationSettingsKey> { NotificationSettingsRoute(navigator) }
+    entry<AboutKey> { AboutRoute(navigator) }
+    entry<LicencesKey> { LicencesRoute(navigator) }
+    entry<HelpKey> { HelpRoute(navigator) }
   }
 }
