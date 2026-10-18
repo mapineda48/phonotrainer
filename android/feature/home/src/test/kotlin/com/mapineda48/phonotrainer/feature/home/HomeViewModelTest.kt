@@ -2,6 +2,7 @@ package com.mapineda48.phonotrainer.feature.home
 
 import com.google.common.truth.Truth.assertThat
 import com.mapineda48.phonotrainer.core.domain.api.ClipRepository
+import com.mapineda48.phonotrainer.core.domain.api.Clock
 import com.mapineda48.phonotrainer.core.domain.api.RequestRepository
 import com.mapineda48.phonotrainer.core.domain.api.SetRepository
 import com.mapineda48.phonotrainer.core.domain.model.ChangeAccuracy
@@ -53,10 +54,14 @@ import com.mapineda48.phonotrainer.core.testing.fake.sync.FakeSyncController
 import com.mapineda48.phonotrainer.core.ui.extension.InsightsAvailability
 import java.time.Duration
 import java.time.Instant
+import java.time.LocalDate
 import java.util.Optional
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
@@ -90,14 +95,31 @@ class HomeViewModelTest {
   private val storage = FakeStorageRepository()
   private val clock = TestClock(now)
 
-  private fun viewModel(insights: InsightsAvailability? = null) = HomeViewModel(
+  private fun viewModel(insights: InsightsAvailability? = null, sets: SetRepository = this.sets) = HomeViewModel(
     computer, sync, requests, clips, content, shorts, occurrences, reference, sets, progress, practice, saved, storage,
     Optional.ofNullable(insights), clock,
   )
 
   /** A view model whose state is collected for the test's duration. */
-  private fun TestScope.collected(insights: InsightsAvailability? = null): HomeViewModel =
-    viewModel(insights).also { vm -> backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.state.collect {} } }
+  private fun TestScope.collected(
+    insights: InsightsAvailability? = null,
+    sets: SetRepository = this@HomeViewModelTest.sets,
+  ): HomeViewModel = viewModel(insights, sets).also { vm -> show(vm) }
+
+  /** Home on screen: [vm]'s state collected until the returned job is cancelled. */
+  private fun TestScope.show(vm: HomeViewModel, onState: (HomeUiState) -> Unit = {}) =
+    backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.state.collect { onState(it) } }
+
+  private val october4: LocalDate = LocalDate.of(2026, 10, 4)
+  private val october5: LocalDate = LocalDate.of(2026, 10, 5)
+
+  /** One set per day: the 4th's was finished ("Done for today"), every later day's is fresh. */
+  private fun daily() = DailySets(clock) { date ->
+    val set = if (date == october4) HomeFixtures.acTenSet(completedAt = now, done = 8) else HomeFixtures.acTenSet()
+    set.copy(id = date.toEpochDay(), date = date)
+  }
+
+  private fun TodayCard.phase(): TodayPhase? = (this as? TodayCard.Ready)?.phase
 
   private val coffee = HomeSamples.coffee
   private val radio = HomeSamples.radio
@@ -191,6 +213,105 @@ class HomeViewModelTest {
     sets.gate?.complete(Unit)
     runCurrent()
     assertThat(vm.state.value.today).isEqualTo(TodayCard.NothingNew)
+  }
+
+  @Test
+  fun pastLocalMidnightTheNewDaysSetIsOfferedWhenTheRepositoryHasNoneYet() = runTest {
+    // F-08-AC4, the app left open on Home: WP-14's today() shows no set of a new day until ensureToday() makes it.
+    clock.instant = Instant.parse("2026-10-04T23:59:40Z")
+    clips.fake.all.value = listOf(coffee)
+    val daily = daily()
+    val vm = collected(sets = daily)
+    assertThat(daily.asked).containsExactly(october4)
+    assertThat(vm.state.value.today.phase()).isEqualTo(TodayPhase.DONE)
+    val cards = mutableListOf<TodayCard>()
+    show(vm) { cards += it.today }
+
+    // Local midnight: the repository's day moves first and shows no set; Home's own clock has not ticked yet.
+    clock.advanceBy(Duration.ofSeconds(25))
+    daily.held = true
+    daily.date.value = october5
+    assertThat(daily.asked).containsExactly(october4, october5).inOrder()
+    // The new set is made but its query has not answered yet: still "Preparing".
+    assertThat(vm.state.value.today).isEqualTo(TodayCard.Preparing)
+    daily.release()
+    assertThat(vm.state.value.today.phase()).isEqualTo(TodayPhase.FRESH)
+
+    // Home's clock reads the new day: the set of the day shows and nothing more is asked.
+    advanceTimeBy(30_001)
+    assertThat(daily.asked).hasSize(2)
+    assertThat(vm.state.value.today.phase()).isEqualTo(TodayPhase.FRESH)
+    assertThat(cards).doesNotContain(TodayCard.NothingNew)
+  }
+
+  @Test
+  fun pastLocalMidnightHomeAsksForTheNewDayWhileTheRepositoryStillShowsTheDayBefore() = runTest {
+    // F-08-AC4 the other way round: Home's clock reads the new day before the repository's day moves.
+    clock.instant = Instant.parse("2026-10-04T23:59:40Z")
+    clips.fake.all.value = listOf(coffee)
+    val daily = daily()
+    val vm = collected(sets = daily)
+    val cards = mutableListOf<TodayCard>()
+    show(vm) { cards += it.today }
+
+    clock.advanceBy(Duration.ofSeconds(25))
+    advanceTimeBy(30_001)
+    assertThat(daily.asked).containsExactly(october4, october5).inOrder()
+    assertThat(vm.state.value.today.phase()).isEqualTo(TodayPhase.DONE)
+    daily.date.value = october5
+    assertThat(vm.state.value.today.phase()).isEqualTo(TodayPhase.FRESH)
+    assertThat(daily.asked).hasSize(2)
+    assertThat(cards).doesNotContain(TodayCard.NothingNew)
+  }
+
+  @Test
+  fun homeShownAgainAfterANightAwayOffersTheNewDaysSet() = runTest {
+    // "When Home shows" (F-08-AC4): Home stayed on its tab's stack overnight while another screen was shown.
+    clock.instant = Instant.parse("2026-10-04T21:00:00Z")
+    clips.fake.all.value = listOf(coffee)
+    val daily = daily()
+    val vm = viewModel(sets = daily)
+    var shown = show(vm)
+    assertThat(vm.state.value.today.phase()).isEqualTo(TodayPhase.DONE)
+    shown.cancel()
+    advanceTimeBy(60_000)
+    // Back the same evening: the set of the day shows and nothing is asked again.
+    shown = show(vm)
+    assertThat(daily.asked).containsExactly(october4)
+    shown.cancel()
+    advanceTimeBy(60_000)
+
+    clock.instant = Instant.parse("2026-10-05T07:30:00Z")
+    daily.date.value = october5
+    val cards = mutableListOf<TodayCard>()
+    show(vm) { cards += it.today }
+    assertThat(daily.asked).containsExactly(october4, october5).inOrder()
+    assertThat(cards.last().phase()).isEqualTo(TodayPhase.FRESH)
+    assertThat(cards).doesNotContain(TodayCard.NothingNew)
+  }
+
+  @Test
+  fun withoutASetOfTheDayAnotherClipAsksAgainButARepeatedVisitDoesNot() = runTest {
+    // Nothing could be made (every short seen lately): "You've seen every short" is true until something changes.
+    clips.fake.all.value = listOf(coffee)
+    val vm = viewModel()
+    val shown = show(vm)
+    assertThat(sets.ensured).isEqualTo(1)
+    assertThat(vm.state.value.today).isEqualTo(TodayCard.NothingNew)
+
+    // A clip that arrives while no set of the day exists may make the day's first set (F-08 item 3).
+    sets.fake.todayState.value = null
+    clips.fake.all.value = listOf(coffee, radio)
+    assertThat(sets.ensured).isEqualTo(2)
+
+    // Leaving Home and coming back the same day with nothing changed asks no more, and shows no other card first.
+    shown.cancel()
+    advanceTimeBy(60_000)
+    val cards = mutableListOf<TodayCard>()
+    show(vm) { cards += it.today }
+    assertThat(sets.ensured).isEqualTo(2)
+    assertThat(cards).isNotEmpty()
+    assertThat(cards.distinct()).containsExactly(TodayCard.NothingNew)
   }
 
   @Test
@@ -372,6 +493,41 @@ class GatedRequests(private val fake: FakeRequestRepository) : RequestRepository
     gate.await()
     fake.perform(id, action)
   }
+}
+
+/**
+ * A [SetRepository] that keeps one set per local day as WP-14's `RoomSetRepository` does: `today()` follows the
+ * repository's own day ([date], which the test moves as `StudyDay.dates()` does at local midnight) and shows no set of
+ * a day until `ensureToday()` makes it for the clock's day with [make]. While [held], a set it made is not shown until
+ * [release] (a database query that has not answered yet).
+ */
+class DailySets(
+  private val clock: Clock,
+  private val make: (LocalDate) -> StudySet?,
+) : SetRepository by FakeSetRepository() {
+  val date = MutableStateFlow(day())
+  val asked = mutableListOf<LocalDate>()
+  var held = false
+  private val stored = mutableMapOf<LocalDate, StudySet>()
+  private val shown = MutableStateFlow(emptyMap<LocalDate, StudySet>())
+
+  override fun today(): Flow<StudySet?> = combine(date, shown) { day, sets -> sets[day] }.distinctUntilChanged()
+
+  override suspend fun ensureToday(): StudySet? {
+    val day = day()
+    asked += day
+    stored[day]?.let { return it }
+    val set = make(day) ?: return null
+    stored[day] = set
+    if (!held) release()
+    return set
+  }
+
+  fun release() {
+    shown.value = stored.toMap()
+  }
+
+  private fun day(): LocalDate = clock.now().atZone(clock.zone()).toLocalDate()
 }
 
 /** [FakeSetRepository] that counts `ensureToday()` calls and can hold them until [gate] completes. */

@@ -39,6 +39,7 @@ import com.mapineda48.phonotrainer.core.ui.extension.InsightsAvailability
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.io.File
 import java.time.Instant
+import java.time.LocalDate
 import java.util.Optional
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
@@ -52,7 +53,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
@@ -61,6 +61,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -69,8 +70,10 @@ import kotlinx.coroutines.withTimeoutOrNull
  * every clip and feed. One state for the whole dashboard, built from the domain repositories (architecture 3.1) and
  * kept while the shell keeps the entry (16.2), so Back from the feed finds Home as it was (F-03-AC8).
  *
- * Today's set is made once per local day by [SetRepository.ensureToday] (F-08 item 3), asked here as soon as a clip is
- * on this phone; "Start" never waits for it (the feed asks too).
+ * Today's set is made once per local day by [SetRepository.ensureToday] (F-08 item 3). Home asks for it while it is
+ * shown, whenever clips are on this phone and the repository shows no set of the local day: the first time, after local
+ * midnight (the repository's `today()` has no set of a new day until it is asked, F-08-AC4), and when another clip
+ * arrives while no set of the day exists. "Start" never waits for it (the feed asks too).
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
@@ -92,12 +95,16 @@ internal class HomeViewModel @Inject constructor(
   private val clock: Clock,
 ) : ViewModel() {
   private val attempts = MutableStateFlow(0)
-  private val preparing = MutableStateFlow(false)
+  private val asking = MutableStateFlow(Asking())
   private val refreshing = MutableStateFlow(false)
   private val notice = MutableStateFlow<HomeNotice?>(null)
   private val posterCache = mutableMapOf<String, File?>()
   private val busy = mutableSetOf<String>()
   private var noticeJob: Job? = null
+  private var askJob: Job? = null
+
+  /** The last reason Home saw to ask for today's set (null: none), kept while Home is away so a return asks no more. */
+  private var lastAsk: TodayAsk? = null
 
   /**
    * The whole catalogue (one subscription). [Read.Loading] is only the first state and that of "Try again": when Home
@@ -138,12 +145,29 @@ internal class HomeViewModel @Inject constructor(
     .onStart { emit(false) }
     .distinctUntilChanged()
 
-  private val today: Flow<TodayCard> = combine(
-    sets.today().catch { emit(null) }.onStart { emit(null) },
+  /** The local day, read again every [TICK_MS] while Home is shown, so a local midnight passed on screen counts. */
+  private val day: Flow<LocalDate> = ticks().map { it.atZone(clock.zone()).toLocalDate() }.distinctUntilChanged()
+
+  /**
+   * Today's set card. Each new reason of [HomeRules.todayAsk] while Home is shown asks the repository once (the first
+   * clip on this phone, a new local day, another clip while no set of the day exists). Until that answer, and the set
+   * it made, show, the card says "Preparing", never "You've seen every short" (F-08-AC4). The last card stays while
+   * Home is away, so a return does not flash another one before the repository answers (F-03-AC8).
+   */
+  private val today: StateFlow<TodayCard> = combine(
+    sets.today().catch { emit(null) },
     catalogueState,
-    preparing,
+    day,
+    asking,
     reference.reference,
-  ) { set: StudySet?, catalogue, making, ref -> HomeRules.todayCard(set, catalogue, making, ref) }
+  ) { set: StudySet?, catalogue, date, making, ref ->
+    val reason = HomeRules.todayAsk(set, catalogue, date)
+    val askNow = reason?.takeIf { it != lastAsk }
+    lastAsk = reason
+    askNow?.let(::ask)
+    val preparing = askNow != null || making.inFlight > 0 || (set == null && reason != null && reason == making.made)
+    HomeRules.todayCard(set, catalogue, preparing, ref)
+  }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), TodayCard.Preparing)
 
   private val keepWatching: Flow<KeepWatchingCard?> = progress.keepWatching()
     .catch { emit(null) }
@@ -176,15 +200,7 @@ internal class HomeViewModel @Inject constructor(
 
   private val study = combine(today, keepWatching, newOnPhone, shelf) { t, k, n, s -> Study(t, k, n, s) }
   private val learn = combine(changes, practiceCard, teaser) { c, p, i -> Learning(c, p, i) }
-  /** The clock, read again every [TICK_MS] while Home is shown, so "Checked 10 s ago" and "last seen" stay true. */
-  private val ticks: Flow<Instant> = flow {
-    while (true) {
-      emit(clock.now())
-      delay(TICK_MS)
-    }
-  }
-
-  private val transient = combine(refreshing, notice, ticks) { r, n, now -> Triple(r, n, now) }
+  private val transient = combine(refreshing, notice, ticks()) { r, n, now -> Triple(r, n, now) }
 
   val state: StateFlow<HomeUiState> = combine(
     combine(connection, queue, storageFull) { c, q, s -> Triple(c, q, s) },
@@ -224,26 +240,33 @@ internal class HomeViewModel @Inject constructor(
     )
   }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), HomeUiState())
 
-  init {
-    // Today's set is made once a clip is on this phone (F-08 item 3); a new local day is the repository's business.
-    viewModelScope.launch {
-      catalogue.map { read -> read is Read.Clips && HomeRules.onPhone(read.clips) > 0 }
-        .distinctUntilChanged()
-        .filter { it }
-        .collect { ensureToday() }
+  /** The clock, read every [TICK_MS] while Home is shown: "Checked 10 s ago", "last seen" and the day stay true. */
+  private fun ticks(): Flow<Instant> = flow {
+    while (true) {
+      emit(clock.now())
+      delay(TICK_MS)
     }
   }
 
-  private suspend fun ensureToday() {
-    preparing.value = true
-    try {
-      sets.ensureToday()
-    } catch (cancelled: CancellationException) {
-      throw cancelled
-    } catch (failed: Exception) {
-      // The card then says what is true without a set; the feed tries again when it opens.
-    } finally {
-      preparing.value = false
+  /**
+   * Asks the repository for today's set for [reason], one ask after the other. A set it made is remembered with its
+   * reason, so the card keeps saying "Preparing" until the repository shows that set.
+   */
+  private fun ask(reason: TodayAsk) {
+    asking.update { it.copy(inFlight = it.inFlight + 1) }
+    val previous = askJob
+    askJob = viewModelScope.launch {
+      var made = false
+      try {
+        previous?.join()
+        made = sets.ensureToday() != null
+      } catch (cancelled: CancellationException) {
+        throw cancelled
+      } catch (failed: Exception) {
+        // The card then says what is true without a set; the feed tries again when it opens.
+      } finally {
+        asking.update { Asking(inFlight = it.inFlight - 1, made = reason.takeIf { made }) }
+      }
     }
   }
 
@@ -395,6 +418,9 @@ internal class HomeViewModel @Inject constructor(
     val attention: Request?,
     val analyzing: RequestProgress?,
   )
+
+  /** Asks for today's set in flight, and the reason of the last ask when it made a set. */
+  private data class Asking(val inFlight: Int = 0, val made: TodayAsk? = null)
 
   private data class Study(val today: TodayCard, val keep: KeepWatchingCard?, val new: List<NewClip>, val shelf: List<ClipCardState>)
 

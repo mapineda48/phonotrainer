@@ -16,6 +16,7 @@ import com.mapineda48.phonotrainer.core.domain.model.StudySet
 import com.mapineda48.phonotrainer.core.domain.model.StudySetItem
 import com.mapineda48.phonotrainer.core.domain.model.familyFor
 import java.time.Instant
+import java.time.LocalDate
 import java.util.Locale
 
 /** How Home carries out a request action offered inline on the status card. */
@@ -64,6 +65,17 @@ internal object HomeRules {
     catalogue !is HomeCatalogue.Ready || catalogue.onPhone == 0 -> TodayCard.NoClips
     preparing -> TodayCard.Preparing
     else -> TodayCard.NothingNew
+  }
+
+  /**
+   * Whether Home must ask for today's set, and why (F-08 item 3, F-08-AC4): clips are on this phone and the repository
+   * shows no set of the local day [today], because none was made yet or, after local midnight, it shows none or still
+   * the day before (WP-14's `today()` has no set of a new day until `ensureToday()` makes it). Null once the set of
+   * [today] shows, so a set is never asked about again when another clip arrives (F-08-AC3).
+   */
+  fun todayAsk(set: StudySet?, catalogue: HomeCatalogue, today: LocalDate): TodayAsk? {
+    val onPhone = (catalogue as? HomeCatalogue.Ready)?.onPhone ?: 0
+    return if (onPhone > 0 && set?.date != today) TodayAsk(today, onPhone) else null
   }
 
   private fun StudySetItem.isLive(): Boolean = this !is StudySetItem.Short || !dropped

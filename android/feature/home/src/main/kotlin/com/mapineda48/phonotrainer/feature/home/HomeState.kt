@@ -13,6 +13,7 @@ import com.mapineda48.phonotrainer.core.domain.model.remote.Capabilities
 import com.mapineda48.phonotrainer.core.ui.component.ClipCardState
 import com.mapineda48.phonotrainer.core.ui.component.ConnectionCardExtras
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 
 /** The blocks of Home in reading order (spec F-03 items 2 to 10, design 9.16); the masthead is always first. */
@@ -62,6 +63,12 @@ internal sealed interface HomeCatalogue {
 
   data class Ready(val total: Int, val onPhone: Int) : HomeCatalogue
 }
+
+/**
+ * Why Home asks the repository for today's set (F-08 item 3): the local day it asks about and the clips on this phone
+ * then. A new local day, or another clip on the phone while no set of the day exists, is a new reason to ask.
+ */
+internal data class TodayAsk(val date: LocalDate, val onPhone: Int)
 
 /** One mark of the Today's set card's stations thread (design 9.16 block 3). */
 @Immutable

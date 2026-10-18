@@ -14,6 +14,7 @@ import com.mapineda48.phonotrainer.core.domain.model.RequestKind
 import com.mapineda48.phonotrainer.core.domain.model.RequestState
 import com.mapineda48.phonotrainer.core.testing.fake.content.SampleReference
 import java.time.Instant
+import java.time.LocalDate
 import org.junit.Test
 
 /** The pure rules of Home (spec F-03, F-08, D-45, D-48). */
@@ -108,6 +109,26 @@ class HomeRulesTest {
     assertThat(HomeRules.todayCard(null, HomeCatalogue.Failed, preparing = false, reference)).isEqualTo(TodayCard.NoClips)
     assertThat(HomeRules.todayCard(null, HomeCatalogue.Ready(4, 2), preparing = true, reference)).isEqualTo(TodayCard.Preparing)
     assertThat(HomeRules.todayCard(null, HomeCatalogue.Ready(4, 2), preparing = false, reference)).isEqualTo(TodayCard.NothingNew)
+  }
+
+  @Test
+  fun homeAsksForTodaysSetWhenClipsAreOnThePhoneAndNoSetOfTheDayShows() {
+    val day = LocalDate.of(2026, 10, 4)
+    val set = HomeFixtures.acTenSet()
+    assertThat(set.date).isEqualTo(day)
+    val onPhone = HomeCatalogue.Ready(3, 2)
+    // No set yet, or after local midnight none (WP-14's repository) or still the day before: ask for the day.
+    assertThat(HomeRules.todayAsk(null, onPhone, day)).isEqualTo(TodayAsk(day, 2))
+    assertThat(HomeRules.todayAsk(set, onPhone, day.plusDays(1))).isEqualTo(TodayAsk(day.plusDays(1), 2))
+    // The set of the day shows: never asked again, whatever arrives (F-08-AC3).
+    assertThat(HomeRules.todayAsk(set, onPhone, day)).isNull()
+    assertThat(HomeRules.todayAsk(set, HomeCatalogue.Ready(9, 9), day)).isNull()
+    // Nothing to make a set from.
+    assertThat(HomeRules.todayAsk(null, HomeCatalogue.Ready(3, 0), day)).isNull()
+    assertThat(HomeRules.todayAsk(null, HomeCatalogue.Loading, day)).isNull()
+    assertThat(HomeRules.todayAsk(null, HomeCatalogue.Failed, day)).isNull()
+    // Another clip while no set of the day exists is a new reason to ask.
+    assertThat(HomeRules.todayAsk(null, HomeCatalogue.Ready(4, 3), day)).isEqualTo(TodayAsk(day, 3))
   }
 
   @Test
