@@ -39,6 +39,14 @@ interface SetRepository {
 
   suspend fun anotherSet(): StudySet?
 
+  /**
+   * "Replay the mix" on the "Mix with nothing left" end card (spec F-06 item 9): a set built from seen shorts, least
+   * recently seen first; null only when no short is eligible at all. Kept apart from [anotherSet] so that "Another
+   * set" can answer null when nothing new is due and the feed shows that end card first (spec F-08 item 7). The
+   * default body keeps both buttons on [anotherSet] until an implementation overrides it (CR-WP14-1).
+   */
+  suspend fun replayMix(): StudySet? = anotherSet()
+
   suspend fun advance(setId: Long, position: Int)
 
   /** [choice]: the option id (work-plan Appendix A.5). */
