@@ -191,7 +191,10 @@ class NavigationSmokeTest {
   fun theLessonSheetOpensOverAComposedFeed() {
     start()
     robot.tab(Tab.WATCH)
-    robot.tap(WatchTags.OPEN_LESSON)
+    // The real feed (WP-17) opens the lesson from a word or the spotlight; with no clip on the phone, open it as
+    // the feed does.
+    robot.waitForTag(WatchTags.START)
+    robot.open(LessonKey(job, 0, 0, LessonOrigin.FEED, LessonPresentation.SHEET))
     robot.assertShown(LessonKey(job, 0, 0, LessonOrigin.FEED, LessonPresentation.SHEET))
     // The feed stays composed beneath the overlay scene.
     assertThat(compose.onAllNodes(hasTestTag(WatchTags.START), useUnmergedTree = true).fetchSemanticsNodes()).isNotEmpty()
