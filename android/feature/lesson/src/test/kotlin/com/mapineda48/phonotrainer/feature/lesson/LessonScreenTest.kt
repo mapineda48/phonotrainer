@@ -10,6 +10,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsFocused
@@ -572,6 +573,31 @@ class LessonScreenTest {
     compose.waitForIdle()
     compose.onNodeWithText("That word is no longer in this clip.").assertExists()
     assertThat(calls).isEqualTo(1)
+  }
+
+  /**
+   * In the sheet every state fills the sheet's height, so the sheet's size never changes as the lesson loads: Material's
+   * sheet settles where its content's first size puts it, and a lesson that grew after opening settled fully expanded,
+   * where Back only brings the sheet down to half height (found by WP-17's Watch area test on the managed device).
+   */
+  @Test
+  fun inTheSheetEveryStateFillsTheSheetsHeightSoItsSizeNeverChangesWhileItLoads() {
+    var state by mutableStateOf<LessonUiState>(LessonUiState.Loading)
+    screen.setContent(content = {
+      Box(Modifier.size(width = 412.dp, height = 600.dp)) {
+        LessonScreen(state, LessonPresentation.SHEET, LessonActions(), glossary = LessonPreviewData.glossary::get)
+      }
+    })
+    listOf(
+      LessonUiState.Loading,
+      LessonUiState.Unavailable(Unavailable.WORD_GONE),
+      LessonPreviewData.water(),
+      LessonPreviewData.water(open = emptySet()),
+    ).forEach {
+      state = it
+      compose.waitForIdle()
+      compose.onNodeWithTag(LessonTags.ROOT).assertHeightIsEqualTo(600.dp)
+    }
   }
 
   @Test

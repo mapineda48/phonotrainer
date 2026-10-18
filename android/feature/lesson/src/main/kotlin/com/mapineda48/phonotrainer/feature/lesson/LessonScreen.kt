@@ -130,10 +130,14 @@ internal fun LessonScreen(
 ) {
   val colors = PhonoTheme.colors
   val title = stringResource(R.string.lesson_title)
+  // In the sheet every state fills the sheet's height, so the sheet's size never changes while the lesson loads:
+  // Material's sheet settles where its content's first size puts it, and a lesson that grew after the sheet had opened
+  // settled fully expanded, where Back only brings it down to half height. Full height, it opens at half height
+  // (design 9.9) and the first Back closes it (F-07-AC6).
   val frame = if (presentation == LessonPresentation.FULL) {
     Modifier.fillMaxSize().background(colors.sheet).statusBarsPadding()
   } else {
-    Modifier.fillMaxWidth()
+    Modifier.fillMaxSize()
   }
   Box(
     modifier = modifier
