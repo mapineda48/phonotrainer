@@ -42,14 +42,14 @@ import kotlinx.coroutines.flow.flow
 internal class StudyDay @Inject constructor(private val clock: Clock) {
   fun now(): Instant = clock.now()
 
-  fun today(): LocalDate = LocalDate.ofInstant(clock.now(), clock.zone())
+  fun today(): LocalDate = clock.now().atZone(clock.zone()).toLocalDate()
 
   /** Today's date, emitted again after each local midnight (checked at least once a minute, so clock changes count). */
   fun dates(): Flow<LocalDate> = flow {
     while (true) {
       val now = clock.now()
       val zone = clock.zone()
-      val today = LocalDate.ofInstant(now, zone)
+      val today = now.atZone(zone).toLocalDate()
       emit(today)
       val midnight = today.plusDays(1).atStartOfDay(zone).toInstant()
       delay(Duration.between(now, midnight).toMillis().coerceIn(1L, 60_000L))

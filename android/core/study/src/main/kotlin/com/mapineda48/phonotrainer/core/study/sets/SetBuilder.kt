@@ -122,7 +122,7 @@ object SetBuilder {
     lastWatched == null || daysSince(lastWatched, input) >= SAVED_AFTER_DAYS
 
   private fun daysSince(at: Instant, input: SetInput): Long =
-    ChronoUnit.DAYS.between(LocalDate.ofInstant(at, input.zone), input.today)
+    ChronoUnit.DAYS.between(at.atZone(input.zone).toLocalDate(), input.today)
 
   /** The first [SHORTS] distinct picks of [priority], each clip within its share while another clip can fill in. */
   private fun choose(priority: List<SetPick>, savedMax: Int): List<SetPick> {
