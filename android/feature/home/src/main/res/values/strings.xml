@@ -90,8 +90,6 @@
     <!-- Keep watching (F-03 item 4). -->
     <string name="home_keep_kicker">Keep watching</string>
     <string name="home_keep_short">Short %1$d of %2$d</string>
-    <string name="home_keep_listen_for">Listen for:</string>
-    <string name="home_keep_in_word">in “%1$s”</string>
     <string name="home_keep_listen_sentence">Listen for: %1$s in “%2$s”</string>
     <string name="home_keep_listen_change">Listen for: %1$s</string>
     <string name="home_keep_action">Keep watching</string>
