@@ -27,6 +27,12 @@ data class Request(
   val rerunPending: Boolean = false,
   /** "Last known: Analyzing 40 % (10 min ago)". */
   val updatedAt: Instant? = null,
+  /**
+   * The clip's length in seconds once it is known: the picked or shared file's facts, or the job's `media.duration_s`
+   * or `summary.duration_s` (server-contract 6.3); null before (a link before its download). The request detail's
+   * source line and its estimate "Usually takes about as long as the clip (about 4 min)." (spec F-20 item 2).
+   */
+  val durationS: Double? = null,
 )
 
 enum class RequestState {
