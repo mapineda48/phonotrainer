@@ -1,6 +1,7 @@
 package com.mapineda48.phonotrainer.e2e.support
 
 import android.content.Context
+import android.os.SystemClock
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.WorkQuery
@@ -9,11 +10,15 @@ import androidx.work.testing.WorkManagerTestInitHelper
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.UUID
 import javax.inject.Inject
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Drives the test WorkManager that `HiltTestRunner` installs (architecture 21.5; F-21-AC8 and F-23-AC1 use it):
- * work runs synchronously, but a request waits for its constraints, initial delay or period until a test says they
- * are met. Area robots and the cross-area flows use it instead of waiting for real time to pass.
+ * a request waits for its constraints, initial delay or period until a test says they are met, then runs at once.
+ * A request released from its constraints may run on one of WorkManager's own threads rather than the caller's, so
+ * [runEnqueued] can return before it has run, and a test that needs its outcome waits with [awaitFinished]. Area
+ * robots and the cross-area flows use it instead of waiting for real time to pass.
  */
 class WorkDriver @Inject constructor(@ApplicationContext private val context: Context) {
   private val workManager: WorkManager get() = WorkManager.getInstance(context)
@@ -42,5 +47,23 @@ class WorkDriver @Inject constructor(@ApplicationContext private val context: Co
       if (info.periodicityInfo != null) driver.setPeriodDelayMet(info.id)
     }
     return enqueued.map { it.id }
+  }
+
+  /**
+   * Waits until request [id] has finished (succeeded, failed or cancelled), at most [timeout], and returns its last
+   * state, which is not finished only when the time ran out.
+   */
+  fun awaitFinished(id: UUID, timeout: Duration = 10.seconds): WorkInfo.State? {
+    val deadline = SystemClock.uptimeMillis() + timeout.inWholeMilliseconds
+    var state = workManager.getWorkInfoById(id).get()?.state
+    while (state?.isFinished != true && SystemClock.uptimeMillis() < deadline) {
+      Thread.sleep(POLL_MS)
+      state = workManager.getWorkInfoById(id).get()?.state
+    }
+    return state
+  }
+
+  private companion object {
+    const val POLL_MS = 20L
   }
 }

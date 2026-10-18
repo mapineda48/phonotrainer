@@ -227,7 +227,8 @@ class GlobalTestSetTest {
 
     assertThat(work.runEnqueued()).containsExactly(request.id)
 
-    assertThat(state(request.id)).isEqualTo(WorkInfo.State.SUCCEEDED)
+    // Released from its constraints, the request runs on one of WorkManager's threads: wait for its end.
+    assertThat(work.awaitFinished(request.id)).isEqualTo(WorkInfo.State.SUCCEEDED)
   }
 
   @Test
