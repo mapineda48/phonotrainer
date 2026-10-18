@@ -22,6 +22,7 @@ import com.mapineda48.phonotrainer.core.domain.model.ComputerStatus
 import com.mapineda48.phonotrainer.core.domain.model.HostPort
 import com.mapineda48.phonotrainer.core.domain.model.LibraryId
 import com.mapineda48.phonotrainer.core.domain.model.ProbeOutcome
+import com.mapineda48.phonotrainer.core.domain.model.SyncReason
 import com.mapineda48.phonotrainer.core.domain.model.remote.Capabilities
 import com.mapineda48.phonotrainer.core.domain.model.remote.PairGrant
 import com.mapineda48.phonotrainer.core.domain.model.remote.RemoteLibrary
@@ -35,6 +36,8 @@ import com.mapineda48.phonotrainer.core.sync.catalogue.ClipRemoval
 import com.mapineda48.phonotrainer.core.sync.catalogue.PairedSource
 import com.mapineda48.phonotrainer.core.sync.engine.DownloadRunner
 import com.mapineda48.phonotrainer.core.sync.engine.ForegroundState
+import com.mapineda48.phonotrainer.core.sync.engine.PassOutcome
+import com.mapineda48.phonotrainer.core.sync.engine.SyncPasses
 import com.mapineda48.phonotrainer.core.sync.meta.SyncMeta
 import com.mapineda48.phonotrainer.core.sync.storage.AndroidDeviceSpace
 import com.mapineda48.phonotrainer.core.sync.transfer.ClipFiles
@@ -97,7 +100,7 @@ internal class DeviceSync : AutoCloseable {
     ),
   )
   val reconciler = FakeRequestReconciler()
-  private val meta = SyncMeta(db.syncMetaDao())
+  val meta = SyncMeta(db.syncMetaDao())
   private val removal = ClipRemoval(
     db, db.clipDao(), files, FakeClipLeases(), Provider { emptySet() }, Provider { reconciler }, FakeUserMessages(), PhonoLog.NONE,
   )
@@ -110,6 +113,15 @@ internal class DeviceSync : AutoCloseable {
   )
   val work = WorkManagerSyncWork(context, PhonoLog.NONE)
   val foreground = Visible()
+
+  /** What the download worker asks after a run that lost the computer: whether files still wait (no pass runs here). */
+  val passes = object : SyncPasses {
+    override suspend fun pass(reason: SyncReason, userVisible: Boolean): PassOutcome = PassOutcome.Done(listed = false)
+
+    override suspend fun hasPendingWork(): Boolean = downloader.refreshQueue().wanted.isNotEmpty()
+
+    override suspend fun nextRetryIn(): Duration? = null
+  }
 
   init {
     current = this
@@ -212,7 +224,10 @@ internal class DeviceSync : AutoCloseable {
       }
       return when (workerClassName) {
         DownloadWorker::class.java.name ->
-          DownloadWorker(appContext, workerParameters, DownloadRunner { sync.downloader.run(it) }, transfers, sync.foreground, PhonoLog.NONE)
+          DownloadWorker(
+            appContext, workerParameters, DownloadRunner { sync.downloader.run(it) }, sync.passes, sync.work, sync.meta,
+            transfers, sync.foreground, PhonoLog.NONE,
+          )
         else -> null
       }
     }

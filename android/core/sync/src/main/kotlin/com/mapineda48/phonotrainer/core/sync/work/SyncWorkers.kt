@@ -32,6 +32,7 @@ import com.mapineda48.phonotrainer.core.sync.engine.PassOutcome
 import com.mapineda48.phonotrainer.core.sync.engine.SyncPasses
 import com.mapineda48.phonotrainer.core.sync.engine.SyncWork
 import com.mapineda48.phonotrainer.core.sync.meta.SyncMeta
+import com.mapineda48.phonotrainer.core.sync.transfer.RunOutcome
 import com.mapineda48.phonotrainer.core.sync.transfer.RunProgress
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -78,6 +79,16 @@ internal object WifiBackoff {
 
   fun next(previous: Duration): Duration =
     if (previous < FIRST) FIRST else minOf(previous.multipliedBy(2), LAST)
+
+  /**
+   * A run that ended without reaching the computer while something waits: the next `sync-on-wifi` after the doubled
+   * delay, recorded so the following miss doubles it again (never a zero delay from inside a run).
+   */
+  suspend fun retryLater(meta: SyncMeta, work: SyncWork) {
+    val next = next(Duration.ofMillis(meta.wifiBackoffMs()))
+    meta.setWifiBackoffMs(next.toMillis())
+    work.nextOnWifi(next)
+  }
 }
 
 /** [SyncWork] on WorkManager, initialised by the application with the Hilt worker factory. */
@@ -194,11 +205,7 @@ internal class SyncWorker @AssistedInject constructor(
 
   private suspend fun afterOnWifi(outcome: PassOutcome) {
     when (outcome) {
-      is PassOutcome.NotConnected -> if (passes.hasPendingWork()) {
-        val next = WifiBackoff.next(Duration.ofMillis(meta.wifiBackoffMs()))
-        meta.setWifiBackoffMs(next.toMillis())
-        work.nextOnWifi(next)
-      }
+      is PassOutcome.NotConnected -> if (passes.hasPendingWork()) WifiBackoff.retryLater(meta, work)
       is PassOutcome.Done -> {
         val retry = passes.nextRetryIn() ?: return
         work.nextOnWifi(maxOf(retry, WifiBackoff.MIN_RETRY))
@@ -224,13 +231,18 @@ internal class SyncWorker @AssistedInject constructor(
  * The download worker (`downloads`, architecture 7.2, 7.4): one download run. When the learner started it in the
  * foreground it asks to be a visible transfer (a `dataSync` foreground service with the "Transfers" notification and its
  * "Stop"); if Android does not allow it (started after the app left the foreground, or no `dataSync` permission), it
- * goes on as ordinary deferrable work: downloads are resumable, so a stop is harmless (spec 7.7).
+ * goes on as ordinary deferrable work: downloads are resumable, so a stop is harmless (spec 7.7). A run that loses the
+ * computer while files still wait leaves the next `sync-on-wifi` behind it, with the delay of [WifiBackoff] (a
+ * computer whose probe answers while its downloads do not must not loop a pass and a run with no pause).
  */
 @HiltWorker
 internal class DownloadWorker @AssistedInject constructor(
   @Assisted context: Context,
   @Assisted params: WorkerParameters,
   private val runner: DownloadRunner,
+  private val passes: SyncPasses,
+  private val work: SyncWork,
+  private val meta: SyncMeta,
   private val transfers: TransferNotifier,
   private val foreground: ForegroundState,
   private val log: PhonoLog,
@@ -243,7 +255,8 @@ internal class DownloadWorker @AssistedInject constructor(
       promoted = promote(TransferProgress(title = "", doneBytes = 0, totalBytes = null, items = 1))
     }
     return try {
-      runner.run { progress -> update(progress) }
+      val outcome = runner.run { progress -> update(progress) }
+      if (outcome == RunOutcome.NOT_CONNECTED && passes.hasPendingWork()) WifiBackoff.retryLater(meta, work)
       Result.success()
     } catch (stopped: CancellationException) {
       log.w("sync.download_stopped.${stopReasonOf(this)}")

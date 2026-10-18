@@ -18,6 +18,7 @@ import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.mapineda48.phonotrainer.core.domain.model.ClipAvailability
 import com.mapineda48.phonotrainer.core.domain.model.ClipQuery
+import com.mapineda48.phonotrainer.core.domain.model.ComputerStatus
 import com.mapineda48.phonotrainer.core.domain.model.SyncReason
 import com.mapineda48.phonotrainer.core.sync.engine.DownloadRunner
 import com.mapineda48.phonotrainer.core.sync.engine.PassOutcome
@@ -25,6 +26,7 @@ import com.mapineda48.phonotrainer.core.sync.transfer.RunOutcome
 import com.mapineda48.phonotrainer.core.sync.work.DownloadWorker
 import com.mapineda48.phonotrainer.core.sync.work.SyncWorkNames
 import com.mapineda48.phonotrainer.core.sync.work.SyncWorker
+import com.mapineda48.phonotrainer.core.sync.work.WifiBackoff
 import java.util.UUID
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -95,12 +97,42 @@ class WorkersTest {
 
   @Test
   fun aPeriodicRunThatDoesNotReachTheComputerLeavesAWifiWorkForWhatWaits() = sync { h ->
-    h.status.statusState.value = com.mapineda48.phonotrainer.core.domain.model.ComputerStatus.Offline
+    h.status.statusState.value = ComputerStatus.Offline
     h.requests.countsState.value = h.requests.countsState.value.copy(waiting = 1)
 
     h.syncWorker(SyncWorkNames.MODE_PERIODIC).doWork()
 
     assertThat(h.work.onWifi).isEqualTo(1)
+  }
+
+  @Test
+  fun aDownloadRunThatLosesTheComputerWhileFilesWaitLeavesTheNextWifiRunWithADoublingDelay() = sync { h ->
+    // Architecture 7.2 (Android review M1): never a zero delay from inside a run, so a computer whose probe answers
+    // while its downloads do not cannot loop a pass and a run.
+    h.computer.addFinishedClip("Ordering coffee", video = false)
+    h.orchestrator.pass(SyncReason.SYNC_NOW)
+    h.status.statusState.value = ComputerStatus.Offline
+
+    assertThat(h.downloadWorker(visible = false, RecordingForegroundUpdater()).doWork()).isEqualTo(ListenableWorker.Result.success())
+    h.downloadWorker(visible = false, RecordingForegroundUpdater()).doWork()
+
+    assertThat(h.work.nextOnWifi).containsExactly(WifiBackoff.FIRST, WifiBackoff.FIRST.multipliedBy(2)).inOrder()
+    assertThat(h.meta.wifiBackoffMs()).isEqualTo(WifiBackoff.FIRST.multipliedBy(2).toMillis())
+    assertThat(h.work.onWifi).isEqualTo(0)
+  }
+
+  @Test
+  fun aDownloadRunThatEndsWithNothingWaitingOrStillConnectedLeavesNoWifiRun() = sync { h ->
+    h.status.statusState.value = ComputerStatus.Offline
+    h.downloadWorker(visible = false, RecordingForegroundUpdater(), runner = { RunOutcome.NOT_CONNECTED }).doWork()
+
+    h.status.statusState.value = SyncHarness.CONNECTED
+    h.computer.addFinishedClip("Ordering coffee", video = false)
+    h.orchestrator.pass(SyncReason.SYNC_NOW)
+    h.downloadWorker(visible = false, RecordingForegroundUpdater(), runner = { RunOutcome.DONE }).doWork()
+
+    assertThat(h.work.nextOnWifi).isEmpty()
+    assertThat(h.work.onWifi).isEqualTo(0)
   }
 
   @Test

@@ -74,7 +74,7 @@ internal class SyncWorkerFactory(
       SyncWorker::class.java.name ->
         SyncWorker(appContext, workerParameters, passes(), work(), meta(), transferNotifier(appContext), log)
       DownloadWorker::class.java.name ->
-        DownloadWorker(appContext, workerParameters, runner(), transferNotifier(appContext), foreground, log)
+        DownloadWorker(appContext, workerParameters, runner(), passes(), work(), meta(), transferNotifier(appContext), foreground, log)
       else -> null
     }
 }
