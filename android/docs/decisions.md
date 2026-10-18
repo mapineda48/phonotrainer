@@ -166,6 +166,25 @@ player, behind the same `FeedPlayer` (architecture 11.2). Proof: `:core:player` 
 
 ## Build and test infrastructure
 
+### I-20 Each end-to-end test's application scope ends with the test (2026-10-18, WP-19; CR-WP08-5)
+
+Every end-to-end test builds a new Hilt component, so each test has its own `@ApplicationScope`, and nothing cancelled
+the scopes of earlier tests. With the real sync engine (WP-08) that matters: the seeder's download worker goes on with
+the second track and the video after the clip is "On this phone", and earlier components' foreground sessions keep
+reacting (passes, `cancelUnpaired`) during later tests. Together with I-04's listener, which closed the previous test
+WorkManager's database before each test, this crashed the instrumented process part-way through the suite ("Database
+is closed" inside WorkManager's `Schedulers.registerRescheduling`; 39 tests ran on WP-08's branch, 46 in the
+verifier's run). Two changes in `e2e/di/`, both from WP-08's change request:
+- `TestCoroutinesModule` replaces `CoroutinesModule` (`:app`) with the same three bindings (the application scope on
+  the default dispatcher, the IO and default dispatchers). The scope it provides is registered with
+  `PerTestIsolation.track`, and `PerTestIsolation.testFinished` cancels it before it closes the test's fake computers.
+- `PerTestIsolation.freshWorkManager` cancels the previous test WorkManager's work instead of closing its database. A
+  worker of the previous test may still be finishing, and WorkManager writes its end into that database. The new test
+  still gets a new, empty in-memory work database, so I-04's isolation holds.
+
+This adds one module to architecture 21.5's global set. It changes no repository and no production binding: the
+replaced module's bindings are identical apart from the scope's cancellation.
+
 ### I-15 `StartupOrder` is kept by an R8 rule, proved with AGP's own R8 (2026-10-11, WP-19)
 
 Wave-1 review, architecture finding 8: `@StartupOrder` is read by reflection from each `StartupTask`'s class, the tasks

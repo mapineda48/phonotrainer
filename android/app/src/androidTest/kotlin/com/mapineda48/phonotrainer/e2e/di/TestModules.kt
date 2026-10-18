@@ -6,6 +6,8 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.room.Room
 import com.mapineda48.phonotrainer.core.common.di.ApplicationScope
+import com.mapineda48.phonotrainer.core.common.di.DefaultDispatcher
+import com.mapineda48.phonotrainer.core.common.di.IoDispatcher
 import com.mapineda48.phonotrainer.core.connectivity.ConnectivitySeamsModule
 import com.mapineda48.phonotrainer.core.database.DatabaseModule
 import com.mapineda48.phonotrainer.core.database.learning.LearningDatabase
@@ -22,6 +24,7 @@ import com.mapineda48.phonotrainer.core.network.api.ComputerNetworkBinder
 import com.mapineda48.phonotrainer.core.testing.TestClock
 import com.mapineda48.phonotrainer.core.testing.fake.connectivity.FakeNetworkMonitor
 import com.mapineda48.phonotrainer.di.ClockModule
+import com.mapineda48.phonotrainer.di.CoroutinesModule
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -30,8 +33,10 @@ import dagger.hilt.testing.TestInstallIn
 import java.io.File
 import java.util.UUID
 import javax.inject.Singleton
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.plus
 
 // The one global set of test modules of architecture 21.5 (integrator-owned), with `FakeComputerModule` in its own
@@ -102,6 +107,30 @@ object TestDatabaseModule {
     Room.inMemoryDatabaseBuilder(context, LearningDatabase::class.java)
       .addCallback(LearningDatabase.LEARNING_ID_CALLBACK)
       .build()
+}
+
+/**
+ * Replaces `CoroutinesModule`: the same application scope and dispatchers, but each test's scope is cancelled when the
+ * test ends ([PerTestIsolation]). Every test builds a new Hilt component, and without this the scopes of earlier tests
+ * would keep their singletons' work running (the sync engine's foreground session, for one) against closed fakes and
+ * the current test's WorkManager.
+ */
+@Module
+@TestInstallIn(components = [SingletonComponent::class], replaces = [CoroutinesModule::class])
+object TestCoroutinesModule {
+  @Provides
+  @Singleton
+  @ApplicationScope
+  fun applicationScope(@DefaultDispatcher dispatcher: CoroutineDispatcher): CoroutineScope =
+    PerTestIsolation.track(CoroutineScope(SupervisorJob() + dispatcher))
+
+  @Provides
+  @IoDispatcher
+  fun ioDispatcher(): CoroutineDispatcher = Dispatchers.IO
+
+  @Provides
+  @DefaultDispatcher
+  fun defaultDispatcher(): CoroutineDispatcher = Dispatchers.Default
 }
 
 /** Replaces `ClockModule`: a clock tests move by hand. */
