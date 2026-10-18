@@ -9,14 +9,14 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 
-/** Contributes the destinations of :feature:connect to the shell (architecture 16.3). */
+/** Contributes Connect (P-06, spec F-02) and Connection details (P-07) to the shell (architecture 16.3). */
 @Module
 @InstallIn(SingletonComponent::class)
 object ConnectNavigationModule {
   @Provides
   @IntoSet
   fun entries(): EntryInstaller = EntryInstaller { navigator ->
-    entry<ConnectKey> { ConnectStubScreen(navigator::navigate) }
-    entry<ConnectionDetailsKey> { ConnectionDetailsStubScreen() }
+    entry<ConnectKey> { key -> ConnectRoute(key, navigator) }
+    entry<ConnectionDetailsKey> { ConnectionDetailsRoute(navigator) }
   }
 }

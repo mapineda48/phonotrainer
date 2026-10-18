@@ -1,10 +1,173 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Strings of :feature:connect. At the contract freeze: the title and lede of each stub destination
-     (WP-13 replaces them with its screens). -->
+<!-- Strings of :feature:connect: Connect to your computer (spec F-02, design 10.2 P-06) and Connection details (spec
+     7.5 "Why?", F-22 "Connection details", design 10.2 P-07). The two terminal commands are product strings
+     (server-contract 2.2): they never carry an address. -->
 <resources>
+    <string name="connect_back">Back</string>
+
+    <!-- Connect to your computer (P-06). -->
     <string name="connect_title">Connect to your computer</string>
     <string name="connect_lede">Your computer analyzes the clips; this phone keeps them and teaches with them. Connect once, on your home Wi-Fi.</string>
-    <string name="connect_link_details">Connection details</string>
-    <string name="connect_details_title">Connection details</string>
-    <string name="connect_details_lede">What this phone knows about your computer, and what to check when it isn\'t reachable.</string>
+    <string name="connect_again_lede">Your computer no longer recognizes this phone. Ask it for a new code and connect again: your clips and requests stay as they are.</string>
+    <string name="connect_new_address_title">Enter the new address</string>
+    <string name="connect_new_address_lede">Your computer prints its address and port when PhonoTrainer starts. This phone accepts the new address only if the computer there proves it is %1$s.</string>
+    <string name="connect_new_address_lede_unnamed">Your computer prints its address and port when PhonoTrainer starts. This phone accepts the new address only if the computer there proves it is the one it is connected to.</string>
+
+    <!-- The instruction card for the computer side (F-02 behaviour 2). -->
+    <string name="connect_steps_title">On your computer</string>
+    <string name="connect_step_1">On your computer, start PhonoTrainer with phone access on.</string>
+    <string name="connect_step_2">In a terminal on your computer, ask PhonoTrainer for a pairing code. It shows a 6-digit code and its address.</string>
+    <string name="connect_step_3">Pick your computer below and enter the code.</string>
+    <string name="connect_command_start" translatable="false">phonotrainer ui --phone-access</string>
+    <string name="connect_command_pair" translatable="false">phonotrainer phone pair</string>
+    <string name="connect_command_phone_on" translatable="false">phonotrainer phone on</string>
+    <string name="connect_copy">Copy</string>
+    <string name="connect_copy_command">Copy the command %1$s</string>
+    <string name="connect_copied">Copied</string>
+
+    <!-- Search (F-02 behaviour 3 and States). -->
+    <string name="connect_looking">Looking for your computer…</string>
+    <string name="connect_found_title">Computers on this Wi-Fi</string>
+    <string name="connect_search_again">Search again</string>
+    <string name="connect_enter_address">Enter the address instead</string>
+    <string name="connect_conflict">Two computers answered with the same name. If you aren\'t sure which one is yours, enter the address shown on your computer instead.</string>
+    <string name="connect_row_version">PhonoTrainer, phone API %1$d</string>
+    <string name="connect_row_ready">Ready to connect</string>
+    <string name="connect_row_paired">The computer this phone is connected to</string>
+    <string name="connect_row_too_old">Needs a newer PhonoTrainer on your computer</string>
+    <string name="connect_row_phone_access_off">Phone access isn\'t on there for this network</string>
+    <string name="connect_row_other_computer">This phone is connected to %1$s. Forget it first in Settings to connect to another computer.</string>
+    <string name="connect_row_other_computer_unnamed">This phone is connected to another computer. Forget it first in Settings to connect to this one.</string>
+    <string name="connect_row_typed">At the address you entered</string>
+    <string name="connect_row_selected">Selected</string>
+
+    <!-- Nothing found (F-02 States "Empty", render `21`). -->
+    <string name="connect_none_title">No computer answered.</string>
+    <string name="connect_none_body">This phone looked on your Wi-Fi for 10 seconds and heard nothing back.</string>
+    <string name="connect_check_phone_access">Is PhonoTrainer running with phone access on? If your computer joined a new network, run %1$s there.</string>
+    <string name="connect_check_same_wifi">Are this phone and your computer on the same Wi-Fi?</string>
+    <string name="connect_check_routers">Some routers keep devices apart (guest networks).</string>
+    <string name="connect_check_vpn">Is a VPN on? Turn it off at home: it can hide your computer.</string>
+
+    <!-- Not on Wi-Fi (F-02 States "Offline"). -->
+    <string name="connect_not_on_wifi">Connect to your home Wi-Fi first. Your computer is reachable only there.</string>
+    <string name="connect_open_wifi">Open Wi-Fi settings</string>
+
+    <!-- "Enter the address instead" (F-02 behaviour 4). -->
+    <string name="connect_address_label">Computer address and port</string>
+    <string name="connect_address_placeholder">As shown on your computer</string>
+    <string name="connect_address_check">Check</string>
+    <string name="connect_address_checking">Asking that address who it is…</string>
+    <string name="connect_address_invalid">That isn\'t an address and port. Type them exactly as your computer shows them.</string>
+    <string name="connect_address_phone_access_off">That address answered, but phone access isn\'t on there for this network. On your computer, run %1$s, then try again.</string>
+    <string name="connect_address_too_old">Needs a newer PhonoTrainer on your computer</string>
+    <string name="connect_address_not_phonotrainer">Something answered at that address, but it isn\'t PhonoTrainer. Check the address and port on your computer.</string>
+    <string name="connect_address_no_answer">Nothing answered at that address. Check the address and port, and that this phone is on the same Wi-Fi as your computer.</string>
+    <string name="connect_address_not_private">That isn\'t an address on a home network. Enter the address your computer shows for this Wi-Fi.</string>
+    <string name="connect_address_different">A different computer answered at this address.</string>
+    <string name="connect_address_found">Found %1$s. Enter the code shown on your computer.</string>
+
+    <!-- The code (F-02 behaviour 5 and the error rows of States). -->
+    <string name="connect_code_title">Enter the code shown on your computer</string>
+    <string name="connect_code_label">Pairing code, 6 digits</string>
+    <string name="connect_code_progress">%1$d of 6 digits</string>
+    <string name="connect_code_for">Connecting to %1$s</string>
+    <string name="connect_name_label">Name of this phone on your computer</string>
+    <string name="connect_default_phone_name">Android phone</string>
+    <string name="connect_name_hint">Your computer lists this phone under this name.</string>
+    <string name="connect_connect">Connect</string>
+    <string name="connect_error_invalid">That code didn\'t match. Check the code on your computer.</string>
+    <string name="connect_error_expired">That code has expired. Your computer can show a new one.</string>
+    <string name="connect_error_locked">Too many tries. Ask your computer for a new code.</string>
+    <string name="connect_error_rate_limited">Too many tries right now. Try again in %1$d seconds.</string>
+    <string name="connect_error_rate_limited_unknown">Too many tries right now. Wait a moment, then try again.</string>
+    <string name="connect_error_app_too_old">Your computer needs a newer version of this app. Update this app, then connect again.</string>
+    <string name="connect_error_phone_access_off">Your computer answered, but phone access isn\'t on there for this network. On your computer, run %1$s, then try again.</string>
+    <string name="connect_error_different">A different computer answered at this address. Pick your computer again, or enter its address.</string>
+    <string name="connect_error_not_reachable">Your computer didn\'t answer. Check that it\'s on and on the same Wi-Fi, then try again.</string>
+    <string name="connect_error_not_on_wifi">Connect to your home Wi-Fi first. Your computer is reachable only there.</string>
+    <string name="connect_error_computer_too_old">Needs a newer PhonoTrainer on your computer</string>
+    <string name="connect_error_failed">Your computer couldn\'t connect this phone. Ask it for a new code, then try again.</string>
+
+    <!-- Success (F-02 behaviour 6) and the new address (F-02-AC6). -->
+    <string name="connect_success_title">Connected to %1$s</string>
+    <string name="connect_success_body">Clips on your computer start coming to this phone now. Requests waiting here are being sent.</string>
+    <string name="connect_success_home">Go to Home</string>
+    <string name="connect_new_address_done">This phone uses the new address from now on. Nothing else changed.</string>
+    <string name="connect_done">Done</string>
+
+    <!-- First run (F-01 behaviour 2). -->
+    <string name="connect_not_now">Not now</string>
+    <string name="connect_not_now_body">You can connect later from Home.</string>
+
+    <!-- Connection details (P-07). -->
+    <string name="details_title">Connection details</string>
+    <string name="details_lede">What this phone knows about your computer, and what to check when it isn\'t reachable.</string>
+    <string name="details_why_title">If your computer isn\'t reachable</string>
+    <string name="details_check_awake">Is your computer awake?</string>
+    <string name="details_check_same_wifi">Is this phone on the same Wi-Fi?</string>
+    <string name="details_last_probe_title">Last check</string>
+    <string name="details_last_probe">%1$s · %2$s</string>
+    <string name="details_never_checked">This phone hasn\'t checked a computer yet.</string>
+    <string name="details_check_now">Check now</string>
+    <string name="details_address_changed">Your computer\'s address changed %1$s.</string>
+    <string name="details_facts_title">What this phone knows</string>
+    <string name="details_fact_address">Your computer\'s address</string>
+    <string name="details_fact_phone_address">This phone on this Wi-Fi:</string>
+    <string name="details_fact_phone_address_none">Not on Wi-Fi</string>
+    <string name="details_fact_server_id">Your computer\'s short id</string>
+    <string name="details_fact_api">API version</string>
+    <string name="details_fact_waiting">Waiting on this phone</string>
+    <string name="details_fact_on_computer">Requests on your computer</string>
+    <string name="details_fact_wanted">Clips to bring to this phone</string>
+    <string name="details_fact_background">In the background</string>
+    <string name="details_background_limited">Android is limiting PhonoTrainer in the background: clips arrive when you open the app.</string>
+    <string name="details_background_free">Not limited</string>
+    <string name="details_fact_unknown">Not known yet</string>
+    <string name="details_decoders_title">Video this phone can play</string>
+    <string name="details_decoder">%1$s up to %2$d × %3$d · %4$s</string>
+    <string name="details_decoder_hardware">hardware</string>
+    <string name="details_decoder_software">software</string>
+    <string name="details_decoders_none">This phone reported no video decoder. Clips play as audio.</string>
+    <string name="details_copy">Copy diagnostics</string>
+    <string name="details_copy_hint">The copied text has no address, no id and no key, so you can paste it anywhere.</string>
+    <string name="details_copied">Diagnostics copied. They have no address, no id and no key.</string>
+
+    <!-- "Copy diagnostics" (F-22-AC4, architecture 20.3): words only, never an address, an id or a name. -->
+    <string name="diag_heading">PhonoTrainer connection diagnostics</string>
+    <string name="diag_app">App: %1$s</string>
+    <string name="diag_android">Android: %1$s (API %2$d)</string>
+    <string name="diag_status">Status: %1$s</string>
+    <string name="diag_last_probe">Last check: %1$s, %2$s</string>
+    <string name="diag_last_probe_never">Last check: none yet</string>
+    <string name="diag_address">Computer\'s address: %1$s</string>
+    <string name="diag_address_none">Computer\'s address: none stored</string>
+    <string name="diag_address_changed">Address changed: %1$s</string>
+    <string name="diag_address_unchanged">Address changed: no</string>
+    <string name="diag_api">API version: %1$s</string>
+    <string name="diag_counts">Waiting on this phone: %1$d · On the computer: %2$d · Clips to bring: %3$d</string>
+    <string name="diag_background">Background: %1$s</string>
+    <string name="diag_background_limited">limited by Android</string>
+    <string name="diag_background_free">not limited</string>
+    <string name="diag_decoders">Video decoders: %1$s</string>
+    <string name="diag_decoders_none">Video decoders: none reported</string>
+    <string name="diag_unknown">unknown</string>
+    <string name="diag_status_not_connected">not connected to a computer</string>
+    <string name="diag_status_offline">offline</string>
+    <string name="diag_status_not_on_wifi">not on Wi-Fi</string>
+    <string name="diag_status_looking">looking for the computer</string>
+    <string name="diag_status_checking">checking the computer</string>
+    <string name="diag_status_connected">connected</string>
+    <string name="diag_status_not_reachable">not reachable</string>
+    <string name="diag_status_different">a different computer answered</string>
+    <string name="diag_status_connect_again">the computer no longer recognizes this phone</string>
+    <string name="diag_status_computer_too_old">the computer needs a newer PhonoTrainer</string>
+    <string name="diag_status_app_too_old">this app needs an update</string>
+    <!-- The class of an address, never the address (architecture 20.3). -->
+    <string name="address_class_private_10">private 10/8</string>
+    <string name="address_class_private_172">private 172.16/12</string>
+    <string name="address_class_private_192">private 192.168/16</string>
+    <string name="address_class_link_local">link-local</string>
+    <string name="address_class_loopback">loopback</string>
+    <string name="address_class_other">not a home-network address</string>
 </resources>
