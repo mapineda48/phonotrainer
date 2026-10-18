@@ -8,13 +8,13 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 
-/** Contributes the destinations of :feature:home to the shell (architecture 16.3). */
+/** Contributes Home (T1, spec F-03) to the shell (architecture 16.3). */
 @Module
 @InstallIn(SingletonComponent::class)
 object HomeNavigationModule {
   @Provides
   @IntoSet
   fun entries(): EntryInstaller = EntryInstaller { navigator ->
-    entry<HomeKey> { HomeStubScreen(navigator::navigate) }
+    entry<HomeKey> { HomeRoute(navigator) }
   }
 }

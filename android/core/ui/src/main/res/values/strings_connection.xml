@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Strings of ConnectionStatusCard and ProbeOutcomeCopy (WP-15). The status words are spec 7.5's; the rest is
-     placeholder copy at the contract freeze. -->
+<!-- Strings of ConnectionStatusCard and ProbeOutcomeCopy (WP-15): the status words of spec 7.5, the rows of design
+     9.17 and spec F-03 item 2, and the last probe in words (spec 7.5, D-42). -->
 <resources>
+    <!-- Titles: one per ComputerStatus (spec 7.5). -->
     <string name="connection_not_connected">Not connected to a computer</string>
     <string name="connection_offline">Offline · requests wait on this phone</string>
     <string name="connection_not_on_wifi">Not on Wi-Fi · your computer is reachable only at home</string>
@@ -17,11 +18,79 @@
         <item quantity="one">Syncing · bringing %1$d clip</item>
         <item quantity="other">Syncing · bringing %1$d clips</item>
     </plurals>
-    <string name="connection_counts">Waiting: %1$d · On your computer: %2$d · Need attention: %3$d</string>
+    <plurals name="connection_syncing_percent">
+        <item quantity="one">Syncing · bringing %1$d clip · %2$d %%</item>
+        <item quantity="other">Syncing · bringing %1$d clips · %2$d %%</item>
+    </plurals>
+    <string name="connection_syncing_plain">Syncing…</string>
+
+    <!-- Subtitles (design 9.17). -->
+    <string name="connection_not_connected_sub">Clips you add wait on this phone.</string>
+    <string name="connection_checked">Checked %1$s</string>
+    <string name="connection_analyzing_short">analyzing %1$d</string>
+    <string name="connection_in_line_short">%1$d in line</string>
+    <string name="connection_last_seen">last seen %1$s</string>
+    <string name="connection_work_offline">your clips work offline</string>
+    <string name="connection_clips_arriving">Bringing your clips to this phone: %1$d of %2$d</string>
+    <string name="connection_separator">" · "</string>
+
+    <!-- How long ago (the app's own English words, never the system locale). -->
+    <string name="connection_ago_now">just now</string>
+    <string name="connection_ago_seconds">%1$d s ago</string>
+    <string name="connection_ago_minutes">%1$d min ago</string>
+    <string name="connection_ago_hours">%1$d h ago</string>
+    <plurals name="connection_ago_days">
+        <item quantity="one">%1$d day ago</item>
+        <item quantity="other">%1$d days ago</item>
+    </plurals>
+
+    <!-- Rows: this phone's own requests, transfers and the phone (design 9.17, spec F-03 item 2). -->
+    <plurals name="connection_row_waiting">
+        <item quantity="one">%1$d waiting on this phone</item>
+        <item quantity="other">%1$d waiting on this phone</item>
+    </plurals>
+    <plurals name="connection_row_analyzing">
+        <item quantity="one">%1$d analyzing</item>
+        <item quantity="other">%1$d analyzing</item>
+    </plurals>
+    <string name="connection_row_percent">%1$d %%</string>
+    <plurals name="connection_row_in_line">
+        <item quantity="one">%1$d in line</item>
+        <item quantity="other">%1$d in line</item>
+    </plurals>
+    <plurals name="connection_row_on_computer">
+        <item quantity="one">%1$d on your computer</item>
+        <item quantity="other">%1$d on your computer</item>
+    </plurals>
+    <plurals name="connection_row_attention">
+        <item quantity="one">%1$d needs your attention</item>
+        <item quantity="other">%1$d need your attention</item>
+    </plurals>
+    <plurals name="connection_row_bringing">
+        <item quantity="one">Bringing %1$d clip to this phone · %2$s of %3$s</item>
+        <item quantity="other">Bringing %1$d clips to this phone · %2$s of %3$s</item>
+    </plurals>
+    <plurals name="connection_row_bringing_plain">
+        <item quantity="one">Bringing %1$d clip to this phone · %2$s</item>
+        <item quantity="other">Bringing %1$d clips to this phone · %2$s</item>
+    </plurals>
+    <string name="connection_megabytes">%1$s MB</string>
+    <string name="connection_row_low_space">Your computer is low on space</string>
+    <string name="connection_row_storage">Storage almost full: videos of older clips will be removed first.</string>
+    <string name="connection_row_background">Android is limiting PhonoTrainer in the background: clips arrive when you open the app.</string>
+
+    <!-- Actions. -->
     <string name="connection_action_connect">Connect</string>
     <string name="connection_action_connect_again">Connect again</string>
     <string name="connection_action_why">Why?</string>
     <string name="connection_action_requests">See requests</string>
+    <string name="connection_action_sync_now">Sync now</string>
+    <string name="connection_action_details">Details</string>
+    <string name="connection_action_new_address">Enter the new address</string>
+    <string name="connection_action_storage">Storage</string>
+    <string name="connection_action_battery">Battery settings</string>
+
+    <!-- The last probe in words (spec 7.5, D-42): ProbeOutcomeCopy. -->
     <string name="probe_ok">Your computer answered.</string>
     <string name="probe_no_answer">No answer after %1$d s</string>
     <string name="probe_refused">Your computer refused the connection.</string>
