@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The sync engine's user-visible downloads run as WorkManager foreground work of type dataSync (architecture 7.2):
+     WorkManager's foreground service carries that type and the app holds FOREGROUND_SERVICE_DATA_SYNC. :core:requests
+     declares the same entry for its visible uploads; the manifest merger makes the two one. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+
+    <application>
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge" />
+    </application>
+
+</manifest>
