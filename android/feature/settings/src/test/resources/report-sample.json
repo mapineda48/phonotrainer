@@ -1,0 +1,61 @@
+{
+  "libraries": [
+    {
+      "uniqueId": "com.squareup.okhttp3:okhttp",
+      "artifactVersion": "5.1.0",
+      "name": "OkHttp",
+      "website": "https://square.github.io/okhttp/",
+      "developers": [{ "name": "Square, Inc." }],
+      "licenses": ["Apache-2.0"]
+    },
+    {
+      "uniqueId": "androidx.activity:activity",
+      "artifactVersion": "1.13.0",
+      "name": "Activity",
+      "website": "https://developer.android.com/jetpack/androidx/releases/activity#1.13.0",
+      "developers": [{ "name": "The Android Open Source Project" }],
+      "organization": { "name": "The Android Open Source Project" },
+      "scm": { "url": "https://cs.android.com/androidx/platform/frameworks/support" },
+      "licenses": ["Apache-2.0"]
+    },
+    {
+      "uniqueId": "androidx.datastore:datastore-preferences-external-protobuf",
+      "artifactVersion": "1.2.1",
+      "name": "Preferences External Protobuf",
+      "developers": [{ "name": "The Android Open Source Project" }],
+      "scm": { "url": "https://cs.android.com/androidx/platform/frameworks/support" },
+      "licenses": ["BSD-3-Clause"]
+    },
+    {
+      "uniqueId": "com.squareup.okhttp3:okhttp",
+      "artifactVersion": "5.1.0",
+      "name": "OkHttp",
+      "licenses": ["Apache-2.0"]
+    },
+    {
+      "uniqueId": "org.example:with-text",
+      "artifactVersion": "2.0",
+      "name": "",
+      "licenses": ["example-licence"]
+    }
+  ],
+  "licenses": {
+    "Apache-2.0": {
+      "name": "The Apache License, Version 2.0",
+      "url": "http://www.apache.org/licenses/LICENSE-2.0.txt",
+      "spdxId": "Apache-2.0",
+      "hash": "Apache-2.0"
+    },
+    "BSD-3-Clause": {
+      "name": "BSD-3-Clause",
+      "url": "https://opensource.org/licenses/BSD-3-Clause",
+      "spdxId": "BSD-3-Clause",
+      "hash": "BSD-3-Clause"
+    },
+    "example-licence": {
+      "name": "MIT License",
+      "spdxId": "MIT",
+      "content": "Permission is hereby granted.\n\nThe software is provided as is."
+    }
+  }
+}

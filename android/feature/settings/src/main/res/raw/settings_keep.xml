@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The licence report of the runtime libraries is a raw resource of the application module (the AboutLibraries
+     plugin generates it per variant, decision I-01). The licences screen finds it by name, so resource shrinking must
+     keep it (spec F-24-AC2). -->
+<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@raw/aboutlibraries" />
