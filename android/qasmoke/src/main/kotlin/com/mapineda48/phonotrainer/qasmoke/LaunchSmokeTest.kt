@@ -15,8 +15,8 @@ import org.junit.runner.RunWith
 /**
  * The first black-box test of the release-like build (architecture 21.6; work-plan WP-19, first week): the unmodified
  * `qa` APK (R8 and resource shrinking on, not debuggable) starts from the launcher, shows the Welcome on a first
- * launch, and "Get started" lands on Home. It proves the module and the minified start-up path (Hilt, Compose,
- * Navigation 3 keys, the settings store) before anything depends on them.
+ * launch, and "Skip" leaves it (for Connect's first run, over Home). It proves the module and the minified start-up
+ * path (Hilt, Compose, Navigation 3 keys, the settings store) before anything depends on them.
  *
  * Nothing of the app is on this APK's classpath: the app is found by its package name and its screens by the test
  * tags the shell exposes as resource ids, which are part of the test contract (work-plan 2.6).
@@ -28,13 +28,13 @@ class LaunchSmokeTest {
 
   @Before
   fun startFromNothing() {
-    // A first launch every time: the Welcome shows only until "Get started" is stored.
+    // A first launch every time: the Welcome shows only until its end is stored.
     device.executeShellCommand("pm clear $APP")
     device.pressHome()
   }
 
   @Test
-  fun theUnmodifiedQaApkStartsAndGetStartedLeadsHome() {
+  fun theUnmodifiedQaApkStartsAndSkipLeavesTheWelcome() {
     val info = instrumentation.context.packageManager.getApplicationInfo(APP, 0)
     assertThat(info.flags and ApplicationInfo.FLAG_DEBUGGABLE).isEqualTo(0)
 
@@ -44,9 +44,10 @@ class LaunchSmokeTest {
     instrumentation.context.startActivity(launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
     assertThat(device.wait(Until.hasObject(By.pkg(APP).depth(0)), LAUNCH_TIMEOUT_MS)).isTrue()
 
-    val getStarted = device.wait(Until.findObject(By.res(GET_STARTED)), UI_TIMEOUT_MS)
-    assertThat(getStarted).isNotNull()
-    getStarted.click()
+    // "Skip" is on every page of the Welcome (spec F-01); "Get started" only on the last one.
+    val skip = device.wait(Until.findObject(By.res(SKIP)), UI_TIMEOUT_MS)
+    assertThat(skip).isNotNull()
+    skip.click()
 
     assertThat(device.wait(Until.hasObject(By.res(HOME_TAB)), UI_TIMEOUT_MS)).isTrue()
     assertThat(device.wait(Until.gone(By.res(WELCOME)), UI_TIMEOUT_MS)).isTrue()
@@ -55,8 +56,8 @@ class LaunchSmokeTest {
   private companion object {
     const val APP = "com.mapineda48.phonotrainer"
 
-    // The app's test tags, exposed as resource ids by the shell (`OnboardingTags.GET_STARTED`, `ShellTags`).
-    const val GET_STARTED = "onboarding.welcome.getStarted"
+    // The app's test tags, exposed as resource ids by the shell (`OnboardingTags.SKIP`, `ShellTags`).
+    const val SKIP = "onboarding.welcome.skip"
     const val WELCOME = "destination.welcome"
     const val HOME_TAB = "shell.tab.home"
 
