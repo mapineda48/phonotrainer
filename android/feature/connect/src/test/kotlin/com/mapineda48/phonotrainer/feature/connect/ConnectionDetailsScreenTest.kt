@@ -88,6 +88,17 @@ class ConnectionDetailsScreenTest {
   }
 
   @Test
+  fun aVpnThatBlocksTheComputerIsSaidInWords() = check(
+    ConnectSamples.detailsNoAnswer.let {
+      it.copy(diagnostics = it.diagnostics.copy(lastProbe = com.mapineda48.phonotrainer.core.domain.model.ProbeOutcome.VpnBlocks))
+    },
+  ) {
+    // The "Why?" page's last probe for a VPN that keeps this phone off the home network (architecture 5.1).
+    assertThat(compose.textsOf(ConnectTags.DETAILS_LAST_PROBE)).contains("A VPN on this phone blocks your computer.")
+    assertThat(compose.textsOf(ConnectTags.DETAILS_WHY)).contains("Is a VPN on? Turn it off at home: it can hide your computer.")
+  }
+
+  @Test
   fun aPhoneThatNeverPairedSaysWhatItKnows() = check(ConnectSamples.detailsNotConnected) {
     assertThat(compose.textsOf(ConnectionTags.STATUS)).contains("Not connected to a computer")
     assertThat(compose.spokenOf(ConnectTags.DETAILS_PHONE_ADDRESS)).isEqualTo("This phone on this Wi-Fi: Not on Wi-Fi")

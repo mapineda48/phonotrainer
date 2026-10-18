@@ -48,7 +48,7 @@ internal object ConnectCopy {
     CodeError.Expired -> resources.getString(R.string.connect_error_expired)
     CodeError.Locked -> resources.getString(R.string.connect_error_locked)
     is CodeError.RateLimited ->
-      error.retryAfterS?.let { resources.getString(R.string.connect_error_rate_limited, it) }
+      error.retryAfterS?.let { resources.getQuantityString(R.plurals.connect_error_rate_limited, it, it) }
         ?: resources.getString(R.string.connect_error_rate_limited_unknown)
     CodeError.AppTooOld -> resources.getString(R.string.connect_error_app_too_old)
     CodeError.PhoneAccessOff ->

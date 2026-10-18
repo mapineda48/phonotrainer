@@ -213,6 +213,7 @@ class ConnectScreenTest {
         CodeError.Expired to "That code has expired. Your computer can show a new one.",
         CodeError.Locked to "Too many tries. Ask your computer for a new code.",
         CodeError.RateLimited(30) to "Too many tries right now. Try again in 30 seconds.",
+        CodeError.RateLimited(1) to "Too many tries right now. Try again in 1 second.",
         CodeError.RateLimited(null) to "Too many tries right now. Wait a moment, then try again.",
         CodeError.AppTooOld to "Your computer needs a newer version of this app. Update this app, then connect again.",
         CodeError.PhoneAccessOff to "Your computer answered, but phone access isn't on there for this network. On your " +

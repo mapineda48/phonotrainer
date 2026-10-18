@@ -39,7 +39,6 @@
     <string name="connect_row_other_computer">This phone is connected to %1$s. Forget it first in Settings to connect to another computer.</string>
     <string name="connect_row_other_computer_unnamed">This phone is connected to another computer. Forget it first in Settings to connect to this one.</string>
     <string name="connect_row_typed">At the address you entered</string>
-    <string name="connect_row_selected">Selected</string>
 
     <!-- Nothing found (F-02 States "Empty", render `21`). -->
     <string name="connect_none_title">No computer answered.</string>
@@ -79,7 +78,10 @@
     <string name="connect_error_invalid">That code didn\'t match. Check the code on your computer.</string>
     <string name="connect_error_expired">That code has expired. Your computer can show a new one.</string>
     <string name="connect_error_locked">Too many tries. Ask your computer for a new code.</string>
-    <string name="connect_error_rate_limited">Too many tries right now. Try again in %1$d seconds.</string>
+    <plurals name="connect_error_rate_limited">
+        <item quantity="one">Too many tries right now. Try again in %1$d second.</item>
+        <item quantity="other">Too many tries right now. Try again in %1$d seconds.</item>
+    </plurals>
     <string name="connect_error_rate_limited_unknown">Too many tries right now. Wait a moment, then try again.</string>
     <string name="connect_error_app_too_old">Your computer needs a newer version of this app. Update this app, then connect again.</string>
     <string name="connect_error_phone_access_off">Your computer answered, but phone access isn\'t on there for this network. On your computer, run %1$s, then try again.</string>
