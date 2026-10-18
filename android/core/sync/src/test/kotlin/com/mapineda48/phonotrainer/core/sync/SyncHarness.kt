@@ -180,7 +180,10 @@ internal class SyncHarness : AutoCloseable {
   ) =
     ForegroundSession(
       foreground, status, pairing, network, channelSession, leases, removal, work, meta,
-      StartupCheck(clock.now(), { startupTasks }, db, clips, artifacts, files, SyncDirs(filesDir, cacheDir), refresh, scope, Dispatchers.IO, log),
+      StartupCheck(
+        clock.now(), { startupTasks }, db, clips, artifacts, files, SyncDirs(filesDir, cacheDir), settings, refresh, scope,
+        Dispatchers.IO, log,
+      ),
       Provider<SyncTrigger> { trigger }, scope, log,
     )
 

@@ -9,6 +9,7 @@ import androidx.room.withTransaction
 import com.mapineda48.phonotrainer.core.database.library.LibraryDatabase
 import com.mapineda48.phonotrainer.core.database.library.dao.ArtifactDao
 import com.mapineda48.phonotrainer.core.database.library.dao.ClipDao
+import com.mapineda48.phonotrainer.core.domain.api.SettingsRepository
 import com.mapineda48.phonotrainer.core.domain.spi.StartupGate
 import com.mapineda48.phonotrainer.core.domain.spi.StartupOrder
 import com.mapineda48.phonotrainer.core.domain.spi.StartupTask
@@ -16,6 +17,7 @@ import com.mapineda48.phonotrainer.core.sync.catalogue.ArtifactErrors
 import com.mapineda48.phonotrainer.core.sync.catalogue.LocalStates
 import com.mapineda48.phonotrainer.core.sync.storage.StorageRefresh
 import com.mapineda48.phonotrainer.core.sync.transfer.ClipFiles
+import com.mapineda48.phonotrainer.core.sync.transfer.DownloadPlanner
 import java.io.File
 import java.io.IOException
 import java.time.Instant
@@ -51,6 +53,7 @@ class StartupCheck @Inject internal constructor(
   private val artifacts: ArtifactDao,
   private val files: ClipFiles,
   private val dirs: SyncDirs,
+  private val settings: SettingsRepository,
   private val refresh: StorageRefresh,
   @param:ApplicationScope private val scope: CoroutineScope,
   @param:IoDispatcher private val io: CoroutineDispatcher,
@@ -76,8 +79,13 @@ class StartupCheck @Inject internal constructor(
     done.await()
   }
 
-  /** The check itself; [awaitDone] runs it once per process. */
+  /**
+   * The check itself; [awaitDone] runs it once per process. The learner's settings are read first (the store answers
+   * in every case), so the repair below, and every download run that waits for this check, judge the learner's track
+   * and video choice rather than the defaults of a process that has not read the store yet.
+   */
   internal suspend fun run() {
+    settings.awaitLoaded()
     val before = processStart.toEpochMilli()
     guarded("sync.startup_sweep_failed") { sweep(before) }
     for (task in ordered(tasks.get())) {
@@ -115,7 +123,9 @@ class StartupCheck @Inject internal constructor(
 
   /**
    * A verified file that is no longer on this phone (deleted outside the app, a restored backup without media) is
-   * downloaded again: its row goes back to `ABSENT`, and the clip reads "Needs downloading again" until it is here.
+   * downloaded again: its row goes back to `ABSENT`. The clip stays "On this phone" while its study pack for the
+   * learner's track is still complete (a lost video or second track is only downloaded again, SC-11); otherwise it
+   * reads "Needs downloading again" until the pack is here.
    */
   private suspend fun repairMissing() {
     val missing = artifacts.all().filter { row ->
@@ -123,6 +133,7 @@ class StartupCheck @Inject internal constructor(
     }
     if (missing.isEmpty()) return
     log.w("sync.verified_file_missing")
+    val track = settings.settings.value.track
     db.withTransaction {
       for (row in missing) {
         artifacts.update(
@@ -131,7 +142,9 @@ class StartupCheck @Inject internal constructor(
             lastError = ArtifactErrors.MISSING,
           ),
         )
-        clips.clearOnPhone(row.jobId)
+      }
+      for (jobId in missing.mapTo(LinkedHashSet()) { it.jobId }) {
+        if (!DownloadPlanner.packOnPhone(artifacts.forJob(jobId), track)) clips.clearOnPhone(jobId)
       }
     }
   }

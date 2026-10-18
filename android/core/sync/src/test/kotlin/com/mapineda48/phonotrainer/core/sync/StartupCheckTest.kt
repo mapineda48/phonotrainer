@@ -2,9 +2,12 @@ package com.mapineda48.phonotrainer.core.sync
 
 import com.google.common.truth.Truth.assertThat
 import com.mapineda48.phonotrainer.core.common.files.FileLayout
+import com.mapineda48.phonotrainer.core.domain.api.SettingsRepository
 import com.mapineda48.phonotrainer.core.domain.model.ClipAvailability
 import com.mapineda48.phonotrainer.core.domain.model.ClipQuery
 import com.mapineda48.phonotrainer.core.domain.model.SyncReason
+import com.mapineda48.phonotrainer.core.domain.model.Track
+import com.mapineda48.phonotrainer.core.domain.model.UserSettings
 import com.mapineda48.phonotrainer.core.domain.spi.StartupOrder
 import com.mapineda48.phonotrainer.core.domain.spi.StartupTask
 import com.mapineda48.phonotrainer.core.sync.startup.StartupCheck
@@ -13,8 +16,10 @@ import java.io.File
 import java.time.Duration
 import java.time.Instant
 import java.util.Collections
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
@@ -58,10 +63,21 @@ class StartupCheckTest {
 
   private fun sync(block: suspend TestScope.(SyncHarness) -> Unit) = runTest { SyncHarness().use { block(it) } }
 
-  private fun SyncHarness.check(processStart: Instant, tasks: Set<StartupTask> = emptySet()) = StartupCheck(
-    processStart, { tasks }, db, clips, artifacts, files, SyncDirs(filesDir, cacheDir), refresh, backgroundScopeForChecks,
+  private fun SyncHarness.check(
+    processStart: Instant,
+    tasks: Set<StartupTask> = emptySet(),
+    store: SettingsRepository = settings,
+  ) = StartupCheck(
+    processStart, { tasks }, db, clips, artifacts, files, SyncDirs(filesDir, cacheDir), store, refresh, backgroundScopeForChecks,
     Dispatchers.IO, log,
   )
+
+  /** The settings store of a process that has not read it yet: [real]'s values, but loaded only once [loaded] is. */
+  private class UnreadStore(private val real: SettingsRepository) : SettingsRepository by real {
+    val loaded = CompletableDeferred<Unit>()
+
+    override suspend fun awaitLoaded() = loaded.await()
+  }
 
   private val backgroundScopeForChecks = kotlinx.coroutines.CoroutineScope(Dispatchers.Default)
 
@@ -162,6 +178,49 @@ class StartupCheckTest {
 
     h.syncAndDownload()
     assertThat(h.clipRepository.clips(ClipQuery()).first().single().availability).isEqualTo(ClipAvailability.OnThisPhone)
+  }
+
+  @Test
+  fun aClipThatLostOnlyItsVideoStaysOnThePhoneAndOnlyTheVideoComesAgain() = sync { h ->
+    val id = h.computer.addFinishedClip("Ordering coffee", video = true)
+    h.syncAndDownload()
+    val onPhoneAt = h.clip(id).onPhoneAt
+    assertThat(onPhoneAt).isNotNull()
+    assertThat(h.artifact(id, Names.ORIGINAL).localState).isEqualTo("READY")
+    h.files.resolve(h.artifact(id, Names.ORIGINAL).localFile)!!.delete()
+
+    h.check(h.clock.now()).run()
+
+    assertThat(h.artifact(id, Names.ORIGINAL).localState).isEqualTo("ABSENT")
+    assertThat(h.artifact(id, Names.MIX).localState).isEqualTo("READY")
+    assertThat(h.clip(id).onPhoneAt).isEqualTo(onPhoneAt)
+    assertThat(h.clipRepository.clips(ClipQuery()).first().single().availability).isEqualTo(ClipAvailability.OnThisPhone)
+  }
+
+  @Test
+  fun theStudyPackIsJudgedOnTheLearnersTrackOnceTheStoreHasBeenRead() = sync { h ->
+    // The learner studies the dialogue track, so a lost mix is only a second track. A fresh process holds the default
+    // track (the mix) until the store answers; judged then, the clip would wrongly leave "On this phone".
+    h.settings.state.value = h.settings.state.value.copy(track = Track.DIALOGUE, downloadVideos = false)
+    val id = h.computer.addFinishedClip("Ordering coffee")
+    h.syncAndDownload()
+    val onPhoneAt = h.clip(id).onPhoneAt
+    assertThat(onPhoneAt).isNotNull()
+    assertThat(h.artifact(id, Names.MIX).localState).isEqualTo("READY")
+    h.files.resolve(h.artifact(id, Names.MIX).localFile)!!.delete()
+    val learners = h.settings.state.value
+    h.settings.state.value = UserSettings()
+    val store = UnreadStore(h.settings)
+
+    val check = launch { h.check(h.clock.now(), store = store).run() }
+    testScheduler.advanceUntilIdle()
+    assertThat(h.artifact(id, Names.MIX).localState).isEqualTo("READY")
+    h.settings.state.value = learners
+    store.loaded.complete(Unit)
+    check.join()
+
+    assertThat(h.artifact(id, Names.MIX).localState).isEqualTo("ABSENT")
+    assertThat(h.clip(id).onPhoneAt).isEqualTo(onPhoneAt)
   }
 
   @Test
