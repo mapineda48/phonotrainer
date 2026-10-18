@@ -49,7 +49,7 @@ class SyncEngine @Inject internal constructor(
   override val state: StateFlow<SyncState> = stateSource.state
 
   /** When the last complete listing was reconciled: the source of "Last synced {time}" (F-21-AC8). */
-  val lastSynced: Flow<Instant?> = meta.observeLastListingAt()
+  override val lastSynced: Flow<Instant?> = meta.observeLastListingAt()
 
   init {
     // Started after construction: the session reaches the device queue, which asks this engine for passes.

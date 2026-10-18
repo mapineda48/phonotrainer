@@ -10,8 +10,10 @@ import com.mapineda48.phonotrainer.core.domain.model.StorageBudget
 import com.mapineda48.phonotrainer.core.domain.model.StorageUsage
 import com.mapineda48.phonotrainer.core.domain.model.SyncReason
 import com.mapineda48.phonotrainer.core.domain.model.SyncState
+import java.time.Instant
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flowOf
 
 // :core:sync (WP-08), architecture 3.4 and 7.
 
@@ -19,6 +21,9 @@ interface SyncController {
   val state: StateFlow<SyncState>
 
   fun syncNow(reason: SyncReason)
+
+  /** When the last complete listing of the paired computer was reconciled: "Last synced {time}" (F-21). */
+  val lastSynced: Flow<Instant?> get() = flowOf(null)
 }
 
 interface ClipRepository {
