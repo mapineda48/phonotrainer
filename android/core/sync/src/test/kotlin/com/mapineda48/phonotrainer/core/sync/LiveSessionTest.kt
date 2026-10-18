@@ -16,8 +16,6 @@ import com.mapineda48.phonotrainer.core.testing.computer.JobStatus
 import java.time.Instant
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -40,13 +38,9 @@ class LiveSessionTest {
     check(condition()) { what }
   }
 
+  /** The harness and a scope that ends, with every coroutine in it, before the harness closes its database. */
   private fun live(block: suspend (SyncHarness, CoroutineScope) -> Unit) = runBlocking {
-    val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    try {
-      SyncHarness().use { block(it, scope) }
-    } finally {
-      scope.cancel()
-    }
+    SyncHarness().use { h -> h.withScope { scope -> block(h, scope) } }
   }
 
   @Test

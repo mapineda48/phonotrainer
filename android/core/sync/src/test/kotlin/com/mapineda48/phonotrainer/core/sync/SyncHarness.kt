@@ -82,8 +82,14 @@ import java.time.Instant
 import java.util.Collections
 import javax.inject.Provider
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.job
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * The sync engine wired by hand over an in-memory `library.db`, a fresh `filesDir` and the in-memory fake computer
@@ -189,6 +195,24 @@ internal class SyncHarness : AutoCloseable {
   suspend fun artifact(id: JobId, name: String): ArtifactEntity = artifacts.get(id.value, name)!!
 
   suspend fun library(): RemoteLibrary = (fakeClient.library() as ApiResult.Ok).value
+
+  /**
+   * Runs [block] with an application-like scope on [Dispatchers.Default], then cancels that scope and waits for every
+   * coroutine it started before returning. Called inside `SyncHarness().use { }`, it ends the scope before [close]
+   * closes the database: a `stateIn` or a session collector still running against a closed database throws an
+   * exception nobody catches, which kotlinx-coroutines-test then reports inside whichever test runs next.
+   */
+  suspend fun <T> withScope(block: suspend (CoroutineScope) -> T): T {
+    val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    try {
+      return block(scope)
+    } finally {
+      withContext(NonCancellable) {
+        val ended = withTimeoutOrNull(SCOPE_END_TIMEOUT_MS) { scope.coroutineContext.job.cancelAndJoin() }
+        checkNotNull(ended) { "the test scope's coroutines did not end within $SCOPE_END_TIMEOUT_MS ms of its cancellation" }
+      }
+    }
+  }
 
   override fun close() {
     db.close()
@@ -385,6 +409,7 @@ internal class SyncHarness : AutoCloseable {
 
   companion object {
     const val GB = 1_000_000_000L
+    const val SCOPE_END_TIMEOUT_MS = 10_000L
     val CONNECTED = ComputerStatus.Connected(name = "Desk", analyzing = 0, inLine = 0, lowOnSpace = false)
 
     fun record(serverId: ServerId, libraryId: LibraryId, deviceId: DeviceId) = PairingRecord(

@@ -11,10 +11,7 @@ import com.mapineda48.phonotrainer.core.sync.engine.SyncStateSource
 import java.time.Duration
 import java.util.Collections
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -53,18 +50,16 @@ class EngineTest {
     check(condition()) { what }
   }
 
+  /** The engine over [SyncHarness.withScope]: its scope ends, and every coroutine in it, before the database closes. */
   private fun engine(block: suspend (SyncHarness, SyncEngine, GatedPasses, SettableForeground) -> Unit) = runBlocking {
-    val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    try {
-      SyncHarness().use { h ->
+    SyncHarness().use { h ->
+      h.withScope { scope ->
         val passes = GatedPasses()
         val foreground = SettableForeground(visible = true)
         val state = SyncStateSource(h.artifacts, h.status, h.board, h.flag, { h.requests }, scope, h.log)
         val engine = SyncEngine({ passes }, h.work, foreground, h.pairing, h.meta, state, { h.session(SettableForeground(), scope) }, scope, h.log)
         block(h, engine, passes, foreground)
       }
-    } finally {
-      scope.cancel()
     }
   }
 
