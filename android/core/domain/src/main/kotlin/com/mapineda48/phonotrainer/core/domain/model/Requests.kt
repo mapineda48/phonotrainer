@@ -1,5 +1,6 @@
 package com.mapineda48.phonotrainer.core.domain.model
 
+import com.mapineda48.phonotrainer.core.domain.model.remote.SeparationNote
 import com.mapineda48.phonotrainer.core.domain.model.remote.Stage
 import java.time.Instant
 
@@ -101,6 +102,12 @@ data class RequestProgress(
   val downloadPercent: Int?,
   val segment: Int? = null,
   val segments: Int? = null,
+  /**
+   * The job's `separation` (server-contract 6.3): [SeparationNote.OFF] (the option was off), [SeparationNote.SKIPPED]
+   * (the computer skipped it), [SeparationNote.UNKNOWN] (a value this app does not know); null otherwise. The
+   * stepper's "skipped" node for "Separate the dialogue" (spec F-20 item 2, design 9.19).
+   */
+  val separation: SeparationNote? = null,
 )
 
 /**
