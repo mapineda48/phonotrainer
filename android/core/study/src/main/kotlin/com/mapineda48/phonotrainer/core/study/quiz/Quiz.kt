@@ -161,8 +161,11 @@ object Quiz {
 
   // ---- Item: which pronunciation? ------------------------------------------------------------------------------
 
-  /** Length marks, ties and white space (JavaScript's `\s` is Unicode-aware, hence `(?U)`). */
-  private val NOT_COMPARED = Regex("(?U)[ː‿\\s]")
+  /**
+   * Length marks, ties and white space. JavaScript's `\s` is Unicode-aware: the separators of `\p{Z}` and U+FEFF
+   * besides ASCII white space. Spelled out because Android's ICU regex engine rejects the `(?U)` flag.
+   */
+  private val NOT_COMPARED = Regex("[ː‿\\s\\p{Z}\\uFEFF]")
 
   private fun normalize(ipa: String): String = IpaTokenizer.stripStress(ipa).replace(NOT_COMPARED, "")
 

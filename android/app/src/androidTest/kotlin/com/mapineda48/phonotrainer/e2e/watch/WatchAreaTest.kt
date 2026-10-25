@@ -5,6 +5,8 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -200,9 +202,15 @@ class WatchAreaTest {
       .isEmpty()
   }
 
-  /** The progress bar's words ("Position 0:03 of 0:09"). */
+  /**
+   * The progress bar's words of the short on screen ("Position 0:03 of 0:09"). The pager may keep the next page
+   * composed (prefetched) with its own progress bar, so the lookup stays inside the current page, as WatchRobot's do.
+   */
   private fun progressWords(): String? =
-    compose.onNodeWithTag(WatchTags.PROGRESS, useUnmergedTree = true).fetchSemanticsNode().config
+    compose.onNode(
+      hasTestTag(WatchTags.PROGRESS) and hasAnyAncestor(hasTestTag(WatchTags.page(watch.current() - 1))),
+      useUnmergedTree = true,
+    ).fetchSemanticsNode().config
       .getOrNull(SemanticsProperties.StateDescription)
 
   private companion object {
