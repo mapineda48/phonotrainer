@@ -27,6 +27,7 @@ import com.mapineda48.phonotrainer.core.study.quiz.Quiz
 import com.mapineda48.phonotrainer.core.study.quiz.QuizGenerator
 import com.mapineda48.phonotrainer.core.study.sets.Neighbour
 import com.mapineda48.phonotrainer.core.study.sets.SetBuilder
+import com.mapineda48.phonotrainer.core.study.sets.SetInput
 import com.mapineda48.phonotrainer.core.study.sets.SetPick
 import java.time.Instant
 import java.time.LocalDate
@@ -51,8 +52,9 @@ import kotlinx.coroutines.withContext
  * [QUESTIONS] questions from the changes of its shorts ([QuizGenerator], spec F-08 item 5) and stored; afterwards only
  * its cursor, its answers and the `dropped` mark of shorts whose clip was deleted change. Today's set is the first set
  * of the local day (seeded with the day, so its questions repeat); "Another set" builds an extra set with the same
- * rules, or, when nothing new is due, a replay of the seen shorts ("Replay the mix", spec F-06 item 9; the feed offers
- * both through this one call).
+ * rules and answers null when nothing new is due, so the feed shows the "Mix with nothing left" end card (spec F-08
+ * item 7); that card's "Replay the mix" builds an extra set of the seen shorts, least recently seen first (spec F-06
+ * item 9).
  *
  * Positions are stored item positions: the shorts first, then the questions. The cursor is the first item the learner
  * has not moved past, so a short before it is `done` (spec D-45), and the set is complete once the cursor passes its
@@ -81,11 +83,22 @@ internal class RoomSetRepository @Inject constructor(
   override suspend fun ensureToday(): StudySet? = building.withLock {
     val date = day.today()
     sets.latest(SetDao.TODAY, date.toString())?.let { return@withLock resolve(it).first() }
-    create(StudySetKind.TODAY, date, seed = date.toEpochDay(), replayWhenEmpty = false)
+    create(StudySetKind.TODAY, date, seed = date.toEpochDay(), choose = SetBuilder::build)
   }
 
+  /** Null when nothing new is due (spec F-08 item 7): never a replay, which is [replayMix]'s. */
   override suspend fun anotherSet(): StudySet? = building.withLock {
-    create(StudySetKind.EXTRA, day.today(), seed = sets.count() + 1L, replayWhenEmpty = true)
+    create(StudySetKind.EXTRA, day.today(), seed = sets.count() + 1L, choose = SetBuilder::build)
+  }
+
+  /**
+   * The seen shorts, least recently seen first (spec F-06 item 9). When none was seen yet, the set that is due, so the
+   * answer is null only when no short is eligible at all.
+   */
+  override suspend fun replayMix(): StudySet? = building.withLock {
+    create(StudySetKind.EXTRA, day.today(), seed = sets.count() + 1L) { input ->
+      SetBuilder.replay(input).ifEmpty { SetBuilder.build(input) }
+    }
   }
 
   override suspend fun advance(setId: Long, position: Int) = sets.advance(setId, position, day.now().toEpochMilli())
@@ -103,11 +116,15 @@ internal class RoomSetRepository @Inject constructor(
     return AnswerResult(correct, question.answer, question.change, question.occurrence)
   }
 
-  private suspend fun create(kind: StudySetKind, date: LocalDate, seed: Long, replayWhenEmpty: Boolean): StudySet? {
+  /** Stores the set [choose] picks from today's input with its questions; null when it picks no short. */
+  private suspend fun create(
+    kind: StudySetKind,
+    date: LocalDate,
+    seed: Long,
+    choose: (SetInput) -> List<SetPick>,
+  ): StudySet? {
     val input = catalog.setInput(before = tailOf(sets.newest()))
-    val picks = withContext(cpu) {
-      SetBuilder.build(input).ifEmpty { if (replayWhenEmpty) SetBuilder.replay(input) else emptyList() }
-    }
+    val picks = withContext(cpu) { choose(input) }
     if (picks.isEmpty()) return null
     val questions = questionsFor(picks, seed)
     val now = day.now().toEpochMilli()

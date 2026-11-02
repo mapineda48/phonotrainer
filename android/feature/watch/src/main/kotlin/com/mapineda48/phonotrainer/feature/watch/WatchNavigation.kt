@@ -108,16 +108,7 @@ internal fun WatchRoute(key: WatchKey, navigator: Navigator) {
       onShowCaptions = { viewModel.setCaptions(com.mapineda48.phonotrainer.core.domain.model.CaptionMode.MARKS) },
       onDismissCoach = viewModel::dismissCoachMark,
     ),
-    end = EndCallbacks(
-      onHome = { navigator.navigate(HomeKey) },
-      onAnotherSet = viewModel::anotherSet,
-      onPractice = { focus -> navigator.navigate(PracticeKey(focus?.value)) },
-      onWatchAgain = viewModel::watchAgain,
-      onNextClip = { navigator.navigate(WatchKey(FeedStart.InOrder(it, firstSegment = null, fromStart = false))) },
-      onLearn = { navigator.navigate(PhenomenonKey(it)) },
-      onReplayMix = viewModel::anotherSet,
-      onAddClip = { navigator.navigate(AddClipKey()) },
-    ),
+    end = endCallbacks(viewModel, navigator),
     question = QuestionCallbacks(
       onAnswer = viewModel::answer,
       onPlay = viewModel::playQuestion,
@@ -168,6 +159,21 @@ internal fun WatchRoute(key: WatchKey, navigator: Navigator) {
     },
   )
 }
+
+/**
+ * Where the end cards lead (spec F-06 item 9, F-08 items 6 and 7): "Another set" and "Replay the mix" are two calls of
+ * the feed, so "Another set" can find nothing new due while "Replay the mix" replays the seen shorts.
+ */
+internal fun endCallbacks(viewModel: WatchViewModel, navigator: Navigator) = EndCallbacks(
+  onHome = { navigator.navigate(HomeKey) },
+  onAnotherSet = viewModel::anotherSet,
+  onPractice = { focus -> navigator.navigate(PracticeKey(focus?.value)) },
+  onWatchAgain = viewModel::watchAgain,
+  onNextClip = { navigator.navigate(WatchKey(FeedStart.InOrder(it, firstSegment = null, fromStart = false))) },
+  onLearn = { navigator.navigate(PhenomenonKey(it)) },
+  onReplayMix = viewModel::replayMix,
+  onAddClip = { navigator.navigate(AddClipKey()) },
+)
 
 private fun lessonKey(word: WordRef) =
   LessonKey(word.jobId, word.segment, word.word, LessonOrigin.FEED, LessonPresentation.SHEET)

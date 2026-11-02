@@ -47,6 +47,12 @@ class WatchRobot(private val compose: ComposeTestRule, val phono: PhonoRobot) {
     compose.waitUntil(PhonoRobot.TIMEOUT_MS) { position()?.startsWith("$number /") == true }
   }
 
+  /** Waits until the header of a set reads short [number] ("1 of 8") and returns how many shorts the set has. */
+  fun waitForSetPosition(number: Int): Int {
+    compose.waitUntil(PhonoRobot.TIMEOUT_MS) { position()?.startsWith("$number of ") == true }
+    return position()?.substringAfter(" of ")?.trim()?.toIntOrNull() ?: error("no set position on screen")
+  }
+
   fun swipeToNext(): WatchRobot = move(+1) { compose.onNodeWithTag(WatchTags.PAGER).performTouchInput { swipeUp() } }
 
   fun tapNext(): WatchRobot = move(+1) { compose.onNodeWithTag(WatchTags.NEXT).performClick() }

@@ -2,7 +2,9 @@ package com.mapineda48.phonotrainer.feature.watch
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
+import androidx.navigation3.runtime.NavKey
 import com.google.common.truth.Truth.assertThat
+import com.mapineda48.phonotrainer.core.domain.api.SetRepository
 import com.mapineda48.phonotrainer.core.domain.model.Advice
 import com.mapineda48.phonotrainer.core.domain.model.AnswerResult
 import com.mapineda48.phonotrainer.core.domain.model.ArtifactLocalState
@@ -43,6 +45,9 @@ import com.mapineda48.phonotrainer.core.domain.model.WordRef
 import com.mapineda48.phonotrainer.core.domain.model.remote.ArtifactRole
 import com.mapineda48.phonotrainer.core.domain.model.remote.SourceKind
 import com.mapineda48.phonotrainer.core.navigation.FeedStart
+import com.mapineda48.phonotrainer.core.navigation.NavTarget
+import com.mapineda48.phonotrainer.core.navigation.Navigator
+import com.mapineda48.phonotrainer.core.navigation.Tab
 import com.mapineda48.phonotrainer.core.navigation.WatchKey
 import com.mapineda48.phonotrainer.core.testing.MainDispatcherRule
 import com.mapineda48.phonotrainer.core.testing.TestClock
@@ -95,6 +100,7 @@ class WatchViewModelTest {
   private val clips = FakeClipRepository()
   private val messages = FakeUserMessages()
   private val sets = FakeSetRepository()
+  private val setCalls = RecordingSets(sets)
   private val progress = FakeProgressRepository()
   private val saved = FakeSavedRepository()
   private val settings = FakeSettingsRepository()
@@ -162,7 +168,7 @@ class WatchViewModelTest {
     occurrences = occurrences,
     clips = clips,
     messages = messages,
-    sets = sets,
+    sets = setCalls,
     progress = progress,
     saved = this.saved,
     settingsRepository = settings,
@@ -384,6 +390,58 @@ class WatchViewModelTest {
     assertThat(vm.state.value.mode).isEqualTo(ModeName.Mix(today = false))
     assertThat(vm.state.value.current).isEqualTo(0)
     assertThat(vm.state.value.generation).isGreaterThan(before)
+  }
+
+  /** CR-WP14-1: "Replay the mix" asks for a replay of the seen shorts, never for another set (F-06 item 9). */
+  @Test
+  fun replayTheMixOnTheNothingLeftEndCardAsksForAReplayOfTheSeenShorts() {
+    arrangeClip()
+    setCalls.replay = todaySet().copy(id = 9, kind = StudySetKind.EXTRA)
+    val vm = viewModel(FeedStart.TodaySet)
+    assertThat(vm.state.value.pages).containsExactly(FeedPage.End(EndKind.NOTHING_LEFT))
+    val before = vm.state.value.generation
+
+    endCallbacks(vm, NoNavigation).onReplayMix()
+
+    assertThat(setCalls.calls).containsExactly("replayMix")
+    val state = vm.state.value
+    assertThat(state.mode).isEqualTo(ModeName.Mix(today = false))
+    assertThat(state.shortPages.map { it.id }).containsExactly(ShortId(job, 0), ShortId(job, 2), ShortId(job, 4)).inOrder()
+    assertThat(state.current).isEqualTo(0)
+    assertThat(state.generation).isGreaterThan(before)
+  }
+
+  /** F-08 item 7: "Another set" with nothing new due shows the "Mix with nothing left" end card, not a replay. */
+  @Test
+  fun anotherSetWithNothingNewDueShowsTheNothingLeftEndCard() {
+    arrangeClip()
+    sets.todayState.value = todaySet(completed = true)
+    setCalls.replay = todaySet().copy(id = 9, kind = StudySetKind.EXTRA)
+    val vm = viewModel(FeedStart.TodaySet)
+    assertThat(vm.state.value.currentPage).isEqualTo(FeedPage.End(EndKind.SET_SUMMARY))
+
+    endCallbacks(vm, NoNavigation).onAnotherSet()
+
+    assertThat(setCalls.calls).containsExactly("anotherSet")
+    assertThat(vm.state.value.mode).isEqualTo(ModeName.Mix(today = false))
+    assertThat(vm.state.value.pages).containsExactly(FeedPage.End(EndKind.NOTHING_LEFT))
+    assertThat(vm.state.value.empty).isNull()
+  }
+
+  /** No short eligible at all (every clip gone): the replay answers null and the feed says what is missing. */
+  @Test
+  fun replayTheMixWithNothingPlayableLeftShowsTheEmptyState() {
+    occurrences.totalsState.value = CorpusTotals(1, 4, 20, 3)
+    val vm = viewModel(FeedStart.TodaySet)
+    assertThat(vm.state.value.pages).containsExactly(FeedPage.End(EndKind.NOTHING_LEFT))
+    // The end card stays while playable shorts remain.
+    vm.replayMix()
+    assertThat(vm.state.value.pages).containsExactly(FeedPage.End(EndKind.NOTHING_LEFT))
+    occurrences.totalsState.value = CorpusTotals(0, 0, 0, 0)
+    vm.replayMix()
+    assertThat(vm.state.value.empty).isEqualTo(FeedEmpty.FirstRun)
+    assertThat(vm.state.value.pages).isEmpty()
+    assertThat(setCalls.calls).containsExactly("replayMix", "replayMix")
   }
 
   // --- Playback (F-06, F-07) ------------------------------------------------------------------------------------
@@ -736,4 +794,28 @@ class WatchViewModelTest {
     computerError = null,
     artifacts = listOf(ArtifactProgress(ArtifactRole.AUDIO_DIALOGUE, dialogue, null, null, 0)),
   )
+}
+
+/**
+ * The study fake as the feed sees it, recording which set call it makes. "Another set" and "Replay the mix" are two
+ * calls (CR-WP14-1); [replay] is what "Replay the mix" answers, whatever the fake does for the other call.
+ */
+private class RecordingSets(private val fake: FakeSetRepository) : SetRepository by fake {
+  val calls = mutableListOf<String>()
+  var replay: StudySet? = null
+
+  override suspend fun anotherSet(): StudySet? = fake.anotherSet().also { calls += "anotherSet" }
+
+  override suspend fun replayMix(): StudySet? = replay.also { calls += "replayMix" }
+}
+
+/** The end cards' set buttons stay in the feed: no destination is involved. */
+private object NoNavigation : Navigator {
+  override fun navigate(key: NavKey) = Unit
+
+  override fun back() = Unit
+
+  override fun switchTab(tab: Tab) = Unit
+
+  override fun open(target: NavTarget) = Unit
 }

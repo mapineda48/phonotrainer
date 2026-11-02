@@ -11,14 +11,18 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
 import com.google.common.truth.Truth.assertThat
 import com.mapineda48.phonotrainer.core.common.log.PhonoLog
+import com.mapineda48.phonotrainer.core.domain.api.ProgressRepository
 import com.mapineda48.phonotrainer.core.domain.api.SettingsRepository
+import com.mapineda48.phonotrainer.core.domain.api.ShortRepository
 import com.mapineda48.phonotrainer.core.domain.model.MotionChoice
 import com.mapineda48.phonotrainer.core.domain.model.Track
 import com.mapineda48.phonotrainer.core.domain.model.UserSettings
+import com.mapineda48.phonotrainer.core.navigation.FeedStart
 import com.mapineda48.phonotrainer.core.navigation.HomeKey
 import com.mapineda48.phonotrainer.core.navigation.LearnKey
 import com.mapineda48.phonotrainer.core.navigation.LessonKey
@@ -31,6 +35,7 @@ import com.mapineda48.phonotrainer.feature.watch.WatchTags
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import javax.inject.Inject
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Rule
@@ -41,8 +46,9 @@ import org.junit.Test
  * with the baseline's repositories, Back goes Home, and on clips put on the phone through the real corpus
  * ([WatchSeeder]) the real player pool plays them: swipe, the buttons and TalkBack's actions move one short; reduced
  * motion makes the move instant (F-06-AC9); a word pauses the short and opens the lesson, and closing it comes back
- * paused at the same time (F-07-AC6); the end card stops the feed; a tab switch keeps the position (F-06-AC12); a
- * dialogue track arriving during the feed plays from the next short, with the line gone (F-06-AC13).
+ * paused at the same time (F-07-AC6); the end card stops the feed; with every short seen, the Mix's "Replay the mix"
+ * plays a set of the seen shorts (F-06 item 9); a tab switch keeps the position (F-06-AC12); a dialogue track arriving
+ * during the feed plays from the next short, with the line gone (F-06-AC13).
  */
 @OptIn(ExperimentalTestApi::class)
 @HiltAndroidTest
@@ -62,12 +68,20 @@ class WatchAreaTest {
 
   @Inject lateinit var log: PhonoLog
 
+  @Inject lateinit var shorts: ShortRepository
+
+  @Inject lateinit var progress: ProgressRepository
+
   private val phono = PhonoRobot(compose)
   private val watch = WatchRobot(compose, phono)
 
-  private fun start(change: (UserSettings) -> UserSettings = { it }) {
+  /** Launches the app once the Welcome is done; [before] runs first, on the injected repositories, before any screen. */
+  private fun start(before: suspend () -> Unit = {}, change: (UserSettings) -> UserSettings = { it }) {
     hilt.inject()
-    runBlocking { settings.update { change(it.copy(welcomeDone = true)) } }
+    runBlocking {
+      before()
+      settings.update { change(it.copy(welcomeDone = true)) }
+    }
     phono.launch()
   }
 
@@ -169,6 +183,33 @@ class WatchAreaTest {
     watch.waitForTag(WatchTags.END)
   }
 
+  /**
+   * F-06 item 9 and F-08 item 7 (CR-WP14-1): with every short seen today the Mix has no set to build and shows the
+   * "Mix with nothing left" end card, and its "Replay the mix" plays a set of the seen shorts.
+   */
+  @Test
+  fun withEveryShortSeenReplayTheMixPlaysASetOfTheSeenShorts() {
+    var withSpotlight = 0
+    start(before = {
+      val id = seeder.audioClip("${WatchSeeder.PREFIX}replay", phrases = 24)
+      val all = shorts.shorts(id).first()
+      all.forEach { short ->
+        val length = (short.playEndMs - short.playStartMs).coerceAtLeast(1)
+        progress.recordPlayed(short.id, playedMs = length, lengthMs = length)
+      }
+      withSpotlight = all.count { it.spotlight != null }
+    })
+    assertThat(withSpotlight).isGreaterThan(0)
+    phono.open(WatchKey(FeedStart.TodaySet))
+    watch.waitForTag(WatchTags.END_REPLAY_MIX)
+
+    compose.onNodeWithTag(WatchTags.END_REPLAY_MIX).performScrollTo().performClick()
+
+    // A set of seen shorts (8 when there are that many), from its first short, with the end card gone.
+    assertThat(watch.waitForSetPosition(1)).isEqualTo(minOf(SET_SHORTS, withSpotlight))
+    watch.waitForNoTag(WatchTags.END_REPLAY_MIX)
+  }
+
   @Test
   fun aTabSwitchAndReturnKeepsTheFeedPosition() {
     start()
@@ -216,5 +257,8 @@ class WatchAreaTest {
   private companion object {
     const val INSTANT_FRAMES = 4
     const val REFRESH_WAIT_MS = 2_500L
+
+    /** Shorts in a set (spec F-08 item 1). */
+    const val SET_SHORTS = 8
   }
 }

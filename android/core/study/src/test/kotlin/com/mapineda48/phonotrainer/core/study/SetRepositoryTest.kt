@@ -8,6 +8,7 @@ import com.mapineda48.phonotrainer.core.domain.model.Spotlight
 import com.mapineda48.phonotrainer.core.domain.model.StudySet
 import com.mapineda48.phonotrainer.core.domain.model.StudySetItem
 import com.mapineda48.phonotrainer.core.domain.model.StudySetKind
+import com.mapineda48.phonotrainer.core.domain.model.UserSettings
 import com.mapineda48.phonotrainer.core.domain.model.WordRef
 import java.time.Duration
 import java.time.LocalDate
@@ -24,7 +25,8 @@ import org.robolectric.RobolectricTestRunner
  * [RoomSetRepository] on a real `learning.db` (spec F-08, architecture 10): today's set is built once a day and never
  * changes (F-08-AC3), a new one after local midnight (F-08-AC4), progress resumes and `done` marks follow the cursor
  * across a process restart (F-08-AC2, D-45), answers count once and in Practice accuracy (F-08-AC5), deleted clips drop
- * out, saved shorts come back tagged, and "Another set" replays when nothing new is due.
+ * out, saved shorts come back tagged, and when nothing new is due "Another set" has no set while "Replay the mix"
+ * replays the seen shorts.
  */
 @RunWith(RobolectricTestRunner::class)
 class SetRepositoryTest {
@@ -211,21 +213,54 @@ class SetRepositoryTest {
     assertThat(set.shorts.first().short.id).isEqualTo(target.id)
   }
 
+  /**
+   * F-08 item 7 and F-06 item 9 (CR-WP14-1): with every short seen within 7 days, "Another set" has nothing to build,
+   * so the feed shows the "Mix with nothing left" end card, whose "Replay the mix" builds an extra set of the seen
+   * shorts, least recently seen first.
+   */
   @Test
-  fun anotherSetReplaysTheSeenShortsWhenNothingNewIsDue() = runTest {
-    val shorts = h.addClip("a", ten.take(4)) + h.addClip("b", ten.take(4))
-    shorts.forEach { h.progress.recordPlayed(it.id, 3_000, 3_000) }
+  fun withNothingNewDueAnotherSetIsNullAndReplayTheMixReplaysTheSeenShorts() = runTest {
+    val shorts = h.addClip("a", ten.take(6)) + h.addClip("b", ten.take(6))
+    shorts.forEach {
+      h.progress.recordPlayed(it.id, 3_000, 3_000)
+      h.clock.advanceBy(Duration.ofMinutes(1))
+    }
 
     assertThat(h.sets.ensureToday()).isNull()
-    val replay = h.sets.anotherSet()!!
+    assertThat(h.sets.anotherSet()).isNull()
+    assertThat(h.db.setDao().count()).isEqualTo(0)
+
+    val replay = h.sets.replayMix()!!
     assertThat(replay.kind).isEqualTo(StudySetKind.EXTRA)
-    assertThat(replay.shorts.map { it.short.id }).containsExactlyElementsIn(shorts.map { it.id })
+    // The 8 of the 12 seen longest ago.
+    assertThat(replay.shorts.map { it.short.id }).containsExactlyElementsIn(shorts.take(8).map { it.id })
+    assertThat(replay.questions).isNotEmpty()
+    assertThat(h.sets.today().first()).isNull()
+    assertThat(h.db.setDao().count()).isEqualTo(1)
+  }
+
+  /** "Replay the mix" is null only when no short is eligible at all (`SetRepository.replayMix`). */
+  @Test
+  fun replayTheMixIsNullOnlyWhenNoShortIsEligible() = runTest {
+    assertThat(h.sets.replayMix()).isNull()
+
+    // Nothing seen yet (a clip arrived while the end card was showing): the set that is due.
+    val shorts = h.addClip("a", ten)
+    val due = h.sets.replayMix()!!
+    assertThat(due.shorts).hasSize(8)
+    assertThat(due.shorts.map { it.short.id }).containsAnyIn(shorts.map { it.id })
+
+    // Every clip left out of the Mix: nothing is eligible, for either call.
+    h.settings.state.value = UserSettings(excludedFromMix = setOf(JobId("a")))
+    assertThat(h.sets.replayMix()).isNull()
+    assertThat(h.sets.anotherSet()).isNull()
   }
 
   @Test
   fun noClipsMeanNoSet() = runTest {
     assertThat(h.sets.ensureToday()).isNull()
     assertThat(h.sets.anotherSet()).isNull()
+    assertThat(h.sets.replayMix()).isNull()
     assertThat(h.sets.today().first()).isNull()
   }
 

@@ -958,18 +958,35 @@ internal class WatchViewModel @AssistedInject constructor(
     viewModelScope.launch { saved.saveWord(result.explanation.word) }
   }
 
-  /** "Another set" (F-08 item 7), and "Replay the mix" when nothing new is left. */
-  fun anotherSet() {
+  /**
+   * "Another set" on the set summary (F-08 item 7): a new set with the same rules; when none can be built, the "Mix
+   * with nothing left" end card (F-06 item 9).
+   */
+  fun anotherSet() = showExtraSet { sets.anotherSet() }
+
+  /**
+   * "Replay the mix" on the "Mix with nothing left" end card (F-06 item 9): a set of the seen shorts, least recently
+   * seen first. It is a call of its own, so "Another set" can answer that nothing new is due (F-08 item 7).
+   */
+  fun replayMix() = showExtraSet { sets.replayMix() }
+
+  /**
+   * The feed becomes the set [build] answers; with no set, the "Mix with nothing left" end card, or the empty state
+   * when nothing at all is playable on this phone any more (F-06 States), as when the Mix opens.
+   */
+  private fun showExtraSet(build: suspend () -> StudySet?) {
     viewModelScope.launch {
-      val set = sets.anotherSet()
+      val set = build()
       leaveCurrent()
       settledPage = -1
       if (set == null) {
-        feed.value = fresh(FeedData(
-          loading = false,
-          mode = ResolvedMode(FeedMode.Mix(0), ModeName.Mix(today = false)),
-          pages = listOf(FeedPage.End(EndKind.NOTHING_LEFT)),
-        ))
+        val mode = ResolvedMode(FeedMode.Mix(0), ModeName.Mix(today = false))
+        val empty = nothingPlayable()
+        feed.value = if (empty != null) {
+          fresh(FeedData(loading = false, mode = mode, empty = empty))
+        } else {
+          fresh(FeedData(loading = false, mode = mode, pages = listOf(FeedPage.End(EndKind.NOTHING_LEFT))))
+        }
       } else {
         showSet(set, at = null)
       }
