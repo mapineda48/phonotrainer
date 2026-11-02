@@ -1,0 +1,62 @@
+# Line endings: text files are stored with LF and checked out with LF on every system,
+# whatever core.autocrlf says (Git for Windows defaults it to true). Byte-sensitive checks
+# (the didactic-content drift check, the reference exporter, the licence lists) then see
+# the same bytes on Windows as on Linux.
+* text=auto eol=lf
+
+# Shell scripts must keep LF to run under sh, Git Bash included.
+*.sh text eol=lf
+gradlew text eol=lf
+
+# Batch files are run by cmd.exe and keep CRLF in the working tree.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Committed byte for byte with CRLF (the upstream files as published): never converted.
+/android/gradlew.bat -text
+/android/core/designsystem/src/main/assets/licenses/charis-OFL.txt -text
+/android/design-src/export/assets/licenses/charis-OFL.txt -text
+/web/src/assets/fonts/charis/OFL.txt -text
+
+# Binary files: never converted, never diffed as text.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+*.jar binary
+*.zip binary
+*.gz binary
+*.tgz binary
+*.7z binary
+*.so binary
+*.dll binary
+*.exe binary
+*.apk binary
+*.aab binary
+*.keystore binary
+*.jks binary
+*.p12 binary
+*.wav binary
+*.mp3 binary
+*.m4a binary
+*.ogg binary
+*.flac binary
+*.mp4 binary
+*.webm binary
+*.mkv binary
+*.pdf binary
+*.db binary
+*.sqlite binary
+*.npy binary
+*.npz binary
+*.pt binary
+*.pth binary
+*.bin binary
+*.onnx binary
+*.safetensors binary
