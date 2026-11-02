@@ -6,6 +6,7 @@ import android.os.ParcelFileDescriptor
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
+import com.google.common.truth.Truth.assertWithMessage
 import com.mapineda48.phonotrainer.core.common.hash.Sha256
 import com.mapineda48.phonotrainer.core.domain.model.FileOptions
 import com.mapineda48.phonotrainer.core.domain.model.FileSource
@@ -98,8 +99,8 @@ class AudioExtractionOnDeviceTest {
       assertThat(whole.fileSha256).isEqualTo(Sha256.of(silent).sha256)
       // Both synthetic videos are 2 s long; the extracted audio and the whole file both say so.
       listOf(audio, whole).forEach { row ->
-        assertThat(row.fileDurationMs).isAtLeast(SECONDS_2_LOW_MS)
-        assertThat(row.fileDurationMs).isAtMost(SECONDS_2_HIGH_MS)
+        assertWithMessage(row.copyFile).that(row.fileDurationMs).isAtLeast(SECONDS_2_LOW_MS)
+        assertWithMessage(row.copyFile).that(row.fileDurationMs).isAtMost(SECONDS_2_HIGH_MS)
       }
     }
   }
