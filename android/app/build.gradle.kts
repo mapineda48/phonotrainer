@@ -80,6 +80,11 @@ dependencies {
   debugImplementation(libs.androidx.compose.ui.test.manifest)
 
   androidTestImplementation(project(":core:testing-jvm"))
+  // SyntheticMedia (WP-11), the device-made media of the share tests. Robolectric is left out: these tests run on the
+  // device, and its jars would only bloat the test APK.
+  androidTestImplementation(project(":core:testing")) {
+    exclude(group = "org.robolectric")
+  }
   androidTestImplementation(libs.androidx.compose.ui.test.junit4)
   androidTestImplementation(libs.androidx.test.core)
   androidTestImplementation(libs.androidx.test.ext.junit)

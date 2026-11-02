@@ -27,6 +27,7 @@ import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
 import com.mapineda48.phonotrainer.core.domain.api.RequestRepository
 import com.mapineda48.phonotrainer.core.domain.model.Request
+import com.mapineda48.phonotrainer.core.testing.synthetic.SyntheticMedia
 import com.mapineda48.phonotrainer.feature.share.R
 import com.mapineda48.phonotrainer.feature.share.ShareActivity
 import com.mapineda48.phonotrainer.feature.share.ShareTags
@@ -58,9 +59,29 @@ class ShareRobot(private val compose: ComposeTestRule, private val requests: Req
 
   /** A real MP4 (H.264 + AAC) made here, which the sharing app holds as [file]; its size in bytes. */
   fun putClip(file: String = CLIP_FILE, seconds: Int = 2): Long {
-    val local = SyntheticClip.ensure(File(app.cacheDir, "share-$seconds-s.mp4"), seconds)
+    val local = clip(seconds)
     put(file, local.readBytes())
     return local.length()
+  }
+
+  /**
+   * A [seconds]-long MP4 made on the device with WP-11's [SyntheticMedia] (grey frames that carry their index, and an
+   * AAC tone the queue can extract), once per install: it is kept in the app's cache for the next test.
+   */
+  private fun clip(seconds: Int): File = synchronized(ShareRobot::class.java) {
+    val target = File(app.cacheDir, "share-$seconds-s.mp4")
+    if (!target.isFile || target.length() == 0L) {
+      val part = File(app.cacheDir, target.name + ".part")
+      val spec = SyntheticMedia.VideoSpec(
+        fps = CLIP_FPS,
+        durationMs = seconds * MS_PER_S,
+        audioToneHz = CLIP_TONE_HZ,
+        bitRate = CLIP_BIT_RATE,
+      )
+      SyntheticMedia.video(part, spec)
+      check(part.renameTo(target)) { "could not keep the synthetic clip" }
+    }
+    target
   }
 
   /** The sharing app holds [bytes] as [file] from the next share on. */
@@ -310,5 +331,11 @@ class ShareRobot(private val compose: ComposeTestRule, private val requests: Req
     )
     const val CLIP_FILE = "clip.mp4"
     private const val QUESTION_WAIT_MS = 3_000L
+
+    // The shared video: small (320 x 240, 15 fps, 300 kbit/s) with a 440 Hz tone.
+    private const val CLIP_FPS = 15
+    private const val CLIP_TONE_HZ = 440.0
+    private const val CLIP_BIT_RATE = 300_000
+    private const val MS_PER_S = 1_000L
   }
 }

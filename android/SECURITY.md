@@ -171,8 +171,9 @@ Where each entry comes from:
   `ACCESS_NETWORK_STATE`.
 - `WAKE_LOCK`, `RECEIVE_BOOT_COMPLETED` and `FOREGROUND_SERVICE` are merged from WorkManager (`work-runtime`), as
   architecture 20.1 expects for the first two; `FOREGROUND_SERVICE` belongs to WorkManager's own foreground service,
-  which is not exported. `FOREGROUND_SERVICE_DATA_SYNC` (architecture 20.1) is declared by `:core:requests` for
-  visible uploads (and by `:core:sync` once WP-08 declares its foreground service; the merger makes them one).
+  which is not exported. `FOREGROUND_SERVICE_DATA_SYNC` (architecture 20.1, 7.2) is declared by `:core:sync` for
+  visible downloads and by `:core:requests` for visible uploads; each also gives WorkManager's foreground service the
+  `dataSync` type, and the merger makes the two declarations one.
 - `POST_NOTIFICATIONS` is declared by `:core:notifications` (architecture 13): on Android 13 and later it is asked
   in context after the first stored request (spec F-23), never at first launch; below 13 it is granted at install.
 - `DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` is the signature-level permission that AndroidX Core declares and

@@ -7,6 +7,40 @@ they fix.
 
 ## App shell
 
+### I-22 The per-tab state proof runs on the real sync stack and tells ViewModels apart by their first state (2026-11-02, WP-19)
+
+I-19 left `e2e/library/LibraryStateTest` uninstalling `SyncModule` and binding settable fakes until the sync engine
+(WP-08) was merged, which it was on 2026-10-18. The class now keeps every production binding. `LibraryCatalogue.seed`
+puts its fifty clips on the test's fake computer a minute apart (`TestTime`, so "Newest first" follows their
+numbers), `TestSeeder.bringToPhone` pairs and runs a sync pass (I-23), and the five clips the catalogue keeps off the
+phone are removed with `ClipRepository.removeFromPhone`, the learner's own action.
+
+The ViewModel was told apart by `CountingClipRepository`, a decorator that counted the Library's subscriptions to the
+catalogue; a decorator of the real repository can only be bound by uninstalling `SyncModule`. The count gives way to
+the Library's first state: `LibraryViewModel.state` starts with `Catalogue.Loading`, which only a new ViewModel shows
+(and "Try again"), while a kept ViewModel keeps its last list when its subscription starts again (its KDoc,
+F-04-AC5). That state lasts until Room's first answer, a frame or two, so the Compose test API, which looks only once
+the app is idle, never sees it. `e2e/support/DrawnTagWatch` adds an `OnDrawListener` to every activity from
+`onActivityPostCreated`, before the activity's first frame (so a recreated activity is watched from its start), and
+reads each drawn frame's semantics tree for `LibraryTags.LOADING`. The tab-switch test and the foreground half of the
+recreate test assert that it was never drawn; the restore test asserts that it was (a new ViewModel, so what the
+Library kept came from the saved state alone), which is also the watch's positive control. Unlike the count, it does
+not depend on each tab switch ending within the ViewModel's 5 s `WhileSubscribed` window.
+
+The H1 mutation scripts of I-19 were lost with the orchestration scratchpad, so the check moved with the class is
+written down here. Two mutants of `PhonoShell`, each re-applied by hand before a run:
+- A, one decorated list: `rememberDecoratedNavEntries` called once, on `stack(HOME) + stack(current)` (with the same
+  two decorators and the same entry wrapper), in place of the per-stack map;
+- B, only the shown stacks decorated: `listOf(Tab.HOME, current).distinct()` in place of `Tab.entries` when the map of
+  decorated stacks is built, so an inactive tab's decoration leaves the composition.
+On 2026-11-02, under each mutant, `aTabSwitchKeepsTheViewModelAndItsState`, `aRecreateKeepsTheViewModelAndItsState`
+and `aRestoreFromSavedStateAloneKeepsTheState` failed (the scrolled row was gone when the Library came back) and the
+class's four other tests passed; without a mutant all seven pass. Any rewrite of the shell's stack decoration re-runs
+both.
+
+The removal test's "sends nothing to the computer" (F-05-AC11) now reads "asks the computer to change nothing": every
+request after the first tap is a `GET`, since a paired phone keeps reading its computer (health, listing, channel).
+
 ### I-19 The per-tab state proof runs on the real Library (2026-10-17, WP-19; CR-WP16-1)
 
 Architecture 16.2's per-tab state (Android review H1, WP-02's Proof) was proved by `e2e/smoke/PerTabStateTest` on the
@@ -23,7 +57,7 @@ Any rewrite of `PhonoShell`'s stack decoration re-runs the two H1 mutation scrip
 `com.mapineda48.phonotrainer.e2e.library.LibraryStateTest`: under each mutant its three per-tab tests must fail, and
 they did on WP-16's branch before its merge (WP-16's hand-off). Until the sync engine (WP-08) is merged that class
 uninstalls `SyncModule` and binds settable fakes (work-plan 2.4); when WP-08 lands it moves to `TestSeeder.seedLibrary`,
-and the H1 check moves with it.
+and the H1 check moves with it (done in I-22, which also records the two mutants).
 
 ### I-12 The shell draws WP-03's frame and leaves the top inset to each destination (2026-10-11, WP-19)
 
@@ -165,6 +199,40 @@ player, behind the same `FeedPlayer` (architecture 11.2). Proof: `:core:player` 
 `PreloadManagerEvaluationTest` (device log tag `PhonoPlayerQA`).
 
 ## Build and test infrastructure
+
+### I-23 The area tests seed through `TestSeeder`, and each test starts with no clip files (2026-11-02, WP-19)
+
+The Watch, lesson and Learn areas wrote their clips into the library database and `filesDir` themselves
+(`WatchSeeder`, `LessonSeeder`, `LearnSeeder`), because the sync engine (WP-08) was not in their baselines (work-plan
+2.4). It is merged, and they now seed through `TestSeeder` (`e2e/support/`), so nothing reaches the phone behind the
+app's back:
+- `seedAudioClip(title, clipData)` puts one finished audio clip on the test's fake computer whose clip data is WP-12's
+  fixture of the test's choosing (`FixtureClips.of(variant)`, `FixtureClips.synthetic(words, phrases, seed)`), with a
+  silent mix one second longer than the clip, and brings it to the phone through pairing, a sync pass and the
+  indexer. The fake computer's own content stops its audio at 30 s; the feed plays every short of a two-and-a-half
+  minute clip.
+- `addDialogue(id)` is a dialogue track arriving (F-06-AC13): the computer finishes the job again with the same clip
+  data and mix plus a dialogue WAV (a new revision of the job), a sync pass downloads it, and the call returns once the
+  clip's media has the verified file.
+- `bringToPhone(ids)` pairs if needed and syncs clips already on the computer (the Library's catalogue, I-22).
+
+While it waits, the seeder releases the work the stack schedules, but no longer the periodic sync
+(`WorkDriver.runEnqueued(periodic = false)`). Released at every 100 ms poll, each periodic pass said hello to the
+computer, which allows 20 a minute (server-contract 4.7) on a clock that only tests move (I-05): seeding one clip
+finished first, but the Library's fifty clips never arrived, the sync paused "not connected" behind
+`429 rate_limited`. `GlobalTestSetTest` seeds fifty clips with fewer than 20 hellos; before the change it timed out.
+
+Seeding pairs the phone, which the old helpers never did; the areas' tests pass paired. Every test's fake computer
+hands out the same job ids (one random seed) and every test's library database is new, so the files a sync pass
+downloads would outlive their rows and sit under the next test's ids (the old helpers deleted their own files).
+`PerTestIsolation.testStarted` now deletes `filesDir/clips` before each test, as it renews WorkManager;
+`GlobalTestSetTest` checks the deletion and the seeder's audio clip, shorts, mix length and late dialogue track.
+
+The share tests (WP-23) and `:core:requests`' audio-extraction test (WP-09) make their MP4s with WP-11's
+`SyntheticMedia` (`:core:testing`, an `androidTestImplementation` of `:app` and `:core:requests` without Robolectric,
+as `:core:player` has it) instead of their local copies, `SyntheticClip` and `SyntheticVideo`. `SyntheticClip` still
+stamped the end of its AAC track with the video clock, the defect `SyntheticVideo` lost on 2026-11-02 (a "2 s" clip
+was about 9.5 s long).
 
 ### I-21 End-to-end runs keep WorkManager's foreground service off (2026-11-02, WP-19; CR-FGS-1)
 

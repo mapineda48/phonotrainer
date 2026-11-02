@@ -38,9 +38,13 @@ class WorkDriver @Inject constructor(@ApplicationContext private val context: Co
   /**
    * Marks the constraints, initial delay and (for periodic work) period of every enqueued request as met, so each runs
    * now; returns the ids it released. Work the released work enqueues is not released; call again for it.
+   *
+   * With [periodic] false, periodic requests keep waiting. A loop that releases a periodic request at every call runs
+   * it as often as it calls, as no phone does: each periodic sync pass says hello to the computer, which answers
+   * `429 rate_limited` after 20 a minute, and the test computer's minute only ends when the test moves time.
    */
-  fun runEnqueued(): List<UUID> {
-    val enqueued = workInfos(WorkInfo.State.ENQUEUED)
+  fun runEnqueued(periodic: Boolean = true): List<UUID> {
+    val enqueued = workInfos(WorkInfo.State.ENQUEUED).filter { periodic || it.periodicityInfo == null }
     enqueued.forEach { info ->
       driver.setAllConstraintsMet(info.id)
       driver.setInitialDelayMet(info.id)

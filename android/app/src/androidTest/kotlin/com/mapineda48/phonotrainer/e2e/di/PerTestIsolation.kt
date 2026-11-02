@@ -6,6 +6,7 @@ import androidx.work.Configuration
 import androidx.work.WorkManager
 import androidx.work.testing.SynchronousExecutor
 import androidx.work.testing.WorkManagerTestInitHelper
+import com.mapineda48.phonotrainer.core.common.files.FileLayout
 import java.util.Collections
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.cancel
@@ -14,13 +15,16 @@ import org.junit.runner.notification.RunListener
 
 /**
  * The JUnit listener `HiltTestRunner` adds to every run (architecture 21.5): before each test a fresh test WorkManager
- * (an empty in-memory work database, so no request survives from an earlier test), after each test the test's
- * application scope is cancelled (so nothing a test's singletons started keeps running into the next test) and every
- * fake computer it started is closed.
+ * (an empty in-memory work database, so no request survives from an earlier test) and no clip files (the clips an
+ * earlier test's sync pass downloaded, which its in-memory library database no longer names), after each test the
+ * test's application scope is cancelled (so nothing a test's singletons started keeps running into the next test) and
+ * every fake computer it started is closed.
  */
 class PerTestIsolation : RunListener() {
   override fun testStarted(description: Description) {
-    freshWorkManager(InstrumentationRegistry.getInstrumentation().targetContext)
+    val context = InstrumentationRegistry.getInstrumentation().targetContext
+    freshWorkManager(context)
+    noClipFiles(context)
   }
 
   override fun testFinished(description: Description) {
@@ -50,6 +54,15 @@ class PerTestIsolation : RunListener() {
         .setWorkerFactory(TestWorkerFactory)
         .build()
       WorkManagerTestInitHelper.initializeTestWorkManager(context, configuration)
+    }
+
+    /**
+     * Deletes every clip file of the app (`filesDir/clips`, architecture 4.6). Each test's library database is new and
+     * every test's fake computer hands out the same job ids, so an earlier test's files would otherwise sit, unnamed,
+     * under the ids of this test's clips.
+     */
+    private fun noClipFiles(context: Context) {
+      FileLayout.clipsRoot(context.filesDir).deleteRecursively()
     }
   }
 }

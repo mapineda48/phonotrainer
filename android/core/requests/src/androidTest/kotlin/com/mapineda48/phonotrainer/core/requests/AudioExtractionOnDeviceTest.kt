@@ -13,6 +13,7 @@ import com.mapineda48.phonotrainer.core.domain.model.FileSource
 import com.mapineda48.phonotrainer.core.domain.model.RequestId
 import com.mapineda48.phonotrainer.core.requests.android.MediaAudioExtraction
 import com.mapineda48.phonotrainer.core.requests.intake.ExtractorInput
+import com.mapineda48.phonotrainer.core.testing.synthetic.SyntheticMedia
 import java.io.File
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -35,8 +36,12 @@ class AudioExtractionOnDeviceTest {
     made.forEach { it.delete() }
   }
 
-  private fun video(name: String, withAudio: Boolean): File =
-    File(context.cacheDir, name).also { made += it; SyntheticVideo.write(it, withAudio = withAudio) }
+  /** A 2 s MP4 made here with WP-11's [SyntheticMedia]: H.264 and, when [withAudio], an AAC tone. */
+  private fun video(name: String, withAudio: Boolean): File = File(context.cacheDir, name).also {
+    made += it
+    val spec = SyntheticMedia.VideoSpec(fps = FPS, durationMs = LENGTH_MS, audioToneHz = TONE_HZ.takeIf { withAudio })
+    SyntheticMedia.video(it, spec)
+  }
 
   private fun tracks(file: File): List<String> {
     val extractor = MediaExtractor()
@@ -106,6 +111,10 @@ class AudioExtractionOnDeviceTest {
   }
 
   private companion object {
+    const val FPS = 15
+    const val LENGTH_MS = 2_000L
+    const val TONE_HZ = 440.0
+
     // The encoders may add or trim a frame: 2 s within a few hundred milliseconds.
     const val SECONDS_2_LOW_MS = 1_500L
     const val SECONDS_2_HIGH_MS = 2_500L
