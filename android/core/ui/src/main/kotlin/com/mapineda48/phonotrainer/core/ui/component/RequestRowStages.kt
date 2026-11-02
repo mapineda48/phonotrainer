@@ -7,6 +7,7 @@ import com.mapineda48.phonotrainer.core.designsystem.component.StepState
 import com.mapineda48.phonotrainer.core.domain.model.Request
 import com.mapineda48.phonotrainer.core.domain.model.RequestKind
 import com.mapineda48.phonotrainer.core.domain.model.RequestState
+import com.mapineda48.phonotrainer.core.domain.model.remote.SeparationNote
 import com.mapineda48.phonotrainer.core.domain.model.remote.Stage
 import com.mapineda48.phonotrainer.core.ui.R
 
@@ -28,20 +29,35 @@ object RequestRowStages {
   /**
    * Each stage of [request] with its state: all next while it is sent or waiting in line (and while analyzing before
    * the computer named a stage), done up to the current one while analyzing, all done once ready. "phrase 3 of 10" is
-   * the current Hear-the-phones stage's detail, the download's percent the Download stage's.
+   * the current Hear-the-phones stage's detail, the download's percent the Download stage's. "Separate the dialogue"
+   * turned off or skipped by the computer (`RequestProgress.separation`, CR-WP22-3) is skipped, with its reason, at
+   * every moment: it never reads as done.
    */
   fun of(request: Request, resources: Resources): List<RequestStageState> {
     val stages = stagesOf(request.kind)
     val finished = request.state == RequestState.READY_ON_COMPUTER || request.state == RequestState.GETTING_ON_PHONE ||
       request.state == RequestState.ON_PHONE
-    if (finished) return stages.map { RequestStageState(it, StepState.DONE) }
-    val current = currentIndex(request)
+    val current = if (finished) null else currentIndex(request)
     return stages.mapIndexed { index, stage ->
+      val skipped = skipReason(request, stage)
       when {
+        skipped != null -> RequestStageState(stage, StepState.SKIPPED, resources.getString(skipped))
+        finished -> RequestStageState(stage, StepState.DONE)
         current == null || index > current -> RequestStageState(stage, StepState.NEXT)
         index < current -> RequestStageState(stage, StepState.DONE)
         else -> RequestStageState(stage, StepState.CURRENT, detailOf(request, stage, resources))
       }
+    }
+  }
+
+  /** Why [stage] of [request] is skipped (the web stepper's reasons), or null when it is not. */
+  @StringRes
+  private fun skipReason(request: Request, stage: Stage): Int? {
+    if (stage != Stage.SEPARATE) return null
+    return when (request.progress?.separation) {
+      SeparationNote.OFF -> R.string.request_stage_skipped_off
+      SeparationNote.SKIPPED -> R.string.request_stage_skipped_unavailable
+      SeparationNote.UNKNOWN, null -> null
     }
   }
 
@@ -54,8 +70,9 @@ object RequestRowStages {
     return stagesOf(request.kind).indexOf(stage).takeIf { it >= 0 }
   }
 
-  /** The stage being worked on, or null. */
-  fun current(request: Request): Stage? = currentIndex(request)?.let { stagesOf(request.kind)[it] }
+  /** The stage being worked on, or null (a skipped stage is not worked on, so it is never announced). */
+  fun current(request: Request): Stage? =
+    currentIndex(request)?.let { stagesOf(request.kind)[it] }?.takeIf { skipReason(request, it) == null }
 
   private fun detailOf(request: Request, stage: Stage, resources: Resources): String? {
     val progress = request.progress ?: return null
@@ -118,9 +135,16 @@ object RequestRowStages {
     StepState.CANCELLED -> R.string.request_stage_status_cancelled
   }
 
-  /** The stepper as TalkBack reads it: "Step 5 of 6: Hear the phones, in progress.", or not started, or all done. */
+  /**
+   * The stepper as TalkBack reads it: "Step 5 of 6: Hear the phones, in progress.", "Step 3 of 6: Separate the
+   * dialogue, skipped." while the computer passes a skipped stage, not started, or all done ("5 steps done, Separate the
+   * dialogue skipped." when one was skipped).
+   */
   fun description(stages: List<RequestStageState>, resources: Resources): String {
     val index = stages.indexOfFirst { it.state == StepState.CURRENT }
+    val done = stages.count { it.state == StepState.DONE }
+    val skipped = stages.filter { it.state == StepState.SKIPPED }
+    val reached = stages.indexOfLast { it.state != StepState.NEXT }
     return when {
       index >= 0 -> resources.getString(
         R.string.request_stepper_current,
@@ -128,8 +152,19 @@ object RequestRowStages {
         stages.size,
         resources.getString(name(stages[index].stage)),
       )
-      stages.isNotEmpty() && stages.all { it.state == StepState.DONE } ->
-        resources.getQuantityString(R.plurals.request_stepper_done, stages.size, stages.size)
+      done > 0 && reached in 0 until stages.lastIndex && stages[reached].state == StepState.SKIPPED -> resources.getString(
+        R.string.request_stepper_skipping,
+        reached + 1,
+        stages.size,
+        resources.getString(name(stages[reached].stage)),
+      )
+      stages.isNotEmpty() && done == stages.size -> resources.getQuantityString(R.plurals.request_stepper_done, done, done)
+      stages.isNotEmpty() && done + skipped.size == stages.size -> resources.getQuantityString(
+        R.plurals.request_stepper_done_skipped,
+        done,
+        done,
+        skipped.joinToString(", ") { resources.getString(name(it.stage)) },
+      )
       else -> resources.getQuantityString(R.plurals.request_stepper_waiting, stages.size, stages.size)
     }
   }

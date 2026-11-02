@@ -7,6 +7,7 @@ import com.mapineda48.phonotrainer.core.designsystem.icons.PhonoIcons
 import com.mapineda48.phonotrainer.core.domain.model.Request
 import com.mapineda48.phonotrainer.core.domain.model.RequestKind
 import com.mapineda48.phonotrainer.core.domain.model.RequestState
+import com.mapineda48.phonotrainer.feature.requests.add.duration
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -85,15 +86,19 @@ internal object RequestDetailRules {
       request.state == RequestState.ANALYZING
 
   /**
-   * The estimate (spec F-20 item 2), only once the clip's duration is known: "Usually takes about as long as the clip
-   * (about 4 min)."; before that, for a link, "…once it's downloaded."; for a file whose duration is unknown, nothing.
-   * The duration is not in `Request` yet (change request CR-WP22-1), so callers pass null until it is.
+   * The estimate (spec F-20 item 2), only once the clip's duration (`Request.durationS`, CR-WP22-1) is known: "Usually
+   * takes about as long as the clip (about 4 min)."; before that, for a link, "…once it's downloaded."; for a file
+   * whose duration is unknown, nothing.
    */
   fun estimateMinutes(durationS: Double?): Int? =
     durationS?.takeIf { it > 0 }?.let { ((it + SECONDS_PER_MINUTE - 1) / SECONDS_PER_MINUTE).toInt().coerceAtLeast(1) }
 
-  /** Whether the link-only estimate line applies ([durationS] unknown, a link). */
-  fun linkEstimate(request: Request, durationS: Double?): Boolean = request.kind == RequestKind.LINK && durationS == null
+  /** Whether the link-only estimate line applies: a link whose duration is not known yet. */
+  fun linkEstimate(request: Request): Boolean = request.kind == RequestKind.LINK && estimateMinutes(request.durationS) == null
+
+  /** The clip's length on the source line (spec F-20 item 2): "4:10", "1:02:03"; null while it is not known. */
+  fun length(durationS: Double?): String? =
+    durationS?.takeIf { it > 0 }?.let { duration((it * MILLIS_PER_SECOND).toLong()) }
 
   /** A milestone's time: "9:02" today, "Oct 9, 9:02" on another day (in the learner's zone). */
   fun time(at: Instant, now: Instant, zone: ZoneId): String {
@@ -112,6 +117,7 @@ internal object RequestDetailRules {
     RequestState.ON_PHONE,
   )
   private const val SECONDS_PER_MINUTE = 60.0
+  private const val MILLIS_PER_SECOND = 1_000.0
   private val TODAY: DateTimeFormatter = DateTimeFormatter.ofPattern("H:mm", Locale.US)
   private val OTHER_DAY: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM d, H:mm", Locale.US)
 }

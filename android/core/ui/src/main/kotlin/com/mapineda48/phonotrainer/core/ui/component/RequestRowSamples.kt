@@ -14,6 +14,7 @@ import com.mapineda48.phonotrainer.core.domain.model.RequestTimeline
 import com.mapineda48.phonotrainer.core.domain.model.Site
 import com.mapineda48.phonotrainer.core.domain.model.WaitingInfo
 import com.mapineda48.phonotrainer.core.domain.model.remote.Capabilities
+import com.mapineda48.phonotrainer.core.domain.model.remote.SeparationNote
 import com.mapineda48.phonotrainer.core.domain.model.remote.Stage
 import java.time.Duration
 import java.time.Instant
@@ -59,6 +60,7 @@ object RequestRowSamples {
     waiting: WaitingInfo? = null,
     rerunPending: Boolean = false,
     createdAt: Instant = now.minusSeconds(180),
+    durationS: Double? = null,
   ) = Request(
     id = RequestId(id),
     kind = kind,
@@ -81,6 +83,7 @@ object RequestRowSamples {
     ),
     rerunPending = rerunPending,
     updatedAt = now.minus(Duration.ofMinutes(10)),
+    durationS = durationS,
   )
 
   private val job = JobId("20261010-090200-a1b2")
@@ -149,6 +152,18 @@ object RequestRowSamples {
     actions = setOf(RequestAction.CANCEL),
     progress = RequestProgress(Stage.PHONES, 61, null, null, null, null, segment = 3, segments = 10),
     jobId = job,
+  )
+
+  /** A file analyzing with "Separate the dialogue" turned off, its length known (CR-WP22-1, CR-WP22-3). */
+  val separationOff = request(
+    "separation-off",
+    RequestState.ANALYZING,
+    kind = RequestKind.FILE,
+    title = "Bus stop chat",
+    actions = setOf(RequestAction.CANCEL),
+    progress = RequestProgress(Stage.TRANSCRIBE, 35, null, null, null, null, separation = SeparationNote.OFF),
+    jobId = JobId("20261010-090500-c3d4"),
+    durationS = 245.0,
   )
 
   val cancelWaiting = request(
@@ -220,6 +235,7 @@ object RequestRowSamples {
     "sending" to sending,
     "in line" to inLine,
     "analyzing" to analyzing,
+    "separation turned off" to separationOff,
     "cancel waiting" to cancelWaiting,
     "starting again" to rerun,
     "getting it" to getting,
