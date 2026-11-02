@@ -162,10 +162,14 @@ object Quiz {
   // ---- Item: which pronunciation? ------------------------------------------------------------------------------
 
   /**
-   * Length marks, ties and white space. JavaScript's `\s` is Unicode-aware: the separators of `\p{Z}` and U+FEFF
-   * besides ASCII white space. Spelled out because Android's ICU regex engine rejects the `(?U)` flag.
+   * What two pronunciations are compared without: length marks, ties and white space (the web's `[ː‿\s]`).
+   * JavaScript's `\s` is Unicode-aware: ASCII white space (tab, line feed, vertical tab, form feed, carriage return),
+   * the separators of `\p{Z}` and U+FEFF. Spelled out, without `\s`, because `\s` means something else on each engine:
+   * Android's ICU regex engine refuses the `(?U)` flag that makes Java's `\s` Unicode-aware (the quiz then fails to
+   * start on the phone, while JVM tests pass), and ICU's own `\s` is Unicode's White_Space, which has U+0085.
+   * Internal for `QuizTest`, which proves the class matches exactly what the web's does.
    */
-  private val NOT_COMPARED = Regex("[ː‿\\s\\p{Z}\\uFEFF]")
+  internal val NOT_COMPARED = Regex("[ː‿\\t\\n\\u000B\\f\\r\\p{Z}\\uFEFF]")
 
   private fun normalize(ipa: String): String = IpaTokenizer.stripStress(ipa).replace(NOT_COMPARED, "")
 

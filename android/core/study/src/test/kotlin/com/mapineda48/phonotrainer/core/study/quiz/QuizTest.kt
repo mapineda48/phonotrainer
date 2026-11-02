@@ -1,6 +1,7 @@
 package com.mapineda48.phonotrainer.core.study.quiz
 
 import com.google.common.truth.Truth.assertThat
+import com.google.common.truth.Truth.assertWithMessage
 import com.mapineda48.phonotrainer.core.domain.model.Advice
 import com.mapineda48.phonotrainer.core.domain.model.ChangeLabel
 import com.mapineda48.phonotrainer.core.domain.model.Family
@@ -290,7 +291,69 @@ class QuizTest {
     assertThat(Quiz.displayWord("...")).isEqualTo("...")
   }
 
+  // What a form item does not compare: the web's `/[ː‿\s]/g`, whose `\s` is JavaScript's. The class is spelled out
+  // because Android's ICU regex engine refuses the flag that made Java's `\s` Unicode-aware, so the quiz failed to start
+  // on the phone while these JVM tests passed (the hygiene rule `icu-regex` keeps that flag out of the sources).
+
+  @Test
+  fun notComparedIsJavaScriptsWhiteSpaceTheLengthMarkAndTheTie() {
+    for (codePoint in WEB_NOT_COMPARED) {
+      assertWithMessage(name(codePoint)).that(Quiz.NOT_COMPARED.matches(text(codePoint))).isTrue()
+    }
+  }
+
+  @Test
+  fun notComparedIsNothingElseInAllOfUnicode() {
+    val matched = (0..Character.MAX_CODE_POINT).filter { Quiz.NOT_COMPARED.matches(text(it)) }
+    assertThat(matched.map(::name)).containsExactlyElementsIn(WEB_NOT_COMPARED.map(::name))
+  }
+
+  @Test
+  fun lettersAndTheIpaThatTellsPronunciationsApartAreCompared() {
+    for (kept in COMPARED) {
+      assertWithMessage(name(kept)).that(Quiz.NOT_COMPARED.containsMatchIn(text(kept))).isFalse()
+    }
+  }
+
+  @Test
+  fun aFormThatDiffersOnlyInWhatIsNotComparedIsNotAnotherOption() {
+    // What was said is ɡɑɾ and the dictionary form is the same once its stress is gone, so only the variant can make a
+    // second option.
+    fun options(variant: String) =
+      Quiz.formOptions(occurrence(dictIpa = "ɡˈɑɾ"), listOf(WordVariant(variant, 2, emptyList())), seededRng(5))
+    for (codePoint in WEB_NOT_COMPARED) {
+      assertWithMessage(name(codePoint)).that(options("ɡɑ${text(codePoint)}ɾ")).isNull()
+    }
+    for (kept in COMPARED) {
+      assertWithMessage(name(kept)).that(options("ɡɑ${text(kept)}ɾ")).hasSize(2)
+    }
+  }
+
+  private fun text(codePoint: Int) = String(Character.toChars(codePoint))
+
+  private fun name(codePoint: Int) = "U+%04X".format(codePoint)
+
   private companion object {
     val JOB = JobId("job-1")
+
+    /**
+     * JavaScript's `\s` (ECMA-262 WhiteSpace and LineTerminator: tab, line feed, vertical tab, form feed, carriage
+     * return, U+FEFF and every space separator, line separator and paragraph separator), then the length mark ː and
+     * the tie ‿. Node 22 gives exactly these 27 code points for the web's `/[ː‿\s]/`.
+     */
+    val WEB_NOT_COMPARED: List<Int> =
+      listOf(0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x20, 0xA0, 0x1680) + (0x2000..0x200A) +
+        listOf(0x2028, 0x2029, 0x202F, 0x205F, 0x3000, 0xFEFF) +
+        listOf(0x02D0, 0x203F)
+
+    /**
+     * Compared: letters, the IPA that tells pronunciations apart (half-long ˑ, the syllable break, aspiration, no
+     * audible release, syllabic, the affricate tie), and characters other engines call white space or a separator
+     * while JavaScript's `\s` does not: U+0085 (Unicode's White_Space, so ICU's and Java's Unicode `\s`), U+180E (a
+     * space separator before Unicode 6.3), the zero-width space U+200B and the word joiner U+2060.
+     */
+    val COMPARED: List<Int> =
+      "aɡɑɾʔəɪʊθðŋʃʒtdˑ.ʰ".codePoints().toArray().toList() +
+        listOf(0x031A, 0x0329, 0x0361, 0x85, 0x180E, 0x200B, 0x2060, 0x1F600)
   }
 }

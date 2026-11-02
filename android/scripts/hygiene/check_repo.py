@@ -52,6 +52,7 @@ RULES = {
     "okhttp": "OkHttpClient constructed only in :core:network (5.2)",
     "loopback-policy": "no AddressPolicy that allows loopback outside test sources (security review L-13)",
     "tokens": "no Color(0x…) or .sp literal in Kotlin outside :core:designsystem (design 12.5, architecture 17)",
+    "icu-regex": "no (?U) or UNICODE_CHARACTER_CLASS in Kotlin or Java (Android's ICU regex engine refuses both)",
     "manifest": "the merged release manifest's exported components and permissions equal android/SECURITY.md (20.1)",
     "denylist": "none of this computer's identifiers (host, user, home, git e-mail, serials, addresses, MACs)",
     "qa-report-url": "android/docs/qa-report.md holds no URL with a video or post id",
@@ -512,6 +513,8 @@ def content_findings(item: Item, rules: set[str], denylist: list[sensitive.DenyE
                 add("loopback-policy", "an AddressPolicy that allows loopback belongs in test sources only")
     if "tokens" in rules and code and not path.startswith(DESIGN_SYSTEM_PREFIX):
         found.extend(token_findings(path, text))
+    if "icu-regex" in rules and code:
+        found.extend(icu_regex_findings(path, text))
     return found
 
 
@@ -529,14 +532,17 @@ LINE_BREAKS = frozenset("\n\r\x0b\x0c\x1c\x1d\x1e\x85\u2028\u2029")  # the ones 
 CHAR_LITERAL_RE = re.compile(r"'(?:\\(?:u[0-9A-Fa-f]{4}|.)|[^'\\\n\r])'")
 
 
-def kotlin_code(text: str) -> str:
+def kotlin_code(text: str, keep_literals: bool = False) -> str:
     """`text` with Kotlin's (or Java's) comments and string and character literals replaced by spaces. Every line
     break stays where it was, so offsets and line numbers still match the text; a string template's `${…}` stays code.
-    A regular string ends at its line even when its closing quote is missing."""
+    A regular string ends at its line even when its closing quote is missing. With `keep_literals`, only the comments
+    are replaced: the literals stay, for the rules that look inside them (a regular expression's flags)."""
     out = list(text)
     n = len(text)
 
-    def blank(start: int, end: int) -> None:
+    def blank(start: int, end: int, comment: bool = False) -> None:
+        if keep_literals and not comment:
+            return
         for k in range(start, min(end, n)):
             if out[k] not in LINE_BREAKS:
                 out[k] = " "
@@ -551,7 +557,7 @@ def kotlin_code(text: str) -> str:
                 end = i
                 while end < n and text[end] not in "\n\r":
                     end += 1
-                blank(i, end)
+                blank(i, end, comment=True)
                 i = end
             elif text.startswith("/*", i):  # Kotlin block comments nest
                 depth, end = 1, i + 2
@@ -562,7 +568,7 @@ def kotlin_code(text: str) -> str:
                         depth, end = depth - 1, end + 2
                     else:
                         end += 1
-                blank(i, end)
+                blank(i, end, comment=True)
                 i = end
             elif text.startswith('"""', i):
                 stack.append(["str", '"""'])
@@ -609,13 +615,19 @@ def kotlin_code(text: str) -> str:
     return "".join(out)
 
 
-def token_findings(path: str, text: str) -> list[Finding]:
-    """Colour and text-size literals in the code of a Kotlin file (comments, strings and imports do not count)."""
-    code = kotlin_code(text)
+def line_starts(text: str) -> list[int]:
+    """The offset of each line's first character, lines split as str.splitlines() splits them (as every rule does)."""
     starts, offset = [], 0
     for line in text.splitlines(keepends=True):
         starts.append(offset)
         offset += len(line)
+    return starts
+
+
+def token_findings(path: str, text: str) -> list[Finding]:
+    """Colour and text-size literals in the code of a Kotlin file (comments, strings and imports do not count)."""
+    code = kotlin_code(text)
+    starts = line_starts(text)
     found = []
     for pattern, message in TOKEN_CHECKS:
         for match in pattern.finditer(code):
@@ -623,6 +635,30 @@ def token_findings(path: str, text: str) -> list[Finding]:
             if not DECLARATION_RE.match(code, starts[number - 1]):
                 found.append(Finding(path, number, "tokens", message))
     return found
+
+
+# Regular expressions that Android refuses (its java.util.regex runs on ICU): the inline flag group that turns Java's
+# UNICODE_CHARACTER_CLASS on or off, `(?U)`, `(?iU)`, `(?U:…)` or `(?-U)`, is a syntax error for ICU, and
+# Pattern.compile throws for the UNICODE_CHARACTER_CLASS flag. A JVM unit test compiles both happily, so the mistake
+# only shows on a device (commit 812b46a: the quiz did not start). Comments may name them; code and its strings may not.
+INLINE_FLAGS_RE = re.compile(r"\(\?([A-Za-z]*(?:-[A-Za-z]*)?)[):]")
+UNICODE_CLASS_FLAG_RE = re.compile(r"\bUNICODE_CHARACTER_CLASS\b")
+ICU_REGEX_ADVICE = "Android's regex engine (ICU) refuses it; spell the class out instead (\\p{Z}, \\uFEFF…)"
+
+
+def icu_regex_findings(path: str, text: str) -> list[Finding]:
+    """The `(?U)` flag in a string and UNICODE_CHARACTER_CLASS in the code of a Kotlin or Java file (not comments)."""
+    source = kotlin_code(text, keep_literals=True)
+    starts = line_starts(text)
+    found = set()
+    for match in INLINE_FLAGS_RE.finditer(source):
+        if "U" in match.group(1):
+            number = bisect.bisect_right(starts, match.start())
+            found.add(Finding(path, number, "icu-regex", f"inline flag `{match.group(0)}`: {ICU_REGEX_ADVICE}"))
+    for match in UNICODE_CLASS_FLAG_RE.finditer(source):
+        number = bisect.bisect_right(starts, match.start())
+        found.add(Finding(path, number, "icu-regex", f"UNICODE_CHARACTER_CLASS: {ICU_REGEX_ADVICE}"))
+    return sorted(found)
 
 
 def _refuses(line: str) -> bool:

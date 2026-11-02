@@ -377,6 +377,77 @@ class TokenRule(RepoTestCase):
         self.assertEqual([1], [f.line for f in self.findings(mode="staged", rules={"tokens"})])
 
 
+class IcuRegexRule(RepoTestCase):
+    """No `(?U)` and no UNICODE_CHARACTER_CLASS in Kotlin or Java under android/: Android's regex engine, ICU, refuses
+    both, while a JVM unit test compiles them (commit 812b46a: the quiz did not start on the phone)."""
+
+    SOURCE = "android/core/study/src/main/kotlin/com/example/quiz/Quiz.kt"
+
+    def findings_for(self, text: str, path: str = SOURCE) -> list:
+        self.repo.write(path, text)
+        return [f for f in self.findings() if f.rule == "icu-regex" and f.path == path]
+
+    def flagged_lines(self, text: str, path: str = SOURCE) -> list[int]:
+        return [f.line for f in self.findings_for(text, path)]
+
+    def test_the_unicode_class_flag_fails_inline_and_as_a_constant(self):
+        text = ('private val notCompared = Regex("(?U)[ː‿\\\\s]")\n'
+                'val b = Regex("""(?iU)\\w+""")\n'
+                'val c = Pattern.compile("(?U:\\\\s)+")\n'
+                'val d = "(?-U)x".toRegex()\n'
+                'val e = Pattern.compile("\\\\s", Pattern.UNICODE_CHARACTER_CLASS)\n'
+                'import java.util.regex.Pattern.UNICODE_CHARACTER_CLASS\n'
+                'Pattern p = Pattern.compile("x", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CHARACTER_CLASS);\n'
+                'val f = Regex("${prefix}(?U)\\\\s")\n')
+        self.assertEqual([1, 2, 3, 4, 5, 6, 7, 8], self.flagged_lines(text))
+
+    def test_other_flags_groups_and_names_pass(self):
+        text = ('val a = Regex("[ː‿\\\\t\\\\n\\\\u000B\\\\f\\\\r\\\\p{Z}\\\\uFEFF]")\n'
+                'val b = Regex("(?:Up|(?<Upper>U)|(?=U)|(?!U)|(?<=U)|(?<!U))")\n'
+                'val c = Regex("(?ims)x", RegexOption.IGNORE_CASE)\n'
+                'val d = Regex("\\\\(\\\\?U\\\\)") // the text of the flag, not the flag\n'
+                'val UNICODE_CHARACTER_CLASSES = 1\n'
+                'val e = Pattern.compile("x", Pattern.UNICODE_CASE)\n')
+        self.assertEqual([], self.flagged_lines(text))
+
+    def test_comments_may_name_them_but_strings_may_not(self):
+        text = ('// Not (?U): ICU refuses it, and UNICODE_CHARACTER_CLASS too.\n'
+                '/** Spelled out because Android\'s ICU regex engine rejects the `(?U)` flag. */\n'
+                '/* nested /* (?U) */ UNICODE_CHARACTER_CLASS */\n'
+                'val a = Regex("[\\\\s\\\\p{Z}]") // (?U)\n'
+                'val b = "// (?U) in a string is still a string"\n'
+                'val c = \'"\'; val d = "(?U)"\n')
+        self.assertEqual([5, 6], self.flagged_lines(text))
+
+    def test_kotlin_and_java_in_every_module_and_source_set_are_checked(self):
+        for path in ("android/app/src/main/kotlin/x/A.kt",
+                     "android/core/study/src/test/kotlin/x/QuizTest.kt",
+                     "android/app/src/androidTest/java/x/B.java",
+                     "android/core/testing-jvm/src/main/kotlin/x/Fakes.kt",
+                     "android/build-logic/convention/src/main/kotlin/C.kt",
+                     "android/app/build.gradle.kts"):
+            with self.subTest(path=path):
+                self.assertEqual([1], self.flagged_lines('val r = Regex("(?U)\\\\s")\n', path))
+
+    def test_only_kotlin_and_java_under_android_are_checked(self):
+        line = 'Regex("(?U)\\\\s") and Pattern.UNICODE_CHARACTER_CLASS\n'
+        for path in ("android/docs/notes.md", "android/scripts/hygiene/x.py",
+                     "android/core/ui/src/main/res/values/strings.xml", "phonotrainer/web.kt"):
+            with self.subTest(path=path):
+                self.assertEqual([], self.flagged_lines(line, path))
+
+    def test_line_numbers_and_the_message(self):
+        found = self.findings_for('package x\n\n/* (?U) */\nval a = 1\nval r = Regex(\n  "(?U)\\\\s",\n)\n')
+        self.assertEqual([6], [f.line for f in found])
+        self.assertIn("`(?U)`", found[0].message)
+        self.assertIn("ICU", found[0].message)
+
+    def test_staged_mode_and_the_rule_subset(self):
+        self.repo.write(self.SOURCE, 'val r = Regex("(?U)\\\\s")\n')
+        self.repo.git("add", self.SOURCE)
+        self.assertEqual([1], [f.line for f in self.findings(mode="staged", rules={"icu-regex"})])
+
+
 class Denylist(RepoTestCase):
     def synthetic_denylist(self):
         with mock.patch.object(socket, "gethostname", return_value="studydesk-7f3a"), \
