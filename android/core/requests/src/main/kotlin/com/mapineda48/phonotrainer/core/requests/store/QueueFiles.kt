@@ -28,8 +28,8 @@ internal class QueueFiles(val filesDir: File) {
     return file.takeIf { FileLayout.isConfined(it, FileLayout.requestDir(filesDir, id)) }
   }
 
-  /** The path a row stores: relative to `filesDir`. */
-  fun relative(file: File): String = file.relativeTo(filesDir).path
+  /** The path a row stores: relative to `filesDir`, with `/` whatever the host's separator (a JVM test on Windows). */
+  fun relative(file: File): String = file.relativeTo(filesDir).invariantSeparatorsPath
 
   /** Deletes the request's directory with everything in it. */
   fun delete(id: RequestId): Boolean {

@@ -9,6 +9,7 @@ import com.google.common.truth.Truth.assertThat
 import com.mapineda48.phonotrainer.core.database.learning.LearningDatabase
 import com.mapineda48.phonotrainer.core.database.library.LibraryDatabase
 import kotlinx.coroutines.test.runTest
+import org.junit.Assume.assumeFalse
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -21,6 +22,10 @@ import org.robolectric.RobolectricTestRunner
  */
 @RunWith(RobolectricTestRunner::class)
 class SchemaV1Test {
+  // androidx.sqlite's SupportSQLiteDriver takes the file name after the last '/', so on a Windows host it compares the
+  // whole path with the database name and refuses to open it. Devices and Linux hosts are unaffected; CI runs these.
+  private val windowsHost = System.getProperty("os.name").orEmpty().startsWith("Windows")
+
   @get:Rule
   val library = MigrationTestHelper(InstrumentationRegistry.getInstrumentation(), LibraryDatabase::class.java)
 
@@ -31,6 +36,7 @@ class SchemaV1Test {
 
   @Test
   fun libraryVersion1MatchesItsEntities() {
+    assumeFalse(MIGRATION_HELPER_BROKEN, windowsHost)
     library.createDatabase(LIBRARY_TEST_DB, 1).use { db ->
       assertThat(db.tables()).containsAtLeast("clip", "artifact", "short", "occurrence", "request", "request_op", "sync_meta")
     }
@@ -39,6 +45,7 @@ class SchemaV1Test {
 
   @Test
   fun learningVersion1MatchesItsEntities() {
+    assumeFalse(MIGRATION_HELPER_BROKEN, windowsHost)
     learning.createDatabase(LEARNING_TEST_DB, 1).use { db ->
       assertThat(db.tables()).containsAtLeast(
         "short_seen",
@@ -89,5 +96,6 @@ class SchemaV1Test {
   private companion object {
     const val LIBRARY_TEST_DB = "library-migration-test.db"
     const val LEARNING_TEST_DB = "learning-migration-test.db"
+    const val MIGRATION_HELPER_BROKEN = "androidx.sqlite cannot open a migration-test file on a Windows host"
   }
 }

@@ -19,11 +19,12 @@ class FileLayoutTest {
   @Test
   fun pathsFollowTheLayout() {
     val files = folder.root
-    assertThat(FileLayout.artifact(files, job, "audio_mix", "0123456789abcdef", "wav").relativeTo(files).path)
+    val artifact = FileLayout.artifact(files, job, "audio_mix", "0123456789abcdef", "wav")
+    assertThat(artifact.relativeTo(files).invariantSeparatorsPath)
       .isEqualTo("clips/20261004-133519-a77c/audio_mix.01234567.wav")
-    assertThat(FileLayout.artifactPart(files, job, "analysis", "rev1").relativeTo(files).path)
+    assertThat(FileLayout.artifactPart(files, job, "analysis", "rev1").relativeTo(files).invariantSeparatorsPath)
       .isEqualTo("clips/20261004-133519-a77c/.analysis.rev1.part")
-    assertThat(FileLayout.requestCopy(files, request, "mp4").relativeTo(files).path)
+    assertThat(FileLayout.requestCopy(files, request, "mp4").relativeTo(files).invariantSeparatorsPath)
       .isEqualTo("requests/5a0c4c5e-0b6e-4bd6-9f53-1f1b0bbf7c11/source.mp4")
     assertThat(FileLayout.requestCopyPart(files, request).name).isEqualTo(".copy.part")
   }

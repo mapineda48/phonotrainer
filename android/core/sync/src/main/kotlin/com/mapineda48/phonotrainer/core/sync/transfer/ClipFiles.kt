@@ -29,8 +29,8 @@ internal class ClipFiles(val filesDir: File) {
     return FileLayout.artifact(filesDir, JobId(jobId), name, sha256, extension).takeIf { confined(it) }
   }
 
-  /** [file] as a row stores it: relative to `filesDir`. */
-  fun relative(file: File): String = file.relativeTo(filesDir).path
+  /** [file] as a row stores it: relative to `filesDir`, with `/` on any host (JVM tests on Windows). */
+  fun relative(file: File): String = file.relativeTo(filesDir).invariantSeparatorsPath
 
   /** The file a row's relative path names, or null when it leaves `clips/`. */
   fun resolve(relative: String?): File? {

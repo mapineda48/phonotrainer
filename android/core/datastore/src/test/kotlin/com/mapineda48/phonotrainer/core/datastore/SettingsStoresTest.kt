@@ -25,6 +25,7 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.After
+import org.junit.Assume.assumeFalse
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -118,6 +119,10 @@ class SettingsStoresTest {
 
   @Test
   fun coachMarksShowUntilDismissedAndResetBringsThemBack() = runTest(scope.testScheduler) {
+    // The second write replaces the file: DataStore's FileStorage does that with File.renameTo, which cannot replace
+    // an existing file on a Windows host. Devices and Linux hosts are unaffected; CI runs this test.
+    val windowsHost = System.getProperty("os.name").orEmpty().startsWith("Windows")
+    assumeFalse("File.renameTo cannot replace a file on Windows", windowsHost)
     val marks = DataStoreCoachMarkRepository(store)
     val tapWord = CoachMarkId("tap_word")
 
