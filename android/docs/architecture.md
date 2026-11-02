@@ -635,7 +635,11 @@ interface PairingRepository {
 interface ChannelLiveness { fun channelAlive(); fun channelLost() } // job channel → probe state machine
 
 // :core:sync (WP-08)
-interface SyncController { val state: StateFlow<SyncState>; fun syncNow(reason: SyncReason) }
+interface SyncController {
+  val state: StateFlow<SyncState>
+  fun syncNow(reason: SyncReason)
+  val lastSynced: Flow<Instant?>                               // last completed listing (F-21); default flowOf(null)
+}
 interface ClipRepository {
   fun clips(query: ClipQuery): Flow<List<ClipSummary>>
   fun clip(id: JobId): Flow<ClipDetail?>
@@ -709,6 +713,7 @@ interface SetRepository {
   fun today(): Flow<StudySet?>
   suspend fun ensureToday(): StudySet?
   suspend fun anotherSet(): StudySet?
+  suspend fun replayMix(): StudySet?   // "Replay the mix" (spec F-06 item 9): seen shorts, least recently seen first; null only when no short is eligible
   suspend fun advance(setId: Long, position: Int)
   suspend fun answer(setId: Long, position: Int, choice: String): AnswerResult   // choice: the option id (work-plan Appendix A.5)
 }
@@ -765,6 +770,10 @@ interface Notifier {
 
 The Android-specific interfaces (`Notifier.transferNotification`, the media surface) live in an `android`
 sub-package of the owning module rather than in `:core:domain`, so that `:core:domain` stays a JVM module.
+
+`PairedComputer.lastSync` (the paired computer's "Last synced") is `SyncController.lastSynced`, the time of the last
+completed listing, dropped when it is older than the current pairing's `pairedAt`, so a listing of an earlier pairing
+never reads as this one's (CR-WP08-1).
 
 Revision 2: the freeze also covers the remote model, the core-to-core SPIs, `FeedPlayer`, `ShadowingRunner` and the
 computer-client API (now the JVM module `:core:network-api`); their shapes are in work-plan 4.2 and 4.3 and are as
@@ -1891,7 +1900,9 @@ an LRU cache of three clips keyed by job id and revision for the feed, the lesso
   produce" spotlights first), then shorts not seen for ≥ 7 days (least recently first); interleaving: no two
   consecutive spotlight changes alike when another order exists, at most 2 consecutive shorts of one clip (greedy with
   backtracking over 8 items). Questions (up to 5) are generated at set creation from the set's changes and stored, so
-  the set never changes; clips deleted later only mark items `dropped`.
+  the set never changes; clips deleted later only mark items `dropped`. `anotherSet()` answers null when nothing new
+  is due (the feed then shows "Mix with nothing left"); `replayMix()` is `SetBuilder.replay`, or `SetBuilder.build`
+  when nothing was seen yet.
 - **Questions** (F-08, F-17): `QuizGenerator` is a Kotlin port of `web/src/features/practice/quiz.ts` (mulberry32
   `seededRng`, `shuffle`, the three kinds, distractor rules, weak-spot weighting `1.5 − accuracy`, unseen 0.5); ported
   with its tests (the vitest cases become JUnit cases with the same inputs and expected outputs).
