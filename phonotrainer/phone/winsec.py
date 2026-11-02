@@ -29,11 +29,14 @@ TOKEN_QUERY = 0x0008
 TOKEN_USER_CLASS = 1
 TOKEN_OWNER_CLASS = 4
 ACL_SIZE_INFORMATION_CLASS = 2
-# ACE types that grant access; the SID of the two plain ones follows the
-# 4-byte header and the 4-byte mask. The object types put it elsewhere.
+# ACE types read from a DACL. The SID of the two plain access-allowed types
+# follows the 4-byte header and the 4-byte mask; the types that only deny take
+# nothing away from privacy. Any other type (the object types included) counts
+# as granting someone unknown: an ACE this module does not understand is never
+# skipped.
 ACCESS_ALLOWED_ACE_TYPE = 0x0
 ACCESS_ALLOWED_CALLBACK_ACE_TYPE = 0x9
-ALLOWED_OBJECT_ACE_TYPES = (0x5, 0xB)
+ACCESS_DENIED_ACE_TYPES = (0x1, 0x6, 0xA, 0xC)   # plain, object, callback, callback object
 
 SYSTEM_SID = "S-1-5-18"
 ADMINISTRATORS_SID = "S-1-5-32-544"
@@ -162,25 +165,29 @@ def grantees(path: Path) -> set[str]:
     A missing (NULL) DACL grants everyone everything."""
     _, dacl, descriptor = _named_security(path, DACL_SECURITY_INFORMATION)
     try:
-        if not dacl:
-            return {UNKNOWN_GRANTEE}
-        info = _AclSizeInformation()
-        _check(_advapi32.GetAclInformation(dacl, ctypes.byref(info), ctypes.sizeof(info),
-                                           ACL_SIZE_INFORMATION_CLASS), "GetAclInformation")
-        found = set()
-        for index in range(info.AceCount):
-            ace = wintypes.LPVOID()
-            _check(_advapi32.GetAce(dacl, index, ctypes.byref(ace)), "GetAce")
-            header = _AceHeader.from_address(ace.value)
-            if header.AceType in (ACCESS_ALLOWED_ACE_TYPE, ACCESS_ALLOWED_CALLBACK_ACE_TYPE):
-                mask = wintypes.DWORD.from_address(ace.value + 4).value
-                if mask:
-                    found.add(_sid_string(ace.value + 8))
-            elif header.AceType in ALLOWED_OBJECT_ACE_TYPES:
-                found.add(UNKNOWN_GRANTEE)
-        return found
+        return acl_grantees(dacl)
     finally:
         _kernel32.LocalFree(descriptor)
+
+
+def acl_grantees(dacl) -> set[str]:
+    """`grantees` of a DACL in memory (a NULL one grants everyone everything)."""
+    if not dacl:
+        return {UNKNOWN_GRANTEE}
+    info = _AclSizeInformation()
+    _check(_advapi32.GetAclInformation(dacl, ctypes.byref(info), ctypes.sizeof(info),
+                                       ACL_SIZE_INFORMATION_CLASS), "GetAclInformation")
+    found = set()
+    for index in range(info.AceCount):
+        ace = wintypes.LPVOID()
+        _check(_advapi32.GetAce(dacl, index, ctypes.byref(ace)), "GetAce")
+        kind = _AceHeader.from_address(ace.value).AceType
+        if kind in (ACCESS_ALLOWED_ACE_TYPE, ACCESS_ALLOWED_CALLBACK_ACE_TYPE):
+            if wintypes.DWORD.from_address(ace.value + 4).value:      # the access mask
+                found.add(_sid_string(ace.value + 8))
+        elif kind not in ACCESS_DENIED_ACE_TYPES:
+            found.add(UNKNOWN_GRANTEE)
+    return found
 
 
 def foreign_grantees(path: Path) -> set[str]:

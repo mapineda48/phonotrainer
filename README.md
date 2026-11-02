@@ -404,7 +404,7 @@ here, never from a phone.
   challenges. Only phones you paired can send links.
 - **Where its state lives.** In the PhonoTrainer configuration directory:
   `$PHONOTRAINER_CONFIG_DIR`, otherwise `$XDG_CONFIG_HOME/phonotrainer`,
-  otherwise `%APPDATA%\phonotrainer` on Windows and `~/.config/phonotrainer`
+  otherwise `%LOCALAPPDATA%\phonotrainer` on Windows, `~/.config/phonotrainer`
   elsewhere. It is outside the repository and every workspace, so switching
   workspaces keeps your phones paired. It holds the computer's id and name, the
   approved networks and one key per paired phone; it is kept private to your

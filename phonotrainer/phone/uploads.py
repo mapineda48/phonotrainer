@@ -84,15 +84,30 @@ def fit_file_name(name: str, max_bytes: int = MAX_FILE_NAME_BYTES) -> str:
 # Characters a Windows file name cannot hold. A phone's file name can carry them
 # ("Meeting 10:30.mp4"), and the final move into the job would fail every time.
 _WINDOWS_FORBIDDEN = str.maketrans({c: "_" for c in '<>:"|?*'})
+# Device names: "aux.mp4" or "COM1.mp4" is the device, whatever the extension
+# (Windows 10). PureWindowsPath.is_reserved is deprecated since Python 3.13.
+_WINDOWS_RESERVED = ({"CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$"}
+                     | {f"{device}{n}" for device in ("COM", "LPT")
+                        for n in "123456789¹²³"})
+
+
+def windows_reserved(name: str) -> bool:
+    """A name Windows takes for a device: its part before the first dot,
+    without trailing spaces, is CON, PRN, AUX, NUL, COM1 to COM9 or LPT1 to
+    LPT9 (also with a superscript digit), in any case."""
+    return name.partition(".")[0].rstrip(" ").upper() in _WINDOWS_RESERVED
 
 
 def portable_file_name(name: str, windows: bool | None = None) -> str:
     """On Windows (this server's platform by default), `name` with the
-    characters its file names forbid replaced by '_' (same length, same bytes);
-    unchanged elsewhere."""
+    characters its file names forbid replaced by '_' (same length, same bytes)
+    and, for a device name, a leading '_'; unchanged elsewhere."""
     if windows is None:
         windows = sys.platform == "win32"
-    return name.translate(_WINDOWS_FORBIDDEN) if windows else name
+    if not windows:
+        return name
+    name = name.translate(_WINDOWS_FORBIDDEN)
+    return "_" + name if windows_reserved(name) else name
 
 
 def normalize_key(key: str) -> str | None:

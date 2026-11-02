@@ -227,14 +227,42 @@ def test_clean_message_reduces_windows_paths_on_a_windows_server():
         assert state.clean_message(text, home=home, user=user, windows=True) == cleaned, text
     # the home in any case and with either separator, and the user name in any case
     assert state.clean_message("open C:/USERS/Someone failed for SOMEONE", home=home,
-                               user=user, windows=True) == "open user failed for user"
+                               user=user, windows=True) == "open ~ failed for user"
     assert state.clean_message(r"cannot open ~ c:\USERS\someone", home=home, user="x",
-                               windows=True) == "cannot open ~ someone"
+                               windows=True) == "cannot open ~ ~"
     assert state.clean_message(r"in xC:\USERS\Someone\a", home=home, user="x",
                                windows=True) == r"in x~\a"
     # a Linux server leaves such text alone (it never writes one)
     assert state.clean_message(r"D:\Videos\x\clip.mp4: bad", home="/home/me", user="me",
                                windows=False) == r"D:\Videos\x\clip.mp4: bad"
+
+
+def test_clean_message_reduces_windows_paths_with_spaces_and_device_prefixes():
+    """Contract 4.6: no path, home or user name, also when a name has spaces."""
+    home, user = r"C:\Users\Example User", "Example User"
+    cases = {
+        r"Error opening input file C:\Users\Example User\Videos\Private Clinic\clip.mp4.":
+            "Error opening input file clip.mp4.",
+        r"D:\My Videos\Ana Lopez\x.mp4: Invalid data found when processing input":
+            "x.mp4: Invalid data found when processing input",
+        r"No such file or directory: '\\?\D:\Private\Patients\a.wav'":
+            "No such file or directory: 'a.wav'",
+        # the same in a Python repr, with doubled backslashes
+        r"No such file or directory: '\\\\?\\D:\\Private\\Patients\\a.wav'":
+            "No such file or directory: 'a.wav'",
+        r"open \\?\UNC\server\My Share\x\y.wav failed": "open y.wav failed",
+        r"cannot open c:\users\EXAMPLE USER\Documents\notes.txt for Example User":
+            "cannot open notes.txt for user",
+        r"C:\x\my clip.mp4: Invalid data": "my clip.mp4: Invalid data",
+        r"Error C:\a\b failed, see D:\c\d now": "Error b failed, see d now",
+    }
+    for text, cleaned in cases.items():
+        assert state.clean_message(text, home=home, user=user, windows=True) == cleaned, text
+    for text in cases:
+        cleaned = state.clean_message(text, home=home, user=user, windows=True)
+        for private in ("Example", "Videos", "Private", "Patients", "Ana", "Lopez",
+                        "server", "Share", "Documents"):
+            assert private not in cleaned, (text, cleaned)
 
 
 def test_clean_message_keeps_urls_and_rates():

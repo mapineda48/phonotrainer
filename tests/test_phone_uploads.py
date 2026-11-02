@@ -227,7 +227,8 @@ def test_names_windows_cannot_hold_are_made_portable_on_windows(paired, phone_ap
     signing, _, _ = paired
     windows = sys.platform == "win32"
     for key, name, portable in ((KEY1, "Meeting 10:30.mp4", "Meeting 10_30.mp4"),
-                                (KEY2, "What?.mp4", "What_.mp4")):
+                                (KEY2, "What?.mp4", "What_.mp4"),
+                                (KEY3, "aux.mp4", "_aux.mp4")):           # a device name
         assert declare(signing, key=key, name=name).status_code == 201
         assert declare(signing, key=key, name=name).status_code == 200      # same session
         resp = put(signing, key=key)
@@ -244,6 +245,13 @@ def test_portable_file_name():
     assert portable('a<b>c:d"e|f?g*h.mp4', windows=True) == "a_b_c_d_e_f_g_h.mp4"
     assert portable('a<b>c:d"e|f?g*h.mp4', windows=False) == 'a<b>c:d"e|f?g*h.mp4'
     assert portable("Ünïcode clip.mp4", windows=True) == "Ünïcode clip.mp4"
+    # device names, whatever the extension, case or trailing spaces (Windows 10)
+    for name in ("aux.mp4", "CON.mp4", "COM1.mp4", "com¹.mp4", "lpt9.wav", "nul .mp3",
+                 "PRN", "CONIN$.mp4"):
+        assert portable(name, windows=True) == "_" + name, name
+        assert portable(name, windows=False) == name
+    for name in ("CONSOLE.mp4", "COM10.mp4", "auxiliary.mp4", "com0.mp4", "my aux.mp4"):
+        assert portable(name, windows=True) == name, name
 
 
 def test_fit_file_name():

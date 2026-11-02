@@ -68,11 +68,15 @@ PHONE_ORIGIN = "phone"
 # and delay, among other things, cancellations.
 SAVE_INTERVAL = 1.0  # s
 # Windows cannot delete a file another handle holds open (a file being served,
-# the phone artifact index hashing it): what a removal leaves behind is retried
-# after these delays, and a job directory without its job.json is removed at
-# the next start.
+# the phone artifact index hashing it). A deleted job leaves a tombstone,
+# <root>/.<job id>.deleted, until its directory is gone; the removal is retried
+# after these delays, and at the next start, only while the tombstone is there.
 RMTREE_RETRIES_S = (5.0, 30.0, 120.0, 600.0)
-_JOB_ID_RE = re.compile(r"\d{8}-\d{6}-[0-9a-f]{4}")
+_TOMBSTONE_RE = re.compile(r"\.(\d{8}-\d{6}-[0-9a-f]{4})\.deleted")
+# Windows: replacing a file another process has open (a reader, an antivirus
+# scan) fails, so job.json is replaced again for about a second.
+OPEN_FILE_TRIES = 20
+OPEN_FILE_RETRY_S = 0.05
 
 # Downloaded videos go here (git-ignored: every clone starts clean).
 DOWNLOAD_DIR = Path("downloads")
@@ -352,13 +356,15 @@ class JobStore:
 
     # --- lifecycle -----------------------------------------------------------
     def _discover(self) -> None:
+        if sys.platform == "win32":       # deleted jobs whose files were still open
+            for entry in list(self.root.iterdir()):
+                buried = _TOMBSTONE_RE.fullmatch(entry.name)
+                if buried and entry.is_file():
+                    _bury(self.root / buried.group(1))
         for job_dir in sorted(p for p in self.root.iterdir() if p.is_dir()):
             job = _load_job(job_dir)
             if job is not None:
                 self._jobs[job.id] = job
-            elif (sys.platform == "win32" and _JOB_ID_RE.fullmatch(job_dir.name)
-                  and not (job_dir / "job.json").exists()):
-                _rmtree(job_dir)          # a deleted job whose files were still open
 
     def _reconcile_corpus(self) -> None:
         """The corpus is a derived index: it is brought up to date with what is
@@ -726,13 +732,18 @@ class JobStore:
             # The removal has to be durable right now: if the process dies
             # before the worker reaches its cancellation point, without this the
             # deleted job would reappear on restart (job.json is still on disk).
+            if sys.platform == "win32":
+                _set_tombstone(job.dir)   # and the next start removes the rest
             (job.dir / "job.json").unlink(missing_ok=True)
             return
         self._cleanup(job)
 
     def _cleanup(self, job: Job) -> None:
         if job.dir.is_dir() and job.dir.parent == self.root:
-            _rmtree(job.dir)
+            if sys.platform == "win32":
+                _bury(job.dir)
+            else:
+                _rmtree(job.dir)
 
     # --- execution -----------------------------------------------------------
     def _run(self, job: Job) -> None:
@@ -841,7 +852,7 @@ class JobStore:
         try:
             tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2),
                            encoding="utf-8")
-            tmp.replace(path)
+            _replace_while_open(tmp, path)
         except OSError:
             # The job was deleted from under our feet: there is nothing to persist.
             pass
@@ -864,20 +875,64 @@ def _summarize(analysis: dict) -> dict:
     }
 
 
-def _rmtree(path: Path, retries: tuple[float, ...] | None = None) -> None:
+def _replace_while_open(source: Path, target: Path) -> None:
+    tries = OPEN_FILE_TRIES if sys.platform == "win32" else 1
+    for attempt in range(tries):
+        try:
+            source.replace(target)
+            return
+        except PermissionError:
+            if attempt == tries - 1:
+                raise
+            time.sleep(OPEN_FILE_RETRY_S)
+
+
+def _rmtree(path: Path) -> None:
     import shutil
 
     if sys.platform != "win32":
         shutil.rmtree(path, ignore_errors=True)
         return
-    if retries is None:
-        retries = RMTREE_RETRIES_S
     handler = "onexc" if sys.version_info >= (3, 12) else "onerror"
     shutil.rmtree(path, **{handler: _writable_and_again})
-    if retries and path.exists():
-        timer = threading.Timer(retries[0], _rmtree, args=(path, retries[1:]))
+
+
+def _tombstone(job_dir: Path) -> Path:
+    return job_dir.parent / f".{job_dir.name}.deleted"
+
+
+def _set_tombstone(job_dir: Path) -> None:
+    try:
+        _tombstone(job_dir).touch()
+    except OSError:
+        pass
+
+
+def _bury(job_dir: Path, retries: tuple[float, ...] | None = None) -> None:
+    """Windows: remove a deleted job's directory. What a file still open
+    elsewhere keeps (a download being served) stays, with the tombstone next
+    to it; the removal is retried after RMTREE_RETRIES_S and at the next
+    start, only while the tombstone is there, so a directory without one (a
+    job another store is creating, a job.json deleted by hand) is never
+    touched."""
+    _set_tombstone(job_dir)
+    _rmtree(job_dir)
+    if not job_dir.exists():
+        try:
+            _tombstone(job_dir).unlink(missing_ok=True)
+        except OSError:
+            pass
+        return
+    retries = RMTREE_RETRIES_S if retries is None else retries
+    if retries:
+        timer = threading.Timer(retries[0], _bury_again, args=(job_dir, retries[1:]))
         timer.daemon = True
         timer.start()
+
+
+def _bury_again(job_dir: Path, retries: tuple[float, ...]) -> None:
+    if _tombstone(job_dir).exists():
+        _bury(job_dir, retries)
 
 
 def _writable_and_again(function, name, _exc) -> None:

@@ -1,6 +1,7 @@
 """HTTP API: the full cycle (analyze → query → review) without loading models."""
 
 import json
+import os
 import sys
 
 import pytest
@@ -10,6 +11,7 @@ from fastapi.testclient import TestClient
 from phonotrainer import report as report_mod
 from phonotrainer.db import Corpus
 from phonotrainer.jobs import JobStore
+from phonotrainer.phone.uploads import windows_reserved
 from phonotrainer.server import create_app
 
 
@@ -666,8 +668,48 @@ def test_the_spa_never_looks_up_a_share_or_a_drive_path(store, tmp_path, monkeyp
     monkeypatch.setattr(ntpath, "_getfinalpathname", spy)
     with TestClient(create_app(store=store, web_dist=dist, allowed_roots=[tmp_path])) as client:
         for url in ("/%5C%5Chost.invalid%5Cshare%5Cx", "///host.invalid/share/x",
-                    "/C:/Windows/win.ini", "/%5C%5C.%5Cpipe%5Cx", "/index.html:stream"):
+                    "/C:/Windows/win.ini", "/%5C%5C.%5Cpipe%5Cx", "/index.html:stream",
+                    "/CON", "/assets/aux.js", "/nul.txt", "/COM1.map"):
             opened.clear()
             assert client.get(url).text == "<html>app</html>", url
             outside = [p for p in opened if not p.lower().startswith(str(dist).lower())]
             assert not outside, (url, outside)
+            devices = [p for p in opened if windows_reserved(os.path.basename(p))]
+            assert not devices, (url, devices)
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="shares, pipes and devices are Windows'")
+def test_a_user_path_outside_the_roots_is_refused_before_anything_is_opened(
+        store, tmp_path, monkeypatch):
+    """A cross-site <img src=".../api/browse?path=..."> is a GET, which the
+    same-origin rule lets through: a share in it must not make the server
+    connect to that host (an NTLM handshake), nor open a pipe or a device."""
+    import ntpath
+
+    markers = ("host.invalid", "phonotrainer-pipe", "com1", r"\windows")
+    opened = []
+    real_final, real_stat = ntpath._getfinalpathname, os.stat
+
+    def final(path):
+        opened.append(str(path))
+        return real_final(path)
+
+    def stat(path, *args, **kwargs):
+        opened.append(str(path))
+        return real_stat(path, *args, **kwargs)
+
+    monkeypatch.setattr(ntpath, "_getfinalpathname", final)
+    monkeypatch.setattr(os, "stat", stat)
+    app = create_app(store=store, web_dist=tmp_path / "not-built", allowed_roots=[tmp_path])
+    with TestClient(app) as client:
+        for path in (r"\\host.invalid\share\x", "//host.invalid/share/x",
+                     r"\\?\UNC\host.invalid\share\x", r"\\.\pipe\phonotrainer-pipe",
+                     r"\\.\COM1", "COM1", r"\\?\C:\Windows", r"C:\Windows"):
+            opened.clear()
+            browse = client.get("/api/browse", params={"path": path},
+                                headers={"Sec-Fetch-Site": "cross-site"})
+            assert browse.status_code == 200 and browse.json()["path"] == str(tmp_path), path
+            assert client.post("/api/jobs", json={"path": path}).status_code == 403, path
+            assert client.post("/api/jobs/import", json={"path": path}).status_code == 403, path
+            touched = [p for p in opened if any(m in p.lower() for m in markers)]
+            assert not touched, (path, touched)

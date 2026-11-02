@@ -6,12 +6,15 @@ implementation.
   `--phone-interface` takes), every IPv4 address with its prefix, whether it
   is up, loopback, and the default gateway;
 - `GetIpNetTable2`: the gateway's MAC from the neighbour table;
-- `GetIfEntry2`: whether Windows calls the adapter a hardware interface. Like
-  `/sys/devices/virtual` on Linux, an adapter that is not one (Hyper-V's
-  vEthernet, Wi-Fi Direct, Bluetooth, WAN miniports, loopback), a tunnel or
-  PPP interface, or a host-side adapter of a VPN or a virtual machine
-  (recognised by its driver's description, which the user cannot rename) is
-  `virtual`.
+- `GetIfEntry2`: whether Windows calls the adapter a hardware interface.
+
+`virtual` fails closed, like `/sys/devices/virtual` on Linux and more: only a
+hardware Ethernet or Wi-Fi adapter whose driver description names no VPN or
+virtual machine (VPN drivers often register as hardware Ethernet, and their
+descriptions are rebranded: "TAP-NordVPN Windows Adapter", "PANGP Virtual
+Ethernet Adapter") counts as physical. Hyper-V's vEthernet, Wi-Fi Direct,
+Bluetooth, WAN miniports, loopback, tunnels, PPP and mobile broadband are all
+virtual; `--phone-interface` still approves one by name.
 
 Nothing here is ever written to a file or a log.
 """
@@ -19,6 +22,7 @@ Nothing here is ever written to a file or a log.
 from __future__ import annotations
 
 import ctypes
+import re
 import socket
 from ctypes import wintypes
 
@@ -34,21 +38,21 @@ GAA_FLAG_INCLUDE_GATEWAYS = 0x0080
 ERROR_BUFFER_OVERFLOW = 111
 ERROR_NO_DATA = 232
 IF_OPER_STATUS_UP = 1
-IF_TYPE_PPP = 23
+IF_TYPE_ETHERNET = 6
 IF_TYPE_SOFTWARE_LOOPBACK = 24
-IF_TYPE_PROP_VIRTUAL = 53
-IF_TYPE_TUNNEL = 131
+IF_TYPE_WIFI = 71                     # IEEE 802.11
+PHYSICAL_TYPES = (IF_TYPE_ETHERNET, IF_TYPE_WIFI)
 HARDWARE_INTERFACE_FLAG = 0x01        # InterfaceAndOperStatusFlags.HardwareInterface
-VIRTUAL_TYPES = (IF_TYPE_PPP, IF_TYPE_SOFTWARE_LOOPBACK, IF_TYPE_PROP_VIRTUAL, IF_TYPE_TUNNEL)
 # NL_NEIGHBOR_STATE: probe, delay, stale, reachable, permanent hold a MAC.
 NEIGHBOUR_STATES_WITH_MAC = (2, 3, 4, 5, 6)
-# Drivers of host-side adapters of virtual machines and VPNs, as their
-# descriptions say (lower case). The hardware flag covers most of them; these
-# cover drivers that register as hardware.
-VIRTUAL_DESCRIPTIONS = (
-    "virtualbox host-only", "vmware virtual ethernet", "tap-windows", "wintun", "wireguard",
-    "tailscale", "zerotier", "openvpn", "hamachi", "nordlynx", "npcap loopback",
-)
+# What the driver descriptions of VPNs and of virtual machines' host-side
+# adapters say, in any case. A driver that registers as hardware Ethernet is
+# still virtual when its description has one of these.
+VIRTUAL_DESCRIPTION_RE = re.compile(
+    r"\btap\b|virtual|vpn|miniport|anyconnect|pangp|globalprotect|fortinet|check point|"
+    r"juniper|pulse|sonicwall|zscaler|private internet access|surfshark|mullvad|nordlynx|"
+    r"wireguard|wintun|tailscale|zerotier|hamachi|npcap|hyper-v|vethernet|virtualbox|vmware",
+    re.IGNORECASE)
 
 
 class _SocketAddress(ctypes.Structure):
@@ -138,10 +142,11 @@ _iphlpapi.FreeMibTable.restype = None
 
 
 def windows_virtual(hardware: bool, if_type: int, description: str) -> bool:
-    """The Windows counterpart of `netinfo.kernel_virtual`."""
-    text = (description or "").lower()
-    return (not hardware or if_type in VIRTUAL_TYPES
-            or any(marker in text for marker in VIRTUAL_DESCRIPTIONS))
+    """The Windows counterpart of `netinfo.kernel_virtual`, failing closed:
+    physical only for a hardware Ethernet or Wi-Fi adapter whose description
+    names no VPN or virtual machine."""
+    return (not hardware or if_type not in PHYSICAL_TYPES
+            or VIRTUAL_DESCRIPTION_RE.search(description or "") is not None)
 
 
 def _ipv4(socket_address: _SocketAddress) -> str | None:

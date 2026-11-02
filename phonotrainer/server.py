@@ -31,7 +31,7 @@ import json
 import os
 import sys
 from contextlib import asynccontextmanager
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Literal, get_args
 from urllib.parse import urlparse
 
@@ -296,16 +296,24 @@ def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
     def _inside_roots(path: Path) -> bool:
         return any(path == root or root in path.parents for root in app.state.roots)
 
-    def _resolve(path_str: str) -> Path:
-        """A non-existent `~user`, NUL bytes…: user input, not a 500."""
+    def _resolve(path_str: str) -> Path | None:
+        """A non-existent `~user`, NUL bytes…: user input, not a 500.
+
+        On Windows, None for a path outside the roots, known from its text
+        alone: resolving a share (\\\\host\\share), a pipe or a device opens it
+        (an SMB connection, an NTLM handshake) before any check, and a GET is
+        all a web page needs to make the browser ask for one."""
         if sys.platform == "win32" and len(path_str) >= 2 and path_str[0] == path_str[-1] == '"':
             # Explorer's "Copy as path" wraps the path in double quotes, a
             # character no Windows file name can hold.
             path_str = path_str[1:-1]
         try:
             path = Path(path_str)
-            if sys.platform == "win32" and _unknown_home(path):
-                raise HTTPException(400, f"invalid path: {path_str}")
+            if sys.platform == "win32":
+                if _unknown_home(path):
+                    raise HTTPException(400, f"invalid path: {path_str}")
+                if not _lexically_inside(path.expanduser(), app.state.roots):
+                    return None
             return path.expanduser().resolve()
         except (OSError, ValueError, RuntimeError) as exc:
             raise HTTPException(400, f"invalid path: {path_str}") from exc
@@ -313,7 +321,7 @@ def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
     def _checked(path_str: str, *, want_dir: bool) -> Path:
         """A path the user picks from the browser, already validated."""
         path = _resolve(path_str)
-        if not _inside_roots(path):
+        if path is None or not _inside_roots(path):
             raise HTTPException(
                 403, "for safety the interface only opens files inside "
                      + " or ".join(str(root) for root in app.state.roots))
@@ -721,7 +729,7 @@ def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
     def browse(path: str | None = None) -> dict:
         home = app.state.roots[0]
         target = _resolve(path) if path else Path.cwd().resolve()
-        if not _inside_roots(target):
+        if target is None or not _inside_roots(target):
             target = home            # we never leave the allowed roots
         if not target.is_dir():
             target = target.parent if target.parent.is_dir() else home
@@ -779,20 +787,36 @@ def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
 
 
 def _unknown_home(path: Path) -> bool:
-    """Windows: `~name` for a home that does not exist. POSIX refuses an
-    unknown user in `expanduser()`; Windows guesses a sibling of this user's
-    profile (C:\\Users\\name) instead."""
+    """Windows: `~name` for anyone but this user. POSIX refuses an unknown
+    user in `expanduser()`; Windows has no such thing and guesses a sibling of
+    this user's profile (C:\\Users\\name), so it is refused without looking."""
     first = path.parts[0] if path.parts else ""
-    return first.startswith("~") and first != "~" and not Path(first).expanduser().is_dir()
+    return (first.startswith("~") and first != "~"
+            and PureWindowsPath(os.path.expanduser(first)) != PureWindowsPath(Path.home()))
+
+
+def _lexically_inside(path: Path, roots: list[Path]) -> bool:
+    """Windows: whether `path` lies inside one of the roots, from its text
+    alone (GetFullPathNameW reads nothing from the disk; the comparison
+    ignores case). A share, a device (\\\\.\\COM1, \\\\.\\pipe\\x) or a \\\\?\\
+    path has a drive of its own, so it is only inside a root of the same kind."""
+    if "\x00" in str(path):
+        raise ValueError("embedded null character")        # abspath would hide it
+    full = PureWindowsPath(os.path.abspath(path))
+    return any(full == root or root in full.parents for root in map(PureWindowsPath, roots))
 
 
 def _plain_relative(url_path: str) -> bool:
     """Windows: a URL path the SPA may look up under web/dist. A backslash or a
     leading slash can make it a share (\\\\host\\share) or a device path, a
-    colon a drive or an alternate data stream, and resolving such a path opens
-    it (a connection to another host) before the containment check runs."""
+    colon a drive or an alternate data stream, a reserved name (CON, aux.js)
+    a device, and resolving such a path opens it (a connection to another
+    host) before the containment check runs."""
+    from .phone.uploads import windows_reserved
+
     return not (url_path.startswith("/") or "\\" in url_path or ":" in url_path
-                or "\x00" in url_path)
+                or "\x00" in url_path
+                or any(windows_reserved(part) for part in url_path.split("/")))
 
 
 _NO_BUILD_HTML = """<!doctype html><meta charset="utf-8">

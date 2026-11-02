@@ -244,12 +244,19 @@ _ERROR_PREFIX_RE = re.compile(r"^ERROR:\s+")
 # word ("MB/s", "N/A", "https://host/a/b" are left alone).
 _PATH_RE = re.compile(r"(?<![\w.:/~-])((?:/[^\s/'\"`()<>\[\]{},;]+){2,}/?)")
 # On a Windows server, also an absolute Windows path: a drive (C:\a\b, C:/a/b, or
-# the doubled backslashes of a Python repr) or a share (\\host\share\a).
-_WIN_SEG = r"[^\\/\s'\"`()<>\[\]{},;:*?|]+"
+# the doubled backslashes of a Python repr), a share (\\host\share\a) or the home
+# directory already replaced by "~". A directory name may hold spaces
+# ("C:\Users\Example User\Videos\x.mp4"), as a separator follows it; the last
+# name ends at the first space, which keeps the rest of the sentence.
+_WIN_CHARS = r"[^\\/\s'\"`()<>\[\]{},;:*?|]"
+_WIN_SEG = rf"{_WIN_CHARS}+"
 _WIN_SEP = r"(?:\\{1,2}|/)"
+_WIN_DIR = rf"{_WIN_CHARS}+(?: (?!~{_WIN_SEP}){_WIN_CHARS}+)*"    # "~\" starts another path
 _WIN_PATH_RE = re.compile(
-    rf"(?<![\w\\/])((?:[A-Za-z]:|\\{{2,4}}{_WIN_SEG}{_WIN_SEP}{_WIN_SEG})"
-    rf"(?:{_WIN_SEP}{_WIN_SEG})+{_WIN_SEP}?)")
+    rf"(?<![\w\\/])((?:[A-Za-z]:|~|\\{{2,4}}{_WIN_SEG}{_WIN_SEP}{_WIN_DIR}(?={_WIN_SEP}))"
+    rf"(?:{_WIN_SEP}{_WIN_DIR}(?={_WIN_SEP}))*{_WIN_SEP}{_WIN_SEG}{_WIN_SEP}?)")
+# \\?\C:\..., \\.\C:\... and \\?\UNC\host\share\... (also doubled, as in a repr).
+_WIN_DEVICE_PREFIX_RE = re.compile(r"\\{2}(?:\\{2})?[?.]\\{1,2}(UNC\\{1,2})?", re.IGNORECASE)
 MAX_MESSAGE_CHARS = 500
 
 
@@ -277,15 +284,13 @@ def clean_message(text: str | None, home: str | None = None, user: str | None = 
     leading exception class or `ERROR: `, absolute paths reduced to their base
     names, no home directory or user name, whitespace collapsed, at most 500
     characters. `windows` (this server's platform by default) adds Windows
-    paths, and a home directory and user name matched in any case."""
+    paths, and a home directory (replaced first) and user name matched in any
+    case."""
     if windows is None:
         windows = sys.platform == "win32"
     message = strip_ansi(text or "").strip()
     message = _EXCEPTION_PREFIX_RE.sub("", message, count=1)
     message = _ERROR_PREFIX_RE.sub("", message, count=1)
-    message = _PATH_RE.sub(_basename, message)
-    if windows:
-        message = _WIN_PATH_RE.sub(_win_basename, message)
     if home is None:
         home = str(Path.home())
     if user is None:
@@ -293,11 +298,17 @@ def clean_message(text: str | None, home: str | None = None, user: str | None = 
             user = getpass.getuser()
         except (KeyError, OSError):
             user = None
-    if home and len(home) > 1:
-        if windows:
+    if windows:
+        message = _WIN_DEVICE_PREFIX_RE.sub(
+            lambda match: "\\\\" if match.group(1) else "", message)
+        if home and len(home) > 1:
             either_separator = re.escape(home).replace(r"\\", r"[\\/]{1,2}")
-            message = re.sub(either_separator, "~", message, flags=re.IGNORECASE)
-        else:
+            message = re.sub(either_separator + r"(?![\w-])", "~", message, flags=re.IGNORECASE)
+        message = _PATH_RE.sub(_basename, message)
+        message = _WIN_PATH_RE.sub(_win_basename, message)
+    else:
+        message = _PATH_RE.sub(_basename, message)
+        if home and len(home) > 1:
             message = message.replace(home, "~")
     if user and len(user) >= 2:
         message = re.sub(rf"(?<![\w]){re.escape(user)}(?![\w])", "user", message,

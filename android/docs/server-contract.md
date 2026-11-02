@@ -341,7 +341,9 @@ with no address: `phonotrainer ui --phone-access` and `phonotrainer phone pair`.
 
 ### 3.1 The configuration directory
 
-`PHONOTRAINER_CONFIG_DIR` if set; otherwise `$XDG_CONFIG_HOME/phonotrainer`; otherwise `~/.config/phonotrainer`.
+`PHONOTRAINER_CONFIG_DIR` if set; otherwise `$XDG_CONFIG_HOME/phonotrainer`; otherwise `%LOCALAPPDATA%\phonotrainer` on
+Windows (never the roaming `%APPDATA%`, which would carry the keys to other computers); otherwise
+`~/.config/phonotrainer`.
 It is outside the repository and outside every workspace, so a workspace switch never breaks pairing (D-34) and
 nothing in it can be committed by accident. The directory is created with mode `0700`; every file in it is written
 with mode `0600` through a temporary file and `os.replace` (atomic); read-modify-write cycles hold an exclusive
@@ -1590,8 +1592,10 @@ the phone-origin download wrapper (9) with fixed English messages, so the rules 
 
 `state.clean_message(text)`: remove ANSI escape sequences; drop the leading `<ExceptionClass>: ` and a leading
 `ERROR: `; replace every absolute POSIX path with its base name; replace the home directory and the user name if they
-still occur; collapse whitespace; at most 500 characters. The phone shows it under "Show details" (spec F-20) and never
-needs to clean it again.
+still occur; collapse whitespace; at most 500 characters. On a Windows server the home directory is replaced first (in
+any case, with either separator), `\\?\` and `\\.\` prefixes are dropped, and every drive, share (`\\host\share`) or
+`~` path is reduced to its base name too, directory names with spaces included; the user name is matched in any case.
+The phone shows it under "Show details" (spec F-20) and never needs to clean it again.
 
 ---------------------------------------------------------------------------------------------------------------
 

@@ -1,10 +1,11 @@
 """The configuration directory: the computer's identity and the paired phones.
 
 `PHONOTRAINER_CONFIG_DIR` if set, otherwise `$XDG_CONFIG_HOME/phonotrainer`,
-otherwise `%APPDATA%\\phonotrainer` on Windows, otherwise
-`~/.config/phonotrainer`. It lives outside the repository and outside every
-workspace, so switching workspaces never breaks pairing and nothing in it can
-be committed by accident.
+otherwise `%LOCALAPPDATA%\\phonotrainer` on Windows (never the roaming
+`%APPDATA%`: a roaming profile would carry the computer's id, the phones' keys
+and runtime.json to other computers), otherwise `~/.config/phonotrainer`. It
+lives outside the repository and outside every workspace, so switching
+workspaces never breaks pairing and nothing in it can be committed by accident.
 
 `devices.json` holds every paired phone's MAC key, so the directory is treated
 as secret: it is created `0700`, every file is written `0600` through a
@@ -17,8 +18,9 @@ lose each other's writes.
 On Windows the same rules use Windows' own means (`winsec.py`): the directory
 gets a protected DACL granting full control only to the current user, SYSTEM
 and Administrators (its files inherit it), the owner is checked instead of the
-uid, a DACL that lets anyone else in is tightened, and the lock is
-`msvcrt.locking` on the first byte of `.lock`.
+uid, a DACL that lets anyone else in is tightened (for every file in the
+directory, not only the secret ones), and the lock is `msvcrt.locking` on the
+first byte of `.lock`.
 """
 
 from __future__ import annotations
@@ -74,9 +76,9 @@ def config_dir(environ: dict[str, str] | None = None) -> Path:
     xdg = env.get("XDG_CONFIG_HOME")
     if xdg and os.path.isabs(xdg):          # the XDG spec ignores relative values
         return Path(xdg) / "phonotrainer"
-    appdata = env.get("APPDATA") if sys.platform == "win32" else None
-    if appdata and os.path.isabs(appdata):
-        return Path(appdata) / "phonotrainer"
+    local = env.get("LOCALAPPDATA") if sys.platform == "win32" else None
+    if local and os.path.isabs(local):
+        return Path(local) / "phonotrainer"
     return Path.home() / ".config" / "phonotrainer"
 
 
@@ -213,9 +215,32 @@ class ConfigDir:
             if _too_open(path, fst):
                 _make_private(path, directory=False)
                 tightened.append(name)
+        if sys.platform == "win32":
+            tightened += self._check_every_other_entry()
         if tightened:
             log.warning("Tightened the permissions of %s in %s (it holds phone keys).",
                         " and ".join(tightened), WHERE)
+
+    def _check_every_other_entry(self) -> list[str]:
+        """Windows: the owner and the DACL of every other entry too. "Bypass
+        traverse checking", which every user holds by default, lets another
+        user open a file they planted here by its path even once the directory
+        is private."""
+        tightened = []
+        for name in sorted(os.listdir(self.path)):
+            if name in SECRET_FILES:
+                continue
+            path = self.path / name
+            try:
+                if not winsec.owned_by_me(path):
+                    raise ConfigError(f"{name} in {WHERE} belongs to another user; "
+                                      "refusing to use it.")
+                if winsec.foreign_grantees(path):
+                    winsec.make_private(path, directory=path.is_dir())
+                    tightened.append(name)
+            except FileNotFoundError:
+                continue                  # another process's temporary file, already renamed
+        return tightened
 
     # --- files ---------------------------------------------------------------
     def stat_key(self, name: str) -> tuple[int, int, int] | None:

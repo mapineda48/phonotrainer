@@ -551,14 +551,19 @@ def test_imported_analyses_know_their_phone_engine():
     assert _phone_engine_of({}) == "espeak"
 
 
-@pytest.mark.skipif(sys.platform != "win32", reason="Windows cannot delete an open file")
+WINDOWS_ONLY = pytest.mark.skipif(sys.platform != "win32",
+                                  reason="Windows cannot delete or replace an open file")
+
+
+@WINDOWS_ONLY
 def test_a_deleted_job_whose_files_are_open_is_removed_later_on_windows(store, media,
                                                                          monkeypatch):
     """A file being served (or hashed) when the job is deleted stays behind on
-    Windows: the removal is retried once it is closed, and a leftover job
-    directory without its job.json goes at the next start."""
+    Windows, with a tombstone next to the directory: the removal is retried
+    once the file is closed, and the tombstone goes with the directory."""
     monkeypatch.setattr(jobs, "RMTREE_RETRIES_S", (0.2, 0.2, 0.2))
     job = _done(store, store.create(media))
+    tombstone = store.root / f".{job.id}.deleted"
     (job.dir / "readonly.txt").write_text("x")
     os.chmod(job.dir / "readonly.txt", stat.S_IREAD)            # git objects are read-only
     held = open(job.dir / "audio.wav", "rb")                    # a download in progress
@@ -566,15 +571,57 @@ def test_a_deleted_job_whose_files_are_open_is_removed_later_on_windows(store, m
         store.delete(job.id)
         assert job.dir.is_dir() and not (job.dir / "job.json").exists()
         assert not (job.dir / "readonly.txt").exists()
+        assert tombstone.is_file()
     finally:
         held.close()
-    wait_until(lambda: not job.dir.exists(), timeout=5)
+    wait_until(lambda: not job.dir.exists() and not tombstone.exists(), timeout=5)
 
-    # a process that died before the retries leaves the directory to the next start
-    leftover = store.root / "20261010-091503-4be1"
-    (leftover / "media").mkdir(parents=True)
-    (leftover / "media" / "clip.wav").write_bytes(b"RIFF")
+
+@WINDOWS_ONLY
+def test_only_tombstoned_job_directories_are_removed_at_the_start_on_windows(store):
+    """A process that died before its retries leaves the tombstone: the next
+    start finishes the removal. A job directory without job.json and without
+    a tombstone (a job another store on this workspace is creating, a job.json
+    deleted by hand) is never touched."""
+    buried = store.root / "20261010-091503-4be1"
+    (buried / "media").mkdir(parents=True)
+    (buried / "media" / "clip.wav").write_bytes(b"RIFF")
+    (store.root / ".20261010-091503-4be1.deleted").touch()
+    being_created = store.root / "20261010-091504-5cf2"
+    (being_created / "media").mkdir(parents=True)
+    (being_created / "media" / "clip.wav").write_bytes(b"RIFF")
     unrelated = store.root / "notes"
     unrelated.mkdir()
     JobStore(store.root, analyze_fn=fake_analyze, corpus=None).shutdown()
-    assert not leftover.exists() and unrelated.is_dir()
+    assert not buried.exists() and not (store.root / ".20261010-091503-4be1.deleted").exists()
+    assert (being_created / "media" / "clip.wav").is_file() and unrelated.is_dir()
+
+
+@WINDOWS_ONLY
+def test_a_running_job_deleted_on_windows_leaves_a_tombstone_until_it_is_gone(
+        tmp_path, media, blocking_analyze):
+    store = JobStore(tmp_path / "workspace", analyze_fn=blocking_analyze, corpus=None)
+    try:
+        job = store.create(media)
+        assert blocking_analyze.started.wait(10)
+        store.delete(job.id)
+        tombstone = store.root / f".{job.id}.deleted"
+        assert tombstone.is_file() and not (job.dir / "job.json").exists()
+        blocking_analyze.release.set()
+        wait_until(lambda: not job.dir.exists() and not tombstone.exists())
+    finally:
+        blocking_analyze.release.set()
+        store.shutdown()
+
+
+@WINDOWS_ONLY
+def test_job_json_is_saved_while_a_reader_holds_it_on_windows(store, media):
+    import threading
+
+    job = _done(store, store.create(media))
+    reader = open(job.dir / "job.json", encoding="utf-8")
+    threading.Timer(0.3, reader.close).start()
+    job.error = "marker"
+    store._save(job)
+    assert reader.closed
+    assert json.loads((job.dir / "job.json").read_text(encoding="utf-8"))["error"] == "marker"

@@ -6,6 +6,7 @@ import logging
 import os
 import socket
 import stat
+import struct
 import subprocess
 import sys
 
@@ -46,9 +47,12 @@ def test_directory_resolution(tmp_path, monkeypatch):
     monkeypatch.setenv("USERPROFILE", str(tmp_path / "home"))     # Path.home() on Windows
     assert config_dir(env) == tmp_path / "home" / ".config" / "phonotrainer"
     assert config_dir({}) == tmp_path / "home" / ".config" / "phonotrainer"
-    # %APPDATA% comes after an absolute XDG_CONFIG_HOME, and only on Windows
+    # %LOCALAPPDATA% comes after an absolute XDG_CONFIG_HOME, and only on Windows;
+    # the roaming %APPDATA% never (it would carry the keys to other computers)
     env["APPDATA"] = str(tmp_path / "roaming")
-    expected = tmp_path / ("roaming" if sys.platform == "win32" else "home/.config")
+    assert config_dir(env) == tmp_path / "home" / ".config" / "phonotrainer"
+    env["LOCALAPPDATA"] = str(tmp_path / "local")
+    expected = tmp_path / ("local" if sys.platform == "win32" else "home/.config")
     assert config_dir(env) == expected / "phonotrainer"
     env["XDG_CONFIG_HOME"] = str(tmp_path / "xdg")
     assert config_dir(env) == tmp_path / "xdg" / "phonotrainer"
@@ -197,6 +201,67 @@ def test_a_directory_or_secret_file_owned_by_another_user_is_refused_on_windows(
         with pytest.raises(ConfigError) as err:
             ConfigDir(isolated_config).read_json("devices.json")
         assert "another user" in str(err.value) and str(isolated_config) not in str(err.value)
+
+
+@WINDOWS_ONLY
+def test_every_file_in_the_directory_is_checked_on_windows(isolated_config, monkeypatch, caplog):
+    """"Bypass traverse checking" lets anyone open a file by its path inside a
+    private directory: a planted file is refused, a shared one made private."""
+    from phonotrainer.phone import winsec
+
+    config = ConfigDir(isolated_config)
+    config.write_json("server.json", {})
+    shared = isolated_config / "notes.txt"
+    shared.write_text("x")
+    grant_everyone(shared)
+    assert winsec.foreign_grantees(shared)
+    with caplog.at_level(logging.WARNING, logger="phonotrainer.phone"):
+        assert config.read_json("server.json") == {}
+    assert winsec.foreign_grantees(shared) == set()
+    warnings = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+    assert len(warnings) == 1 and "notes.txt" in warnings[0]
+    real_owner = winsec.owner_sid
+    monkeypatch.setattr(winsec, "owner_sid", lambda path: (
+        FOREIGN_SID if os.path.basename(path) == "server.json" else real_owner(path)))
+    with pytest.raises(ConfigError) as err:
+        ConfigDir(isolated_config).read_json("server.json")
+    assert "server.json" in str(err.value) and "another user" in str(err.value)
+    assert str(isolated_config) not in str(err.value)
+
+
+@WINDOWS_ONLY
+def test_an_ace_the_check_does_not_understand_counts_as_someone_else():
+    import ctypes
+
+    from phonotrainer.phone import winsec
+
+    advapi32 = ctypes.WinDLL("advapi32", use_last_error=True)
+    advapi32.GetLengthSid.restype = ctypes.c_ulong
+
+    def sid(text: str) -> bytes:
+        pointer = ctypes.c_void_p()
+        assert advapi32.ConvertStringSidToSidW(text, ctypes.byref(pointer))
+        data = ctypes.string_at(pointer, advapi32.GetLengthSid(pointer))
+        ctypes.WinDLL("kernel32").LocalFree(pointer)
+        return data
+
+    def ace(kind: int, sid_bytes: bytes, mask: int = 0x1F01FF) -> bytes:
+        body = struct.pack("<I", mask) + sid_bytes
+        return struct.pack("<BBH", kind, 0, 4 + len(body)) + body
+
+    def grantees(*aces: bytes) -> set[str]:
+        body = b"".join(aces)
+        acl = ctypes.create_string_buffer(struct.pack("<BBHHH", 2, 0, 8 + len(body),
+                                                      len(aces), 0) + body)
+        return winsec.acl_grantees(ctypes.addressof(acl))
+
+    me, everyone = winsec.current_user_sid(), sid("S-1-1-0")
+    mine = ace(0x0, sid(me))
+    assert grantees(mine) == {me}
+    assert grantees(mine, ace(0x1, everyone)) == {me}                 # denying takes nothing
+    assert grantees(mine, ace(0x0, everyone, mask=0)) == {me}         # grants nothing
+    for kind in (0x5, 0xB, 0x11, 0x15):        # object types, a label, a type yet to come
+        assert grantees(mine, ace(kind, everyone)) == {me, winsec.UNKNOWN_GRANTEE}, kind
 
 
 def test_writes_are_atomic(isolated_config, monkeypatch):
@@ -614,6 +679,28 @@ def test_the_windows_interfaces_include_loopback_and_say_what_is_virtual():
     assert windows_virtual(True, 53, "TAP-Windows Adapter V9")
     assert windows_virtual(True, 131, "Some tunnel")
     assert windows_virtual(True, 23, "Some PPP link")
+    assert windows_virtual(True, 243, "Some Mobile Broadband Adapter")     # not Ethernet or Wi-Fi
+    # VPN drivers that register as hardware Ethernet, under their own brands
+    for description in ("TAP-NordVPN Windows Adapter V9", "TAP-ProtonVPN Windows Adapter V9",
+                        "TAP-Surfshark Windows Adapter V9", "ExpressVPN TAP Adapter",
+                        "Private Internet Access Network Adapter",
+                        "Cisco AnyConnect Secure Mobility Client Virtual Miniport Adapter",
+                        "PANGP Virtual Ethernet Adapter Secure",
+                        "Fortinet SSL VPN Virtual Ethernet Adapter",
+                        "Juniper Networks Virtual Adapter", "Pulse Secure Network Adapter",
+                        "Mullvad Wintun Adapter", "WireGuard Tunnel", "Tailscale Tunnel",
+                        "ZeroTier Virtual Port", "Microsoft Hyper-V Network Adapter"):
+        assert windows_virtual(True, 6, description), description
+    assert not windows_virtual(True, 6, "Realtek USB GbE Family Controller")   # a USB dongle
+    assert not windows_virtual(True, 71, "Intel(R) Wi-Fi 6E AX211 160MHz")
+
+
+@WINDOWS_ONLY
+def test_virtual_interface_names_are_matched_in_any_case_on_windows():
+    for name in ("Tailscale", "NordLynx", "ProtonVPN", "vEthernet (WSL)", "ZT-Office", "WG0"):
+        assert is_virtual(Interface(name, "198.51.100.5", 24, None)), name
+    for name in ("Wi-Fi", "Ethernet", "Ethernet 2", "WLAN"):
+        assert not is_virtual(Interface(name, "198.51.100.5", 24, None)), name
 
 
 def test_proc_net_parsing():

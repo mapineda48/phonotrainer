@@ -21,6 +21,7 @@ import json
 import logging
 import os
 import secrets
+import sys
 import tempfile
 import threading
 import unicodedata
@@ -94,8 +95,14 @@ def is_virtual(iface: Interface | str) -> bool:
     VPN and overlay interfaces have no gateway MAC and the same name and
     network everywhere, so an approved one would match on every network."""
     if isinstance(iface, Interface):
-        return iface.virtual or iface.name.startswith(VIRTUAL_PREFIXES)
-    return iface.startswith(VIRTUAL_PREFIXES)
+        return iface.virtual or _virtual_name(iface.name)
+    return _virtual_name(iface)
+
+
+def _virtual_name(name: str) -> bool:
+    if sys.platform == "win32":           # Windows names are capitalised ("Tailscale", "NordLynx")
+        return name.lower().startswith(VIRTUAL_PREFIXES)
+    return name.startswith(VIRTUAL_PREFIXES)
 
 
 def is_public(iface: Interface) -> bool:
