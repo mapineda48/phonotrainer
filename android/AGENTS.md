@@ -88,6 +88,9 @@ and stop your own Gradle daemons when you finish (`./gradlew --stop`, or a priva
 - Strings in the module's own `res/values/strings.xml` (or the owner's `strings_<name>.xml`); colours, type and sizes
   from the design system's tokens, never hard-coded in screens.
 - Logging only through the `PhonoLog` facade, never `android.util.Log`; HTTP only through `:core:network`'s client.
+- **Regular expressions run on ICU on a device**: never `(?U)` or `UNICODE_CHARACTER_CLASS` (the hygiene check refuses
+  them), and do not count on `\s`, `\w`, `\d` or `\b` meaning the same on the JVM and on the phone; spell a Unicode class
+  out (`\p{Z}`, `\uFEFF`) and test it.
 - **Insets** (decisions I-12): the shell never pads a destination at the top, so every destination applies
   `statusBarsPadding()` (or draws its top bar or title behind the status bar with it), and the feed is full bleed. The
   bottom bar's height, navigation bar included, is consumed for you: do not pad the navigation bar; `imePadding()`

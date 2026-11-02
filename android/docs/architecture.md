@@ -2610,7 +2610,9 @@ headers, keystore files, long tokens, and the credential shapes `pt1_[A-Za-z0-9_
 server-contract 2.2 and 6.2 is the one allowed value); `fallbackToDestructiveMigration`; `android.util.Log`
 outside the facade; OkHttp construction outside `:core:network`; an `AddressPolicy` implementation that allows
 loopback anywhere but `src/test`, `src/androidTest` or `:core:testing*` (security review L-13); `Color(0x` and `.sp`
-literals in Kotlin outside `:core:designsystem` (17; design 12.5); and the merged-manifest allowlist.
+literals in Kotlin outside `:core:designsystem` (17; design 12.5); the inline regex flag `(?U)` (and any flag group
+containing U) and the `UNICODE_CHARACTER_CLASS` flag in Kotlin or Java code and strings, because Android's regex engine
+(ICU) refuses both while a JVM unit test accepts them (comments may name them); and the merged-manifest allowlist.
 `check_ownership.py` checks a diff against the ownership table.
 
 At run time `check_repo.py` also builds a **local denylist** it never stores: the host name, the user name, the home
