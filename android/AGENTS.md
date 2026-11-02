@@ -16,9 +16,10 @@ owner may happen in another language; that never changes what is committed.
 Never commit an IP or MAC address of a real network, a device serial, a token, a key, a pairing code, a host name, a
 home path or any personal data; never commit a keystore, `keystore.properties`, `local.properties` or files that device
 debugging produces. Test data uses documentation ranges (`192.0.2.0/24`, `00:00:5e:00:53:xx`) and loopback. Before
-every commit, from `android/`: `python3 scripts/hygiene/check_repo.py --staged` (the `pre-commit` hook runs it when
-installed with `scripts/hygiene/install-hooks.sh`). Local evidence (screenshots, logs) goes to `android/artifacts/`,
-which git ignores.
+every commit, from `android/`: `python3 scripts/hygiene/check_repo.py --staged` (`python` on Windows; the `pre-commit`
+hook runs it when installed with `scripts/hygiene/install-hooks.sh`, on Windows from Git Bash:
+`sh scripts/hygiene/install-hooks.sh`). Local evidence (screenshots, logs) goes to `android/artifacts/`, which git
+ignores.
 
 ## 3. Where you may write
 
@@ -27,14 +28,16 @@ which git ignores.
 - Every file has one owner (`docs/work-plan.md` section 3). A work package changes only its own files; anything else
   (a frozen contract type, a catalog entry, a Room entity, a navigation key, another module's string, a fake) goes to
   the integrator as a **change request** in the hand-off: the file, the exact additive change, and why
-  (work-plan 2.2). Check a branch with `python3 scripts/hygiene/check_ownership.py --wp WP-nn --base <baseline>`.
+  (work-plan 2.2). Check a branch with `python3 scripts/hygiene/check_ownership.py --wp WP-nn --base <baseline>`
+  (`python` on Windows).
 - A bug in another work package's files is reported to the integrator with a failing test, never fixed in place.
 - No package or resource directory may be named `data`, `out`, `out_*`, `downloads` or `workspace`: the root
   `.gitignore` would silently drop it (architecture 2.6). Use `store`, `local`, `transfer`, `export`.
 
 ## 4. Build and test
 
-All Gradle commands run from `android/` (see `README.md` for the full list).
+All Gradle commands run from `android/` (see `README.md` for the full list, and its Windows note: `.\gradlew.bat` in
+place of `./gradlew` from PowerShell or cmd).
 
 | Command | When |
 | --- | --- |
@@ -46,10 +49,12 @@ All Gradle commands run from `android/` (see `README.md` for the full list).
 | `./gradlew :qasmoke:pixel9Api36QaAndroidTest` | the integrator, at merges: the release-like black-box smoke |
 
 A change is done only when the definition of done of `docs/work-plan.md` 2.5 holds. Python tests of the server run from
-the repository root with the repository's virtual environment (`.venv/bin/python -m pytest -q`).
+the repository root with the repository's virtual environment (`.venv/bin/python -m pytest -q`; on Windows
+`.venv\Scripts\python.exe -m pytest -q`).
 
 **Shared computer.** Several copies of the project may build at once: keep the heap settings of `gradle.properties`,
-run one managed-device (GMD) task at a time under the lock (`python3 scripts/device-qa/gmd_lock.py -- ./gradlew …`),
+run one managed-device (GMD) task at a time under the lock (`python3 scripts/device-qa/gmd_lock.py -- ./gradlew …`; on
+Windows, where the lock works too, `python scripts/device-qa/gmd_lock.py -- .\gradlew.bat …`),
 and stop your own Gradle daemons when you finish (`./gradlew --stop`, or a private
 `-Dorg.gradle.daemon.registry.base=<dir>` so another copy's `--stop` cannot kill your build).
 

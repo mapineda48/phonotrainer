@@ -29,6 +29,18 @@ cd web && npx vitest run     # web UI suite
 make test                    # both
 ```
 
+On Windows (PowerShell; in Git Bash the Python suite is `.venv/Scripts/pytest -q`):
+
+```powershell
+.venv\Scripts\pytest.exe -q  # Python suite
+cd web; npx vitest run       # web UI suite
+make test                    # both
+```
+
+On Windows the Python suite needs `PYTHONUTF8=1` (`make` exports it; the README's
+setup sets it once with `setx PYTHONUTF8 1`): without it `tests/conftest.py` stops
+the run with a message.
+
 ## Pointers
 
 - `README.md` — usage, setup, architecture summary.

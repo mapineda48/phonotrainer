@@ -24,16 +24,24 @@ in the root `README.md`, "Phone access (Android client)").
 - JDK 17 or newer to run Gradle (the build compiles with a JDK 17 toolchain and provisions one if it is missing).
 - The Android SDK with `ANDROID_HOME` set (or `sdk.dir` in an ignored `local.properties`): platform 37, build tools,
   and, for the managed-device tests, the emulator and the `aosp_atd` API 36 x86_64 system image (Gradle downloads it
-  on the first run).
+  on the first run). On Windows the SDK usually lives in `%LOCALAPPDATA%\Android\Sdk`, and the emulator needs the
+  **Windows Hypervisor Platform** optional feature, with virtualization on in the firmware: from an administrator
+  PowerShell, `Enable-WindowsOptionalFeature -Online -FeatureName HypervisorPlatform`, then reboot.
 - Python 3 for `scripts/` (standard library; Pillow, if installed, for device screenshots), the repository's
   virtual environment for `tools/reference/`, and Node.js 22 for the didactic-content drift check.
+
+**Windows.** The commands in these documents are written for sh. On Windows, run `python` where they say `python3`
+(there `python3` is only the Microsoft Store's alias) and `.venv\Scripts\python.exe` where they say
+`.venv/bin/python`; from PowerShell or cmd, run `.\gradlew.bat` where they say `./gradlew` (Git Bash runs `./gradlew`
+as written). The root `README.md` ("Setup from scratch") lists the tools to install, and long paths should be turned
+on.
 
 Android Studio opens this directory (`android/`), not the repository root. Phone and Android versions supported:
 Android 10 (API 29) and later; the app targets API 36.
 
 ## Build and test
 
-Every Gradle command runs from `android/`:
+Every Gradle command runs from `android/` (`.\gradlew.bat` in place of `./gradlew` from PowerShell or cmd):
 
 | Command | What it does |
 |---|---|
@@ -50,7 +58,8 @@ From the repository root, `make android-check` runs the checks a change must pas
 Filter the end-to-end suite to one area with
 `-Pandroid.testInstrumentationRunnerArguments.package=com.mapineda48.phonotrainer.e2e.<area>`. Without `--rerun`,
 Gradle skips test tasks whose inputs did not change. On a computer where several copies of the project build at once,
-run managed-device tasks one at a time under the lock: `python3 scripts/device-qa/gmd_lock.py -- ./gradlew …`.
+run managed-device tasks one at a time under the lock: `python3 scripts/device-qa/gmd_lock.py -- ./gradlew …`
+(on Windows, where the lock works too, `python scripts/device-qa/gmd_lock.py -- .\gradlew.bat …`).
 
 ## Build types
 
@@ -72,6 +81,9 @@ storePassword=<the keystore's password>
 keyAlias=<the key's alias>
 keyPassword=<the key's password>
 ```
+
+A properties file reads `\` as an escape, so on Windows write the path with forward slashes (`C:/keys/release.jks`)
+or doubled backslashes.
 
 `./gradlew assembleRelease` then signs the release APK; without the file the release APK is built unsigned. To use a
 properties file kept elsewhere, pass `-Pphonotrainer.keystoreProperties=<path>`. Never commit the keystore, the
@@ -133,7 +145,7 @@ dependency is a deliberate change of `gradle/libs.versions.toml`.
 
 ## Repository hygiene
 
-The repository is public. `python3 scripts/hygiene/check_repo.py` (from `android/`) refuses addresses, serials, tokens,
-keys, home paths and personal data, ignored source files, and non-English text, and compares the release manifest
-with `SECURITY.md`; `python3 scripts/hygiene/check_ownership.py` checks a change against the file ownership of the
-work plan. See `scripts/README.md`.
+The repository is public. `python3 scripts/hygiene/check_repo.py` (from `android/`; `python` on Windows) refuses
+addresses, serials, tokens, keys, home paths and personal data, ignored source files, and non-English text, and
+compares the release manifest with `SECURITY.md`; `python3 scripts/hygiene/check_ownership.py` checks a change against
+the file ownership of the work plan. See `scripts/README.md`.

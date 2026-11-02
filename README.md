@@ -59,6 +59,9 @@ make setup          # once: Python + npm dependencies
 make ui             # builds the SPA and opens http://127.0.0.1:8000
 ```
 
+The same two commands work on Windows from PowerShell or cmd, with GNU make (see
+[Setup from scratch](#setup-from-scratch) for both systems).
+
 The interface is built to teach, and to be read without relying on color. A rail on
 the left leads to five places: **Library**, **Learn**, **Practice**, **Insights** and
 **Settings**. Its **Help** menu restarts the tour, lists the keyboard shortcuts and
@@ -285,8 +288,9 @@ app. In an analysis:
 
 In Practice, 1–4 answer and Enter moves on.
 
-For safety, the interface only opens files under `$HOME` and the working
-directory; for an external drive, use `phonotrainer ui --allow-dir /mnt/videos`.
+For safety, the interface only opens files under `$HOME` (`%USERPROFILE%` on
+Windows) and the working directory; for an external drive, use
+`phonotrainer ui --allow-dir /mnt/videos` (`--allow-dir D:\Videos` on Windows).
 
 > ⚠️ **The server has no authentication whatsoever.** It listens on `127.0.0.1`
 > on purpose. `--host 0.0.0.0` publishes on the local network a file browser over
@@ -338,7 +342,7 @@ here, never from a phone.
   `phonotrainer phone on`) approves the networks the computer is on at that
   moment. On any other network (a laptop in a café) phone access is
   **suspended**: the server answers nobody on the network and says so at start.
-  Run `phonotrainer phone on` there to approve it as well. Interfaces the kernel
+  Run `phonotrainer phone on` there to approve it as well. Interfaces the system
   reports as virtual (container and virtual-machine networks, VPNs and overlays
   such as WireGuard, Tailscale or ZeroTier, ppp links), and networks with public
   addresses (a computer plugged straight into the internet provider's modem, a
@@ -363,6 +367,9 @@ here, never from a phone.
   `--host 127.0.0.1` announces nothing, since no phone could connect to it.
 - **Firewall.** Phones need TCP port 8000 (or your `--port`) and UDP port 45317
   allowed on the home network. Nothing is changed on your system automatically.
+  On Windows, Windows Defender Firewall asks once, the first time the server
+  listens on the network: allow it on private networks only, and set your home
+  Wi-Fi's network profile to Private.
 - **Limits.** `server.json` in the configuration directory holds two values you
   may edit by hand: `max_upload_bytes` (default 2147483648, 2 GiB), the largest
   file a phone may send, which is also the largest video a phone's link may
@@ -373,9 +380,10 @@ here, never from a phone.
   request line and headers, and a request body other than a file) within 10
   seconds, or the connection is closed; each device address may hold 16
   connections at once, and all devices together 128 on approved networks (16 on
-  any other network the computer is on). The server also raises its limit of
-  open files when it starts with phone access, so nobody on the network can
-  exhaust them and lock out the interface, the phones or the analyses.
+  any other network the computer is on). On Linux and macOS the server also
+  raises its limit of open files when it starts with phone access, so nobody on
+  the network can exhaust them and lock out the interface, the phones or the
+  analyses.
 - **Links from phones.** Before a phone's link becomes a job, and again before
   its download and at every re-run, its host is looked up and refused if any
   address is private or local (this computer, the router, anything on your
@@ -396,10 +404,12 @@ here, never from a phone.
   challenges. Only phones you paired can send links.
 - **Where its state lives.** In the PhonoTrainer configuration directory:
   `$PHONOTRAINER_CONFIG_DIR`, otherwise `$XDG_CONFIG_HOME/phonotrainer`,
-  otherwise `~/.config/phonotrainer`. It is outside the repository and every
-  workspace, so switching workspaces keeps your phones paired. It holds the
-  computer's id and name, the approved networks and one key per paired phone;
-  it is kept private to your user (`0700`, files `0600`, checked at every start).
+  otherwise `%APPDATA%\phonotrainer` on Windows and `~/.config/phonotrainer`
+  elsewhere. It is outside the repository and every workspace, so switching
+  workspaces keeps your phones paired. It holds the computer's id and name, the
+  approved networks and one key per paired phone; it is kept private to your
+  user (`0700`, files `0600`; on Windows, an access list that grants only your
+  user, SYSTEM and Administrators), checked at every start.
 
 > ⚠️ **Plain HTTP on your home network.** Someone on the same Wi-Fi can read the
 > clips, transcripts and recordings that cross it. What protects you: phone
@@ -445,8 +455,9 @@ reused if it is already there: re-analyzing the same URL downloads nothing again
 > always before reporting a download failure; the `default` extras add the
 > challenge components and the network libraries yt-dlp recommends:
 >
-> ```bash
-> uv pip install --python .venv/bin/python -U "yt-dlp[default]"
+> ```
+> uv pip install --python .venv/bin/python -U "yt-dlp[default]"           # Linux/macOS
+> uv pip install --python .venv\Scripts\python.exe -U "yt-dlp[default]"   # Windows
 > ```
 >
 > A failed download sent from a phone carries the yt-dlp version that tried it,
@@ -483,6 +494,11 @@ phonotrainer analyze interview.mp3 -o out/          # or audio only
 phonotrainer ui --import-dir out/                   # open that result in the interface
 ```
 
+On Windows (PowerShell) the venv is activated with `.venv\Scripts\Activate.ps1`
+(if PowerShell refuses to run scripts, allow it once with
+`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`); the `phonotrainer`
+commands are the same.
+
 Outputs in `out/`:
 - `audio.wav`: the original mix, which is what gets played;
 - `audio_dialogue.wav`: the separated dialogue that was analyzed, when separation ran;
@@ -516,16 +532,68 @@ it to phonemize that engine's canonical form. The default engine does not use it
 | Fedora / RHEL | `sudo dnf install -y ffmpeg espeak-ng` |
 | Debian / Ubuntu | `sudo apt install -y ffmpeg espeak-ng` |
 | macOS (Homebrew) | `brew install ffmpeg espeak-ng` |
-| Windows | Through WSL2, with the Debian/Ubuntu commands |
+| Windows (winget) | `winget install -e --id Gyan.FFmpeg` and `winget install -e --id eSpeak-NG.eSpeak-NG` |
 
 Both are free software under their own license (GPL) and are **not distributed
 with this project**: you install them yourself.
+
+**Windows 11** runs it natively (WSL2 also works, with the Debian/Ubuntu
+commands). Besides ffmpeg and eSpeak NG it needs uv, Node.js 22, GNU make and
+Python's UTF-8 mode; open a new terminal afterwards, so that `PATH` and the
+variable are picked up:
+
+```powershell
+winget install -e --id astral-sh.uv
+winget install -e --id OpenJS.NodeJS.22
+winget install -e --id ezwinports.make
+setx PYTHONUTF8 1
+```
+
+- **UTF-8 mode.** Some libraries the analyzer loads (panphon among them) read
+  their data files without naming an encoding, which on Windows means the ANSI
+  code page instead of UTF-8. `PYTHONUTF8=1` makes Python read them as UTF-8.
+  The `phonotrainer` command turns the mode on for itself and `make` sets it for
+  its targets, but the test suite (which stops at once without it) and any
+  other `python` you start need the variable.
+- **eSpeak NG.** PhonoTrainer finds `libespeak-ng.dll` in the installer's
+  default folder (`C:\Program Files\eSpeak NG`) by itself. Installed elsewhere,
+  point `PHONEMIZER_ESPEAK_LIBRARY` at the DLL:
+  `setx PHONEMIZER_ESPEAK_LIBRARY "D:\Tools\eSpeak NG\libespeak-ng.dll"`.
+- **Long paths.** Paths in the Android sources, their build outputs and some
+  Python packages run deep, and Windows stops at 260 characters by default. Run
+  `git config --global core.longpaths true` before cloning; turning on long
+  paths for the other programs is recommended too (from an administrator
+  PowerShell:
+  `New-ItemProperty -Path HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem -Name LongPathsEnabled -Value 1 -PropertyType DWORD -Force`).
+- **The Android client** also needs a JDK
+  (`winget install -e --id EclipseAdoptium.Temurin.21.JDK`), the Android SDK
+  command-line tools (the Windows zip from
+  [developer.android.com/studio](https://developer.android.com/studio),
+  unpacked as `%LOCALAPPDATA%\Android\Sdk\cmdline-tools\latest`) with
+  `setx ANDROID_HOME "$env:LOCALAPPDATA\Android\Sdk"`, and, for the managed
+  emulator, the **Windows Hypervisor Platform** optional feature
+  (`Enable-WindowsOptionalFeature -Online -FeatureName HypervisorPlatform` from
+  an administrator PowerShell, then reboot). See
+  [`android/README.md`](android/README.md).
+
+Then create the virtual environment, install the packages and fetch the models.
+
+Linux/macOS:
 
 ```bash
 uv venv --python 3.12 .venv
 uv pip install --python .venv/bin/python torch torchaudio --index-url https://download.pytorch.org/whl/cpu
 uv pip install --python .venv/bin/python -r requirements.txt -e .
 .venv/bin/python scripts/download_models.py   # ~3 GB of models (one time only)
+```
+
+Windows (PowerShell):
+
+```powershell
+uv venv --python 3.12 .venv
+uv pip install --python .venv\Scripts\python.exe torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+uv pip install --python .venv\Scripts\python.exe -r requirements.txt -e .
+.venv\Scripts\python.exe scripts\download_models.py   # ~3 GB of models (one time only)
 ```
 
 `download_models.py` fetches five things:
@@ -680,6 +748,11 @@ make test                                   # pytest + vitest
 .venv/bin/python -m pytest tests/ -q        # backend only
 cd web && npm test                          # interface only
 ```
+
+On Windows (PowerShell), `make test` is the same; the backend alone is
+`.venv\Scripts\python.exe -m pytest tests/ -q` (with `PYTHONUTF8=1`, see
+[Setup from scratch](#setup-from-scratch)) and the interface alone
+`cd web; npm test`.
 
 100% synthetic fixtures (numpy tones + media generated with ffmpeg): there is no
 copyrighted audio in the repository; episodes are processed locally only. The

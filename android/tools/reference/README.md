@@ -12,6 +12,14 @@ pairing and offline, and replaces it at runtime whenever the computer reports an
 .venv/bin/python -B -m pytest -q -p no:cacheprovider android/tools/reference
 ```
 
+On Windows (PowerShell or cmd, with `PYTHONUTF8=1` as the root `README.md` sets it):
+
+```powershell
+.venv\Scripts\python.exe android\tools\reference\export.py            # write the asset
+.venv\Scripts\python.exe android\tools\reference\export.py --check    # exit 1 if it is stale
+.venv\Scripts\python.exe -B -m pytest -q -p no:cacheprovider android\tools\reference
+```
+
 Run it with the repository's virtual environment after any server change that touches the
 reference (and commit the asset with it). From a worktree it imports that worktree's
 `phonotrainer` package, not an installed copy.
