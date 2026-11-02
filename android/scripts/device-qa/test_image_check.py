@@ -90,7 +90,7 @@ class Target(unittest.TestCase):
 
     def test_the_emulator_command_line(self):
         command = ic.emulator_command(5580, "swangle_indirect", Path("/evidence/capture.pcap"))
-        for expected in (["-port", "5580"], ["-gpu", "swangle_indirect"], ["-tcpdump", "/evidence/capture.pcap"],
+        for expected in (["-port", "5580"], ["-gpu", "swangle_indirect"], ["-tcpdump", str(Path("/evidence/capture.pcap"))],
                          ["-avd", ic.AVD_NAME]):
             index = command.index(expected[0])
             self.assertEqual(expected, command[index:index + 2])
@@ -98,6 +98,21 @@ class Target(unittest.TestCase):
             self.assertIn(flag, command)
         index = command.index("-netsim-args")
         self.assertEqual(["-netsim-args", "--pcap"], command[index:index + 2], "the Wi-Fi network is captured too")
+
+    def test_the_sdk_and_its_programs_are_found_on_every_system(self):
+        home = {"ANDROID_HOME": "/sdk", "ANDROID_SDK_ROOT": "/other", "LOCALAPPDATA": "/local"}
+        self.assertEqual(Path("/sdk"), ic.sdk_root(home, windows=True))
+        self.assertEqual(Path("/other"), ic.sdk_root({"ANDROID_SDK_ROOT": "/other"}, windows=False))
+        self.assertEqual(Path("/local") / "Android" / "Sdk", ic.sdk_root({"LOCALAPPDATA": "/local"}, windows=True))
+        self.assertEqual(Path.home() / "Android" / "Sdk", ic.sdk_root({"LOCALAPPDATA": "/local"}, windows=False))
+        with tempfile.TemporaryDirectory() as sdk:
+            program = "emulator.exe" if sys.platform == "win32" else "emulator"
+            (Path(sdk) / "emulator").mkdir()
+            (Path(sdk) / "emulator" / program).write_bytes(b"")
+            with mock.patch.dict(ic.os.environ, {"ANDROID_HOME": sdk}):
+                self.assertEqual(str(Path(sdk) / "emulator" / program), ic.tool("emulator", "emulator/emulator"))
+                self.assertEqual("avdmanager-not-installed",
+                                 ic.tool("avdmanager-not-installed", "cmdline-tools/latest/bin/avdmanager"))
 
     def test_an_odd_port_is_refused(self):
         with self.assertRaises(SystemExit):

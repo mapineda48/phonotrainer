@@ -88,6 +88,43 @@ class Interpreter(unittest.TestCase):
             self.assertIsNone(hc.find_python(None, {}, repo=repo, current_ok=lambda: False, check=lambda p: False,
                                              checkout=lambda r: main))
 
+    def test_the_windows_layout_of_a_virtual_environment_is_found_too(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, main = Path(tmp) / "worktree", Path(tmp) / "main"
+            venv_python = main / ".venv" / "Scripts" / "python.exe"
+            venv_python.parent.mkdir(parents=True)
+            venv_python.write_text("")
+            repo.mkdir()
+            found = hc.find_python(None, {}, repo=repo, current_ok=lambda: False, check=lambda p: True,
+                                   checkout=lambda r: main)
+            self.assertEqual(str(venv_python), found)
+            own = repo / ".venv" / "Scripts" / "python.exe"
+            own.parent.mkdir(parents=True)
+            own.write_text("")
+            self.assertEqual(str(own), hc.find_python(None, {}, repo=repo, current_ok=lambda: False,
+                                                      check=lambda p: True, checkout=lambda r: main))
+
+    def test_the_run_again_as_a_child_returns_its_status_and_restores_the_handlers(self):
+        # Windows' path instead of os.execve: the server runs as a child and this process returns its exit status.
+        started = []
+
+        class Child:
+            def wait(self):
+                self.ctrl_c_ignored = signal.getsignal(signal.SIGINT) not in (signal.default_int_handler,)
+                return 3
+
+        child = Child()
+
+        def popen(command, **kwargs):
+            started.append((command, kwargs["env"]))
+            return child
+
+        before = signal.getsignal(signal.SIGINT)
+        self.assertEqual(3, hc.run_as_child(["python", "-B", "host_computer.py"], {"A": "1"}, popen=popen))
+        self.assertEqual([(["python", "-B", "host_computer.py"], {"A": "1"})], started)
+        self.assertTrue(child.ctrl_c_ignored, "Ctrl-C belongs to the child while this process waits")
+        self.assertIs(before, signal.getsignal(signal.SIGINT))
+
     def test_the_server_environment_puts_this_checkout_first_and_writes_no_bytecode(self):
         env = hc.server_environment({"PYTHONPATH": "/elsewhere", "PATH": "/bin"})
         self.assertEqual([str(hc.REPO_ROOT), "/elsewhere"], env["PYTHONPATH"].split(os.pathsep))

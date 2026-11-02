@@ -185,15 +185,28 @@ def wait(condition: Callable[[], object], timeout: float, interval: float = 2.0)
         time.sleep(interval)
 
 
-def sdk_root() -> Path:
-    return Path(os.environ.get("ANDROID_HOME") or os.environ.get("ANDROID_SDK_ROOT") or Path.home() / "Android/Sdk")
+def sdk_root(environ=None, windows: bool = os.name == "nt") -> Path:
+    """ANDROID_HOME, ANDROID_SDK_ROOT, else Android Studio's default: ~/Android/Sdk, %LOCALAPPDATA%\\Android\\Sdk on
+    Windows."""
+    env = os.environ if environ is None else environ
+    explicit = env.get("ANDROID_HOME") or env.get("ANDROID_SDK_ROOT")
+    if explicit:
+        return Path(explicit)
+    if windows and env.get("LOCALAPPDATA"):
+        return Path(env["LOCALAPPDATA"]) / "Android" / "Sdk"
+    return Path.home() / "Android/Sdk"
+
+
+# The SDK's programs on Windows: emulator.exe, avdmanager.bat (CreateProcess finds neither by its bare name).
+TOOL_SUFFIXES = (".exe", ".bat", ".cmd") if os.name == "nt" else ("",)
 
 
 def tool(name: str, *relative: str) -> str:
     for candidate in relative:
-        path = sdk_root() / candidate
-        if path.exists():
-            return str(path)
+        for suffix in TOOL_SUFFIXES:
+            path = sdk_root() / (candidate + suffix)
+            if path.exists():
+                return str(path)
     return shutil.which(name) or name
 
 
@@ -532,7 +545,8 @@ def run_checks(args, say=say) -> Report:
         with (evidence / "emulator.log").open("w", encoding="utf-8") as log:
             process = subprocess.Popen(emulator_command(args.port, args.gpu, pcap), stdout=log,
                                        stderr=subprocess.STDOUT, env=dict(os.environ, ANDROID_AVD_HOME=str(avd_home)),
-                                       start_new_session=True)
+                                       start_new_session=True,  # Windows ignores it: its own process group there
+                                       creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0)
         say(f"booting {args.image} as {emu.serial} …")
         booted = wait(lambda: process.poll() is not None or (emu.present() and emu.booted()), 300, interval=3)
         report.boot_seconds = round(time.monotonic() - started, 1)

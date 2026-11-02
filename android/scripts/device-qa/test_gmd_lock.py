@@ -18,12 +18,14 @@ import gmd_lock  # noqa: E402
 
 SCRIPT = Path(__file__).resolve().parent / "gmd_lock.py"
 
+# Another process holding the lock the way this script takes it (flock(2), or msvcrt.locking on Windows).
 HOLDER = textwrap.dedent("""
-    import fcntl, os, sys, time
-    fd = os.open(sys.argv[1], os.O_RDONLY | os.O_CREAT, 0o666)
-    fcntl.flock(fd, fcntl.LOCK_EX)
-    print("held", flush=True)
-    time.sleep(float(sys.argv[2]))
+    import sys, time
+    sys.path.insert(0, sys.argv[3])
+    import gmd_lock
+    with gmd_lock.gmd_lock(sys.argv[1], announce=None):
+        print("held", flush=True)
+        time.sleep(float(sys.argv[2]))
 """)
 
 
@@ -35,8 +37,8 @@ class Lock(unittest.TestCase):
 
     def hold(self, seconds: float) -> subprocess.Popen:
         self.lock.parent.mkdir(parents=True, exist_ok=True)
-        holder = subprocess.Popen([sys.executable, "-c", HOLDER, str(self.lock), str(seconds)],
-                                  stdout=subprocess.PIPE, text=True)
+        holder = subprocess.Popen([sys.executable, "-B", "-c", HOLDER, str(self.lock), str(seconds),
+                                   str(SCRIPT.parent)], stdout=subprocess.PIPE, text=True)
         self.addCleanup(holder.wait)
         self.addCleanup(holder.kill)
         self.assertEqual("held", holder.stdout.readline().strip())
@@ -80,7 +82,8 @@ class Lock(unittest.TestCase):
         self.assertEqual(0, self.run_script("--", sys.executable, "-c", code).returncode)
         self.assertTrue(gmd_lock.is_free(self.lock))
 
-    @unittest.skipUnless(shutil.which("flock"), "util-linux flock is not installed")
+    @unittest.skipUnless(os.name == "posix" and shutil.which("flock"),
+                         "util-linux flock is not installed (on Windows the lock is msvcrt.locking, not flock(2))")
     def test_util_linux_flock_and_this_script_exclude_each_other(self):
         self.lock.parent.mkdir(parents=True, exist_ok=True)
         # flock passes the lock to its child, so the whole process group is stopped to release it
@@ -112,6 +115,15 @@ class Lock(unittest.TestCase):
     def test_usage(self):
         self.assertEqual(2, self.run_script().returncode)
         self.assertEqual(str(self.lock), self.run_script("--where").stdout.strip())
+
+    def test_gradlew_runs_its_batch_file_on_windows_only(self):
+        folder = Path(self.tmp.name)
+        (folder / "gradlew").write_text("#!/bin/sh\n", encoding="utf-8")
+        (folder / "gradlew.bat").write_text("@echo off\r\n", encoding="utf-8")
+        command = [str(folder / "gradlew"), "tasks"]
+        expected = [str(folder / "gradlew.bat"), "tasks"] if os.name == "nt" else command
+        self.assertEqual(expected, gmd_lock.windows_command(command))
+        self.assertEqual([sys.executable, "-c", "pass"], gmd_lock.windows_command([sys.executable, "-c", "pass"]))
 
 
 if __name__ == "__main__":

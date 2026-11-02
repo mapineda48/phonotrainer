@@ -29,15 +29,16 @@ Standard output, one line each, for a harness (the pairing code goes nowhere els
     pairing code: 482913 (valid for 5 minutes, single use)
     ready
 
-Standard input: `pair` prints a new pairing code, `status` the jobs, `quit` stops (so do Ctrl-C, SIGTERM and, on a
-terminal, Ctrl-D).
+Standard input: `pair` prints a new pairing code, `status` the jobs, `quit` stops (so do Ctrl-C, SIGTERM, Ctrl-Break
+on Windows and, on a terminal, Ctrl-D).
 
 Usage: host_computer.py [--port 0] [--analysis-seconds 1] [--lan [--interface NAME]] [--parent DIR] [--python PATH]
        host_computer.py --self-check   starts one, runs a phone session against it over HTTP, stops it, checks cleanup
 
 It needs the repository's virtual environment. Started with another interpreter it finds one (`--python`, then
-`PHONOTRAINER_PYTHON`, then `.venv` in this checkout or in the main checkout of its git worktrees) and runs again with
-it, with `PYTHONPATH` set to this checkout, so it always serves this checkout's server code.
+`PHONOTRAINER_PYTHON`, then `.venv` in this checkout or in the main checkout of its git worktrees: `bin/python`, or
+`Scripts\\python.exe` on Windows) and runs again with it, with `PYTHONPATH` set to this checkout, so it always serves
+this checkout's server code.
 """
 
 from __future__ import annotations
@@ -86,8 +87,14 @@ SEED_NAME = "Seeded synthetic clip"
 SEED_SECONDS = 4.0
 DEFAULT_ANALYSIS_SECONDS = 1.0
 SERVER_MODULES = ("fastapi", "uvicorn")
+# A virtual environment's interpreter: bin/python on Linux and macOS, Scripts\python.exe on Windows.
+VENV_INTERPRETERS = (Path("bin") / "python", Path("Scripts") / "python.exe")
 REEXEC_MARK = "PHONOTRAINER_FAKE_COMPUTER_REEXEC"
 TMP_PREFIX = "phonotrainer-fake-computer-"
+WINDOWS = os.name == "nt"
+# Windows has no SIGTERM to send: a child in its own process group is stopped with Ctrl-Break (CTRL_BREAK_EVENT),
+# which it handles as SIGBREAK. Popen.send_signal(SIGTERM) there is TerminateProcess, which runs no cleanup.
+STOP_SIGNALS = (signal.SIGTERM,) + ((signal.SIGBREAK,) if hasattr(signal, "SIGBREAK") else ())
 
 
 # --- throwaway directories -------------------------------------------------------------------------------------------
@@ -174,9 +181,10 @@ def find_python(explicit: str | None = None, environ: dict | None = None, repo: 
     for root in (repo, checkout(repo)):
         if root is None:
             continue
-        candidate = root / ".venv" / "bin" / "python"
-        if candidate.exists() and check(str(candidate)):
-            return str(candidate)
+        for relative in VENV_INTERPRETERS:
+            candidate = root / ".venv" / relative
+            if candidate.exists() and check(str(candidate)):
+                return str(candidate)
     return None
 
 
@@ -442,7 +450,9 @@ def serve(args, console: Console) -> int:
     os.environ["PHONOTRAINER_CONFIG_DIR"] = str(dirs.config)
     os.chdir(dirs.cwd)
     store = None
-    previous_sigterm = signal.signal(signal.SIGTERM, _stop_on_sigterm)
+    # uvicorn handles these while it serves, then raises the one it caught again: this handler turns it into the
+    # KeyboardInterrupt below, so the cleanup runs (without it SIGBREAK would end the process before the cleanup).
+    previous = {stop: signal.signal(stop, _stop_on_sigterm) for stop in STOP_SIGNALS}
     try:
         store, server, sock = build(args, dirs, console)
         try:
@@ -452,7 +462,8 @@ def serve(args, console: Console) -> int:
     except KeyboardInterrupt:
         pass
     finally:
-        signal.signal(signal.SIGTERM, previous_sigterm)
+        for stop, handler in previous.items():
+            signal.signal(stop, handler)
         if store is not None:
             store.shutdown(wait=True)     # the worker stops at its next step, before the directory goes
         try:
@@ -696,7 +707,7 @@ class Running:
         self.process = subprocess.Popen(
             [self.python, "-B", str(SCRIPT), *self.args], cwd=self.cwd, env=server_environment(self.environ),
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8",
-            bufsize=1)
+            bufsize=1, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if WINDOWS else 0)
         threading.Thread(target=self._follow, args=(self.process.stdout, True), daemon=True).start()
         threading.Thread(target=self._follow, args=(self.process.stderr, False), daemon=True).start()
 
@@ -733,10 +744,14 @@ class Running:
         self.process.stdin.flush()
 
     def stop(self, timeout: float = 30.0, signum: int | None = None) -> int:
+        """Stops it with `quit`, or with a signal: SIGTERM and SIGINT become Ctrl-Break on Windows (its own process
+        group gets it), so the child cleans up there too."""
         if self.process.poll() is None:
             try:
                 if signum is None:
                     self.send("quit")
+                elif WINDOWS and signum in (signal.SIGTERM, signal.SIGINT):
+                    self.process.send_signal(signal.CTRL_BREAK_EVENT)
                 else:
                     self.process.send_signal(signum)
             except (BrokenPipeError, OSError):
@@ -973,6 +988,21 @@ def parse_args(argv: list[str] | None):
     return args
 
 
+def run_as_child(command: list[str], env: dict[str, str], popen=subprocess.Popen) -> int:
+    """Windows' os.execve does not replace the process: it starts another one, ends this one at once with 0 and joins
+    the arguments without quoting them. So the chosen interpreter runs as a child that shares this console and these
+    standard streams, and this process waits for it and returns its exit status, as long as the server lasts. Ctrl-C
+    and Ctrl-Break reach the child through the console (it cleans up and stops); meanwhile this process keeps
+    waiting."""
+    stops = (signal.SIGINT,) + ((signal.SIGBREAK,) if hasattr(signal, "SIGBREAK") else ())
+    previous = {stop: signal.signal(stop, lambda signum, frame: None) for stop in stops}
+    try:
+        return popen(command, env=env).wait()
+    finally:
+        for stop, handler in previous.items():
+            signal.signal(stop, handler)
+
+
 def main(argv: list[str] | None = None) -> int:
     sys.dont_write_bytecode = True
     argv = list(sys.argv[1:] if argv is None else argv)
@@ -984,7 +1014,8 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     if args.self_check:
         return 0 if self_check(python, args.parent) else 1
-    here = os.path.abspath(python) == os.path.abspath(sys.executable) or (
+    same = os.path.normcase(os.path.abspath(python)) == os.path.normcase(os.path.abspath(sys.executable))
+    here = same or (
         not args.python and not os.environ.get("PHONOTRAINER_PYTHON") and has_server_modules())
     if not here:
         if os.environ.get(REEXEC_MARK):
@@ -992,7 +1023,10 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         env = server_environment()
         env[REEXEC_MARK] = "1"
-        os.execve(python, [python, "-B", str(SCRIPT), *argv], env)
+        command = [python, "-B", str(SCRIPT), *argv]
+        if not WINDOWS:
+            os.execve(python, command, env)
+        return run_as_child(command, env)
     console = Console()
     console.say("PhonoTrainer host-side fake computer: synthetic analyses, every download refused "
                 "(server-contract 12).")

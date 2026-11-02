@@ -62,7 +62,8 @@ class BundledLicencesTest {
 
   @Test
   fun fontFilesMatchFontsTxt() {
-    val fontsTxt = DesignSources.licences.resolve("FONTS.txt").readText()
+    // CRLF read as LF: a Windows checkout or editor does not change which lines the file has.
+    val fontsTxt = DesignSources.licences.resolve("FONTS.txt").readText().replace("\r\n", "\n")
     val listed = components.filter { it.str("kind") == "font" }.flatMap { c ->
       c.getValue("files").jsonArray.map { it.jsonObject.str("name") to it.jsonObject.str("sha256") }
     }

@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import os
+import signal
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -54,13 +57,32 @@ class Session(unittest.TestCase):
         self.assertEqual(session.dirs.cwd, kwargs["cwd"])
         self.assertEqual(str(session.dirs.config), kwargs["env"]["PHONOTRAINER_CONFIG_DIR"])
         self.assertTrue(kwargs["env"]["PYTHONPATH"].startswith(str(computer.REPO_ROOT)))
+        # Windows: its own process group, so Ctrl-Break stops it cleanly; UTF-8 mode, so the CLI serves directly.
+        windows = os.name == "nt"
+        self.assertEqual(subprocess.CREATE_NEW_PROCESS_GROUP if windows else None, kwargs.get("creationflags"))
+        self.assertEqual("1" if windows else os.environ.get("PYTHONUTF8"), kwargs["env"].get("PYTHONUTF8"))
         session.phone("pair")
         argv, kwargs = self.call_calls[0]
         self.assertEqual(["/venv/bin/python", "-m", "phonotrainer.cli", "phone", "pair"], argv)
         self.assertEqual(session.dirs.cwd, kwargs["cwd"])
         session.close()
-        self.assertTrue(self.server.signals)
+        self.assertEqual([signal.CTRL_BREAK_EVENT if os.name == "nt" else signal.SIGINT], self.server.signals)
         self.assertFalse(base.exists())
+
+    def test_the_directories_go_even_when_the_stop_fails(self):
+        class Refusing(FakeServer):
+            def send_signal(self, signum):
+                raise OSError("no console")
+
+            def terminate(self):
+                self.running = False
+
+        self.server = Refusing()
+        session = computer.Session("/venv/bin/python", 8123, popen=self.popen, call=self.call)
+        session.start()
+        session.close()
+        self.assertFalse(self.server.running)
+        self.assertFalse(session.dirs.base.exists())
 
     def test_keep_leaves_the_directories(self):
         session = computer.Session("python3", 8000, keep=True, popen=self.popen, call=self.call)

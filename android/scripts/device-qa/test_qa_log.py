@@ -76,6 +76,9 @@ class Redaction(unittest.TestCase):
         self.assertEqual("http://10.0.2.2:8000 and 127.0.0.1 and com.qauser7.phonotrainer", out)
         log = qa_log.QaLog(self.log.path, denylist=[sensitive.DenyEntry("user name", "qauser7")], serials=[])
         self.assertEqual("com.qauser7.phonotrainer by <user name>", log.redact("com.qauser7.phonotrainer by qauser7"))
+        # A computer named after its owner: the package keeps the handle, the host name alone is redacted.
+        host = qa_log.QaLog(self.log.path, denylist=[sensitive.DenyEntry("host name", "qauser7")], serials=[])
+        self.assertEqual("com.qauser7.phonotrainer on <host name>", host.redact("com.qauser7.phonotrainer on qauser7"))
 
     def test_restore_table(self):
         table = qa_log.restore_table([

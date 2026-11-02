@@ -32,6 +32,11 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 COMMANDS = {"pair": ["pair"], "on": ["on"], "off": ["off"], "status": ["status"], "list": ["list"]}
+WINDOWS = os.name == "nt"
+# How the server is stopped so that it shuts down cleanly: SIGINT (Ctrl-C) on Linux and macOS; on Windows, where
+# Popen.send_signal takes no SIGINT, Ctrl-Break to the server's own process group (uvicorn handles it as SIGBREAK).
+STOP_SIGNAL = signal.CTRL_BREAK_EVENT if WINDOWS else signal.SIGINT
+SERVER_FLAGS = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} if WINDOWS else {}
 BANNER = (
     "Real PhonoTrainer computer (WP-25 real-computer pass). It runs the real pipeline: use LOCAL FILES ONLY and never "
     "send a link to it (spec D-36)."
@@ -67,6 +72,10 @@ def environment(dirs: Dirs, base_env=None, repo: Path = REPO_ROOT) -> dict[str, 
     env["PHONOTRAINER_CONFIG_DIR"] = str(dirs.config)
     env["PYTHONPATH"] = os.pathsep.join([str(repo)] + ([env["PYTHONPATH"]] if env.get("PYTHONPATH") else []))
     env["PYTHONDONTWRITEBYTECODE"] = "1"
+    if WINDOWS:
+        # The CLI would otherwise run itself again under `python -X utf8`: in UTF-8 mode from the start, the server is
+        # this script's own child, the process the stop signal reaches.
+        env["PYTHONUTF8"] = "1"
     return env
 
 
@@ -92,22 +101,28 @@ class Session:
         self.env = environment(self.dirs, repo=repo)
 
     def start(self):
-        self.server = self.popen(server_command(self.python, self.dirs, self.port), cwd=self.dirs.cwd, env=self.env)
+        self.server = self.popen(server_command(self.python, self.dirs, self.port), cwd=self.dirs.cwd, env=self.env,
+                                 **SERVER_FLAGS)
         return self.server
 
     def phone(self, name: str) -> int:
         return self.call(phone_command(self.python, name), cwd=self.dirs.cwd, env=self.env)
 
     def close(self) -> None:
-        if self.server is not None and self.server.poll() is None:
-            self.server.send_signal(signal.SIGINT)
-            try:
-                self.server.wait(timeout=15)
-            except subprocess.TimeoutExpired:
-                self.server.kill()
-                self.server.wait()
-        if not self.keep:
-            shutil.rmtree(self.dirs.base, ignore_errors=True)
+        try:
+            if self.server is not None and self.server.poll() is None:
+                try:
+                    self.server.send_signal(STOP_SIGNAL)
+                except (OSError, ValueError):
+                    self.server.terminate()  # no console to send Ctrl-Break through: stop it without its cleanup
+                try:
+                    self.server.wait(timeout=15)
+                except subprocess.TimeoutExpired:
+                    self.server.kill()
+                    self.server.wait()
+        finally:
+            if not self.keep:
+                shutil.rmtree(self.dirs.base, ignore_errors=True)
 
 
 def main(argv: list[str] | None = None) -> int:

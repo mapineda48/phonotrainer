@@ -5,6 +5,8 @@ Run with the repository's virtual environment, from the repository root:
     .venv/bin/python -B -m pytest -q -p no:cacheprovider android/tools/reference
     .venv/bin/python -B -m unittest discover -s android/tools/reference
 
+(`.venv/Scripts/python.exe` on Windows.)
+
 The bundled asset is only read; every run that writes uses a temporary directory.
 """
 
@@ -41,6 +43,22 @@ def repository_state() -> str:
     result = subprocess.run(["git", "status", "--porcelain", "--ignored", "--untracked-files=all"],
                             cwd=REPO, capture_output=True, text=True, check=True)
     return result.stdout
+
+
+def make_directory_link(link: Path, target: Path) -> None:
+    """A symbolic link to a directory; on Windows, where one needs Developer Mode or elevation, a directory junction
+    (which needs neither and is followed the same way); the test is skipped when neither can be made."""
+    try:
+        link.symlink_to(target, target_is_directory=True)
+        return
+    except OSError:
+        if sys.platform != "win32":
+            raise
+    try:
+        import _winapi
+        _winapi.CreateJunction(str(target), str(link))
+    except (ImportError, AttributeError, OSError) as error:
+        raise unittest.SkipTest(f"this account may not create a link: {error}") from error
 
 
 def entries(folder: Path) -> list[str]:
@@ -97,6 +115,15 @@ class TheExporter(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn("is up to date", result.stdout)
 
+    def test_check_passes_on_a_copy_with_crlf_line_endings(self):
+        # what a Windows checkout or editor makes of the asset
+        with tempfile.TemporaryDirectory() as tmp:
+            copy = Path(tmp) / "reference.json"
+            copy.write_text(ASSET.read_text(encoding="utf-8"), encoding="utf-8", newline="\r\n")
+            self.assertIn(b"\r\n", copy.read_bytes())
+            result = run("--check", "--out", str(copy))
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_check_fails_on_a_changed_copy_and_names_the_key(self):
         with tempfile.TemporaryDirectory() as tmp:
             copy = Path(tmp) / "reference.json"
@@ -122,7 +149,9 @@ class TheExporter(unittest.TestCase):
             self.assertEqual(entries(cwd), [], "nothing in the working directory (no data/phonotrainer.db)")
             self.assertEqual(entries(temp), [], "its temporary directory is removed")
             self.assertEqual(entries(home), [], "nothing in the home directory")
-            self.assertEqual((out / "reference.json").read_bytes(), ASSET.read_bytes())
+            # the export writes LF; a Windows checkout of the asset may hold CRLF
+            self.assertEqual((out / "reference.json").read_bytes(),
+                             ASSET.read_bytes().replace(b"\r\n", b"\n"))
         self.assertEqual(repository_state(), before, "nothing changed or appeared in the repository")
         self.assertFalse((REPO / "data").exists())
 
@@ -133,7 +162,7 @@ class TheExporter(unittest.TestCase):
         self.assertIsNone(export.web_refusal(REPO / "webapp" / "reference.json"))
         with tempfile.TemporaryDirectory() as tmp:
             link = Path(tmp) / "link"
-            link.symlink_to(REPO / "web")
+            make_directory_link(link, REPO / "web")
             self.assertIn("refusing", export.web_refusal(link / "nested" / "reference.json"))
 
 

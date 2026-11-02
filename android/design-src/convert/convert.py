@@ -614,6 +614,22 @@ def planned_outputs() -> dict[Path, bytes]:
     return out
 
 
+# The files the conversion generates, always as LF text (the others are byte-for-byte copies of the export).
+GENERATED = (
+    MODULE_MAIN / "assets" / "licenses" / "bundled.json",
+    KOTLIN_ROOT / "theme" / "Palette.kt",
+    KOTLIN_ROOT / "icons" / "PhonoIcons.kt",
+    KOTLIN_ROOT / "illustration" / "PhonoIllustrations.kt",
+)
+
+
+def on_disk(path: Path) -> bytes:
+    """A converted file as --check compares it: a generated one with CRLF read as LF, so a Windows checkout or
+    editor is not a difference; a copy byte for byte (its export source went through the same checkout)."""
+    data = path.read_bytes()
+    return data.replace(b"\r\n", b"\n") if path in GENERATED else data
+
+
 def stale_files(planned: dict[Path, bytes]) -> list[Path]:
     stale = []
     for d in MANAGED_DIRS:
@@ -644,7 +660,7 @@ def main(argv: list[str] | None = None) -> int:
             for path, data in planned.items():
                 if not path.exists():
                     problems.append(f"missing: {path.relative_to(ANDROID)}")
-                elif path.read_bytes() != data:
+                elif on_disk(path) != data:
                     problems.append(f"differs: {path.relative_to(ANDROID)}")
             problems += [f"not in the export: {p.relative_to(ANDROID)}" for p in stale]
             bundled = json.loads(planned[MODULE_MAIN / "assets" / "licenses" / "bundled.json"])

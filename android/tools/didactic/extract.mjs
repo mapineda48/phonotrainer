@@ -6,7 +6,8 @@
 // imports those files READ-ONLY (Node's built-in type stripping, no npm dependency) and
 // writes them as one versioned JSON asset for the Android build. `--check` regenerates the
 // JSON in memory and fails on any byte difference with the bundled asset: that is the
-// drift check `./gradlew :core:content:verifyDidacticContent` runs.
+// drift check `./gradlew :core:content:verifyDidacticContent` runs. Line endings are not a
+// difference: inputs are hashed, and the asset compared, with CRLF read as LF.
 //
 // It depends on the shape of the web sources on purpose: anything it does not recognise
 // (a new field, a new link target, a new import) fails the run with a message that names
@@ -105,7 +106,13 @@ export function realpathLoose(path) {
   }
 }
 
-const isInside = (path, folder) => path === folder || path.startsWith(folder.endsWith(sep) ? folder : folder + sep);
+/** Windows file names ignore case (`WEB\src`, `c:\…` name web/src too); elsewhere they do not. */
+const sameCase = (path) => (process.platform === "win32" ? path.toLowerCase() : path);
+
+const isInside = (path, folder) => {
+  const [target, base] = [sameCase(path), sameCase(folder)];
+  return target === base || target.startsWith(base.endsWith(sep) ? base : base + sep);
+};
 
 /** Why `out` may not be written, or null. It may not be inside the web/ folder of any of
  *  `roots` (the repositories involved), compared after resolving symbolic links. */
@@ -516,7 +523,7 @@ export function buildContent(root, files, web) {
     schema: SCHEMA,
     sources: files.map((file) => ({
       path: file,
-      sha256: createHash("sha256").update(readFileSync(join(root, file))).digest("hex"),
+      sha256: createHash("sha256").update(withLf(readFileSync(join(root, file)))).digest("hex"),
     })),
     glossary,
     symbolPhenomenon,
@@ -527,6 +534,13 @@ export function buildContent(root, files, web) {
 }
 
 // --- writing ----------------------------------------------------------------------------------
+
+/** The bytes with every CRLF turned into LF (latin1 maps each byte to one character and back, so nothing else
+ *  changes). A checkout or an editor that writes CRLF (Windows) gives the same hashes and the same asset as an LF
+ *  one: the inputs are hashed, and the asset compared, through it. */
+export function withLf(bytes) {
+  return bytes.includes(13) ? Buffer.from(bytes.toString("latin1").replace(/\r\n/g, "\n"), "latin1") : bytes;
+}
 
 /** Object keys in JavaScript string order (UTF-16 code units), the same on every run. */
 function compareKeys(a, b) {
@@ -618,7 +632,7 @@ function check(out, json, content) {
     console.error(`${shown(out)} does not exist. Run node android/tools/didactic/extract.mjs to create it.`);
     return 1;
   }
-  if (bundled.equals(Buffer.from(json, "utf8"))) {
+  if (withLf(bundled).equals(Buffer.from(json, "utf8"))) {
     console.log(`${shown(out)} is up to date with web/src (${summary(content)}).`);
     return 0;
   }

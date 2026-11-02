@@ -145,11 +145,13 @@ def find_macs(line: str):
 # --------------------------------------------------------------------------------------------------------------------
 # Home paths
 
-# `/home/<name>` and `/Users/<name>` not preceded by a path character (so `feature/home/` passes), and Windows
-# profiles. Placeholders such as `/home/<name>/` never match: `<` is not a name character.
+# `/home/<name>` and `/Users/<name>` not preceded by a path character (so `feature/home/` passes), also as Git Bash
+# and WSL write a Windows profile (`/c/Users/<name>`, `/mnt/c/Users/<name>`), and Windows profiles with either
+# separator and in any case (`C:\Users\<name>`, `c:/users/<name>`). Placeholders such as `/home/<name>/` never match:
+# `<` is not a name character.
 HOME_PATH_RE = re.compile(
-    r"(?<![A-Za-z0-9_.~-])/(?:home|Users)/([A-Za-z0-9._-]+)(?=/|[^A-Za-z0-9._-]|$)"
-    r"|(?<![\w])[A-Za-z]:\\{1,2}Users\\{1,2}([A-Za-z0-9._-]+)"
+    r"(?<![A-Za-z0-9_.~-])(?:/mnt)?(?:/[A-Za-z])?/(?:home|Users)/([A-Za-z0-9._-]+)(?=/|[^A-Za-z0-9._-]|$)"
+    r"|(?<![\w])[A-Za-z]:(?:\\{1,2}|/)(?i:users)(?:\\{1,2}|/)([A-Za-z0-9._-]+)"
 )
 
 
@@ -366,19 +368,77 @@ def _adb_serials(timeout: float = 2.0) -> list[str]:
     return [line.split()[0] for line in payload.splitlines() if line.strip()]
 
 
+def _windows_adapters() -> tuple[list[str], list[str]]:
+    """(IPv4 addresses, MACs) of this computer's network adapters on Windows, which has no `ip`, `ifconfig` or
+    /sys/class/net: iphlpapi's GetAdaptersInfo through ctypes, so values rather than localised text."""
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        class AddressString(ctypes.Structure):  # IP_ADDR_STRING
+            pass
+
+        AddressString._fields_ = [("Next", ctypes.POINTER(AddressString)), ("IpAddress", ctypes.c_char * 16),
+                                  ("IpMask", ctypes.c_char * 16), ("Context", wintypes.DWORD)]
+
+        class AdapterInfo(ctypes.Structure):  # IP_ADAPTER_INFO up to IpAddressList; the rest is never read
+            pass
+
+        AdapterInfo._fields_ = [
+            ("Next", ctypes.POINTER(AdapterInfo)), ("ComboIndex", wintypes.DWORD),
+            ("AdapterName", ctypes.c_char * 260), ("Description", ctypes.c_char * 132),
+            ("AddressLength", wintypes.UINT), ("Address", ctypes.c_ubyte * 8), ("Index", wintypes.DWORD),
+            ("Type", wintypes.UINT), ("DhcpEnabled", wintypes.UINT),
+            ("CurrentIpAddress", ctypes.POINTER(AddressString)), ("IpAddressList", AddressString),
+        ]
+        get_adapters_info = ctypes.WinDLL("iphlpapi").GetAdaptersInfo
+        get_adapters_info.argtypes = (ctypes.c_void_p, ctypes.POINTER(wintypes.ULONG))
+        get_adapters_info.restype = wintypes.DWORD
+        size = wintypes.ULONG(0)
+        for _ in range(4):  # the first call says how large the list is; it may grow before the next
+            buffer = ctypes.create_string_buffer(size.value or 1)
+            status = get_adapters_info(buffer, ctypes.byref(size))
+            if status != 111:  # ERROR_BUFFER_OVERFLOW
+                break
+        if status != 0:  # ERROR_NO_DATA (no adapter) or a failure
+            return [], []
+        addresses: list[str] = []
+        macs: list[str] = []
+        node = ctypes.cast(buffer, ctypes.POINTER(AdapterInfo))
+        while node:
+            adapter = node.contents
+            if adapter.AddressLength == 6:
+                macs.append(":".join(f"{byte:02x}" for byte in adapter.Address[:6]))
+            item = adapter.IpAddressList
+            while True:
+                text = item.IpAddress.decode("ascii", "replace")
+                if re.fullmatch(r"\d+\.\d+\.\d+\.\d+", text):
+                    addresses.append(text)
+                if not item.Next:
+                    break
+                item = item.Next.contents
+            node = adapter.Next
+        return addresses, macs
+    except (OSError, AttributeError, ValueError):
+        return [], []
+
+
 def _host_ipv4_addresses() -> list[str]:
     found: set[str] = set()
-    try:
-        out = subprocess.run(["ip", "-4", "-o", "addr", "show"], capture_output=True, text=True, timeout=5).stdout
-        found.update(re.findall(r"\binet (\d+\.\d+\.\d+\.\d+)", out))
-    except (OSError, subprocess.SubprocessError):
-        pass
-    if not found:
+    if os.name == "nt":
+        found.update(_windows_adapters()[0])
+    else:
         try:
-            out = subprocess.run(["ifconfig"], capture_output=True, text=True, timeout=5).stdout
-            found.update(re.findall(r"\binet (?:addr:)?(\d+\.\d+\.\d+\.\d+)", out))
+            out = subprocess.run(["ip", "-4", "-o", "addr", "show"], capture_output=True, text=True, timeout=5).stdout
+            found.update(re.findall(r"\binet (\d+\.\d+\.\d+\.\d+)", out))
         except (OSError, subprocess.SubprocessError):
             pass
+        if not found:
+            try:
+                out = subprocess.run(["ifconfig"], capture_output=True, text=True, timeout=5).stdout
+                found.update(re.findall(r"\binet (?:addr:)?(\d+\.\d+\.\d+\.\d+)", out))
+            except (OSError, subprocess.SubprocessError):
+                pass
     try:  # the address of the default route; a UDP connect sends nothing
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
             probe.connect(("192.0.2.1", 9))
@@ -391,7 +451,9 @@ def _host_ipv4_addresses() -> list[str]:
 def _host_macs() -> list[str]:
     found: set[str] = set()
     net = Path("/sys/class/net")
-    if net.is_dir():
+    if os.name == "nt":
+        found.update(_windows_adapters()[1])
+    elif net.is_dir():
         for iface in net.iterdir():
             try:
                 found.add((iface / "address").read_text().strip().lower())
@@ -442,6 +504,8 @@ def local_denylist(repo: Path | None = None, environ=None) -> list[DenyEntry]:
     home = os.path.expanduser("~")
     if home not in ("/", "~") and len(Path(home).parts) > 1:
         add("home directory", home.rstrip("/"))
+        if os.sep == "\\":  # Windows tools write C:\Users\<name> and C:/Users/<name> alike
+            add("home directory", home.rstrip("\\").replace("\\", "/"))
     add("git e-mail", _git_email(repo), minimum=3)
     serials = _adb_serials()
     if env.get("ANDROID_SERIAL"):
@@ -456,10 +520,15 @@ def local_denylist(repo: Path | None = None, environ=None) -> list[DenyEntry]:
     return entries
 
 
+# The denylist kinds whose value can be the owner's public GitHub handle: the user name, and the host name (a Windows
+# computer is often named after its owner).
+HANDLE_KINDS = ("user name", "host name")
+
+
 def _public_handle_form(line: str, start: int, end: int) -> bool:
     """The forms of the owner's public GitHub handle the repository may hold: the application id and package path
     (`com.<handle>.`, `com/<handle>/`, allowed by the brief) and the repository's own address (`github.com/<handle>`,
-    already in pyproject.toml). Every other occurrence of the user name is a finding."""
+    already in pyproject.toml). Every other occurrence of the user name or the host name is a finding."""
     before, after = line[:start], line[end:]
     for sep in "./":
         if before.endswith("com" + sep) and after.startswith(sep):
@@ -476,7 +545,7 @@ def find_denied(line: str, denylist: list[DenyEntry]):
         return
     for entry in denylist:
         for match in entry.pattern().finditer(line):
-            if entry.kind == "user name" and _public_handle_form(line, match.start(), match.end()):
+            if entry.kind in HANDLE_KINDS and _public_handle_form(line, match.start(), match.end()):
                 continue
             yield match.start(), match.end(), entry.kind
 
@@ -506,7 +575,7 @@ def redact(text: str, denylist: list[DenyEntry] | None = None, serials: list[str
             line_start = match.string.rfind("\n", 0, match.start()) + 1
             line_end = match.string.find("\n", match.end())
             line = match.string[line_start : len(match.string) if line_end < 0 else line_end]
-            if entry.kind == "user name" and _public_handle_form(
+            if entry.kind in HANDLE_KINDS and _public_handle_form(
                 line, match.start() - line_start, match.end() - line_start
             ):
                 return match.group(0)

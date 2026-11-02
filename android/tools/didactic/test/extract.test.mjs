@@ -1,5 +1,5 @@
 // Tests of the didactic extractor. Run with Node's own runner (no npm dependency):
-//   node --test android/tools/didactic/test/
+//   node --test android/tools/didactic/test/extract.test.mjs
 // Every run that writes uses a temporary copy of the web inputs and a temporary output;
 // the repository's web/ and its bundled asset are only read.
 
@@ -30,6 +30,7 @@ import {
   inputFiles,
   linkTarget,
   webOutputRefusal,
+  withLf,
 } from "../extract.mjs";
 import { schemaErrors } from "../schema.mjs";
 
@@ -53,7 +54,7 @@ function copyInputs(edit) {
 
 function replaceIn(root, file, from, to) {
   const path = join(root, file);
-  const before = readFileSync(path, "utf8");
+  const before = readFileSync(path, "utf8").replace(/\r\n/g, "\n"); // the edits are written with LF
   assert.ok(before.includes(from), `${file} no longer contains ${JSON.stringify(from)}; update the test`);
   writeFileSync(path, before.replace(from, to));
 }
@@ -64,7 +65,9 @@ function run(...args) {
 }
 
 const out = (name) => join(scratch, "out", `${name}.json`);
-const sha256 = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
+/** The hash the extractor records: of the file with CRLF read as LF. */
+const sha256 = (path) => createHash("sha256").update(withLf(readFileSync(path))).digest("hex");
+const readLf = (path) => withLf(readFileSync(path)).toString("utf8");
 
 describe("drift check", () => {
   it("passes on the bundled asset", () => {
@@ -95,6 +98,19 @@ describe("drift check", () => {
     assert.match(result.stdout, /is up to date/);
   });
 
+  it("ignores line endings: CRLF inputs and a CRLF asset are up to date (a Windows checkout)", () => {
+    const crlf = (path) => writeFileSync(path, readLf(path).replace(/\n/g, "\r\n"));
+    const root = copyInputs((r) => inputFiles(r).forEach((file) => crlf(join(r, file))));
+    const asset = out("crlf");
+    mkdirSync(dirname(asset), { recursive: true });
+    writeFileSync(asset, readFileSync(DEFAULT_OUT));
+    crlf(asset);
+    assert.ok(readFileSync(asset).includes(13) && readFileSync(join(root, "web/src/paths.ts")).includes(13));
+    const result = run("--check", "--root", root, "--out", asset);
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(withLf(Buffer.from("a\r\nb\rc\n")), Buffer.from("a\nb\rc\n"));
+  });
+
   it("fails when the bundled file is missing", () => {
     const result = run("--check", "--out", out("missing"));
     assert.equal(result.status, 1);
@@ -118,7 +134,7 @@ describe("generation", () => {
     assert.equal(run("--root", root, "--out", out("second")).status, 0);
     const first = readFileSync(out("first"), "utf8");
     assert.equal(first, readFileSync(out("second"), "utf8"));
-    assert.equal(first, readFileSync(DEFAULT_OUT, "utf8"));
+    assert.equal(first, readLf(DEFAULT_OUT));
     assert.ok(first.endsWith("}\n") && !first.includes("\r"));
     assert.equal(canonicalJson(JSON.parse(first)), first, "sorted keys, two-space indent");
   });
@@ -269,9 +285,16 @@ describe("never under web/", () => {
     assert.equal(existsSync(target), false);
   });
 
-  it("refuses an output that reaches web/ through a symbolic link", () => {
+  it("refuses an output that reaches web/ through a symbolic link", (t) => {
     const root = copyInputs();
-    symlinkSync(join(root, "web", "src"), join(root, "link"));
+    try {
+      // On Windows a directory junction: a symbolic link needs Developer Mode or elevation there.
+      symlinkSync(join(root, "web", "src"), join(root, "link"), process.platform === "win32" ? "junction" : undefined);
+    } catch (error) {
+      if (error.code !== "EPERM") throw error;
+      t.skip("this account may not create links (EPERM)");
+      return;
+    }
     const target = join(root, "link", "nested", "didactic.json");
     const result = run("--root", root, "--out", target);
     assert.equal(result.status, 2);
@@ -284,6 +307,13 @@ describe("never under web/", () => {
     assert.match(webOutputRefusal(join(REPO, "web"), [REPO]), /never writes under web\//);
     assert.equal(webOutputRefusal(join(REPO, "webapp", "x.json"), [REPO]), null);
     assert.equal(webOutputRefusal(DEFAULT_OUT, [REPO]), null);
+  });
+
+  it("refuses web/ written in another case on Windows, whose file names ignore case", { skip: process.platform !== "win32" && "file names are case-sensitive here" }, () => {
+    assert.match(webOutputRefusal(join(REPO, "WEB", "Src", "x.json"), [REPO]), /never writes under web\//);
+    const lowerDrive = REPO[0].toLowerCase() + REPO.slice(1);
+    assert.match(webOutputRefusal(join(lowerDrive, "web", "src", "x.json"), [REPO]), /never writes under web\//);
+    assert.equal(webOutputRefusal(join(REPO, "WEBAPP", "x.json"), [REPO]), null);
   });
 });
 

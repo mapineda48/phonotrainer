@@ -44,7 +44,7 @@ RULES = {
     "language": "heuristic scan for non-English text; IPA and phonetic examples pass (X-AC2)",
     "address": "IPv4/IPv6 literals only from the documentation ranges, loopback, the wildcard, broadcast, 10.0.2.2",
     "mac": "MAC addresses only from the documentation range 00:00:5e:00:53:xx",
-    "home-path": "no home path (/home/<name>/, /Users/<name>/)",
+    "home-path": "no home path (/home/<name>/, /Users/<name>/, C:\\Users\\<name>, /c/Users/<name>)",
     "private-key": "no private key",
     "credential": "no pairing token, Bearer value, signed header, pairing code (482913 is the placeholder) or id",
     "destructive-migration": "no fallbackToDestructiveMigration (architecture 4.4)",

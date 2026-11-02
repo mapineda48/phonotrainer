@@ -76,7 +76,18 @@ def restore_table(rows: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def utf8_streams() -> None:
+    """Standard input and output in UTF-8 on Windows, as the log is: there a pipe or a file is cp1252 by default,
+    which cannot print IPA (`show`, `note`) and decodes adb's UTF-8 output wrongly (`filter`)."""
+    if os.name != "nt":
+        return
+    for stream in (sys.stdin, sys.stdout):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="surrogateescape")
+
+
 def main(argv: list[str] | None = None) -> int:
+    utf8_streams()
     args = sys.argv[1:] if argv is None else argv
     if not args:
         print(__doc__)

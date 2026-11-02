@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import io
+import ipaddress
+import os
 import socket
 import sys
 import unittest
@@ -144,6 +146,17 @@ class ContentRules(RepoTestCase):
         self.assertTrue(self.check_line(f"see {planted('home')}/x", "home-path"))
         self.assertTrue(self.check_line(f"see {planted('users')}", "home-path"))
         self.assertEqual([], self.check_line("feature/home/HomeScreen.kt and /home/<name>/ and ~/.config", "home-path"))
+
+    def test_windows_home_paths_in_every_spelling(self):
+        name = "bo" + "b"
+        for path in (f"C:\\Users\\{name}\\code", f"c:\\users\\{name}", f"C:/Users/{name}/code",
+                     f"c:/USERS/{name}", f"/c/Users/{name}/code", f"/mnt/c/Users/{name}",
+                     f'"C:\\\\Users\\\\{name}"'):
+            with self.subTest(path=path):
+                self.assertTrue(self.check_line(f"see {path}", "home-path"))
+                self.assertNotIn(name, sensitive.redact(f"see {path}"))
+        self.assertEqual([], self.check_line("a/b/home/x and C:\\Users\\<name> and https://x.example/a/Users/z",
+                                             "home-path"))
 
     def test_private_key(self):
         self.assertTrue(self.check_line(planted("private-key"), "private-key"))
@@ -395,6 +408,26 @@ class Denylist(RepoTestCase):
         self.assertEqual([], [f for f in self.findings(denylist=denylist) if f.rule == "denylist"])
         self.repo.write("android/b.md", "Ask qauser7 or mail.qauser7.example\n")
         self.assertEqual(1, len([f for f in self.findings(denylist=denylist) if f.rule == "denylist"]))
+
+    def test_a_host_name_that_is_the_handle_passes_in_the_package_and_repository_forms(self):
+        # A Windows computer is often named after its owner, as the public handle is.
+        denylist = [sensitive.DenyEntry("host name", "qauser7")]
+        self.repo.write("android/a.kt", "package com.qauser7.phonotrainer\n// src/main/kotlin/com/qauser7/x\n")
+        self.repo.write("android/core/src/main/kotlin/com/qauser7/phonotrainer/X.kt", "class X\n")
+        self.repo.write("pyproject.toml", 'Homepage = "https://github.com/qauser7/phonotrainer"\n')
+        self.assertEqual([], [str(f) for f in self.findings(denylist=denylist) if f.rule == "denylist"])
+        self.repo.write("android/b.md", "Built on qauser7 today\n")
+        hits = [f.path for f in self.findings(denylist=denylist) if f.rule == "denylist"]
+        self.assertEqual(["android/b.md"], hits)
+
+    @unittest.skipUnless(os.name == "nt", "iphlpapi's adapter list is Windows' own (Linux reads /sys/class/net)")
+    def test_windows_reads_the_adapters_addresses_and_macs(self):
+        addresses, macs = sensitive._windows_adapters()
+        for mac in macs:
+            self.assertRegex(mac, r"^(?:[0-9a-f]{2}:){5}[0-9a-f]{2}$")
+        for address in addresses:
+            ipaddress.IPv4Address(address)
+        self.assertEqual(sorted({m for m in macs if not sensitive.mac_allowed(m)}), sensitive._host_macs())
 
     def test_the_real_denylist_entries_are_found_when_planted(self):
         real = sensitive.local_denylist(self.repo.path)

@@ -44,11 +44,15 @@ write_hook() {
 top=\$(git rev-parse --show-toplevel) || exit 1
 script="\$top/android/scripts/hygiene/check_repo.py"
 [ -f "\$script" ] || exit 0
-if ! command -v python3 >/dev/null 2>&1; then
-  echo "$name: python3 is required by the hygiene check (android/scripts/hygiene)" >&2
-  exit 1
-fi
-exec python3 "\$script" $mode
+# The first Python 3 that runs: python3 (Linux, macOS), else python or the py launcher (Windows, where python3 may be
+# the Microsoft Store stub, which is found on PATH but only prints a message and fails).
+for python in python3 python "py -3"; do
+  if \$python -c "import sys; sys.exit(sys.version_info[0] != 3)" </dev/null >/dev/null 2>&1; then
+    exec \$python "\$script" $mode
+  fi
+done
+echo "$name: Python 3 (python3, python or py -3) is required by the hygiene check (android/scripts/hygiene)" >&2
+exit 1
 EOF
   chmod +x "$target"
   echo "install-hooks.sh: installed $name"

@@ -16,7 +16,33 @@ from testsupport import HYGIENE_DIR, TempRepo, planted  # noqa: E402
 INSTALL = HYGIENE_DIR / "install-hooks.sh"
 
 
-@unittest.skipUnless(shutil.which("sh") and shutil.which("python3"), "needs sh and python3")
+def find_sh() -> str | None:
+    """`sh` on PATH, else (Windows, outside Git Bash) the one Git for Windows ships, which runs git's hooks too."""
+    found = shutil.which("sh")
+    git = shutil.which("git")
+    if found or os.name != "nt" or not git:
+        return found
+    root = Path(git).resolve().parent.parent  # <Git>/cmd/git.exe or <Git>/bin/git.exe
+    return next((str(p) for p in (root / "bin" / "sh.exe", root / "usr" / "bin" / "sh.exe") if p.is_file()), None)
+
+
+def working_python() -> bool:
+    """Whether a hook finds a Python 3 that runs, among the interpreters it tries (Windows' python3 may be the
+    Microsoft Store stub, which shutil.which finds but which only prints a message and fails)."""
+    for candidate in (["python3"], ["python"], ["py", "-3"]):
+        try:
+            if subprocess.run([*candidate, "-c", "import sys; sys.exit(sys.version_info[0] != 3)"],
+                              capture_output=True, timeout=30).returncode == 0:
+                return True
+        except (OSError, subprocess.TimeoutExpired):
+            continue
+    return False
+
+
+SH = find_sh()
+
+
+@unittest.skipUnless(SH and working_python(), "needs sh and a Python 3 (python3, python or py -3)")
 class Hooks(unittest.TestCase):
     def setUp(self) -> None:
         self.repo = TempRepo()
@@ -25,7 +51,7 @@ class Hooks(unittest.TestCase):
         self.repo.env["GITHUB_ACTIONS"] = "true"  # a CI-like run: no local denylist, so the test is deterministic
 
     def install(self, *args: str) -> subprocess.CompletedProcess:
-        return subprocess.run(["sh", str(self.repo.path / "android/scripts/hygiene/install-hooks.sh"), *args],
+        return subprocess.run([SH, str(self.repo.path / "android/scripts/hygiene/install-hooks.sh"), *args],
                               cwd=self.repo.path / "android", env=self.repo.env, capture_output=True, text=True)
 
     def test_pre_commit_blocks_a_planted_violation_and_lets_a_clean_commit_through(self):
@@ -42,8 +68,9 @@ class Hooks(unittest.TestCase):
 
     def test_pre_push_blocks_a_violation_that_skipped_the_commit_hook(self):
         self.assertEqual(0, self.install().returncode)
-        remote = tempfile.mkdtemp(prefix="hygiene-remote-")
-        self.addCleanup(shutil.rmtree, remote, True)
+        remote_dir = tempfile.TemporaryDirectory(prefix="hygiene-remote-", ignore_cleanup_errors=True)
+        self.addCleanup(remote_dir.cleanup)  # it deletes git's read-only objects on Windows too
+        remote = remote_dir.name
         subprocess.run(["git", "init", "-q", "--bare", remote], check=True, capture_output=True)
         self.repo.git("remote", "add", "origin", remote)
         self.repo.commit("Clean")

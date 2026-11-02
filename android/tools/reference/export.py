@@ -10,6 +10,8 @@ Run it with the repository's virtual environment, from anywhere:
     .venv/bin/python android/tools/reference/export.py            write the asset
     .venv/bin/python android/tools/reference/export.py --check    exit 1 if it is stale
 
+On Windows the interpreter is `.venv\\Scripts\\python.exe`.
+
 How it stays harmless:
 - the server app is built on a throwaway directory: `JobStore(<tmp>/workspace,
   corpus=None)`, and every other path `create_app()` could touch (database, downloads,
@@ -231,6 +233,7 @@ def check(out: Path, text: str) -> int:
         print(f"{_shown(out)} does not exist. Run android/tools/reference/export.py to create it.",
               file=sys.stderr)
         return 1
+    bundled = bundled.replace(b"\r\n", b"\n")   # a CRLF checkout (Windows) is not a difference
     if bundled == text.encode("utf-8"):
         print(f"{_shown(out)} is up to date with the server's /api/reference.")
         return 0

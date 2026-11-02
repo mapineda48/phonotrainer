@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import io
 import ipaddress
+import os
 import struct
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -296,6 +298,39 @@ class Start(unittest.TestCase):
         self.assertEqual(2, code)
         self.assertIn("no Wi-Fi capture", out.getvalue())
         self.assertEqual(Path("/e/run-wifi.pcap"), capture.wifi_path(Path("/e/run.pcap")))
+
+
+class Netsimd(unittest.TestCase):
+    """Whether netsimd runs: pgrep for this user on Linux and macOS, tasklist on Windows (no pgrep, no getuid)."""
+
+    @staticmethod
+    def answering(*outputs: bytes, code: int = 0):
+        seen = []
+
+        def run(argv, **kwargs):
+            seen.append(argv)
+            return subprocess.CompletedProcess(argv, code, stdout=outputs[len(seen) - 1])
+
+        return run, seen
+
+    def test_windows_reads_the_task_list(self):
+        run, seen = self.answering(b"\r\nnetsimd.exe                  18612 Console      1     22,988 K\r\n",
+                                   b"INFO: No tasks are running which match the specified criteria.\r\n")
+        self.assertTrue(capture.netsimd_running(run, windows=True))
+        self.assertFalse(capture.netsimd_running(run, windows=True))
+        self.assertEqual(["tasklist", "/FI", "IMAGENAME eq netsimd.exe", "/NH"], seen[0])
+
+    @unittest.skipUnless(hasattr(os, "getuid"), "pgrep runs for this user's id, which Windows lacks")
+    def test_elsewhere_pgrep_answers(self):
+        run, seen = self.answering(b"4242\n", code=0)
+        self.assertTrue(capture.netsimd_running(run, windows=False))
+        self.assertEqual(["pgrep", "-u", str(os.getuid()), "-x", "netsimd"], seen[0])
+
+    def test_a_missing_tool_means_not_running(self):
+        def missing(argv, **kwargs):
+            raise FileNotFoundError(argv[0])
+
+        self.assertFalse(capture.netsimd_running(missing, windows=True))
 
 
 if __name__ == "__main__":

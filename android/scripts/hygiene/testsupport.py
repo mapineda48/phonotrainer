@@ -84,7 +84,10 @@ class TempRepo:
     """A throwaway git repository with the real root .gitignore (so the ignore-rule trap behaves as in the repo)."""
 
     def __init__(self, android_gitignore: bool = True):
-        self._dir = tempfile.mkdtemp(prefix="hygiene-test-")
+        # TemporaryDirectory's cleanup also deletes read-only files, as git writes its objects (Windows refuses to
+        # unlink those, so shutil.rmtree alone left every repository behind there).
+        self._tmp = tempfile.TemporaryDirectory(prefix="hygiene-test-", ignore_cleanup_errors=True)
+        self._dir = self._tmp.name
         self.path = Path(self._dir)
         self.env = {**os.environ, **GIT_ENV}
         self.git("init", "-q", "-b", "main")
@@ -120,4 +123,4 @@ class TempRepo:
                         ignore=shutil.ignore_patterns("__pycache__", "test_*.py"))
 
     def cleanup(self) -> None:
-        shutil.rmtree(self._dir, ignore_errors=True)
+        self._tmp.cleanup()

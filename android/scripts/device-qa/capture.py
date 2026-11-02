@@ -322,14 +322,22 @@ NETSIM_PCAP_ARGS = ("-netsim-args", "--pcap")
 
 
 def netsim_pcap_dir() -> Path:
-    """Where netsimd writes its captures: the emulator's temporary directory, `<temp>/android-<user>`."""
+    """Where netsimd writes its captures: the emulator's temporary directory, `<temp>/android-<user>` (on Windows
+    `%TEMP%` itself, where netsimd keeps its `netsimd` folder)."""
+    if os.name == "nt":
+        return Path(tempfile.gettempdir()) / "netsimd" / "pcaps"
     return Path(tempfile.gettempdir()) / f"android-{getpass.getuser()}" / "netsimd" / "pcaps"
 
 
-def netsimd_running(run=subprocess.run) -> bool:
+def netsimd_running(run=subprocess.run, windows: bool = os.name == "nt") -> bool:
     """True while this user's netsimd runs. One netsimd serves every emulator of the user and only records when it
     was started with --pcap, so a capture run must start it."""
     try:
+        if windows:
+            # No pgrep or getuid: tasklist lists netsimd.exe, or prints a (localised) line without that name. It exits
+            # 0 either way, and it writes in the console's code page, so its bytes are searched for the ASCII name.
+            listed = run(["tasklist", "/FI", "IMAGENAME eq netsimd.exe", "/NH"], capture_output=True).stdout or b""
+            return b"netsimd.exe" in listed.lower()
         return run(["pgrep", "-u", str(os.getuid()), "-x", "netsimd"], capture_output=True).returncode == 0
     except OSError:
         return False
@@ -372,7 +380,8 @@ def start(avd: str, pcap: Path, extra: list[str], call=subprocess.call, running=
               "Stop every emulator first.")
         return 2
     pcap.parent.mkdir(parents=True, exist_ok=True)
-    emulator = os.path.join(os.environ.get("ANDROID_HOME", ""), "emulator", "emulator")
+    emulator = os.path.join(os.environ.get("ANDROID_HOME", ""), "emulator",
+                            "emulator.exe" if os.name == "nt" else "emulator")
     binary = emulator if os.path.exists(emulator) else "emulator"
     command = [binary, "-avd", avd, "-tcpdump", str(pcap), *NETSIM_PCAP_ARGS, "-no-snapshot-save", *extra]
     print("capture.py: " + " ".join(command))
