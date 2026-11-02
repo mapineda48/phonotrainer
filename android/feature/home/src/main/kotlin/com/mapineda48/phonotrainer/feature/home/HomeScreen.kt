@@ -1,5 +1,6 @@
 package com.mapineda48.phonotrainer.feature.home
 
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,8 +23,11 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshState
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.layoutId
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -37,6 +41,9 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.constrainHeight
+import androidx.compose.ui.unit.constrainWidth
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.Text
 import com.mapineda48.phonotrainer.core.designsystem.brand.PhonoMarkImage
@@ -85,15 +92,17 @@ internal class HomeActions(
 
 /**
  * Home (spec F-03, design 9.16 and 10.1 T1, renders `01`–`03`): the masthead (stylus P, wordmark, Settings, double rule,
- * dateline, lede), then the blocks of F-03 in their order ([HomeRules.blocks]) 20 dp apart, in one scrolling column
- * whose saveable position Back from the feed restores (F-03-AC8). Pull to refresh is "Sync now" when connected;
- * otherwise it says "Your computer isn't reachable right now." and changes nothing else.
+ * dateline, lede), then the blocks of F-03 in their order ([HomeRules.blocks]) 20 dp apart, in one scrolling column.
+ * The column keeps the learner's place when blocks above the ones on screen change, while Home shows or while it is
+ * away, so Back from the feed finds the page as the learner left it (F-03-AC8, [HomeScrollAnchor]). Pull to refresh is
+ * "Sync now" when connected; otherwise it says "Your computer isn't reachable right now." and changes nothing else.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun HomeScreen(state: HomeUiState, actions: HomeActions, modifier: Modifier = Modifier) {
   val title = stringResource(R.string.home_title)
   val scroll = rememberScrollState()
+  val anchor = rememberSaveable(saver = HomeScrollAnchor.Saver) { HomeScrollAnchor() }
   val pull = rememberPullToRefreshState()
   val syncLabel = stringResource(R.string.home_refresh_action)
   PullToRefreshBox(
@@ -108,7 +117,9 @@ internal fun HomeScreen(state: HomeUiState, actions: HomeActions, modifier: Modi
       .semantics { customActions = listOf(CustomAccessibilityAction(syncLabel) { actions.onRefresh(); true }) },
     indicator = { RefreshTrace(pull, state.refreshing, Modifier.align(Alignment.TopCenter)) },
   ) {
-    Column(
+    AnchoredColumn(
+      scroll = scroll,
+      anchor = anchor,
       modifier = Modifier
         .fillMaxSize()
         .verticalScroll(scroll)
@@ -116,12 +127,11 @@ internal fun HomeScreen(state: HomeUiState, actions: HomeActions, modifier: Modi
         .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
         .padding(horizontal = PhonoSpacing.gutter)
         .padding(bottom = PhonoSpacing.s32),
-      verticalArrangement = Arrangement.spacedBy(PhonoSpacing.sectionGap),
     ) {
-      Masthead(state, actions)
-      state.notice?.let { NoticeLine(it) }
+      Box(Modifier.layoutId(MASTHEAD)) { Masthead(state, actions) }
+      state.notice?.let { Box(Modifier.layoutId(NOTICE)) { NoticeLine(it) } }
       HomeRules.blocks(state).forEach { block ->
-        Box(Modifier.fillMaxWidth().testTag(HomeTags.block(block))) {
+        Box(Modifier.fillMaxWidth().layoutId(block.name).testTag(HomeTags.block(block))) {
           when (block) {
             HomeBlock.STATUS -> StatusBlock(state, actions)
             HomeBlock.TEACHING -> TeachingBlock(actions)
@@ -141,6 +151,35 @@ internal fun HomeScreen(state: HomeUiState, actions: HomeActions, modifier: Modi
     }
   }
 }
+
+/**
+ * Home's column: its items top to bottom, [PhonoSpacing.sectionGap] apart, each named by its `layoutId` (a block's name,
+ * [MASTHEAD], [NOTICE]). After each measure, [anchor] scrolls [scroll] so the learner keeps their place, in the same
+ * frame (at the end of the page, as soon as the scroll has measured the page's new end). Items are laid out as a
+ * `Column` with `Arrangement.spacedBy` lays them out, start-aligned.
+ */
+@Composable
+private fun AnchoredColumn(scroll: ScrollState, anchor: HomeScrollAnchor, modifier: Modifier, content: @Composable () -> Unit) {
+  Layout(content, modifier) { measurables, constraints ->
+    val gap = PhonoSpacing.sectionGap.roundToPx()
+    val child = Constraints(maxWidth = constraints.maxWidth)
+    val placeables = measurables.map { it.measure(child) }
+    var y = 0
+    val items = measurables.mapIndexed { index, measurable ->
+      val key = checkNotNull(measurable.layoutId as? String) { "Every item of Home's column has a layoutId" }
+      PlacedItem(key, y).also { y += placeables[index].height + gap }
+    }
+    val height = if (placeables.isEmpty()) 0 else y - gap
+    anchor.settle(scroll, items)
+    layout(constraints.constrainWidth(placeables.maxOfOrNull { it.width } ?: 0), constraints.constrainHeight(height)) {
+      anchor.finish(scroll)
+      placeables.forEachIndexed { index, placeable -> placeable.placeRelative(0, items[index].top) }
+    }
+  }
+}
+
+private const val MASTHEAD = "masthead"
+private const val NOTICE = "notice"
 
 /** Design 9.16 block 1: the stylus P, the wordmark "Phono*Trainer*", Settings; the double rule; dateline and lede. */
 @Composable
