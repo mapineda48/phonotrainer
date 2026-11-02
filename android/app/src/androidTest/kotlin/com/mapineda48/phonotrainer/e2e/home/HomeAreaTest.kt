@@ -31,8 +31,9 @@ import org.junit.Test
  * the repositories of this baseline: Home opens as the start destination, its controls reach their destinations and
  * Back follows architecture 16.2; a phone that never paired shows the first run; and on clips brought to the phone
  * through the real stack ([TestSeeder]: fake computer, pairing, a sync pass, the indexer) "Start" opens Watch at
- * today's set (F-03-AC1), Back from a shelf clip's feed finds Home at the same scroll position (F-03-AC8), and a chip
- * opens the change mode with as many shorts as it says (F-03-AC7).
+ * today's set (F-03-AC1), Back from a shelf clip's feed finds Home at the scroll position it had when "Watch" was
+ * tapped, even when the blocks above the shelf grew after the page scrolled there (F-03-AC8), and a chip opens the
+ * change mode with as many shorts as it says (F-03-AC7).
  */
 @HiltAndroidTest
 class HomeAreaTest {
@@ -117,12 +118,10 @@ class HomeAreaTest {
   fun backFromAShelfClipsFeedFindsHomeAtTheSameScrollPosition() {
     start()
     val id = seeded("At the station").single()
-    // The shelf is below the fold: Home scrolls to it first.
-    home.scrollToShelf(id)
-    val before = home.scrollPosition()
-    assertThat(before).isGreaterThan(0f)
+    // The shelf is below the fold: Home scrolls to it, and "Watch" is tapped there.
+    val tappedAt = home.watchFromShelf(id)
+    assertThat(tappedAt).isGreaterThan(0f)
 
-    home.watchFromShelf(id)
     phono.assertShown(WatchKey())
     // F-03-AC8: the feed "In order" on the clip at its resume short.
     assertThat(home.top(Tab.WATCH)).isEqualTo(WatchKey(FeedStart.InOrder(id, firstSegment = null, fromStart = false)))
@@ -130,8 +129,28 @@ class HomeAreaTest {
     phono.assertShown(HomeKey)
     home.waitForHome()
     compose.waitForIdle()
-    // Back finds Home where it was.
-    assertThat(home.scrollPosition()).isEqualTo(before)
+    // Back finds Home where it was when "Watch" was tapped.
+    assertThat(home.scrollPosition()).isEqualTo(tappedAt)
+  }
+
+  @Test
+  fun backFindsHomeWhereWatchWasTappedAfterTheBlocksAboveTheShelfGrew() {
+    start()
+    val id = seeded("At the station").single()
+    home.scrollToShelf(id)
+    // Another clip reaches the phone while Home shows the shelf: "New on this phone" grows above it, so the shelf
+    // moves down and the page scrolls again to bring the card back before "Watch" is tapped.
+    val other = runBlocking { seeder.seedLibrary("Ordering coffee", video = false) }.single()
+    home.waitForNew(other)
+    val tappedAt = home.watchFromShelf(id)
+
+    phono.assertShown(WatchKey())
+    phono.back()
+    phono.assertShown(HomeKey)
+    home.waitForHome()
+    compose.waitForIdle()
+    // F-03-AC8: Back finds Home where it was at the tap, not where it was before the blocks above the shelf grew.
+    assertThat(home.scrollPosition()).isEqualTo(tappedAt)
   }
 
   @Test
