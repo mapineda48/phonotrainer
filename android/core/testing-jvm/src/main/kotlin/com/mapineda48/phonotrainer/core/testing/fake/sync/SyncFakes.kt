@@ -14,6 +14,7 @@ import com.mapineda48.phonotrainer.core.domain.model.StorageBudget
 import com.mapineda48.phonotrainer.core.domain.model.StorageUsage
 import com.mapineda48.phonotrainer.core.domain.model.SyncReason
 import com.mapineda48.phonotrainer.core.domain.model.SyncState
+import java.time.Instant
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,7 +26,12 @@ class FakeSyncController : SyncController {
   val stateFlow = MutableStateFlow<SyncState>(SyncState.Idle)
   val reasons = mutableListOf<SyncReason>()
 
+  /** When the last complete listing was reconciled; null until a test sets it (CR-WP08-1). */
+  val lastSyncedFlow = MutableStateFlow<Instant?>(null)
+
   override val state: StateFlow<SyncState> = stateFlow
+
+  override val lastSynced: Flow<Instant?> = lastSyncedFlow
 
   override fun syncNow(reason: SyncReason) {
     reasons += reason

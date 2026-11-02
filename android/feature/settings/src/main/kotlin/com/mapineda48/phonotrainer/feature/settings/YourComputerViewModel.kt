@@ -19,10 +19,8 @@ import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -66,10 +64,6 @@ internal class YourComputerViewModel @Inject constructor(
 ) : ViewModel() {
   private val local = MutableStateFlow(Local())
 
-  private val lastSynced = sync.lastSynced
-    .catch { if (it is CancellationException) throw it else emit(null) }
-    .onStart { emit(null) }
-
   private val connection = combine(
     computer.status,
     computer.paired,
@@ -78,12 +72,13 @@ internal class YourComputerViewModel @Inject constructor(
     sync.state,
   ) { status, paired, restricted, checkedAt, syncState -> Connection(status, paired, restricted, checkedAt, syncState) }
 
-  val state: StateFlow<YourComputerUiState> = combine(connection, lastSynced, local) { c, synced, l ->
+  val state: StateFlow<YourComputerUiState> = combine(connection, local) { c, l ->
     YourComputerUiState(
       status = c.status,
       paired = c.paired,
       sync = c.sync,
-      lastSynced = synced ?: c.paired?.lastSync,
+      // The status repository's, from the engine's last listing of this pairing (CR-WP08-1).
+      lastSynced = c.paired?.lastSync,
       checkedAt = c.checkedAt,
       backgroundRestricted = c.restricted,
       now = clock.now(),

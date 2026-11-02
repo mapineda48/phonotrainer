@@ -2,7 +2,6 @@ package com.mapineda48.phonotrainer.feature.settings
 
 import com.google.common.truth.Truth.assertThat
 import com.mapineda48.phonotrainer.core.domain.api.ComputerStatusRepository
-import com.mapineda48.phonotrainer.core.domain.api.SyncController
 import com.mapineda48.phonotrainer.core.domain.model.AppError
 import com.mapineda48.phonotrainer.core.domain.model.ComputerStatus
 import com.mapineda48.phonotrainer.core.domain.model.ForgetResult
@@ -15,8 +14,6 @@ import com.mapineda48.phonotrainer.core.testing.fake.sync.FakeSyncController
 import java.time.Instant
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -38,8 +35,8 @@ class YourComputerViewModelTest {
   private val sync = FakeSyncController()
   private val clock = TestClock(Instant.parse("2026-10-18T10:00:00Z"))
 
-  private fun viewModel(syncController: SyncController = sync, status: ComputerStatusRepository = computer) =
-    YourComputerViewModel(status, pairing, syncController, clock)
+  private fun viewModel(status: ComputerStatusRepository = computer) =
+    YourComputerViewModel(status, pairing, sync, clock)
 
   private fun TestScope.subscribe(viewModel: YourComputerViewModel) {
     backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.state.collect {} }
@@ -57,22 +54,37 @@ class YourComputerViewModelTest {
     assertThat(state.paired).isEqualTo(SettingsSamples.computer)
     assertThat(state.status).isEqualTo(ComputerStatus.Connected("Study desk", 1, 2, false))
     assertThat(state.backgroundRestricted).isTrue()
-    // Without a reconciled listing yet, the pairing's last sync stands.
+    // "Last synced" is the paired computer's (CR-WP08-1).
     assertThat(state.lastSynced).isEqualTo(SettingsSamples.computer.lastSync)
     assertThat(state.now).isEqualTo(clock.instant)
   }
 
   @Test
-  fun theSyncEnginesLastSyncWinsOverThePairings() = runTest {
-    val synced = Instant.parse("2026-10-18T09:59:00Z")
-    val engine = object : SyncController by sync {
-      override val lastSynced: Flow<Instant?> = flowOf(synced)
-    }
-    computer.pairedState.value = SettingsSamples.computer
-    val viewModel = viewModel(syncController = engine)
+  fun aListingOfAnEarlierPairingIsNotThisComputersLastSync() = runTest {
+    // The engine's last listing is older than this pairing, so it belongs to an earlier one: the status repository
+    // gives the paired computer no last sync, and the page shows none either (CR-WP08-1).
+    sync.lastSyncedFlow.value = Instant.parse("2026-10-17T08:00:00Z")
+    computer.pairedState.value =
+      SettingsSamples.computer.copy(pairedAt = Instant.parse("2026-10-18T09:00:00Z"), lastSync = null)
+    val viewModel = viewModel()
     subscribe(viewModel)
 
+    assertThat(viewModel.state.value.lastSynced).isNull()
+  }
+
+  @Test
+  fun thePairedComputersLastSyncIsWhatThePageShows() = runTest {
+    // The engine's own time is not read: the status repository already turned it into the paired computer's.
+    sync.lastSyncedFlow.value = Instant.parse("2026-10-18T09:30:00Z")
+    val synced = Instant.parse("2026-10-18T09:59:00Z")
+    computer.pairedState.value = SettingsSamples.computer.copy(lastSync = synced)
+    val viewModel = viewModel()
+    subscribe(viewModel)
     assertThat(viewModel.state.value.lastSynced).isEqualTo(synced)
+
+    val next = Instant.parse("2026-10-18T10:00:00Z")
+    computer.pairedState.value = SettingsSamples.computer.copy(lastSync = next)
+    assertThat(viewModel.state.value.lastSynced).isEqualTo(next)
   }
 
   @Test

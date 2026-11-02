@@ -240,12 +240,12 @@ internal class Harness(
   val sync = FakeSyncController()
 
   /** When the sync engine last reconciled a complete listing ([SyncController.lastSynced]; CR-WP08-1). */
-  val lastListing = MutableStateFlow<Instant?>(null)
+  val lastListing: MutableStateFlow<Instant?> = sync.lastSyncedFlow
 
   /** What [status] reads as the engine's `lastSynced`: [lastListing], unless a test gives another source first. */
   var lastSyncedSource: Flow<Instant?> = lastListing
 
-  /** [sync] with [lastSyncedSource]: `FakeSyncController` keeps no time of its own. */
+  /** [sync] with [lastSyncedSource], so that a test can give a source that fails. */
   private val syncController: SyncController = object : SyncController by sync {
     override val lastSynced: Flow<Instant?> get() = lastSyncedSource
   }
