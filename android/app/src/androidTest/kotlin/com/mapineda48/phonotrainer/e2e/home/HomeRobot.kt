@@ -1,5 +1,6 @@
 package com.mapineda48.phonotrainer.e2e.home
 
+import android.content.Context
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
@@ -12,6 +13,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.navigation3.runtime.NavKey
+import androidx.test.platform.app.InstrumentationRegistry
 import com.mapineda48.phonotrainer.core.domain.model.ChangeLabel
 import com.mapineda48.phonotrainer.core.domain.model.JobId
 import com.mapineda48.phonotrainer.core.navigation.Tab
@@ -22,11 +24,14 @@ import com.mapineda48.phonotrainer.feature.home.HomeTags
 
 /**
  * The Home area's robot (work-plan 2.4, `e2e/<area>/`): it waits for Home's blocks, scrolls to a control before it
- * taps it (Home is one scrolling page), reads the status card's sentence, a chip's short count and the page's scroll
- * position, and plays a shelf clip the way TalkBack and the menu do. WP-19's flows reuse it.
+ * taps it (Home is one scrolling page), reads the status card's sentence, a chip's short count, the page's scroll
+ * position and where a shelf card is on screen, and plays a shelf clip the way TalkBack and the menu do. WP-19's flows
+ * reuse it.
  */
 @OptIn(ExperimentalTestApi::class)
 class HomeRobot(private val compose: ComposeTestRule, val phono: PhonoRobot) {
+  private val app: Context = InstrumentationRegistry.getInstrumentation().targetContext
+
   fun waitForHome(): HomeRobot {
     phono.waitForTag(HomeTags.PAGE)
     return this
@@ -94,24 +99,39 @@ class HomeRobot(private val compose: ComposeTestRule, val phono: PhonoRobot) {
     compose.waitForIdle()
   }
 
+  /** The top of the shelf card of [id] on screen, in pixels (where the learner sees it; off screen it is outside). */
+  fun shelfCardTop(id: JobId): Float = compose.onNode(shelfCard(id)).fetchSemanticsNode().positionInRoot.y
+
   /**
    * "Watch" on the shelf card of [id] (F-03-AC8's play action: the card's custom action, as TalkBack offers it), after
-   * scrolling the card on screen. Returns the page's scroll position at the tap, read on the main thread in the same
-   * turn as the action, so no frame falls between them: that is where Back must find Home. A position read before
-   * this call is not: Home's blocks above the shelf keep filling in after a sync (today's set, "New on this phone",
-   * the status card), and the scroll to the card follows them.
+   * scrolling the card on screen. Returns where the page and the card were at the tap, read on the main thread in the
+   * same turn as the action, so no frame falls between them: Back must show the card there. A reading taken before this
+   * call may not be: Home's blocks above the shelf keep filling in after a sync (today's set, "New on this phone", the
+   * status card), and the scroll to the card follows them.
    */
-  fun watchFromShelf(id: JobId): Float {
+  fun watchFromShelf(id: JobId): ShelfTap {
     scrollToShelf(id)
     val page = compose.onNodeWithTag(HomeTags.PAGE).fetchSemanticsNode().config[SemanticsProperties.VerticalScrollAxisRange]
-    val watch = compose.onNode(shelfCard(id)).fetchSemanticsNode().config[SemanticsActions.CustomActions].single { it.label == "Watch" }
-    var tappedAt = Float.NaN
+    val card = compose.onNode(shelfCard(id)).fetchSemanticsNode()
+    val label = app.getString(com.mapineda48.phonotrainer.core.ui.R.string.clip_watch)
+    val watch = card.config[SemanticsActions.CustomActions].single { it.label == label }
+    var tap: ShelfTap? = null
     compose.runOnIdle {
-      tappedAt = page.value()
+      tap = ShelfTap(scroll = page.value(), cardTop = card.positionInRoot.y)
       watch.action()
     }
     compose.waitForIdle()
-    return tappedAt
+    return checkNotNull(tap)
+  }
+
+  /** Waits until Home shows "Keep watching" (the last feed position is not today's set, F-03 item 4). */
+  fun waitForKeepWatching() {
+    compose.waitUntilAtLeastOneExists(hasTestTag(HomeTags.block("keep_watching")), PhonoRobot.TIMEOUT_MS)
+  }
+
+  /** Waits until the shelf card of [id] is on Home again (after Back from its feed). */
+  fun waitForShelfCard(id: JobId) {
+    compose.waitUntilAtLeastOneExists(shelfCard(id), PhonoRobot.TIMEOUT_MS)
   }
 
   /** Waits until "New on this phone" shows the card of [id] (it waits for the clip to reach the phone). */
@@ -125,6 +145,9 @@ class HomeRobot(private val compose: ComposeTestRule, val phono: PhonoRobot) {
     phono.onNavigator { key = it.stack(tab).last() }
     return checkNotNull(key)
   }
+
+  /** Where the page ([scroll], its scroll value) and the tapped shelf card ([cardTop], its top on screen) were at a tap. */
+  data class ShelfTap(val scroll: Float, val cardTop: Float)
 
   companion object {
     /** Waits that include a sync pass and the indexer. */
