@@ -32,9 +32,9 @@ import org.junit.Test
 /**
  * A clip deleted on the computer while its Clip page is open (spec F-05 States, 7.9, QT-10; CR-WP08-4), on the real
  * stack: two clips come to this phone through [TestSeeder] (the fake computer, pairing, a sync pass), the computer
- * deletes one while its page shows, and the page says so with its banner, keeps the clip playable until the learner
- * leaves, and offers nothing that needs the computer. Back in the Library the clip is gone from this phone with one
- * notice, and the other clip stays.
+ * deletes one while its page shows, and the page says so with its banner, keeps what can be read until the learner
+ * leaves, and offers nothing that plays the clip or needs the computer. Back in the Library the clip is gone from this
+ * phone with one notice, and the other clip stays.
  */
 @HiltAndroidTest
 class LibraryDeletionTest {
@@ -77,17 +77,20 @@ class LibraryDeletionTest {
     phono.assertShown(ClipKey(deleted))
     library.awaitClip(DELETED)
     assertThat(library.hasClipDeletedBanner()).isFalse()
+    library.assertClipWatchable()
     library.clipTab(ClipTab.SUMMARY)
     assertThat(library.onPhoneOffers(LibraryTags.REMOVE_FROM_PHONE)).isTrue()
 
     seeder.computer.deleteJob(deleted)
     awaitMarkedDeleted(deleted)
 
-    // F-05 States: the banner, and the clip stays, playable, until the learner leaves its page (QT-10).
-    library.clipToTop()
+    // F-05 States: the banner, there while the learner still reads "On this phone", and the clip stays until the
+    // learner leaves its page (QT-10).
     library.awaitClipDeletedBanner()
+    library.clipToTop()
     library.awaitClip(DELETED)
-    library.assertClipWatchable()
+    // The feed has already left its shorts out (spec F-06 States), so nothing on the page opens it.
+    assertThat(library.offersWatch()).isFalse()
     // Nothing that needs the computer: "Remove from this phone?" would say the clip stays there.
     assertThat(library.onPhoneOffers(LibraryTags.REMOVE_FROM_PHONE)).isFalse()
     assertThat(library.onPhoneOffers(LibraryTags.KEEP)).isFalse()

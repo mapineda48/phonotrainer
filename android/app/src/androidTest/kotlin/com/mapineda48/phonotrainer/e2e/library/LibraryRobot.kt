@@ -263,7 +263,7 @@ class LibraryRobot(private val compose: ComposeTestRule, val phono: PhonoRobot) 
     compose.onNode(hasText(words(R.string.clip_page_gone))).assertIsDisplayed()
   }
 
-  /** Scrolls the Clip page back to its top: the hero, then the banner when there is one, then the header. */
+  /** Scrolls the Clip page back to its top: the hero, then the header (a banner sits above the list, design 9.23). */
   fun clipToTop() {
     compose.onNodeWithTag(LibraryTags.CLIP_LIST).performScrollToIndex(0)
     compose.waitForIdle()
@@ -281,10 +281,18 @@ class LibraryRobot(private val compose: ComposeTestRule, val phono: PhonoRobot) 
     compose.onNode(deletedBanner).assertIsDisplayed()
   }
 
-  /** "Watch" is on the page and enabled: the clip still plays from it. */
+  /** "Watch" is on the page and enabled: the clip plays from it. */
   fun assertClipWatchable() {
     compose.onNodeWithTag(LibraryTags.CLIP_LIST).performScrollToNode(hasTestTag(LibraryTags.CLIP_WATCH))
     compose.onNodeWithTag(LibraryTags.CLIP_WATCH).assertIsDisplayed().assertIsEnabled()
+  }
+
+  /** Whether the Clip page's header, scrolled into view, offers "Watch" or "From the start". */
+  fun offersWatch(): Boolean {
+    clipToTop()
+    compose.onNodeWithTag(LibraryTags.CLIP_META).assertIsDisplayed()
+    return compose.onAllNodes(hasTestTag(LibraryTags.CLIP_WATCH) or hasTestTag(LibraryTags.CLIP_FROM_START))
+      .fetchSemanticsNodes().isNotEmpty()
   }
 
   /** The Summary tab's "On this phone" block, scrolled into view; returns whether it offers [tag]. */
