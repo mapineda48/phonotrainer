@@ -23,6 +23,7 @@ import com.mapineda48.phonotrainer.core.domain.model.RequestCounts
 import com.mapineda48.phonotrainer.core.domain.model.SyncState
 import com.mapineda48.phonotrainer.core.domain.model.remote.ComputerHealth
 import com.mapineda48.phonotrainer.core.domain.spi.NetworkMonitor
+import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Provider
 import javax.inject.Singleton
@@ -45,8 +46,9 @@ import kotlinx.coroutines.launch
 
 /**
  * [ComputerStatusRepository] (architecture 6.2): the probe state machine fed by the network monitor, the pairing store,
- * the app's foreground state, what is pending and the job channel, plus the pairing as the learner sees it and the
- * facts of Connection details. It starts with the process (its first injection) and runs in the application scope.
+ * the app's foreground state, what is pending and the job channel, plus the pairing as the learner sees it (with its
+ * "Last synced" time from the sync engine, [SyncController.lastSynced]) and the facts of Connection details. It starts
+ * with the process (its first injection) and runs in the application scope.
  *
  * Other cores' repositories are read through providers, after construction: `:core:requests` and `:core:sync` read
  * this repository too, so a direct dependency would be a cycle.
@@ -66,9 +68,15 @@ internal class DefaultComputerStatusRepository @Inject constructor(
 ) : ComputerStatusRepository {
   private val record = MutableStateFlow<PairingRecord?>(null)
   private val pairedState = MutableStateFlow<PairedComputer?>(null)
+
+  /** What [pairedState] is made of, changed together under [pairedLock] so neither change can undo the other. */
+  private val pairedLock = Any()
+  private var pairing: PairedComputer? = null
+  private var lastListing: Instant? = null
+
   private val pending: StateFlow<Pending> = combine(
-    deferred { requests.get().counts() }.onStart { emit(RequestCounts(0, 0, 0, 0)) },
-    deferred { sync.get().state }.onStart { emit(SyncState.Idle) },
+    deferred(PENDING_UNKNOWN) { requests.get().counts() }.onStart { emit(RequestCounts(0, 0, 0, 0)) },
+    deferred(PENDING_UNKNOWN) { sync.get().state }.onStart { emit(SyncState.Idle) },
   ) { counts, syncState ->
     Pending(counts.waiting, counts.onComputer, (syncState as? SyncState.Active)?.bringing ?: 0)
   }.distinctUntilChanged().stateIn(scope, SharingStarted.Eagerly, Pending())
@@ -109,9 +117,12 @@ internal class DefaultComputerStatusRepository @Inject constructor(
         }
         .collect { stored ->
           record.value = stored
-          pairedState.value = stored?.toPaired()
+          publishPairing(stored?.toPaired())
           engine.submit(MachineInput.Pairing(stored?.toTarget(), stored?.lastSeen))
         }
+    }
+    scope.launch {
+      deferred(LAST_SYNC_UNKNOWN) { sync.get().lastSynced }.distinctUntilChanged().collect { publishListing(it) }
     }
     scope.launch {
       appForeground.foreground.collect { foreground ->
@@ -129,13 +140,13 @@ internal class DefaultComputerStatusRepository @Inject constructor(
 
   /** Pairing (or a new address) verified the computer and its `health`: `Connected` now (architecture 6.3). */
   fun adopt(target: ProbeTarget, health: ComputerHealth, computer: PairedComputer) {
-    pairedState.value = computer
+    publishPairing(computer)
     engine.submit(MachineInput.Adopted(target, health))
   }
 
   /** "Forget this computer" removed the pairing: `NotConnected` at once, before the store's change arrives. */
   fun forgotten() {
-    pairedState.value = null
+    publishPairing(null)
     record.value = null
     engine.submit(MachineInput.Pairing(null, null))
   }
@@ -152,10 +163,25 @@ internal class DefaultComputerStatusRepository @Inject constructor(
     val any: Boolean get() = waiting > 0 || onComputer > 0 || wanted > 0
   }
 
-  /** Read only once collected, so the other cores are created after this repository, never during its creation. */
-  private fun <T> deferred(source: () -> Flow<T>): Flow<T> = flow { emitAll(source()) }.catch { error ->
+  /** The pairing as stored or adopted (or none), shown with the last listing known. */
+  private fun publishPairing(computer: PairedComputer?) = synchronized(pairedLock) {
+    pairing = computer
+    pairedState.value = computer?.syncedAt(lastListing)
+  }
+
+  /** When the sync engine last reconciled a complete listing ([at], null before the first): "Last synced" (F-21, F-22). */
+  private fun publishListing(at: Instant?) = synchronized(pairedLock) {
+    lastListing = at
+    pairedState.value = pairing?.syncedAt(at)
+  }
+
+  /**
+   * Read only once collected, so the other cores are created after this repository, never during its creation. A
+   * source that fails is logged as [event] and ends; what it gave before stays.
+   */
+  private fun <T> deferred(event: String, source: () -> Flow<T>): Flow<T> = flow { emitAll(source()) }.catch { error ->
     if (error is CancellationException) throw error
-    log.w("connectivity.pending_unknown", error)
+    log.w(event, error)
   }
 
   private fun diagnosticsOf(
@@ -178,12 +204,26 @@ internal class DefaultComputerStatusRepository @Inject constructor(
     decoders = if (stored == null && machine.target == null) emptyList() else decoders,
     phoneAddress = network.ipv4.takeIf { network.onHomeNetwork },
   )
+
+  private companion object {
+    const val PENDING_UNKNOWN = "connectivity.pending_unknown"
+    const val LAST_SYNC_UNKNOWN = "connectivity.last_sync_unknown"
+  }
 }
 
 /** The stored name was cleaned when it was stored; it is cleaned again on the way out ([ComputerNames]). */
 internal fun PairingRecord.toTarget(): ProbeTarget =
   ProbeTarget(serverId, ComputerNames.clean(serverName), deviceId, address)
 
+/**
+ * This pairing with its "Last synced" time: [listing], when the sync engine last reconciled a complete listing
+ * ([SyncController.lastSynced], CR-WP08-1). A listing older than the pairing belongs to an earlier one, perhaps with
+ * another computer (forgetting a computer keeps the engine's record), so it is not this computer's and gives none.
+ */
+internal fun PairedComputer.syncedAt(listing: Instant?): PairedComputer =
+  copy(lastSync = listing?.takeUnless { it.isBefore(pairedAt) })
+
+/** The pairing as stored, with no sync time: the repository adds it ([syncedAt]). */
 internal fun PairingRecord.toPaired(): PairedComputer = PairedComputer(
   serverId = serverId,
   name = ComputerNames.clean(serverName),
