@@ -93,6 +93,9 @@ class ClipScreenTest {
       "no audio" to LibrarySamples.noAudio,
       "processing" to LibrarySamples.processing,
       "deleted while open" to LibrarySamples.deleted,
+      "deleted while open, summary" to LibrarySamples.deleted.copy(tab = ClipTab.SUMMARY),
+      "deleted, not here" to LibrarySamples.deletedNotHere,
+      "deleted while processing" to LibrarySamples.deletedProcessing,
       "gone" to ClipUiState(presence = ClipPresence.Gone),
       "loading" to ClipUiState(),
     )
@@ -106,6 +109,9 @@ class ClipScreenTest {
       "no audio" to LibraryTags.clipNotice(ClipNotice.NO_AUDIO),
       "processing" to LibraryTags.CLIP_PROCESSING,
       "deleted while open" to LibraryTags.CLIP_DELETED_BANNER,
+      "deleted while open, summary" to LibraryTags.ON_PHONE,
+      "deleted, not here" to LibraryTags.SHORTS_NOT_HERE,
+      "deleted while processing" to LibraryTags.CLIP_DELETED_BANNER,
       "gone" to LibraryTags.CLIP_GONE,
       "loading" to UiTags.LOADING,
     )
@@ -240,6 +246,39 @@ class ClipScreenTest {
     assertThat(text(LibraryTags.CLIP_TITLE)).isEqualTo("Coffee shop small talk")
     compose.onNodeWithTag(LibraryTags.CLIP_WATCH).performClick()
     assertThat(asked).containsExactly("watch")
+  }
+
+  @Test
+  fun aClipDeletedOnTheComputerOffersNothingThatNeedsIt() {
+    // Spec F-05 States and 7.9: it stays until the learner leaves the page, then goes, kept or not, and never comes
+    // again; "Remove from this phone?" would say it stays on the computer and can be downloaded again.
+    var current by mutableStateOf(LibrarySamples.deleted.copy(tab = ClipTab.SUMMARY))
+    screen.setContent { ClipScreen(current, actions) }
+    compose.onNode(hasTestTag(LibraryTags.SIZE_PACK) and hasText("2.1 MB")).assertIsDisplayed()
+    compose.onNode(hasTestTag(LibraryTags.SIZE_VIDEO) and hasText("17 MB")).assertIsDisplayed()
+    listOf(LibraryTags.KEEP, LibraryTags.DOWNLOAD_VIDEO, LibraryTags.REMOVE_VIDEO, LibraryTags.REMOVE_FROM_PHONE).forEach {
+      assertThat(exists(it)).isFalse()
+    }
+    // What it is and its changes stay readable.
+    assertInside(LibraryTags.ABOUT, "TIMIT-61")
+    compose.onNodeWithTag(LibraryTags.change(ChangeLabel("flapping"))).assertIsDisplayed()
+
+    // Not on this phone: no download offered or promised, and its Shorts tab says nothing is here.
+    current = LibrarySamples.deletedNotHere
+    compose.waitForIdle()
+    assertInside(LibraryTags.CLIP_DELETED_BANNER, "This clip was deleted on your computer. It stays until you leave this page.")
+    assertThat(exists(LibraryTags.clipNotice(ClipNotice.NOT_HERE))).isFalse()
+    assertThat(exists(LibraryTags.CLIP_DOWNLOAD)).isFalse()
+    assertInside(LibraryTags.SHORTS_NOT_HERE, "Nothing of this clip is on this phone.")
+    compose.onNode(hasText("The transcript comes with the clip.")).assertDoesNotExist()
+
+    // Deleted while it was still analyzed: it never turns into the clip.
+    current = LibrarySamples.deletedProcessing
+    compose.waitForIdle()
+    assertInside(LibraryTags.CLIP_DELETED_BANNER, "This clip was deleted on your computer. It stays until you leave this page.")
+    assertThat(exists(LibraryTags.CLIP_PROCESSING)).isFalse()
+    compose.onNode(hasText("This page turns into the clip by itself when it's ready.")).assertDoesNotExist()
+    assertThat(asked).isEmpty()
   }
 
   @Test

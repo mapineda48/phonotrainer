@@ -62,7 +62,19 @@ internal data class ChangeRowState(
 
 /** The Clip page's rules as pure functions (spec F-05, v1-core). */
 internal object ClipRules {
-  /** The header notices of [detail], in order. */
+  /** The notices that wait for the computer (a download) or send the learner to it (re-analyze there). */
+  private val FROM_THE_COMPUTER = setOf(
+    ClipNotice.NOT_HERE,
+    ClipNotice.WANTED,
+    ClipNotice.NEEDS_AGAIN,
+    ClipNotice.PAUSED,
+    ClipNotice.OLDER_RULES,
+  )
+
+  /**
+   * The header notices of [detail], in order. A clip deleted on the computer never comes from it again, so it shows
+   * only the notices about its copy on this phone, which stays until the learner leaves the page (spec F-05 States).
+   */
   fun notices(detail: ClipDetail, wanted: Boolean): List<ClipNotice> = buildList {
     val clip = detail.summary
     when (clip.availability) {
@@ -78,7 +90,7 @@ internal object ClipRules {
       else -> Unit
     }
     if (clip.olderRules) add(ClipNotice.OLDER_RULES)
-  }
+  }.filterNot { detail.deletedOnComputer && it in FROM_THE_COMPUTER }
 
   /**
    * An imported clip that came without its audio (web precedent): its listing names no mix audio among its files, so

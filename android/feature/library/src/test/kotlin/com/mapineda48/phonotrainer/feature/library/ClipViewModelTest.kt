@@ -14,6 +14,7 @@ import com.mapineda48.phonotrainer.core.domain.model.ComputerStatus
 import com.mapineda48.phonotrainer.core.domain.model.Family
 import com.mapineda48.phonotrainer.core.domain.model.JobId
 import com.mapineda48.phonotrainer.core.domain.model.RequestState
+import com.mapineda48.phonotrainer.core.domain.model.VideoAvailability
 import com.mapineda48.phonotrainer.core.navigation.ClipKey
 import com.mapineda48.phonotrainer.core.navigation.ClipTab
 import com.mapineda48.phonotrainer.core.testing.MainDispatcherRule
@@ -252,13 +253,28 @@ class ClipViewModelTest {
     assertThat(ClipRules.notices(LibrarySamples.detail(LibrarySamples.lake), wanted = false)).containsExactly(ClipNotice.NOT_HERE)
     assertThat(ClipRules.notices(LibrarySamples.detail(LibrarySamples.market), wanted = false)).containsExactly(ClipNotice.PAUSED)
     val again = LibrarySamples.coffee.copy(availability = ClipAvailability.NeedsDownloadingAgain, olderRules = true,
-      video = com.mapineda48.phonotrainer.core.domain.model.VideoAvailability.NotAvailableFromComputer)
+      video = VideoAvailability.NotAvailableFromComputer)
     assertThat(ClipRules.notices(LibrarySamples.detail(again), wanted = false))
       .containsExactly(ClipNotice.NEEDS_AGAIN, ClipNotice.VIDEO_NOT_AVAILABLE, ClipNotice.OLDER_RULES).inOrder()
     val noAudio = LibrarySamples.noAudio.detail!!
     assertThat(ClipRules.notices(noAudio, wanted = false)).containsExactly(ClipNotice.NO_AUDIO)
     assertThat(ClipRules.playable(noAudio)).isFalse()
     assertThat(ClipRules.audioPercent(LibrarySamples.bringing.detail!!)).isEqualTo(40)
+  }
+
+  @Test
+  fun aClipDeletedOnTheComputerKeepsOnlyTheNoticesAboutItsCopyHere() {
+    // It never comes from the computer again: nothing waits for a download or sends the learner to the computer.
+    fun deleted(detail: ClipDetail, wanted: Boolean = false) = ClipRules.notices(detail.copy(deletedOnComputer = true), wanted)
+    assertThat(deleted(LibrarySamples.detail(LibrarySamples.lake))).isEmpty()
+    assertThat(deleted(LibrarySamples.detail(LibrarySamples.lake), wanted = true)).isEmpty()
+    assertThat(deleted(LibrarySamples.detail(LibrarySamples.market))).isEmpty()
+    val again = LibrarySamples.coffee.copy(availability = ClipAvailability.NeedsDownloadingAgain, olderRules = true,
+      video = VideoAvailability.NotAvailableFromComputer)
+    assertThat(deleted(LibrarySamples.detail(again))).containsExactly(ClipNotice.VIDEO_NOT_AVAILABLE)
+    val cannotPlay = LibrarySamples.coffee.copy(video = VideoAvailability.CannotPlayOnThisPhone)
+    assertThat(deleted(LibrarySamples.detail(cannotPlay))).containsExactly(ClipNotice.VIDEO_CANNOT_PLAY)
+    assertThat(deleted(LibrarySamples.noAudio.detail!!)).containsExactly(ClipNotice.NO_AUDIO)
   }
 
   @Test

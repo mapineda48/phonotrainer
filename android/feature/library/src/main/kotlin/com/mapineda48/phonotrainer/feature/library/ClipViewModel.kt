@@ -63,7 +63,10 @@ internal sealed interface ClipPresence {
   }
 }
 
-/** The Shorts tab: still reading, not on this phone ("The transcript comes with the clip."), or its rows. */
+/**
+ * The Shorts tab: still reading, not on this phone ("The transcript comes with the clip."; deleted on the computer,
+ * "Nothing of this clip is on this phone."), or its rows.
+ */
 internal sealed interface ShortsState {
   data object Loading : ShortsState
 

@@ -181,7 +181,8 @@ private fun ClipPage(
     }
     item(key = "header") { ClipHeader(state, detail, actions) }
     if (ClipRules.processing(detail)) {
-      item(key = "processing") { Processing(state.request, actions) }
+      // Deleted on the computer before it was ready, it never turns into a clip: no request and no such promise.
+      if (!presence.deleted) item(key = "processing") { Processing(state.request, actions) }
     } else {
       item(key = "tabs") { ClipTabs(tabs, tab, actions.onTab) }
       when (tab) {
@@ -425,7 +426,10 @@ private fun LazyListScope.shortsTab(state: ClipUiState, actions: ClipActions) {
       }
     }
     ShortsState.NotHere -> item(key = "shorts-not-here") {
-      TabNote(stringResource(R.string.clip_page_comes_with_clip), Modifier.testTag(LibraryTags.SHORTS_NOT_HERE))
+      // A clip deleted on the computer never comes, and neither does its transcript.
+      val deleted = state.detail?.deletedOnComputer == true
+      val note = if (deleted) R.string.clip_page_nothing_here else R.string.clip_page_comes_with_clip
+      TabNote(stringResource(note), Modifier.testTag(LibraryTags.SHORTS_NOT_HERE))
     }
     is ShortsState.Ready -> if (shorts.rows.isEmpty()) {
       item(key = "shorts-none") { TabNote(stringResource(R.string.clip_page_no_shorts)) }

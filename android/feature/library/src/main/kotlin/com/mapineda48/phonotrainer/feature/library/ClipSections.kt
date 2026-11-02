@@ -45,6 +45,7 @@ import com.mapineda48.phonotrainer.core.designsystem.theme.PhonoTheme
 import com.mapineda48.phonotrainer.core.domain.model.Advice
 import com.mapineda48.phonotrainer.core.domain.model.ClipAvailability
 import com.mapineda48.phonotrainer.core.domain.model.ClipDetail
+import com.mapineda48.phonotrainer.core.domain.model.ClipSummary
 import com.mapineda48.phonotrainer.core.domain.model.Family
 import com.mapineda48.phonotrainer.core.domain.model.VideoAvailability
 import com.mapineda48.phonotrainer.core.ui.MarkedWordSpan
@@ -263,7 +264,10 @@ private fun Fact(label: String, value: String, modifier: Modifier = Modifier) {
 /**
  * The "On this phone" block (spec F-05 item 5, design 9.26 v1-core part): its place head, the size rows, "Keep on this
  * phone" as a switch row, then full-width secondary buttons: "Download the video" or "Remove the video", and "Remove
- * from this phone…" (secondary, not danger: the clip can be downloaded again), which asks first.
+ * from this phone…" (secondary, not danger: the clip can be downloaded again), which asks first. A clip deleted on the
+ * computer can't be downloaded again and leaves this phone when the learner leaves its page, kept or not (spec F-05
+ * States, 7.9), so the block then shows what is stored and no action: "Remove from this phone?" would say it stays on
+ * the computer.
  */
 @Composable
 internal fun OnThisPhone(
@@ -289,44 +293,56 @@ internal fun OnThisPhone(
       if (pack == null && video == null) {
         PhonoText(stringResource(R.string.clip_page_nothing_here), style = MaterialTheme.typography.bodyMedium, color = PhonoTheme.colors.ink2)
       }
-      PhonoSwitch(
-        label = stringResource(R.string.clip_page_keep),
-        checked = clip.kept,
-        onCheckedChange = onKeep,
-        description = stringResource(R.string.clip_page_keep_description),
-        modifier = Modifier.testTag(LibraryTags.KEEP),
-      )
-      if (clip.availability == ClipAvailability.OnThisPhone && clip.video == VideoAvailability.NotOnThisPhone) {
-        PhonoButton(
-          text = stringResource(R.string.clip_page_download_video),
-          onClick = onDownloadVideo,
-          kind = PhonoButtonKind.SECONDARY,
-          leadingIcon = PhonoIcons.StatusDownloading,
-          fillWidth = true,
-          modifier = Modifier.testTag(LibraryTags.DOWNLOAD_VIDEO),
-        )
-      }
-      if (LibraryRules.videoRemovable(clip)) {
-        PhonoButton(
-          text = stringResource(R.string.clip_page_remove_video),
-          onClick = onRemoveVideo,
-          kind = PhonoButtonKind.SECONDARY,
-          leadingIcon = PhonoIcons.AvailVideo,
-          fillWidth = true,
-          modifier = Modifier.testTag(LibraryTags.REMOVE_VIDEO),
-        )
-      }
-      if (LibraryRules.removable(clip)) {
-        PhonoButton(
-          text = stringResource(R.string.clip_page_remove_from_phone),
-          onClick = onRemove,
-          kind = PhonoButtonKind.SECONDARY,
-          leadingIcon = PhonoIcons.Remove,
-          fillWidth = true,
-          modifier = Modifier.testTag(LibraryTags.REMOVE_FROM_PHONE),
-        )
-      }
+      if (!detail.deletedOnComputer) PhoneActions(clip, onKeep, onDownloadVideo, onRemoveVideo, onRemove)
     }
+  }
+}
+
+/** The block's actions: "Keep on this phone", the video's download or removal, then "Remove from this phone…". */
+@Composable
+private fun PhoneActions(
+  clip: ClipSummary,
+  onKeep: (Boolean) -> Unit,
+  onDownloadVideo: () -> Unit,
+  onRemoveVideo: () -> Unit,
+  onRemove: () -> Unit,
+) {
+  PhonoSwitch(
+    label = stringResource(R.string.clip_page_keep),
+    checked = clip.kept,
+    onCheckedChange = onKeep,
+    description = stringResource(R.string.clip_page_keep_description),
+    modifier = Modifier.testTag(LibraryTags.KEEP),
+  )
+  if (clip.availability == ClipAvailability.OnThisPhone && clip.video == VideoAvailability.NotOnThisPhone) {
+    PhonoButton(
+      text = stringResource(R.string.clip_page_download_video),
+      onClick = onDownloadVideo,
+      kind = PhonoButtonKind.SECONDARY,
+      leadingIcon = PhonoIcons.StatusDownloading,
+      fillWidth = true,
+      modifier = Modifier.testTag(LibraryTags.DOWNLOAD_VIDEO),
+    )
+  }
+  if (LibraryRules.videoRemovable(clip)) {
+    PhonoButton(
+      text = stringResource(R.string.clip_page_remove_video),
+      onClick = onRemoveVideo,
+      kind = PhonoButtonKind.SECONDARY,
+      leadingIcon = PhonoIcons.AvailVideo,
+      fillWidth = true,
+      modifier = Modifier.testTag(LibraryTags.REMOVE_VIDEO),
+    )
+  }
+  if (LibraryRules.removable(clip)) {
+    PhonoButton(
+      text = stringResource(R.string.clip_page_remove_from_phone),
+      onClick = onRemove,
+      kind = PhonoButtonKind.SECONDARY,
+      leadingIcon = PhonoIcons.Remove,
+      fillWidth = true,
+      modifier = Modifier.testTag(LibraryTags.REMOVE_FROM_PHONE),
+    )
   }
 }
 
