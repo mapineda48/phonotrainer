@@ -29,6 +29,11 @@ dependencies {
   testImplementation(libs.turbine)
 
   androidTestImplementation(project(":core:testing-jvm"))
+  // SyntheticMedia (WP-11), the device-made videos of the audio-extraction tests. Robolectric is left out: these tests
+  // run on the device, and its jars would only bloat the test APK.
+  androidTestImplementation(project(":core:testing")) {
+    exclude(group = "org.robolectric")
+  }
   androidTestImplementation(libs.androidx.work.testing)
   androidTestImplementation(libs.androidx.test.uiautomator)
 }
