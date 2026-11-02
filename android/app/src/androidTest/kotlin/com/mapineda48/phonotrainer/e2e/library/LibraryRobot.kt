@@ -7,6 +7,7 @@ import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasAnyAncestor
@@ -18,12 +19,14 @@ import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextInput
 import androidx.navigation3.runtime.NavKey
 import androidx.test.platform.app.InstrumentationRegistry
 import com.google.common.truth.Truth.assertThat
+import com.mapineda48.phonotrainer.R as AppR
 import com.mapineda48.phonotrainer.core.domain.model.ClipFilter
 import com.mapineda48.phonotrainer.core.domain.model.JobId
 import com.mapineda48.phonotrainer.core.domain.model.ShortId
@@ -35,6 +38,7 @@ import com.mapineda48.phonotrainer.e2e.PhonoRobot
 import com.mapineda48.phonotrainer.feature.library.LibraryTags
 import com.mapineda48.phonotrainer.feature.library.R
 import com.mapineda48.phonotrainer.feature.library.RowMenuItem
+import com.mapineda48.phonotrainer.shell.ShellTags
 import java.util.Collections
 import kotlin.math.abs
 
@@ -105,6 +109,22 @@ class LibraryRobot(private val compose: ComposeTestRule, val phono: PhonoRobot) 
   fun awaitCount(shown: Int, total: Int) {
     val words = plural(R.plurals.library_count_of, total, shown, total)
     compose.waitUntilAtLeastOneExists(hasTestTag(LibraryTags.COUNT) and hasText(words), PhonoRobot.TIMEOUT_MS)
+  }
+
+  /** Waits until the live count of an unfiltered Library reads [total] clips ("2 clips"). */
+  fun awaitTotal(total: Int) {
+    val words = plural(R.plurals.library_count_all, total, total)
+    compose.waitUntilAtLeastOneExists(hasTestTag(LibraryTags.COUNT) and hasText(words), PhonoRobot.TIMEOUT_MS)
+  }
+
+  /** Whether the row of [id] is in the list (the few clips of a seeded Library all fit on screen). */
+  fun hasRow(id: JobId): Boolean = compose.onAllNodes(hasTestTag(LibraryTags.row(id))).fetchSemanticsNodes().isNotEmpty()
+
+  /** Waits for the shell's one notice that [count] clips deleted on the computer left this phone (spec 7.9). */
+  fun awaitClipsRemovedNotice(count: Int) {
+    val words = plural(AppR.plurals.message_clips_removed, count, count)
+    val notice = hasText(words) and (hasTestTag(ShellTags.SNACKBAR) or hasAnyAncestor(hasTestTag(ShellTags.SNACKBAR)))
+    compose.waitUntilAtLeastOneExists(notice, PhonoRobot.TIMEOUT_MS)
   }
 
   /** Scrolls the list until the row of [id] shows. */
@@ -252,6 +272,45 @@ class LibraryRobot(private val compose: ComposeTestRule, val phono: PhonoRobot) 
   fun assertClipGone() {
     phono.waitForTag(LibraryTags.CLIP_GONE)
     compose.onNode(hasText(words(R.string.clip_page_gone))).assertIsDisplayed()
+  }
+
+  /** Scrolls the Clip page back to its top: the hero, then the header (a banner sits above the list, design 9.23). */
+  fun clipToTop() {
+    compose.onNodeWithTag(LibraryTags.CLIP_LIST).performScrollToIndex(0)
+    compose.waitForIdle()
+  }
+
+  private val deletedBanner: SemanticsMatcher = hasText(words(R.string.clip_page_deleted)) and
+    (hasTestTag(LibraryTags.CLIP_DELETED_BANNER) or hasAnyAncestor(hasTestTag(LibraryTags.CLIP_DELETED_BANNER)))
+
+  /** Whether the Clip page shows "This clip was deleted on your computer. It stays until you leave this page." */
+  fun hasClipDeletedBanner(): Boolean = compose.onAllNodes(deletedBanner).fetchSemanticsNodes().isNotEmpty()
+
+  /** Waits for that banner, at the top of the page (spec F-05 States, "Deleted on the computer while open"). */
+  fun awaitClipDeletedBanner() {
+    compose.waitUntilAtLeastOneExists(deletedBanner, PhonoRobot.TIMEOUT_MS)
+    compose.onNode(deletedBanner).assertIsDisplayed()
+  }
+
+  /** "Watch" is on the page and enabled: the clip plays from it. */
+  fun assertClipWatchable() {
+    compose.onNodeWithTag(LibraryTags.CLIP_LIST).performScrollToNode(hasTestTag(LibraryTags.CLIP_WATCH))
+    compose.onNodeWithTag(LibraryTags.CLIP_WATCH).assertIsDisplayed().assertIsEnabled()
+  }
+
+  /** Whether the Clip page's header, scrolled into view, offers "Watch" or "From the start". */
+  fun offersWatch(): Boolean {
+    clipToTop()
+    compose.onNodeWithTag(LibraryTags.CLIP_META).assertIsDisplayed()
+    return compose.onAllNodes(hasTestTag(LibraryTags.CLIP_WATCH) or hasTestTag(LibraryTags.CLIP_FROM_START))
+      .fetchSemanticsNodes().isNotEmpty()
+  }
+
+  /** The Summary tab's "On this phone" block, scrolled into view; returns whether it offers [tag]. */
+  fun onPhoneOffers(tag: String): Boolean {
+    compose.onNodeWithTag(LibraryTags.CLIP_LIST).performScrollToNode(hasTestTag(LibraryTags.ON_PHONE))
+    compose.onNodeWithTag(LibraryTags.ON_PHONE).assertIsDisplayed()
+    return compose.onAllNodes(hasTestTag(tag)).fetchSemanticsNodes().isNotEmpty()
   }
 
   private companion object {

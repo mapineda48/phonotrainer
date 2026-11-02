@@ -60,25 +60,70 @@ internal data class ChangeRowState(
   val count: Int,
 )
 
-/** The Clip page's rules as pure functions (spec F-05, v1-core). */
+/**
+ * The Clip page's rules as pure functions (spec F-05, v1-core).
+ *
+ * A clip deleted on the computer while a screen holds it ([ClipDetail.deletedOnComputer]) stays on this phone only
+ * until the learner leaves its page, then goes, kept or not, and never comes again (spec F-05 States, 7.9, QT-10).
+ * Meanwhile the feed leaves it out, as it does at the next swipe of a clip deleted while watching (spec F-06 States;
+ * the corpus' playable clips exclude it), so its page keeps what can be read and offers nothing that plays it,
+ * downloads it or waits for the computer.
+ */
 internal object ClipRules {
-  /** The header notices of [detail], in order. */
-  fun notices(detail: ClipDetail, wanted: Boolean): List<ClipNotice> = buildList {
-    val clip = detail.summary
-    when (clip.availability) {
-      ClipAvailability.NotOnThisPhone -> add(if (wanted) ClipNotice.WANTED else ClipNotice.NOT_HERE)
-      ClipAvailability.NeedsDownloadingAgain -> add(ClipNotice.NEEDS_AGAIN)
-      is ClipAvailability.DownloadPaused -> add(ClipNotice.PAUSED)
-      else -> Unit
+  /**
+   * The header notices of [detail], in order. A clip deleted on the computer keeps only "you can read it, but not
+   * listen to it": every other notice offers or promises a download, sends the learner to the computer, or says that
+   * listening works, and none of these holds any more.
+   */
+  fun notices(detail: ClipDetail, wanted: Boolean): List<ClipNotice> {
+    if (detail.deletedOnComputer) return listOfNotNull(ClipNotice.NO_AUDIO.takeIf { noAudio(detail) })
+    return buildList {
+      val clip = detail.summary
+      when (clip.availability) {
+        ClipAvailability.NotOnThisPhone -> add(if (wanted) ClipNotice.WANTED else ClipNotice.NOT_HERE)
+        ClipAvailability.NeedsDownloadingAgain -> add(ClipNotice.NEEDS_AGAIN)
+        is ClipAvailability.DownloadPaused -> add(ClipNotice.PAUSED)
+        else -> Unit
+      }
+      if (noAudio(detail)) add(ClipNotice.NO_AUDIO)
+      when (clip.video) {
+        VideoAvailability.NotAvailableFromComputer -> add(ClipNotice.VIDEO_NOT_AVAILABLE)
+        VideoAvailability.CannotPlayOnThisPhone -> add(ClipNotice.VIDEO_CANNOT_PLAY)
+        else -> Unit
+      }
+      if (clip.olderRules) add(ClipNotice.OLDER_RULES)
     }
-    if (noAudio(detail)) add(ClipNotice.NO_AUDIO)
-    when (clip.video) {
-      VideoAvailability.NotAvailableFromComputer -> add(ClipNotice.VIDEO_NOT_AVAILABLE)
-      VideoAvailability.CannotPlayOnThisPhone -> add(ClipNotice.VIDEO_CANNOT_PLAY)
-      else -> Unit
-    }
-    if (clip.olderRules) add(ClipNotice.OLDER_RULES)
   }
+
+  /**
+   * The availability the header's pill shows, or null for none. A clip deleted on the computer shows only what is on
+   * this phone: "Bringing to this phone", "Getting ready on your computer", a paused download and "Needs downloading
+   * again" each wait for the computer, which no longer has it.
+   */
+  fun availabilityPill(detail: ClipDetail): ClipAvailability? {
+    val availability = detail.summary.availability
+    if (!detail.deletedOnComputer) return availability
+    return availability.takeIf { it == ClipAvailability.OnThisPhone || it == ClipAvailability.NotOnThisPhone }
+  }
+
+  /**
+   * The video's pill, or null for none (an audio-only clip has none). A clip deleted on the computer drops "Video
+   * downloading" and "Video getting ready on your computer": its downloads stop and the computer makes nothing more.
+   */
+  fun videoPill(detail: ClipDetail): VideoAvailability? = when (val video = detail.summary.video) {
+    VideoAvailability.AudioOnlyClip -> null
+    is VideoAvailability.Downloading, VideoAvailability.GettingReadyOnComputer -> video.takeUnless { detail.deletedOnComputer }
+    else -> video
+  }
+
+  /** Whether the header says "Kept": not for a clip deleted on the computer, which goes kept or not (spec 7.9). */
+  fun showsKept(detail: ClipDetail): Boolean = detail.summary.kept && !detail.deletedOnComputer
+
+  /**
+   * Whether a short or a change of this clip opens the feed: not once the clip was deleted on the computer, whose
+   * shorts the feed has already left out (spec F-06 States), so the feed would open empty.
+   */
+  fun opensTheFeed(detail: ClipDetail): Boolean = !detail.deletedOnComputer
 
   /**
    * An imported clip that came without its audio (web precedent): its listing names no mix audio among its files, so
@@ -87,12 +132,16 @@ internal object ClipRules {
   fun noAudio(detail: ClipDetail): Boolean = detail.summary.source.kind == SourceKind.IMPORT &&
     detail.artifacts.isNotEmpty() && detail.artifacts.none { it.role == ArtifactRole.AUDIO_MIX }
 
-  /** Whether "Watch" plays: the study pack is on this phone and it has audio. */
+  /** Whether "Watch" plays: the study pack is on this phone, it has audio, and the feed still has its shorts. */
   fun playable(detail: ClipDetail): Boolean =
-    detail.summary.availability == ClipAvailability.OnThisPhone && !noAudio(detail)
+    detail.summary.availability == ClipAvailability.OnThisPhone && !noAudio(detail) && opensTheFeed(detail)
 
-  /** While the study pack comes: the audio's own percent when known, else the clip's ("Getting the audio… 40 %"). */
+  /**
+   * While the study pack comes: the audio's own percent when known, else the clip's ("Getting the audio… 40 %"). None
+   * for a clip deleted on the computer, whose download stops for good.
+   */
   fun audioPercent(detail: ClipDetail): Int? {
+    if (detail.deletedOnComputer) return null
     val bringing = detail.summary.availability as? ClipAvailability.Bringing ?: return null
     val audio = detail.artifacts.firstOrNull { it.role == ArtifactRole.AUDIO_MIX }
     return when (audio?.state) {

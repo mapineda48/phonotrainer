@@ -5,13 +5,16 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.viewmodel.CreationExtras
 import com.google.common.truth.Truth.assertThat
+import com.mapineda48.phonotrainer.core.domain.api.ClipRepository
 import com.mapineda48.phonotrainer.core.domain.model.Advice
 import com.mapineda48.phonotrainer.core.domain.model.ChangeLabel
 import com.mapineda48.phonotrainer.core.domain.model.ClipAvailability
+import com.mapineda48.phonotrainer.core.domain.model.ClipDetail
 import com.mapineda48.phonotrainer.core.domain.model.ComputerStatus
 import com.mapineda48.phonotrainer.core.domain.model.Family
 import com.mapineda48.phonotrainer.core.domain.model.JobId
 import com.mapineda48.phonotrainer.core.domain.model.RequestState
+import com.mapineda48.phonotrainer.core.domain.model.VideoAvailability
 import com.mapineda48.phonotrainer.core.navigation.ClipKey
 import com.mapineda48.phonotrainer.core.navigation.ClipTab
 import com.mapineda48.phonotrainer.core.testing.MainDispatcherRule
@@ -25,6 +28,8 @@ import com.mapineda48.phonotrainer.core.testing.fake.study.FakeProgressRepositor
 import com.mapineda48.phonotrainer.core.testing.fake.sync.FakeClipRepository
 import kotlin.reflect.KClass
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -49,11 +54,15 @@ class ClipViewModelTest {
   private val store = ViewModelStore()
 
   /** A view model in a store the test can clear (onCleared), its state collected for the test's duration. */
-  private fun TestScope.page(key: ClipKey = ClipKey(id), saved: SavedStateHandle = SavedStateHandle()): ClipViewModel {
+  private fun TestScope.page(
+    key: ClipKey = ClipKey(id),
+    saved: SavedStateHandle = SavedStateHandle(),
+    catalogue: ClipRepository = clips,
+  ): ClipViewModel {
     val factory = object : ViewModelProvider.Factory {
       @Suppress("UNCHECKED_CAST")
       override fun <T : androidx.lifecycle.ViewModel> create(modelClass: KClass<T>, extras: CreationExtras): T =
-        ClipViewModel(key, clips, shorts, content, progress, requests, reference, status, TestClock(LibrarySamples.now), saved) as T
+        ClipViewModel(key, catalogue, shorts, content, progress, requests, reference, status, TestClock(LibrarySamples.now), saved) as T
     }
     val vm = ViewModelProvider.create(store, factory)[key.jobId.value, ClipViewModel::class]
     backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.state.collect {} }
@@ -71,15 +80,56 @@ class ClipViewModelTest {
   }
 
   @Test
-  fun anUnknownClipIsGoneAndAClipDeletedWhileOpenStaysWithItsBanner() = runTest {
+  fun anUnknownClipIsGoneAndSoIsOneThatLeavesTheCatalogueWhileOpen() = runTest {
     val gone = page(ClipKey(JobId("20250101-000000-dead")))
     assertThat(gone.state.value.presence).isEqualTo(ClipPresence.Gone)
 
     clips.details.value = mapOf(id to LibrarySamples.detail())
     val open = page()
     assertThat(open.state.value.presence).isEqualTo(ClipPresence.Known(LibrarySamples.detail()))
+    // Not kept for the page (a kept one stays, marked): its files went with its row, so nothing is left to show.
     clips.details.value = emptyMap()
-    assertThat(open.state.value.presence).isEqualTo(ClipPresence.Known(LibrarySamples.detail(), deleted = true))
+    assertThat(open.state.value.presence).isEqualTo(ClipPresence.Gone)
+  }
+
+  @Test
+  fun aCatalogueThatStopsAnsweringIsNotADeletionOnTheComputer() = runTest {
+    // CR-WP08-4: the end of the detail flow no longer reads as "deleted on your computer"; only the detail says so.
+    val failing = object : ClipRepository by clips {
+      override fun clip(id: JobId): Flow<ClipDetail?> = flow {
+        emit(LibrarySamples.detail())
+        throw IllegalStateException("the catalogue is unreadable")
+      }
+    }
+    val vm = page(catalogue = failing)
+    assertThat(vm.state.value.presence).isEqualTo(ClipPresence.Gone)
+  }
+
+  @Test
+  fun aClipDeletedOnTheComputerWhileOpenStaysWithItsBannerUntilTheLearnerLeaves() = runTest {
+    // Spec F-05 States, 7.9, QT-10: the sync engine does not remove a clip a screen holds open; it only marks it, so
+    // the detail keeps coming with ClipDetail.deletedOnComputer set (CR-WP08-4).
+    clips.details.value = mapOf(id to LibrarySamples.detail())
+    val vm = page()
+    assertThat((vm.state.value.presence as ClipPresence.Known).deleted).isFalse()
+
+    val deleted = LibrarySamples.detail().copy(deletedOnComputer = true)
+    clips.details.value = mapOf(id to deleted)
+    val presence = vm.state.value.presence as ClipPresence.Known
+    assertThat(presence.deleted).isTrue()
+    assertThat(presence.detail).isEqualTo(deleted)
+    // The page keeps its lease, so the removal waits until the learner leaves.
+    assertThat(content.leaseCount(id)).isEqualTo(1)
+    store.clear()
+    assertThat(content.leaseCount(id)).isEqualTo(0)
+  }
+
+  @Test
+  fun aClipAlreadyDeletedOnTheComputerOpensWithItsBanner() = runTest {
+    // Another screen (the feed) holds the clip, so it is still in the catalogue, marked, when its page opens.
+    clips.details.value = mapOf(id to LibrarySamples.detail().copy(deletedOnComputer = true))
+    val vm = page()
+    assertThat((vm.state.value.presence as ClipPresence.Known).deleted).isTrue()
   }
 
   @Test
@@ -203,13 +253,71 @@ class ClipViewModelTest {
     assertThat(ClipRules.notices(LibrarySamples.detail(LibrarySamples.lake), wanted = false)).containsExactly(ClipNotice.NOT_HERE)
     assertThat(ClipRules.notices(LibrarySamples.detail(LibrarySamples.market), wanted = false)).containsExactly(ClipNotice.PAUSED)
     val again = LibrarySamples.coffee.copy(availability = ClipAvailability.NeedsDownloadingAgain, olderRules = true,
-      video = com.mapineda48.phonotrainer.core.domain.model.VideoAvailability.NotAvailableFromComputer)
+      video = VideoAvailability.NotAvailableFromComputer)
     assertThat(ClipRules.notices(LibrarySamples.detail(again), wanted = false))
       .containsExactly(ClipNotice.NEEDS_AGAIN, ClipNotice.VIDEO_NOT_AVAILABLE, ClipNotice.OLDER_RULES).inOrder()
     val noAudio = LibrarySamples.noAudio.detail!!
     assertThat(ClipRules.notices(noAudio, wanted = false)).containsExactly(ClipNotice.NO_AUDIO)
     assertThat(ClipRules.playable(noAudio)).isFalse()
     assertThat(ClipRules.audioPercent(LibrarySamples.bringing.detail!!)).isEqualTo(40)
+  }
+
+  @Test
+  fun aClipDeletedOnTheComputerKeepsOnlyTheNoticeThatItCanBeRead() {
+    // It never comes from the computer again and the feed has left it out: nothing waits for a download, sends the
+    // learner to the computer, or says that listening works ("Listening and study work.", "Listening still works.").
+    fun deleted(detail: ClipDetail, wanted: Boolean = false) = ClipRules.notices(detail.copy(deletedOnComputer = true), wanted)
+    assertThat(deleted(LibrarySamples.detail(LibrarySamples.lake))).isEmpty()
+    assertThat(deleted(LibrarySamples.detail(LibrarySamples.lake), wanted = true)).isEmpty()
+    assertThat(deleted(LibrarySamples.detail(LibrarySamples.market))).isEmpty()
+    val again = LibrarySamples.coffee.copy(availability = ClipAvailability.NeedsDownloadingAgain, olderRules = true,
+      video = VideoAvailability.NotAvailableFromComputer)
+    assertThat(deleted(LibrarySamples.detail(again))).isEmpty()
+    val cannotPlay = LibrarySamples.coffee.copy(video = VideoAvailability.CannotPlayOnThisPhone)
+    assertThat(deleted(LibrarySamples.detail(cannotPlay))).isEmpty()
+    assertThat(deleted(LibrarySamples.noAudio.detail!!)).containsExactly(ClipNotice.NO_AUDIO)
+  }
+
+  @Test
+  fun aClipDeletedOnTheComputerNeitherPlaysNorWaitsForTheComputer() {
+    // The corpus leaves it out of every feed (spec F-06 States) and the planner of every download (spec 7.9).
+    val here = LibrarySamples.detail()
+    val gone = here.copy(deletedOnComputer = true)
+    assertThat(ClipRules.playable(here)).isTrue()
+    assertThat(ClipRules.opensTheFeed(here)).isTrue()
+    assertThat(ClipRules.playable(gone)).isFalse()
+    assertThat(ClipRules.opensTheFeed(gone)).isFalse()
+
+    // "Kept" goes with it: it leaves this phone kept or not.
+    assertThat(ClipRules.showsKept(here)).isTrue()
+    assertThat(ClipRules.showsKept(gone)).isFalse()
+
+    // The pills keep what is on this phone and drop what would come from the computer.
+    assertThat(ClipRules.availabilityPill(gone)).isEqualTo(ClipAvailability.OnThisPhone)
+    assertThat(ClipRules.availabilityPill(LibrarySamples.detail(LibrarySamples.lake).copy(deletedOnComputer = true)))
+      .isEqualTo(ClipAvailability.NotOnThisPhone)
+    val bringing = LibrarySamples.bringing.detail!!
+    assertThat(ClipRules.availabilityPill(bringing)).isEqualTo(bringing.summary.availability)
+    assertThat(ClipRules.availabilityPill(bringing.copy(deletedOnComputer = true))).isNull()
+    assertThat(ClipRules.audioPercent(bringing)).isEqualTo(40)
+    assertThat(ClipRules.audioPercent(bringing.copy(deletedOnComputer = true))).isNull()
+    listOf(
+      ClipAvailability.GettingReadyOnComputer,
+      ClipAvailability.NeedsDownloadingAgain,
+      LibrarySamples.market.availability,
+    ).forEach { waiting ->
+      val detail = LibrarySamples.detail(LibrarySamples.coffee.copy(availability = waiting))
+      assertThat(ClipRules.availabilityPill(detail)).isEqualTo(waiting)
+      assertThat(ClipRules.availabilityPill(detail.copy(deletedOnComputer = true))).isNull()
+    }
+    listOf(VideoAvailability.Downloading(60), VideoAvailability.GettingReadyOnComputer).forEach { coming ->
+      val detail = LibrarySamples.detail(LibrarySamples.coffee.copy(video = coming))
+      assertThat(ClipRules.videoPill(detail)).isEqualTo(coming)
+      assertThat(ClipRules.videoPill(detail.copy(deletedOnComputer = true))).isNull()
+    }
+    assertThat(ClipRules.videoPill(gone)).isEqualTo(VideoAvailability.OnThisPhone)
+    val audioOnly = LibrarySamples.detail(LibrarySamples.coffee.copy(video = VideoAvailability.AudioOnlyClip))
+    assertThat(ClipRules.videoPill(audioOnly)).isNull()
   }
 
   @Test

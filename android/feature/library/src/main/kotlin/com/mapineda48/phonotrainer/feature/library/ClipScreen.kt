@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -111,7 +112,9 @@ internal class ClipSlots(val transcript: ClipTranscriptTab? = null, val meters: 
  * The Clip page (spec F-05 v1-core, design 10.2 P-02, render `16`): the hero (poster, the drum for audio clips, the
  * Back button on an overlay plate), the header with its notices and "Watch · short 4" / "From the start", the tabs
  * Shorts, Transcript (only when its v1-complete slot is bound) and Summary, whose last block is "On this phone"
- * (design 9.26, v1-core part). v1-core has no "On your computer" block.
+ * (design 9.26, v1-core part). v1-core has no "On your computer" block. A clip deleted on the computer while the page
+ * is open gets the banner of spec F-05 pinned above the page, and the page then keeps only what can be read
+ * ([ClipRules]).
  */
 @Composable
 internal fun ClipScreen(state: ClipUiState, actions: ClipActions, modifier: Modifier = Modifier, slots: ClipSlots = ClipSlots()) {
@@ -158,42 +161,44 @@ private fun ClipPage(
   var confirmRemove by rememberSaveable { mutableStateOf(false) }
   val tabs = listOfNotNull(ClipTab.SHORTS, ClipTab.TRANSCRIPT.takeIf { slots.transcript != null }, ClipTab.SUMMARY)
   val tab = state.tab.takeIf { it in tabs } ?: ClipTab.SHORTS
-  LazyColumn(
-    state = rememberLazyListState(),
-    modifier = modifier
-      .fillMaxSize()
-      .paneTitle(clip.title)
-      .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
-      .testTag(LibraryTags.CLIP_LIST),
-    contentPadding = PaddingValues(bottom = PhonoSpacing.s24),
-  ) {
-    item(key = "hero") { Hero(state, detail, actions.onBack) }
+  val opensTheFeed = ClipRules.opensTheFeed(detail)
+  Column(modifier.fillMaxSize().paneTitle(clip.title)) {
+    // Design 9.23: a persistent condition is a full-width caution card at the top, outside the scrolling content, so
+    // it shows, and its live region speaks, wherever the learner has scrolled when the deletion arrives.
     if (presence.deleted) {
-      item(key = "deleted") {
-        Notice(
-          body = stringResource(R.string.clip_page_deleted),
-          kind = NoticeKind.CAUTION,
-          live = true,
-          modifier = Modifier.padding(horizontal = PhonoSpacing.gutter, vertical = PhonoSpacing.s12)
-            .testTag(LibraryTags.CLIP_DELETED_BANNER),
-        )
-      }
+      DeletedBanner(Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)))
     }
-    item(key = "header") { ClipHeader(state, detail, actions) }
-    if (ClipRules.processing(detail)) {
-      item(key = "processing") { Processing(state.request, actions) }
-    } else {
-      item(key = "tabs") { ClipTabs(tabs, tab, actions.onTab) }
-      when (tab) {
-        ClipTab.SHORTS -> shortsTab(state, actions)
-        ClipTab.TRANSCRIPT -> item(key = "transcript") {
-          slots.transcript?.Tab(clip.id, onOpenWord = actions.onOpenWord, onOpenShort = actions.onOpenSegment)
+    LazyColumn(
+      state = rememberLazyListState(),
+      modifier = Modifier
+        .weight(1f)
+        .fillMaxWidth()
+        // Under the banner, the hero no longer reaches behind the status bar: its Back plate needs no inset.
+        .then(if (presence.deleted) Modifier.consumeWindowInsets(WindowInsets.safeDrawing.only(WindowInsetsSides.Top)) else Modifier)
+        .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
+        .testTag(LibraryTags.CLIP_LIST),
+      contentPadding = PaddingValues(bottom = PhonoSpacing.s24),
+    ) {
+      item(key = "hero") { Hero(state, detail, actions.onBack) }
+      item(key = "header") { ClipHeader(state, detail, actions) }
+      if (ClipRules.processing(detail)) {
+        // Deleted on the computer before it was ready, it never turns into a clip: no request and no such promise.
+        if (!presence.deleted) item(key = "processing") { Processing(state.request, actions) }
+      } else {
+        item(key = "tabs") { ClipTabs(tabs, tab, actions.onTab) }
+        when (tab) {
+          ClipTab.SHORTS -> shortsTab(state, actions, opensTheFeed)
+          ClipTab.TRANSCRIPT -> item(key = "transcript") {
+            slots.transcript?.Tab(clip.id, onOpenWord = actions.onOpenWord, onOpenShort = actions.onOpenSegment)
+          }
+          ClipTab.SUMMARY -> summaryTab(state, detail, actions, slots.meters, opensTheFeed, onRemove = { confirmRemove = true })
         }
-        ClipTab.SUMMARY -> summaryTab(state, detail, actions, slots.meters, onRemove = { confirmRemove = true })
       }
     }
   }
-  if (confirmRemove) {
+  // A deletion on the computer closes an open confirmation: its body says the clip stays there and can be downloaded
+  // again, and the clip leaves this phone anyway when the learner leaves the page.
+  if (confirmRemove && !presence.deleted) {
     RemoveFromPhoneDialog(
       title = clip.title,
       onConfirm = {
@@ -201,6 +206,22 @@ private fun ClipPage(
         actions.onRemoveFromPhone()
       },
       onDismiss = { confirmRemove = false },
+    )
+  }
+}
+
+/**
+ * Spec F-05 "Deleted on the computer while open": "This clip was deleted on your computer. It stays until you leave
+ * this page.", a polite live region, so TalkBack says it when it appears.
+ */
+@Composable
+private fun DeletedBanner(modifier: Modifier) {
+  Box(modifier.fillMaxWidth().padding(horizontal = PhonoSpacing.gutter, vertical = PhonoSpacing.s8)) {
+    Notice(
+      body = stringResource(R.string.clip_page_deleted),
+      kind = NoticeKind.CAUTION,
+      live = true,
+      modifier = Modifier.testTag(LibraryTags.CLIP_DELETED_BANNER),
     )
   }
 }
@@ -262,9 +283,11 @@ private fun ClipHeader(state: ClipUiState, detail: ClipDetail, actions: ClipActi
       horizontalArrangement = Arrangement.spacedBy(PhonoSpacing.s8),
       verticalArrangement = Arrangement.spacedBy(PhonoSpacing.s8),
     ) {
-      Pill { AvailabilityChip(clip.availability) }
-      if (!audioOnly) Pill { VideoAvailabilityChip(clip.video) }
-      ClipCardCopy.kept(clip, resources)?.let { Pill { StatusLine(it, icon = PhonoIcons.Keep, style = MaterialTheme.typography.bodySmall) } }
+      ClipRules.availabilityPill(detail)?.let { Pill { AvailabilityChip(it) } }
+      ClipRules.videoPill(detail)?.let { Pill { VideoAvailabilityChip(it) } }
+      if (ClipRules.showsKept(detail)) {
+        ClipCardCopy.kept(clip, resources)?.let { Pill { StatusLine(it, icon = PhonoIcons.Keep, style = MaterialTheme.typography.bodySmall) } }
+      }
       ClipCardCopy.origin(clip.origin, resources)?.let {
         Pill { StatusLine(it, icon = PhonoIcons.Info, style = MaterialTheme.typography.bodySmall) }
       }
@@ -313,7 +336,10 @@ private fun HeaderNotice(notice: ClipNotice, detail: ClipDetail, connected: Bool
   }
 }
 
-/** "Watch · short 4" (resumes) and "From the start"; while the audio comes, "Watch" waits with the reason. */
+/**
+ * "Watch · short 4" (resumes) and "From the start"; while the audio comes, "Watch" waits with the reason. Neither for a
+ * clip deleted on the computer: the feed has already left its shorts out.
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun WatchButtons(state: ClipUiState, detail: ClipDetail, actions: ClipActions) {
@@ -416,8 +442,8 @@ private fun ClipTab.label(): Int = when (this) {
   ClipTab.SUMMARY -> R.string.clip_page_tab_summary
 }
 
-/** The Shorts tab (spec F-05 item 2). */
-private fun LazyListScope.shortsTab(state: ClipUiState, actions: ClipActions) {
+/** The Shorts tab (spec F-05 item 2); a row opens the feed there unless [opensTheFeed] is false (deleted). */
+private fun LazyListScope.shortsTab(state: ClipUiState, actions: ClipActions, opensTheFeed: Boolean) {
   when (val shorts = state.shorts) {
     ShortsState.Loading -> item(key = "shorts-loading") {
       Box(Modifier.padding(horizontal = PhonoSpacing.gutter).testTag(LibraryTags.SHORTS_LOADING)) {
@@ -425,13 +451,16 @@ private fun LazyListScope.shortsTab(state: ClipUiState, actions: ClipActions) {
       }
     }
     ShortsState.NotHere -> item(key = "shorts-not-here") {
-      TabNote(stringResource(R.string.clip_page_comes_with_clip), Modifier.testTag(LibraryTags.SHORTS_NOT_HERE))
+      // A clip deleted on the computer never comes, and neither does its transcript.
+      val deleted = state.detail?.deletedOnComputer == true
+      val note = if (deleted) R.string.clip_page_nothing_here else R.string.clip_page_comes_with_clip
+      TabNote(stringResource(note), Modifier.testTag(LibraryTags.SHORTS_NOT_HERE))
     }
     is ShortsState.Ready -> if (shorts.rows.isEmpty()) {
       item(key = "shorts-none") { TabNote(stringResource(R.string.clip_page_no_shorts)) }
     } else {
       items(shorts.rows, key = { "short:" + it.short.id.firstSegment }) { row ->
-        ShortRow(row, onOpen = { actions.onShort(row.short.id) })
+        ShortRow(row, onOpen = if (opensTheFeed) ({ actions.onShort(row.short.id) }) else null)
       }
     }
   }
@@ -447,12 +476,16 @@ internal fun TabNote(text: String, modifier: Modifier = Modifier) {
   )
 }
 
-/** The Summary tab (spec F-05 item 4) and the "On this phone" block (item 5). */
+/**
+ * The Summary tab (spec F-05 item 4) and the "On this phone" block (item 5); a change row opens the feed unless
+ * [opensTheFeed] is false (deleted).
+ */
 private fun LazyListScope.summaryTab(
   state: ClipUiState,
   detail: ClipDetail,
   actions: ClipActions,
   meters: ClipReductionMeters?,
+  opensTheFeed: Boolean,
   onRemove: () -> Unit,
 ) {
   item(key = "changes-head") { SectionHead(stringResource(R.string.clip_page_changes)) }
@@ -462,7 +495,7 @@ private fun LazyListScope.summaryTab(
     }
   } else {
     items(state.changes, key = { "change:" + it.label.value }) { change ->
-      ChangeRow(change, onOpen = { actions.onChange(change.label) })
+      ChangeRow(change, onOpen = if (opensTheFeed) ({ actions.onChange(change.label) }) else null)
     }
   }
   if (meters != null) {
