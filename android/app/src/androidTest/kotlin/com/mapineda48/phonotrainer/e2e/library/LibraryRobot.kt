@@ -70,6 +70,17 @@ class LibraryRobot(private val compose: ComposeTestRule, val phono: PhonoRobot) 
     return this
   }
 
+  /**
+   * The words of the offline banner ("Showing what this phone knows. Last synced …", spec F-21), once it shows. They
+   * are a node inside the tagged notice, so they are read from the unmerged tree.
+   */
+  fun offlineBanner(): List<String> {
+    phono.waitForTag(LibraryTags.OFFLINE)
+    return compose.onAllNodes(hasAnyAncestor(hasTestTag(LibraryTags.OFFLINE)), useUnmergedTree = true)
+      .fetchSemanticsNodes()
+      .flatMap { node -> node.config.getOrNull(SemanticsProperties.Text).orEmpty().map { it.text } }
+  }
+
   /** Waits until the catalogue has arrived (the list and its live count show). */
   fun awaitRows() {
     compose.waitUntilAtLeastOneExists(hasTestTag(LibraryTags.COUNT), PhonoRobot.TIMEOUT_MS)
