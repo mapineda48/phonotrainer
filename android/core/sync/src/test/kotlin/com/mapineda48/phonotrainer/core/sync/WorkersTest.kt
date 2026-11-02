@@ -66,15 +66,18 @@ class WorkersTest {
     }
   }
 
+  /** The harness's real download run, as `SyncModule` binds it in the app. */
+  private fun SyncHarness.realRunner() = DownloadRunner { starting, progress -> downloader.run(starting, progress) }
+
   private fun SyncHarness.syncWorker(mode: String): SyncWorker = TestListenableWorkerBuilder<SyncWorker>(context)
     .setInputData(workDataOf(SyncWorkNames.KEY_MODE to mode))
-    .setWorkerFactory(SyncWorkerFactory({ orchestrator }, { DownloadRunner { downloader.run(it) } }, { work }, { meta }, log = log))
+    .setWorkerFactory(SyncWorkerFactory({ orchestrator }, { realRunner() }, { work }, { meta }, log = log))
     .build()
 
   private fun SyncHarness.downloadWorker(
     visible: Boolean,
     updater: RecordingForegroundUpdater,
-    runner: DownloadRunner = DownloadRunner { downloader.run(it) },
+    runner: DownloadRunner = realRunner(),
   ): DownloadWorker = TestListenableWorkerBuilder<DownloadWorker>(context)
     .setInputData(workDataOf(SyncWorkNames.KEY_USER_VISIBLE to true))
     .setForegroundUpdater(updater)
@@ -124,12 +127,12 @@ class WorkersTest {
   @Test
   fun aDownloadRunThatEndsWithNothingWaitingOrStillConnectedLeavesNoWifiRun() = sync { h ->
     h.status.statusState.value = ComputerStatus.Offline
-    h.downloadWorker(visible = false, RecordingForegroundUpdater(), runner = { RunOutcome.NOT_CONNECTED }).doWork()
+    h.downloadWorker(visible = false, RecordingForegroundUpdater(), runner = { _, _ -> RunOutcome.NOT_CONNECTED }).doWork()
 
     h.status.statusState.value = SyncHarness.CONNECTED
     h.computer.addFinishedClip("Ordering coffee", video = false)
     h.orchestrator.pass(SyncReason.SYNC_NOW)
-    h.downloadWorker(visible = false, RecordingForegroundUpdater(), runner = { RunOutcome.DONE }).doWork()
+    h.downloadWorker(visible = false, RecordingForegroundUpdater(), runner = { _, _ -> RunOutcome.DONE }).doWork()
 
     assertThat(h.work.nextOnWifi).isEmpty()
     assertThat(h.work.onWifi).isEqualTo(0)
@@ -184,7 +187,7 @@ class WorkersTest {
   fun aDownloadStartedAfterTheAppLeftTheForegroundNeverAsksForTheService() = sync { h ->
     val updater = RecordingForegroundUpdater()
 
-    h.downloadWorker(visible = false, updater, runner = { RunOutcome.DONE }).doWork()
+    h.downloadWorker(visible = false, updater, runner = { _, _ -> RunOutcome.DONE }).doWork()
 
     assertThat(updater.asked).isEmpty()
   }
@@ -204,7 +207,7 @@ class WorkersTest {
   fun aStoppedDownloadLogsWhyItWasStopped() = runBlocking {
     SyncHarness().use { h ->
       val started = CompletableDeferred<Unit>()
-      val runner = DownloadRunner {
+      val runner = DownloadRunner { _, _ ->
         started.complete(Unit)
         awaitCancellation()
       }

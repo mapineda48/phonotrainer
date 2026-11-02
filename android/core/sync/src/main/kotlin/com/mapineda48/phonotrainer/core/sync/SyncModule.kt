@@ -77,7 +77,8 @@ internal interface SyncInternalModule {
 
   companion object {
     @Provides
-    fun runner(downloader: Downloader): DownloadRunner = DownloadRunner { progress -> downloader.run(progress) }
+    fun runner(downloader: Downloader): DownloadRunner =
+      DownloadRunner { starting, progress -> downloader.run(starting, progress) }
 
     @Provides
     @Singleton

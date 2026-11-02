@@ -103,12 +103,19 @@ internal class Downloader @Inject constructor(
 ) {
   private val mutex = Mutex()
 
-  /** Downloads until nothing more can be downloaded now; [progress] follows each file (a visible transfer). */
-  suspend fun run(progress: (RunProgress) -> Unit = {}): RunOutcome = mutex.withLock {
+  /**
+   * Downloads until nothing more can be downloaded now. [starting] is awaited before each file's transfer begins (a
+   * visible transfer enters the foreground at the first one, so a run with nothing to fetch never does); [progress]
+   * follows each file (a visible transfer's notification).
+   */
+  suspend fun run(
+    starting: suspend (RunProgress) -> Unit = {},
+    progress: (RunProgress) -> Unit = {},
+  ): RunOutcome = mutex.withLock {
     startup.awaitDone()
     board.runStarted()
     try {
-      loop(progress)
+      loop(starting, progress)
     } finally {
       board.runEnded()
     }
@@ -141,7 +148,7 @@ internal class Downloader @Inject constructor(
     return evict.size
   }
 
-  private suspend fun loop(progress: (RunProgress) -> Unit): RunOutcome {
+  private suspend fun loop(starting: suspend (RunProgress) -> Unit, progress: (RunProgress) -> Unit): RunOutcome {
     // A run WorkManager starts in a fresh process finds the status not probed yet: one probe decides.
     if (status.status.value !is ComputerStatus.Connected && checkStatus() !is ComputerStatus.Connected) {
       return RunOutcome.NOT_CONNECTED
@@ -171,7 +178,9 @@ internal class Downloader @Inject constructor(
         }
         Admission.Allowed -> Unit
       }
-      progress(RunProgress(want.clip.title, partLength(want), want.bytes, pending.size))
+      val file = RunProgress(want.clip.title, partLength(want), want.bytes, pending.size)
+      starting(file)
+      progress(file)
       when (fetch(want, pending.size, progress)) {
         Fetched.VERIFIED -> afterVerified(want)
         Fetched.RETRY -> Unit

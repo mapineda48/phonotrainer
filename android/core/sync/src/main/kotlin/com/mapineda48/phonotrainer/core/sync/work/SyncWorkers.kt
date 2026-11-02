@@ -255,7 +255,7 @@ internal class DownloadWorker @AssistedInject constructor(
       promoted = promote(TransferProgress(title = "", doneBytes = 0, totalBytes = null, items = 1))
     }
     return try {
-      val outcome = runner.run { progress -> update(progress) }
+      val outcome = runner.run(starting = {}, progress = { progress -> update(progress) })
       if (outcome == RunOutcome.NOT_CONNECTED && passes.hasPendingWork()) WifiBackoff.retryLater(meta, work)
       Result.success()
     } catch (stopped: CancellationException) {
