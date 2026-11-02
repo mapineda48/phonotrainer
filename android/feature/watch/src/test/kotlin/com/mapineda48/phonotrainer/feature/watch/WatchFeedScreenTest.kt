@@ -199,14 +199,28 @@ class WatchFeedScreenTest {
 
   @Test
   fun theEndOfSavedAndTheMixWithNothingLeftSayWhatIsNext() {
+    // F-06 item 9: "Replay the mix" is its own action, never "Another set" (CR-WP14-1).
+    val calls = mutableListOf<String>()
+    val actions = WatchActions(
+      end = EndCallbacks(
+        onAnotherSet = { calls += "another" },
+        onReplayMix = { calls += "replay" },
+        onPractice = { calls += "practice:$it" },
+        onAddClip = { calls += "add" },
+      ),
+    )
     screen.checkEach(
       ScreenVariant.REQUIRED,
-      feed(WatchUiState(loading = false, mode = ModeName.Mix(true), pages = listOf(FeedPage.End(EndKind.NOTHING_LEFT)))),
+      feed(WatchUiState(loading = false, mode = ModeName.Mix(true), pages = listOf(FeedPage.End(EndKind.NOTHING_LEFT))), actions),
     ) {
       compose.onNodeWithText("You've seen every short. New ones appear when your computer finishes a clip.").assertExists()
       compose.onNodeWithTag(WatchTags.END_REPLAY_MIX).assertExists()
       compose.onNodeWithTag(WatchTags.END_ADD_CLIP).assertExists()
     }
+    compose.onNodeWithTag(WatchTags.END_REPLAY_MIX).performScrollTo().performClick()
+    compose.onNodeWithTag(WatchTags.END_PRACTICE).performScrollTo().performClick()
+    compose.onNodeWithTag(WatchTags.END_ADD_CLIP).performScrollTo().performClick()
+    assertThat(calls).containsExactly("replay", "practice:null", "add").inOrder()
   }
 
   @Test
