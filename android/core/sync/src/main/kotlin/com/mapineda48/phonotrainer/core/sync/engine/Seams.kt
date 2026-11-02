@@ -39,7 +39,11 @@ internal interface SyncPasses {
 
 /** One download run (architecture 7.4). */
 internal fun interface DownloadRunner {
-  suspend fun run(progress: (RunProgress) -> Unit): RunOutcome
+  /**
+   * [starting] is awaited before each file's transfer begins (where a visible transfer enters the foreground, so a run
+   * with nothing to fetch never does); [progress] follows each file.
+   */
+  suspend fun run(starting: suspend (RunProgress) -> Unit, progress: (RunProgress) -> Unit): RunOutcome
 }
 
 /** The unique works of architecture 7.2 that `:core:sync` owns, by name. */

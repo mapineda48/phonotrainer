@@ -380,6 +380,22 @@ class DownloadTest {
   }
 
   @Test
+  fun eachFileStartsOnlyAfterTheRunSaidSoAndARunWithNothingToFetchNeverDoes() = sync { h ->
+    // A visible transfer enters the foreground when the run says a file starts (architecture 7.2): before the file's
+    // first byte is asked for, and never in a run that finds nothing to fetch.
+    assertThat(h.downloader.run(starting = { error("nothing is wanted yet") })).isEqualTo(RunOutcome.DONE)
+
+    h.computer.addFinishedClip("Ordering coffee", video = false)
+    h.orchestrator.pass(SyncReason.SYNC_NOW)
+    val askedBefore = mutableListOf<Int>()
+    assertThat(h.downloader.run(starting = { askedBefore += h.transfers.size })).isEqualTo(RunOutcome.DONE)
+
+    assertThat(askedBefore).isNotEmpty()
+    assertThat(askedBefore).containsExactlyElementsIn(askedBefore.indices).inOrder()
+    assertThat(h.downloader.run(starting = { error("every file is here") })).isEqualTo(RunOutcome.DONE)
+  }
+
+  @Test
   fun aRevokedPhoneStopsTheDownloadsWithoutFailingAnyFile() = sync { h ->
     val id = h.computer.addFinishedClip("Ordering coffee", video = false)
     h.orchestrator.pass(SyncReason.SYNC_NOW)

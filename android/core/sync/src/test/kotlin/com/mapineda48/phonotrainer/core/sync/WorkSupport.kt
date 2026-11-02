@@ -88,4 +88,4 @@ internal fun initWorkManager(context: Context, factory: WorkerFactory) {
 }
 
 /** A download run that ends at once. */
-internal val NO_DOWNLOADS = DownloadRunner { RunOutcome.DONE }
+internal val NO_DOWNLOADS = DownloadRunner { _, _ -> RunOutcome.DONE }

@@ -230,10 +230,12 @@ internal class SyncWorker @AssistedInject constructor(
 /**
  * The download worker (`downloads`, architecture 7.2, 7.4): one download run. When the learner started it in the
  * foreground it asks to be a visible transfer (a `dataSync` foreground service with the "Transfers" notification and its
- * "Stop"); if Android does not allow it (started after the app left the foreground, or no `dataSync` permission), it
- * goes on as ordinary deferrable work: downloads are resumable, so a stop is harmless (spec 7.7). A run that loses the
- * computer while files still wait leaves the next `sync-on-wifi` behind it, with the delay of [WifiBackoff] (a
- * computer whose probe answers while its downloads do not must not loop a pass and a run with no pause).
+ * "Stop") as its first file starts, so a run that finds nothing to fetch (one appended behind the run that fetched
+ * everything) never starts the service or shows "Transfers" (spec F-23); if Android does not allow it (the app left the
+ * foreground, or no `dataSync` permission), it goes on as ordinary deferrable work: downloads are resumable, so a stop
+ * is harmless (spec 7.7). A run that loses the computer while files still wait leaves the next `sync-on-wifi` behind
+ * it, with the delay of [WifiBackoff] (a computer whose probe answers while its downloads do not must not loop a pass
+ * and a run with no pause).
  */
 @HiltWorker
 internal class DownloadWorker @AssistedInject constructor(
@@ -247,15 +249,21 @@ internal class DownloadWorker @AssistedInject constructor(
   private val foreground: ForegroundState,
   private val log: PhonoLog,
 ) : CoroutineWorker(context, params) {
-  private var promoted = false
+  @Volatile private var promoted = false
   private var lastUpdate = 0L
 
   override suspend fun doWork(): Result {
-    if (inputData.getBoolean(SyncWorkNames.KEY_USER_VISIBLE, false) && foreground.foreground.value) {
-      promoted = promote(TransferProgress(title = "", doneBytes = 0, totalBytes = null, items = 1))
-    }
+    var wantsForeground = inputData.getBoolean(SyncWorkNames.KEY_USER_VISIBLE, false) && foreground.foreground.value
     return try {
-      val outcome = runner.run { progress -> update(progress) }
+      val outcome = runner.run(
+        starting = { file ->
+          if (wantsForeground) {
+            wantsForeground = false
+            promoted = promote(TransferProgress(file.title, file.doneBytes, file.totalBytes, file.filesLeft))
+          }
+        },
+        progress = { progress -> update(progress) },
+      )
       if (outcome == RunOutcome.NOT_CONNECTED && passes.hasPendingWork()) WifiBackoff.retryLater(meta, work)
       Result.success()
     } catch (stopped: CancellationException) {
@@ -274,6 +282,8 @@ internal class DownloadWorker @AssistedInject constructor(
     }
     return try {
       setForeground(info(progress))
+      // The notification already shows this file: the next update waits for the usual interval.
+      lastUpdate = System.currentTimeMillis()
       true
     } catch (stopped: CancellationException) {
       throw stopped

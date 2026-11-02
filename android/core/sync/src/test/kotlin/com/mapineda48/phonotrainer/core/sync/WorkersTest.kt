@@ -2,6 +2,7 @@ package com.mapineda48.phonotrainer.core.sync
 
 import android.Manifest
 import android.app.Application
+import android.app.Notification
 import android.content.Context
 import android.content.pm.ServiceInfo
 import androidx.test.core.app.ApplicationProvider
@@ -66,15 +67,18 @@ class WorkersTest {
     }
   }
 
+  /** The harness's real download run, as `SyncModule` binds it in the app. */
+  private fun SyncHarness.realRunner() = DownloadRunner { starting, progress -> downloader.run(starting, progress) }
+
   private fun SyncHarness.syncWorker(mode: String): SyncWorker = TestListenableWorkerBuilder<SyncWorker>(context)
     .setInputData(workDataOf(SyncWorkNames.KEY_MODE to mode))
-    .setWorkerFactory(SyncWorkerFactory({ orchestrator }, { DownloadRunner { downloader.run(it) } }, { work }, { meta }, log = log))
+    .setWorkerFactory(SyncWorkerFactory({ orchestrator }, { realRunner() }, { work }, { meta }, log = log))
     .build()
 
   private fun SyncHarness.downloadWorker(
     visible: Boolean,
     updater: RecordingForegroundUpdater,
-    runner: DownloadRunner = DownloadRunner { downloader.run(it) },
+    runner: DownloadRunner = realRunner(),
   ): DownloadWorker = TestListenableWorkerBuilder<DownloadWorker>(context)
     .setInputData(workDataOf(SyncWorkNames.KEY_USER_VISIBLE to true))
     .setForegroundUpdater(updater)
@@ -124,12 +128,12 @@ class WorkersTest {
   @Test
   fun aDownloadRunThatEndsWithNothingWaitingOrStillConnectedLeavesNoWifiRun() = sync { h ->
     h.status.statusState.value = ComputerStatus.Offline
-    h.downloadWorker(visible = false, RecordingForegroundUpdater(), runner = { RunOutcome.NOT_CONNECTED }).doWork()
+    h.downloadWorker(visible = false, RecordingForegroundUpdater(), runner = { _, _ -> RunOutcome.NOT_CONNECTED }).doWork()
 
     h.status.statusState.value = SyncHarness.CONNECTED
     h.computer.addFinishedClip("Ordering coffee", video = false)
     h.orchestrator.pass(SyncReason.SYNC_NOW)
-    h.downloadWorker(visible = false, RecordingForegroundUpdater(), runner = { RunOutcome.DONE }).doWork()
+    h.downloadWorker(visible = false, RecordingForegroundUpdater(), runner = { _, _ -> RunOutcome.DONE }).doWork()
 
     assertThat(h.work.nextOnWifi).isEmpty()
     assertThat(h.work.onWifi).isEqualTo(0)
@@ -147,6 +151,9 @@ class WorkersTest {
 
     assertThat(updater.asked).isNotEmpty()
     assertThat(updater.asked.first().foregroundServiceType).isEqualTo(ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+    // It entered the foreground as its first file started, so the notification names that file's clip at once.
+    assertThat(updater.asked.first().notification.extras.getCharSequence(Notification.EXTRA_TITLE).toString())
+      .isEqualTo("Ordering coffee")
     assertThat(h.clipRepository.clips(ClipQuery()).first().single().availability).isEqualTo(ClipAvailability.OnThisPhone)
   }
 
@@ -184,7 +191,37 @@ class WorkersTest {
   fun aDownloadStartedAfterTheAppLeftTheForegroundNeverAsksForTheService() = sync { h ->
     val updater = RecordingForegroundUpdater()
 
-    h.downloadWorker(visible = false, updater, runner = { RunOutcome.DONE }).doWork()
+    h.downloadWorker(visible = false, updater, runner = { _, _ -> RunOutcome.DONE }).doWork()
+
+    assertThat(updater.asked).isEmpty()
+  }
+
+  @Test
+  @Config(sdk = [35])
+  fun aVisibleRunThatFindsEveryFileAlreadyHereNeverAsksForTheService() = sync { h ->
+    // Spec F-23: the "Transfers" notification shows only while a transfer runs. Passes close together append visible
+    // runs behind the one that downloads; the later ones find nothing to fetch and must not start the foreground
+    // service for a few milliseconds (on the e2e WorkManager that start raced the run's end, FGS type "none").
+    shadowOf(context as Application).grantPermissions(Manifest.permission.FOREGROUND_SERVICE_DATA_SYNC)
+    h.computer.addFinishedClip("Ordering coffee", video = false)
+    h.orchestrator.pass(SyncReason.PAIRED, userVisible = true)
+    val first = RecordingForegroundUpdater()
+    h.downloadWorker(visible = true, first).doWork()
+    assertThat(first.asked).isNotEmpty()
+    val second = RecordingForegroundUpdater()
+
+    assertThat(h.downloadWorker(visible = true, second).doWork()).isEqualTo(ListenableWorker.Result.success())
+
+    assertThat(second.asked).isEmpty()
+  }
+
+  @Test
+  @Config(sdk = [35])
+  fun aVisibleRunWithNothingToDownloadNeverAsksForTheService() = sync { h ->
+    shadowOf(context as Application).grantPermissions(Manifest.permission.FOREGROUND_SERVICE_DATA_SYNC)
+    val updater = RecordingForegroundUpdater()
+
+    assertThat(h.downloadWorker(visible = true, updater).doWork()).isEqualTo(ListenableWorker.Result.success())
 
     assertThat(updater.asked).isEmpty()
   }
@@ -204,7 +241,7 @@ class WorkersTest {
   fun aStoppedDownloadLogsWhyItWasStopped() = runBlocking {
     SyncHarness().use { h ->
       val started = CompletableDeferred<Unit>()
-      val runner = DownloadRunner {
+      val runner = DownloadRunner { _, _ ->
         started.complete(Unit)
         awaitCancellation()
       }

@@ -225,8 +225,9 @@ internal class DeviceSync : AutoCloseable {
       return when (workerClassName) {
         DownloadWorker::class.java.name ->
           DownloadWorker(
-            appContext, workerParameters, DownloadRunner { sync.downloader.run(it) }, sync.passes, sync.work, sync.meta,
-            transfers, sync.foreground, PhonoLog.NONE,
+            appContext, workerParameters,
+            DownloadRunner { starting, progress -> sync.downloader.run(starting, progress) },
+            sync.passes, sync.work, sync.meta, transfers, sync.foreground, PhonoLog.NONE,
           )
         else -> null
       }
