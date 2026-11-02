@@ -16,8 +16,11 @@ import com.mapineda48.phonotrainer.core.navigation.LessonKey
 import com.mapineda48.phonotrainer.core.navigation.LessonOrigin
 import com.mapineda48.phonotrainer.core.navigation.LessonPresentation
 import com.mapineda48.phonotrainer.core.navigation.WatchKey
+import com.mapineda48.phonotrainer.core.testing.computer.FixtureClips
+import com.mapineda48.phonotrainer.core.testing.fixtures.AnalysisFixtures
 import com.mapineda48.phonotrainer.core.ui.component.ShadowingTags
 import com.mapineda48.phonotrainer.e2e.PhonoRobot
+import com.mapineda48.phonotrainer.e2e.support.TestSeeder
 import com.mapineda48.phonotrainer.feature.lesson.LessonStep
 import com.mapineda48.phonotrainer.feature.lesson.LessonTags
 import com.mapineda48.phonotrainer.feature.lesson.R
@@ -36,7 +39,9 @@ import org.junit.rules.Timeout
 /**
  * The lesson area on the managed device (work-plan WP-18 Proof, 2.4): the lesson opens through the real shell as a
  * sheet over the paused feed (the feed stays composed beneath) and as a full page, Back closes each the spec's way,
- * and on a clip put on the phone through the real corpus ([LessonSeeder]) the lesson shows the real Compare rows,
+ * and on WP-12's rules-3 clip ("Did you get the water?", "I'm gonna go at 9.30.", "% uh": palatalization across a
+ * boundary, flapping, a lexical contraction, a low-confidence word, a numeral and a bare symbol) brought to the phone
+ * through the real stack ([TestSeeder]: pairing, a sync pass, the indexer) the lesson shows the real Compare rows,
  * Compact guidance shows titles only (F-10-AC3), "Next change" moves on (F-10-AC5), a recreated activity keeps the word
  * and step 3 (F-10-AC6; the process-death half is the SavedStateHandle test of :feature:lesson), and shadowing runs on
  * the real runner and stops.
@@ -56,7 +61,7 @@ class LessonAreaTest {
 
   @Inject lateinit var settings: SettingsRepository
 
-  @Inject lateinit var seeder: LessonSeeder
+  @Inject lateinit var seeder: TestSeeder
 
   @Inject lateinit var clips: ClipRepository
 
@@ -66,7 +71,7 @@ class LessonAreaTest {
   private fun start(change: (UserSettings) -> UserSettings = { it }): JobId {
     hilt.inject()
     runBlocking { settings.update { change(it.copy(welcomeDone = true)) } }
-    val id = runBlocking { seeder.clip("${LessonSeeder.PREFIX}${System.nanoTime()}") }
+    val id = runBlocking { seeder.seedAudioClip(TITLE, RULES_3) }
     phono.launch()
     return id
   }
@@ -74,7 +79,6 @@ class LessonAreaTest {
   @After
   fun tearDown() {
     if (phono.isLaunched()) phono.scenario.close()
-    if (::seeder.isInitialized) seeder.clear()
   }
 
   @Test
@@ -85,15 +89,10 @@ class LessonAreaTest {
     assertThat(lesson.text(LessonTags.META)).isEqualTo("Word 5 of 12 · phrase 1 · 0:00.8–0:01.0")
     // The paused feed stays composed beneath the overlay.
     assertThat(compose.onAllNodes(hasTestTag(WatchTags.POSITION), useUnmergedTree = true).fetchSemanticsNodes()).isNotEmpty()
-    // The pill names the clip from the baseline's ClipRepository: WP-08's real one reads the seeded title; the stub of a
-    // baseline without WP-08 knows no clip, and then the sheet shows no pill rather than an empty one.
-    val title = runBlocking { clips.clip(job).first()?.summary?.title }
-    if (title.isNullOrBlank()) {
-      assertThat(lesson.text(LessonTags.PAUSED)).isNull()
-    } else {
-      val pill = lesson.string(R.string.lesson_paused, title)
-      compose.waitUntil(PhonoRobot.TIMEOUT_MS) { lesson.text(LessonTags.PAUSED) == pill }
-    }
+    // The pill names the clip by the title the computer gave it, which the real ClipRepository reads.
+    assertThat(runBlocking { clips.clip(job).first()?.summary?.title }).isEqualTo(TITLE)
+    val pill = lesson.string(R.string.lesson_paused, TITLE)
+    compose.waitUntil(PhonoRobot.TIMEOUT_MS) { lesson.text(LessonTags.PAUSED) == pill }
     phono.back()
     phono.assertNotShown(key)
     phono.assertShown(WatchKey())
@@ -112,7 +111,7 @@ class LessonAreaTest {
     hilt.inject()
     runBlocking { settings.update { it.copy(welcomeDone = true) } }
     phono.launch()
-    val job = runBlocking { seeder.largeClip("${LessonSeeder.PREFIX}long-${System.nanoTime()}") }
+    val job = runBlocking { seeder.seedAudioClip(TITLE, LONG) }
     val anyLesson = LessonKey(job, 0, 0, LessonOrigin.FEED, LessonPresentation.SHEET)
     lesson.openFromThePlayingFeed(job)
     phono.assertShown(anyLesson)
@@ -215,7 +214,7 @@ class LessonAreaTest {
   @Test
   fun aWordWhoseClipIsNotOnThePhoneSaysSoAndCloses() {
     start()
-    val key = LessonKey(JobId("${LessonSeeder.PREFIX}gone"), 0, 0, LessonOrigin.SAVED, LessonPresentation.FULL)
+    val key = LessonKey(JobId("job_not_on_this_phone"), 0, 0, LessonOrigin.SAVED, LessonPresentation.FULL)
     phono.open(key)
     phono.assertShown(key)
     lesson.waitForTag(LessonTags.UNAVAILABLE)
@@ -226,6 +225,16 @@ class LessonAreaTest {
 
   private companion object {
     const val LIMIT_S = 120L
+    const val TITLE = "Two friends at the lake"
+
+    /** WP-12's rules-3 clip data; a silent mix as long as the clip is its audio. */
+    val RULES_3 = FixtureClips.of(AnalysisFixtures.Variant.RULES_3)
+
+    /**
+     * A longer clip (WP-12's synthetic analysis, 300 words over 60 phrases, with pitch every 10 ms: the Watch area's
+     * clip, whose first short has a spotlight), so its lesson loads after the sheet has opened.
+     */
+    val LONG = FixtureClips.synthetic(words = 300, phrases = 60)
 
     /** Half height (design 9.9): the sheet's top at half the screen, give or take its handle and the status bar. */
     const val HALF = 0.5f
