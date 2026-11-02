@@ -380,9 +380,10 @@ HTTP stack for nothing).
 `gradle.properties`: `org.gradle.jvmargs=-Xmx3g -Dfile.encoding=UTF-8`, `kotlin.daemon.jvmargs=-Xmx1536m`,
 `org.gradle.caching=true`, `org.gradle.configuration-cache=true`, `org.gradle.parallel=true` (decoupled modules),
 `android.useAndroidX=true`, `android.nonTransitiveRClass=true`,
-`android.testoptions.manageddevices.emulator.gpu=swangle_indirect` (required on this host: the default headless GPU
-modes crash the emulator; CI overrides it on the command line, 22). The memory settings bound one copy of the project
-at about 6.5 GB while testing, which is what lets four copies build at once on the development computer (work-plan
+`android.testoptions.manageddevices.emulator.gpu=swangle_indirect` (required on the Linux computer the project started
+on, where the default headless GPU modes crashed the emulator; a computer that needs another mode sets it in its user
+`~/.gradle/gradle.properties`; CI overrides it on the command line, 22). The memory settings bound one copy of the
+project at about 6.5 GB while testing, which is what lets four copies build at once on the development computer (work-plan
 1.2). `settings.gradle.kts` keeps Artemi's supply-chain rules:
 Google Maven with `includeGroupByRegex` content filters, Maven Central, Gradle Plugin Portal for plugins only,
 `repositoriesMode = FAIL_ON_PROJECT_REPOS`, the foojay toolchain resolver.
@@ -2892,9 +2893,9 @@ disturb; this one never runs web tasks):
 - Job `build` (30 min): Temurin 21 (Gradle runs on it; compilation uses the 17 toolchain), Node 22 (drift check),
   `./gradlew check lintDebug assembleDebug assembleRelease verifyDidacticContent`, reports uploaded.
 - Job `instrumented` (45 min): KVM udev rule, `./gradlew pixel9Api36DebugAndroidTest` with
-  `-Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect` (the committed `swangle_indirect` is what this
-  development computer needs and is untested on GitHub runners; delivery review D-31), reports uploaded. The `qa`
-  smoke and the host-side fake computer smoke run locally (WP-19), not in CI.
+  `-Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect` (the committed `swangle_indirect` is 2.4's
+  default, chosen on the Linux computer the project started on, and is untested on GitHub runners; delivery review
+  D-31), reports uploaded. The `qa` smoke and the host-side fake computer smoke run locally (WP-19), not in CI.
 - No secret is needed; the release artifact is unsigned. Dependabot for Gradle and GitHub Actions is optional and
   scoped to `android/`. Dependency verification metadata (`gradle/verification-metadata.xml`) is not adopted in v1
   (section 25).

@@ -118,7 +118,7 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      # The committed swangle_indirect is what the development computer needs; GitHub runners use SwiftShader.
+      # The committed swangle_indirect is architecture 2.4's default; GitHub runners use SwiftShader.
       - name: Managed-device tests on a headless emulator
         run: >-
           ./gradlew pixel9Api36DebugAndroidTest
