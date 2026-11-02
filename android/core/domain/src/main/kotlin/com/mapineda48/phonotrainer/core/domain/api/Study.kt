@@ -37,13 +37,18 @@ interface SetRepository {
 
   suspend fun ensureToday(): StudySet?
 
+  /**
+   * "Another set" (spec F-08 item 7): an extra set with the set rules; null when nothing new is due, so the feed shows
+   * the "Mix with nothing left" end card.
+   */
   suspend fun anotherSet(): StudySet?
 
   /**
    * "Replay the mix" on the "Mix with nothing left" end card (spec F-06 item 9): a set built from seen shorts, least
    * recently seen first; null only when no short is eligible at all. Kept apart from [anotherSet] so that "Another
    * set" can answer null when nothing new is due and the feed shows that end card first (spec F-08 item 7). The
-   * default body keeps both buttons on [anotherSet] until an implementation overrides it (CR-WP14-1).
+   * default body answers [anotherSet] for an implementation that does not tell them apart; `:core:study` overrides it
+   * (CR-WP14-1).
    */
   suspend fun replayMix(): StudySet? = anotherSet()
 
