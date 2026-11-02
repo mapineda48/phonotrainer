@@ -43,7 +43,6 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.onStart
-import kotlinx.coroutines.flow.runningFold
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -51,11 +50,17 @@ import kotlinx.coroutines.launch
 internal sealed interface ClipPresence {
   data object Loading : ClipPresence
 
-  /** The catalogue has no such clip (an old link): "That clip is no longer on this phone." */
+  /** The catalogue has no such clip, or cannot read it (an old link): "That clip is no longer on this phone." */
   data object Gone : ClipPresence
 
-  /** The clip, or its last known state with [deleted] when it was deleted on the computer while the page is open. */
-  data class Known(val detail: ClipDetail, val deleted: Boolean = false) : ClipPresence
+  /**
+   * The clip as the catalogue has it. [deleted] when the computer deleted it while a screen holds it open: the sync
+   * engine keeps such a clip, marked [ClipDetail.deletedOnComputer], until the learner leaves it (spec F-05 States,
+   * 7.9, QT-10).
+   */
+  data class Known(val detail: ClipDetail) : ClipPresence {
+    val deleted: Boolean get() = detail.deletedOnComputer
+  }
 }
 
 /** The Shorts tab: still reading, not on this phone ("The transcript comes with the clip."), or its rows. */
@@ -117,15 +122,15 @@ internal class ClipViewModel @AssistedInject constructor(
     viewModelScope.launch { progress.markOpened(jobId) }
   }
 
+  /**
+   * The clip from the catalogue. A clip deleted on the computer is not removed while this page holds its lease: its
+   * detail keeps coming, marked `deletedOnComputer`, which is what the banner reads (architecture 7.7). It is removed
+   * when the lease closes, so a clip that leaves the catalogue while the page is open was not kept for it: gone.
+   */
   private val presence: Flow<ClipPresence> = clips.clip(jobId)
-    .catch { if (it is CancellationException) throw it else emit(null) }
-    .runningFold<ClipDetail?, ClipPresence>(ClipPresence.Loading) { before, detail ->
-      when {
-        detail != null -> ClipPresence.Known(detail)
-        before is ClipPresence.Known -> before.copy(deleted = true)
-        else -> ClipPresence.Gone
-      }
-    }
+    .map<ClipDetail?, ClipPresence> { detail -> detail?.let(ClipPresence::Known) ?: ClipPresence.Gone }
+    .catch { if (it is CancellationException) throw it else emit(ClipPresence.Gone) }
+    .onStart { emit(ClipPresence.Loading) }
     .distinctUntilChanged()
 
   private val availability: Flow<ClipAvailability?> =

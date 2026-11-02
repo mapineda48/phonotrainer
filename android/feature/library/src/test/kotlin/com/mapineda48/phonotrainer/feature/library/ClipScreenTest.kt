@@ -92,7 +92,7 @@ class ClipScreenTest {
       "not here, offline, summary" to LibrarySamples.notHereOffline.copy(tab = ClipTab.SUMMARY),
       "no audio" to LibrarySamples.noAudio,
       "processing" to LibrarySamples.processing,
-      "deleted while open" to LibrarySamples.page.copy(presence = ClipPresence.Known(LibrarySamples.detail(), deleted = true)),
+      "deleted while open" to LibrarySamples.deleted,
       "gone" to ClipUiState(presence = ClipPresence.Gone),
       "loading" to ClipUiState(),
     )
@@ -220,7 +220,7 @@ class ClipScreenTest {
       assertInside(LibraryTags.clipNotice(notice.first), notice.second)
     }
 
-    current = LibrarySamples.page.copy(presence = ClipPresence.Known(LibrarySamples.detail(), deleted = true))
+    current = LibrarySamples.deleted
     compose.waitForIdle()
     assertInside(LibraryTags.CLIP_DELETED_BANNER, "This clip was deleted on your computer. It stays until you leave this page.")
 
@@ -229,6 +229,17 @@ class ClipScreenTest {
     compose.onNode(hasText("That clip is no longer on this phone.")).assertIsDisplayed()
     compose.onNodeWithTag("${UiTags.EMPTY_ACTION}.0").performClick()
     assertThat(asked).containsExactly("seeAll")
+  }
+
+  @Test
+  fun theBannerFollowsTheClipsDetail() {
+    // CR-WP08-4: the page reads ClipDetail.deletedOnComputer, the flag the sync engine sets while the page is open.
+    screen.setContent { ClipScreen(LibrarySamples.deleted, actions) }
+    assertInside(LibraryTags.CLIP_DELETED_BANNER, "This clip was deleted on your computer. It stays until you leave this page.")
+    // It stays: the clip's title and "Watch" are still there.
+    assertThat(text(LibraryTags.CLIP_TITLE)).isEqualTo("Coffee shop small talk")
+    compose.onNodeWithTag(LibraryTags.CLIP_WATCH).performClick()
+    assertThat(asked).containsExactly("watch")
   }
 
   @Test

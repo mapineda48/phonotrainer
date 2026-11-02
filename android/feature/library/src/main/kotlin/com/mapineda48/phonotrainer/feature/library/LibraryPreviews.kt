@@ -81,9 +81,7 @@ private fun ClipProcessingPreview() = Clip(LibrarySamples.processing)
 
 @PreviewLightDark
 @Composable
-private fun ClipDeletedPreview() = Clip(
-  LibrarySamples.page.copy(presence = ClipPresence.Known(LibrarySamples.detail(), deleted = true)),
-)
+private fun ClipDeletedPreview() = Clip(LibrarySamples.deleted)
 
 @PreviewLightDark
 @Composable

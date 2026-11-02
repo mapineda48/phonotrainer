@@ -268,4 +268,7 @@ internal object LibrarySamples {
     ),
     request = analyzing,
   )
+
+  /** Deleted on the computer while the page is open: the sync engine keeps it, marked, until the learner leaves. */
+  val deleted = page.copy(presence = ClipPresence.Known(detail().copy(deletedOnComputer = true)))
 }

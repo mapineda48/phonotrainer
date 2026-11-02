@@ -5,9 +5,11 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.viewmodel.CreationExtras
 import com.google.common.truth.Truth.assertThat
+import com.mapineda48.phonotrainer.core.domain.api.ClipRepository
 import com.mapineda48.phonotrainer.core.domain.model.Advice
 import com.mapineda48.phonotrainer.core.domain.model.ChangeLabel
 import com.mapineda48.phonotrainer.core.domain.model.ClipAvailability
+import com.mapineda48.phonotrainer.core.domain.model.ClipDetail
 import com.mapineda48.phonotrainer.core.domain.model.ComputerStatus
 import com.mapineda48.phonotrainer.core.domain.model.Family
 import com.mapineda48.phonotrainer.core.domain.model.JobId
@@ -25,6 +27,8 @@ import com.mapineda48.phonotrainer.core.testing.fake.study.FakeProgressRepositor
 import com.mapineda48.phonotrainer.core.testing.fake.sync.FakeClipRepository
 import kotlin.reflect.KClass
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -49,11 +53,15 @@ class ClipViewModelTest {
   private val store = ViewModelStore()
 
   /** A view model in a store the test can clear (onCleared), its state collected for the test's duration. */
-  private fun TestScope.page(key: ClipKey = ClipKey(id), saved: SavedStateHandle = SavedStateHandle()): ClipViewModel {
+  private fun TestScope.page(
+    key: ClipKey = ClipKey(id),
+    saved: SavedStateHandle = SavedStateHandle(),
+    catalogue: ClipRepository = clips,
+  ): ClipViewModel {
     val factory = object : ViewModelProvider.Factory {
       @Suppress("UNCHECKED_CAST")
       override fun <T : androidx.lifecycle.ViewModel> create(modelClass: KClass<T>, extras: CreationExtras): T =
-        ClipViewModel(key, clips, shorts, content, progress, requests, reference, status, TestClock(LibrarySamples.now), saved) as T
+        ClipViewModel(key, catalogue, shorts, content, progress, requests, reference, status, TestClock(LibrarySamples.now), saved) as T
     }
     val vm = ViewModelProvider.create(store, factory)[key.jobId.value, ClipViewModel::class]
     backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.state.collect {} }
@@ -71,15 +79,56 @@ class ClipViewModelTest {
   }
 
   @Test
-  fun anUnknownClipIsGoneAndAClipDeletedWhileOpenStaysWithItsBanner() = runTest {
+  fun anUnknownClipIsGoneAndSoIsOneThatLeavesTheCatalogueWhileOpen() = runTest {
     val gone = page(ClipKey(JobId("20250101-000000-dead")))
     assertThat(gone.state.value.presence).isEqualTo(ClipPresence.Gone)
 
     clips.details.value = mapOf(id to LibrarySamples.detail())
     val open = page()
     assertThat(open.state.value.presence).isEqualTo(ClipPresence.Known(LibrarySamples.detail()))
+    // Not kept for the page (a kept one stays, marked): its files went with its row, so nothing is left to show.
     clips.details.value = emptyMap()
-    assertThat(open.state.value.presence).isEqualTo(ClipPresence.Known(LibrarySamples.detail(), deleted = true))
+    assertThat(open.state.value.presence).isEqualTo(ClipPresence.Gone)
+  }
+
+  @Test
+  fun aCatalogueThatStopsAnsweringIsNotADeletionOnTheComputer() = runTest {
+    // CR-WP08-4: the end of the detail flow no longer reads as "deleted on your computer"; only the detail says so.
+    val failing = object : ClipRepository by clips {
+      override fun clip(id: JobId): Flow<ClipDetail?> = flow {
+        emit(LibrarySamples.detail())
+        throw IllegalStateException("the catalogue is unreadable")
+      }
+    }
+    val vm = page(catalogue = failing)
+    assertThat(vm.state.value.presence).isEqualTo(ClipPresence.Gone)
+  }
+
+  @Test
+  fun aClipDeletedOnTheComputerWhileOpenStaysWithItsBannerUntilTheLearnerLeaves() = runTest {
+    // Spec F-05 States, 7.9, QT-10: the sync engine does not remove a clip a screen holds open; it only marks it, so
+    // the detail keeps coming with ClipDetail.deletedOnComputer set (CR-WP08-4).
+    clips.details.value = mapOf(id to LibrarySamples.detail())
+    val vm = page()
+    assertThat((vm.state.value.presence as ClipPresence.Known).deleted).isFalse()
+
+    val deleted = LibrarySamples.detail().copy(deletedOnComputer = true)
+    clips.details.value = mapOf(id to deleted)
+    val presence = vm.state.value.presence as ClipPresence.Known
+    assertThat(presence.deleted).isTrue()
+    assertThat(presence.detail).isEqualTo(deleted)
+    // The page keeps its lease, so the removal waits until the learner leaves.
+    assertThat(content.leaseCount(id)).isEqualTo(1)
+    store.clear()
+    assertThat(content.leaseCount(id)).isEqualTo(0)
+  }
+
+  @Test
+  fun aClipAlreadyDeletedOnTheComputerOpensWithItsBanner() = runTest {
+    // Another screen (the feed) holds the clip, so it is still in the catalogue, marked, when its page opens.
+    clips.details.value = mapOf(id to LibrarySamples.detail().copy(deletedOnComputer = true))
+    val vm = page()
+    assertThat((vm.state.value.presence as ClipPresence.Known).deleted).isTrue()
   }
 
   @Test
