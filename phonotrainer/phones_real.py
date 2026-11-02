@@ -12,6 +12,10 @@ canonical word_ids / ids_label / spans_to_phones.
 
 from __future__ import annotations
 
+import os
+import sys
+from pathlib import Path
+
 import numpy as np
 
 from .ipa_maps import (DIPHTHONGS, FLAP, GLOTTAL, PLACE_ASSIMILATION, SYLLABIC,
@@ -20,6 +24,29 @@ from .ipa_maps import (DIPHTHONGS, FLAP, GLOTTAL, PLACE_ASSIMILATION, SYLLABIC,
 
 MODEL_ID = "facebook/wav2vec2-lv-60-espeak-cv-ft"
 SAMPLE_RATE = 16000
+ESPEAK_LIBRARY_VAR = "PHONEMIZER_ESPEAK_LIBRARY"
+
+
+def use_installed_espeak() -> None:
+    """Windows: eSpeak NG's installer does not put its directory on PATH, and
+    phonemizer (behind the espeak tokenizer of transformers) only looks there.
+    When neither PATH nor PHONEMIZER_ESPEAK_LIBRARY says where it is, the
+    variable is pointed at the installed DLL. Call it before the tokenizer is
+    created; elsewhere it does nothing."""
+    if sys.platform != "win32" or ESPEAK_LIBRARY_VAR in os.environ:
+        return
+    import ctypes.util
+
+    if any(ctypes.util.find_library(name)
+           for name in ("espeak-ng", "espeak", "libespeak-ng", "libespeak")):
+        return
+    for variable in ("ProgramFiles", "ProgramW6432", "ProgramFiles(x86)"):
+        base = os.environ.get(variable)
+        dll = Path(base) / "eSpeak NG" / "libespeak-ng.dll" if base else None
+        if dll is not None and dll.is_file():
+            os.environ[ESPEAK_LIBRARY_VAR] = str(dll)
+            return
+
 
 # IMPROVEMENT 1: phonetic attraction toward the canonical form.
 # Calibrated threshold: the acoustic confusions (b→v 0.42, n→l 0.67, l→d 1.17,
@@ -128,6 +155,7 @@ class Wav2Vec2PhoneEngine:
 
         self.torch = torch
         self.model_id = model_id
+        use_installed_espeak()
         self.processor = AutoProcessor.from_pretrained(model_id)
         self.model = AutoModelForCTC.from_pretrained(model_id).to(device).eval()
         self.tokenizer = self.processor.tokenizer

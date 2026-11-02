@@ -1,5 +1,8 @@
 """IMPROVEMENT 0: phone inventory sanitization (multilingual vocabulary → English)."""
 
+import os
+import sys
+
 import pytest
 
 from phonotrainer.canonical import dict_pronunciation
@@ -73,6 +76,9 @@ def test_full_vocabulary_coverage():
     """EVERY token in the tokenizer vocab must map to the English inventory (or be dropped)."""
     from transformers import AutoTokenizer
 
+    from phonotrainer.phones_real import use_installed_espeak
+
+    use_installed_espeak()                 # Windows: eSpeak NG is not on PATH
     tok = AutoTokenizer.from_pretrained("facebook/wav2vec2-lv-60-espeak-cv-ft")
     specials = set(tok.all_special_tokens)
     unmapped = []
@@ -101,3 +107,23 @@ def test_function_words_are_cited_in_their_strong_form():
     assert dict_pronunciation("the")["arpabet"] == ["DH", "AH0"]
     # content words are untouched
     assert dict_pronunciation("better")["arpabet"] == ["B", "EH1", "T", "ER0"]
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="eSpeak NG's Windows installer")
+def test_an_installed_espeak_ng_is_found_off_the_path(tmp_path, monkeypatch):
+    """Its installer does not add it to PATH, the only place phonemizer looks."""
+    from phonotrainer.phones_real import ESPEAK_LIBRARY_VAR, use_installed_espeak
+
+    program_files = tmp_path / "Program Files"
+    dll = program_files / "eSpeak NG" / "libespeak-ng.dll"
+    dll.parent.mkdir(parents=True)
+    dll.write_bytes(b"")
+    monkeypatch.delenv(ESPEAK_LIBRARY_VAR, raising=False)
+    monkeypatch.setenv("PATH", str(tmp_path / "nothing-here"))
+    for name in ("ProgramFiles", "ProgramW6432", "ProgramFiles(x86)"):
+        monkeypatch.setenv(name, str(program_files))
+    use_installed_espeak()
+    assert os.environ[ESPEAK_LIBRARY_VAR] == str(dll)
+    monkeypatch.setenv(ESPEAK_LIBRARY_VAR, "chosen by the user")        # kept as it is
+    use_installed_espeak()
+    assert os.environ[ESPEAK_LIBRARY_VAR] == "chosen by the user"

@@ -152,9 +152,11 @@ def test_hello_then_a_lean_snapshot_of_every_job(phone_app, paired, phone_store,
     by_id = {job["id"]: job for job in snapshot["jobs"]}
     assert by_id[mine.id]["own"] is True and by_id[mine.id]["device_id"] == device_id
     assert by_id[browser.id]["own"] is False and by_id[browser.id]["device_id"] is None
-    text = json.dumps(snapshot)
-    for private in (str(tmp_path), str(Path.home()), "result_dir", "media_path", "Queued →"):
-        assert private not in text
+    text = json.dumps(snapshot, ensure_ascii=False)           # "→" as itself
+    for private in (str(tmp_path), str(Path.home()), tmp_path.name, "result_dir", "media_path",
+                    "Queued →"):
+        # a Windows path's backslashes come out doubled in JSON
+        assert private not in text and json.dumps(private)[1:-1] not in text, private
 
 
 def test_job_events_follow_a_lifecycle_and_never_go_backwards(phone_app, paired, phone_store):

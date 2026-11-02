@@ -1,9 +1,10 @@
 """The configuration directory: the computer's identity and the paired phones.
 
 `PHONOTRAINER_CONFIG_DIR` if set, otherwise `$XDG_CONFIG_HOME/phonotrainer`,
-otherwise `~/.config/phonotrainer`. It lives outside the repository and outside
-every workspace, so switching workspaces never breaks pairing and nothing in it
-can be committed by accident.
+otherwise `%APPDATA%\\phonotrainer` on Windows, otherwise
+`~/.config/phonotrainer`. It lives outside the repository and outside every
+workspace, so switching workspaces never breaks pairing and nothing in it can
+be committed by accident.
 
 `devices.json` holds every paired phone's MAC key, so the directory is treated
 as secret: it is created `0700`, every file is written `0600` through a
@@ -12,25 +13,43 @@ the secret files in it) belong to the current user and are not readable or
 writable by anyone else. Read-modify-write cycles hold an exclusive `flock` on
 `<dir>/.lock`, so the `phonotrainer phone` command and a running server never
 lose each other's writes.
+
+On Windows the same rules use Windows' own means (`winsec.py`): the directory
+gets a protected DACL granting full control only to the current user, SYSTEM
+and Administrators (its files inherit it), the owner is checked instead of the
+uid, a DACL that lets anyone else in is tightened, and the lock is
+`msvcrt.locking` on the first byte of `.lock`.
 """
 
 from __future__ import annotations
 
-import fcntl
+import errno
 import json
 import logging
 import os
 import stat
+import sys
 import tempfile
 import threading
+import time
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator
+
+if sys.platform == "win32":
+    import msvcrt
+
+    from . import winsec
+else:
+    import fcntl
 
 ENV_VAR = "PHONOTRAINER_CONFIG_DIR"
 DIR_MODE = 0o700
 FILE_MODE = 0o600
 LOCK_NAME = ".lock"
+LOCK_RETRY_S = 0.05               # Windows: msvcrt has no blocking lock without a timeout
+OPEN_FILE_TRIES = 20              # Windows: a file another process has open cannot be
+                                  # replaced or deleted
 RUNTIME_FILE = "runtime.json"     # written by a server running with phone access
 # Files whose content is a secret: their mode is checked at every open too.
 SECRET_FILES = ("devices.json", "pairing.json")
@@ -55,7 +74,70 @@ def config_dir(environ: dict[str, str] | None = None) -> Path:
     xdg = env.get("XDG_CONFIG_HOME")
     if xdg and os.path.isabs(xdg):          # the XDG spec ignores relative values
         return Path(xdg) / "phonotrainer"
+    appdata = env.get("APPDATA") if sys.platform == "win32" else None
+    if appdata and os.path.isabs(appdata):
+        return Path(appdata) / "phonotrainer"
     return Path.home() / ".config" / "phonotrainer"
+
+
+# --- POSIX owner and modes, or their Windows equivalents ------------------------------
+
+def _owned_by_me(path: Path, st: os.stat_result) -> bool:
+    if sys.platform == "win32":
+        return winsec.owned_by_me(path)
+    return st.st_uid == os.getuid()
+
+
+def _too_open(path: Path, st: os.stat_result) -> bool:
+    """Readable or writable by anyone but the owner."""
+    if sys.platform == "win32":
+        return bool(winsec.foreign_grantees(path))
+    return bool(stat.S_IMODE(st.st_mode) & 0o077)
+
+
+def _make_private(path: Path, directory: bool) -> None:
+    if sys.platform == "win32":
+        winsec.make_private(path, directory)
+    else:
+        os.chmod(path, DIR_MODE if directory else FILE_MODE)
+
+
+def _lock(fd: int) -> None:
+    if sys.platform != "win32":
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        return
+    while True:
+        os.lseek(fd, 0, os.SEEK_SET)
+        try:
+            msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+            return
+        except OSError as exc:
+            if exc.errno not in (errno.EACCES, errno.EDEADLK):    # not "held by another"
+                raise
+            time.sleep(LOCK_RETRY_S)
+
+
+def _unlock(fd: int) -> None:
+    if sys.platform != "win32":
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        return
+    os.lseek(fd, 0, os.SEEK_SET)
+    msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+
+
+def _while_open(action, *args) -> None:
+    """`action(*args)`; on Windows replacing or deleting a file fails while
+    another process (a reader, an antivirus scan) has it open, so it is
+    retried for about a second."""
+    tries = OPEN_FILE_TRIES if sys.platform == "win32" else 1
+    for attempt in range(tries):
+        try:
+            action(*args)
+            return
+        except PermissionError:
+            if attempt == tries - 1:
+                raise
+            time.sleep(LOCK_RETRY_S)
 
 
 class _ProcessLock:
@@ -87,10 +169,10 @@ class ConfigDir:
 
     # --- safety --------------------------------------------------------------
     def ensure(self) -> Path:
-        """Create the directory if needed (0700) and check it."""
+        """Create the directory if needed (0700, or private on Windows) and check it."""
         try:
             self.path.mkdir(mode=DIR_MODE, parents=True)
-            os.chmod(self.path, DIR_MODE)      # mkdir's mode is filtered by the umask
+            _make_private(self.path, directory=True)   # mkdir's mode is filtered by the umask
         except FileExistsError:
             pass
         self.check()
@@ -111,11 +193,11 @@ class ConfigDir:
             return
         if not stat.S_ISDIR(st.st_mode):
             raise ConfigError(f"{WHERE} is not a directory.")
-        if st.st_uid != os.getuid():
+        if not _owned_by_me(self.path, st):
             raise ConfigError(f"{WHERE} belongs to another user; refusing to use it.")
         tightened = []
-        if stat.S_IMODE(st.st_mode) & 0o077:
-            os.chmod(self.path, DIR_MODE)
+        if _too_open(self.path, st):
+            _make_private(self.path, directory=True)
             tightened.append("the directory")
         for name in SECRET_FILES:
             path = self.path / name
@@ -125,11 +207,11 @@ class ConfigDir:
                 continue
             if not stat.S_ISREG(fst.st_mode):
                 raise ConfigError(f"{name} in {WHERE} is not a regular file.")
-            if fst.st_uid != os.getuid():
+            if not _owned_by_me(path, fst):
                 raise ConfigError(f"{name} in {WHERE} belongs to another user; "
                                   "refusing to use it.")
-            if stat.S_IMODE(fst.st_mode) & 0o077:
-                os.chmod(path, FILE_MODE)
+            if _too_open(path, fst):
+                _make_private(path, directory=False)
                 tightened.append(name)
         if tightened:
             log.warning("Tightened the permissions of %s in %s (it holds phone keys).",
@@ -164,17 +246,25 @@ class ConfigDir:
         return data
 
     def write_json(self, name: str, data: dict) -> None:
-        """Atomic write with mode 0600."""
+        """Atomic write with mode 0600 (on Windows the file inherits the
+        directory's private DACL)."""
         self.ensure()
         fd, tmp = tempfile.mkstemp(dir=self.path, prefix=f".{name}.", suffix=".tmp")
         try:
-            os.fchmod(fd, FILE_MODE)
-            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            if sys.platform != "win32":
+                os.fchmod(fd, FILE_MODE)
+            fh = os.fdopen(fd, "w", encoding="utf-8")
+        except BaseException:
+            os.close(fd)                  # Windows cannot delete a file that is still open
+            os.unlink(tmp)
+            raise
+        try:
+            with fh:
                 json.dump(data, fh, ensure_ascii=False, indent=2)
                 fh.write("\n")
                 fh.flush()
                 os.fsync(fh.fileno())
-            os.replace(tmp, self.path / name)
+            _while_open(os.replace, tmp, self.path / name)
         except BaseException:
             try:
                 os.unlink(tmp)
@@ -184,7 +274,7 @@ class ConfigDir:
 
     def delete(self, name: str) -> None:
         try:
-            os.unlink(self.path / name)
+            _while_open(os.unlink, self.path / name)
         except FileNotFoundError:
             pass
 
@@ -198,7 +288,7 @@ class ConfigDir:
             if plock.depth == 0:
                 fd = os.open(self.path / LOCK_NAME, os.O_RDWR | os.O_CREAT, FILE_MODE)
                 try:
-                    fcntl.flock(fd, fcntl.LOCK_EX)
+                    _lock(fd)
                 except BaseException:
                     os.close(fd)
                     raise
@@ -209,9 +299,26 @@ class ConfigDir:
             finally:
                 plock.depth -= 1
                 if plock.depth == 0 and plock.fd is not None:
-                    fcntl.flock(plock.fd, fcntl.LOCK_UN)
+                    _unlock(plock.fd)
                     os.close(plock.fd)
                     plock.fd = None
+
+
+def pid_alive(pid: int) -> bool:
+    """Whether a process with this pid exists. Nothing is sent to it: on
+    Windows `os.kill(pid, 0)` is no probe (signal 0 is CTRL_C_EVENT, sent to
+    every process on the console), so the process is looked up instead."""
+    if sys.platform == "win32":
+        from .._win import pid_alive as windows_pid_alive
+
+        return windows_pid_alive(pid)
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        pass                                          # alive, another user's
+    return True
 
 
 def runtime_info(config: ConfigDir) -> dict | None:
@@ -223,10 +330,6 @@ def runtime_info(config: ConfigDir) -> dict | None:
         return None
     if not data or not isinstance(data.get("pid"), int):
         return None
-    try:
-        os.kill(data["pid"], 0)
-    except ProcessLookupError:
+    if not pid_alive(data["pid"]):
         return None
-    except PermissionError:
-        pass                                          # alive, another user's
     return data

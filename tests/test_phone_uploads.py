@@ -9,6 +9,7 @@ import asyncio
 import hashlib
 import os
 import secrets
+import sys
 import time
 from pathlib import Path
 
@@ -218,6 +219,31 @@ def test_a_long_name_in_bytes_is_shortened_to_fit_the_file_system(paired, phone_
     assert resp.json()["job"]["source"]["file_name"] == stored.name
     done = declare(signing, name=name)
     assert done.status_code == 200 and done.json()["state"] == "done"
+
+
+def test_names_windows_cannot_hold_are_made_portable_on_windows(paired, phone_app):
+    """A phone's "Meeting 10:30.mp4" or "What?.mp4" is a legal name on Linux, but
+    the move into the job would fail on Windows every time the phone retried."""
+    signing, _, _ = paired
+    windows = sys.platform == "win32"
+    for key, name, portable in ((KEY1, "Meeting 10:30.mp4", "Meeting 10_30.mp4"),
+                                (KEY2, "What?.mp4", "What_.mp4")):
+        assert declare(signing, key=key, name=name).status_code == 201
+        assert declare(signing, key=key, name=name).status_code == 200      # same session
+        resp = put(signing, key=key)
+        assert resp.status_code == 201, resp.text
+        stored = Path(phone_app.state.store.get(resp.json()["job"]["id"]).media_path)
+        assert stored.name == (portable if windows else name)
+        assert stored.read_bytes() == DATA
+        again = declare(signing, key=key, name=name)
+        assert again.status_code == 200 and again.json()["state"] == "done"
+
+
+def test_portable_file_name():
+    portable = uploads_mod.portable_file_name
+    assert portable('a<b>c:d"e|f?g*h.mp4', windows=True) == "a_b_c_d_e_f_g_h.mp4"
+    assert portable('a<b>c:d"e|f?g*h.mp4', windows=False) == 'a<b>c:d"e|f?g*h.mp4'
+    assert portable("Ünïcode clip.mp4", windows=True) == "Ünïcode clip.mp4"
 
 
 def test_fit_file_name():
@@ -610,7 +636,8 @@ def test_a_name_the_file_system_refuses_leaves_the_file_and_no_job(phone_store, 
     route deletes the part), and no job directory is left behind."""
     part = tmp_path / "upload.part"
     part.write_bytes(DATA)
-    too_long = "あ" * 100 + ".mp4"                      # 304 bytes: ENAMETOOLONG
+    # 304 bytes and 304 UTF-16 units: past ext4's 255 bytes and NTFS's 255 units
+    too_long = "a" * 300 + ".mp4"
     before = sorted(p.name for p in phone_store.root.iterdir()) if phone_store.root.exists() \
         else []
     with pytest.raises(OSError):

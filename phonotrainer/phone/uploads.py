@@ -33,6 +33,7 @@ import json
 import logging
 import os
 import re
+import sys
 import tempfile
 import threading
 import weakref
@@ -78,6 +79,20 @@ def fit_file_name(name: str, max_bytes: int = MAX_FILE_NAME_BYTES) -> str:
         return name.encode("utf-8")[:max_bytes].decode("utf-8", "ignore")
     short = stem.encode("utf-8")[:room].decode("utf-8", "ignore").rstrip(" .")
     return (short or "upload") + suffix
+
+
+# Characters a Windows file name cannot hold. A phone's file name can carry them
+# ("Meeting 10:30.mp4"), and the final move into the job would fail every time.
+_WINDOWS_FORBIDDEN = str.maketrans({c: "_" for c in '<>:"|?*'})
+
+
+def portable_file_name(name: str, windows: bool | None = None) -> str:
+    """On Windows (this server's platform by default), `name` with the
+    characters its file names forbid replaced by '_' (same length, same bytes);
+    unchanged elsewhere."""
+    if windows is None:
+        windows = sys.platform == "win32"
+    return name.translate(_WINDOWS_FORBIDDEN) if windows else name
 
 
 def normalize_key(key: str) -> str | None:

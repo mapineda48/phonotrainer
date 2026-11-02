@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from pathlib import Path
 
 from ..jobs import CANCELLED, DONE, ERROR, Job
 from ..separation import DEFAULT_ENABLED as SEPARATE_BY_DEFAULT
@@ -80,7 +81,7 @@ def phone_job(job: Job, caller: str | None, artifacts: ArtifactIndex,
             "kind": kind,
             "url": job.source_url if kind == "link" else None,
             "site": site_of(job.source_url) if kind == "link" else None,
-            "file_name": (job.media_path.rsplit("/", 1)[-1]
+            "file_name": (Path(job.media_path).name     # either separator on Windows
                           if kind in ("upload", "path") and job.media_path else None),
         },
         "options": {

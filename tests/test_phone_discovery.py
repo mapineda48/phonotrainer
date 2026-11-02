@@ -9,6 +9,7 @@ test ever binds the product port 45317 or a non-loopback address.
 import dataclasses
 import json
 import socket
+import time
 
 import pytest
 from conftest import enable_phone_access, loopback, paired_client, wait_until
@@ -151,7 +152,9 @@ def udp_exchange(port: int, data: bytes, timeout: float = 5.0) -> bytes | None:
         client.sendto(data, ("127.0.0.1", port))
         try:
             return client.recvfrom(4096)[0]
-        except socket.timeout:
+        except (socket.timeout, ConnectionResetError):
+            # Windows reports the ICMP port-unreachable of a closed port as
+            # WSAECONNRESET on the next recvfrom; Linux just times out.
             return None
 
 
@@ -171,6 +174,27 @@ def test_a_real_responder_answers_a_real_probe(fake_clock):
     finally:
         real.stop()
     assert real.bound_port is None
+
+
+def test_an_oversized_datagram_or_a_phone_that_left_does_not_stop_the_responder(fake_clock):
+    """Windows reports a datagram larger than the buffer (WSAEMSGSIZE) and the
+    ICMP port-unreachable that an earlier reply drew (WSAECONNRESET) as receive
+    errors on the responder's socket: it skips them and keeps answering."""
+    real = responder(fake_clock, allowed=lambda source, active: source == "127.0.0.1")
+    assert real.start()
+    try:
+        port = real.bound_port
+        assert udp_exchange(port, b"x" * (MAX_PROBE_BYTES + 100), timeout=0.5) is None
+        assert udp_exchange(port, PROBE) is not None
+        # a phone that gave up: its socket closes before the reply reaches it
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as gone:
+            gone.bind(("127.0.0.1", 0))
+            gone.sendto(PROBE, ("127.0.0.1", port))
+        time.sleep(0.3)
+        assert udp_exchange(port, PROBE) is not None
+        assert real._thread is not None and real._thread.is_alive()
+    finally:
+        real.stop()
 
 
 def test_a_busy_port_is_reported_and_nothing_breaks(fake_clock):

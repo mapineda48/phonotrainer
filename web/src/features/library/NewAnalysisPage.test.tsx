@@ -84,6 +84,15 @@ describe("NewAnalysisPage", () => {
     ]);
   });
 
+  it("a path pasted from Windows Explorer's “Copy as path” is sent without its quotes", async () => {
+    render();
+    await typePath('"C:\\Users\\me\\Videos\\clip.mp4"');
+    await start();
+
+    await waitFor(() => expect(api.createJob).toHaveBeenCalled());
+    expect(vi.mocked(api.createJob).mock.calls[0][0]).toBe("C:\\Users\\me\\Videos\\clip.mp4");
+  });
+
   it("every option can be changed: engine, attraction (three-way), separation, speech model", async () => {
     render();
     await userEvent.click(screen.getByRole("radio", { name: /espeak/ }));

@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import httpx
+from starlette import testclient
 
 from phonotrainer.phone.netinfo import Interface
 
@@ -69,7 +70,12 @@ def sign_header(device_id: str, key: bytes, method: str, target: str, ts: int | 
     return f"PT1 device={device_id}, ts={ts}, nonce={nonce}, mac={mac}"
 
 
-class PT1Auth(httpx.Auth):
+# Starlette's TestClient is built on httpx2 when that package is installed, and
+# httpx2 accepts only its own Auth subclasses; the real sockets use httpx.
+_AUTH_BASES = tuple(dict.fromkeys((httpx.Auth, testclient.httpx.Auth)))
+
+
+class PT1Auth(*_AUTH_BASES):
     """Adds a fresh `Authorization: PT1 …` to every request: the target is the
     request's raw path and query exactly as sent, `ts` the given clock."""
 

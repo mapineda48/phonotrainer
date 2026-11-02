@@ -31,9 +31,13 @@ def test_the_download_progress_regex_equals_the_web_clients():
     assert "const SEGMENT_RE = /Segment (\\d+)\\/(\\d+)/;" in source
 
 
+# Resolved once, so that on Windows both sides of a comparison carry the drive.
+SRV = Path("/srv").resolve()
+
+
 def _job(status="running", messages=(), **kw) -> Job:
     job = Job(id="20261010-091503-4be1", source=kw.pop("source", "clip.mp4"),
-              dir=Path("/srv/workspace/20261010-091503-4be1"), status=status, **kw)
+              dir=SRV / "workspace" / "20261010-091503-4be1", status=status, **kw)
     job.progress = [{"at": "2026-10-10T09:15:03+00:00", "message": m} for m in messages]
     return job
 
@@ -111,7 +115,8 @@ def test_source_kinds_and_titles():
     link.media_path = "/srv/downloads/A talk [abc].mp4"
     link.source = "A talk [abc].mp4"
     assert state.title_of(link) == "A talk"
-    upload = _job("queued", media_path="/srv/workspace/20261010-091503-4be1/media/VID 1.mp4")
+    upload = _job("queued",
+                  media_path=str(SRV / "workspace" / "20261010-091503-4be1" / "media" / "VID 1.mp4"))
     assert state.source_kind(upload) == "upload"
     assert state.title_of(upload) == "VID 1"
     path = _job("queued", media_path="/srv/videos/lesson.mp4")
@@ -199,6 +204,37 @@ def test_clean_message_removes_the_home_directory_and_the_user_name():
     assert re.search(r"(?<!\w)someone(?!\w)", cleaned) is None
     assert "someone_else" in cleaned
     assert cleaned.startswith("cannot open")
+
+
+def test_clean_message_reduces_windows_paths_on_a_windows_server():
+    home, user = r"C:\Users\someone", "someone"
+    cases = {
+        r"AudioExtractionError: ffmpeg failed: Error opening input file "
+        r"C:\Users\someone\Repo\workspace\abc\media\clip.mp4.":
+            "ffmpeg failed: Error opening input file clip.mp4.",
+        r"D:\Videos\x\clip.mp4: Invalid data found when processing input":
+            "clip.mp4: Invalid data found when processing input",
+        # a Python repr doubles the backslashes
+        r"FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\someone\\x\\a.wav'":
+            "[Errno 2] No such file or directory: 'a.wav'",
+        r"unable to write \\server\share\dir\x.part and c:/users/SOMEONE/y/z.txt":
+            "unable to write x.part and z.txt",
+        r"in c:\users\SOMEONE\notes": "in notes",
+        "fetching https://host.example/a/b at 2 MB/s, N/A":
+            "fetching https://host.example/a/b at 2 MB/s, N/A",
+    }
+    for text, cleaned in cases.items():
+        assert state.clean_message(text, home=home, user=user, windows=True) == cleaned, text
+    # the home in any case and with either separator, and the user name in any case
+    assert state.clean_message("open C:/USERS/Someone failed for SOMEONE", home=home,
+                               user=user, windows=True) == "open user failed for user"
+    assert state.clean_message(r"cannot open ~ c:\USERS\someone", home=home, user="x",
+                               windows=True) == "cannot open ~ someone"
+    assert state.clean_message(r"in xC:\USERS\Someone\a", home=home, user="x",
+                               windows=True) == r"in x~\a"
+    # a Linux server leaves such text alone (it never writes one)
+    assert state.clean_message(r"D:\Videos\x\clip.mp4: bad", home="/home/me", user="me",
+                               windows=False) == r"D:\Videos\x\clip.mp4: bad"
 
 
 def test_clean_message_keeps_urls_and_rates():

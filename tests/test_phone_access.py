@@ -518,6 +518,12 @@ def test_a_phone_validation_error_is_400_but_the_browsers_stays_422(phone_app):
 
 # --- nothing private ever leaves (4.6) --------------------------------------------------------
 
+def json_forms(value: str) -> set[str]:
+    """`value` as raw text and as JSON writes it: a Windows path's backslashes
+    come out doubled, which a plain substring test would never find."""
+    return {value, json.dumps(value)[1:-1], json.dumps(value, ensure_ascii=False)[1:-1]}
+
+
 def test_no_path_home_or_user_name_in_a_full_session(phone_app, paired, phone_store, media,
                                                      tmp_path):
     signing, device_id, _ = paired
@@ -562,10 +568,11 @@ def test_no_path_home_or_user_name_in_a_full_session(phone_app, paired, phone_st
     record(signing.delete("/api/phone/devices/self"))
 
     forbidden = [str(tmp_path), str(Path.home()), getpass.getuser(),
-                 str(phone_store.root.resolve())]
+                 str(phone_store.root.resolve()), tmp_path.name]
     for text in texts:
         for value in forbidden:
-            assert value not in text, (value, text[:200])
+            for form in json_forms(value):
+                assert form not in text, (value, text[:200])
     assert any(re.search(r'"code":\s*"not_media"', t) for t in texts)
 
 
@@ -622,7 +629,9 @@ def test_no_path_home_or_user_name_in_requests_uploads_or_the_channel(phone_serv
         texts.extend(frames)
 
     assert any('"code":"no_space"' in t.replace(" ", "") for t in texts)
-    forbidden = [str(tmp_path), str(Path.home()), getpass.getuser(), str(store.root.resolve())]
+    forbidden = [str(tmp_path), str(Path.home()), getpass.getuser(), str(store.root.resolve()),
+                 tmp_path.name]
     for text in texts:
         for value in forbidden:
-            assert value not in text, (value, text[:300])
+            for form in json_forms(value):
+                assert form not in text, (value, text[:300])

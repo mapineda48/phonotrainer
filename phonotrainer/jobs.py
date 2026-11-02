@@ -22,8 +22,11 @@ from __future__ import annotations
 import errno
 import itertools
 import json
+import os
 import queue
 import re
+import stat
+import sys
 import threading
 import time
 import uuid
@@ -64,6 +67,12 @@ PHONE_ORIGIN = "phone"
 # is memory. Dumping it on every progress message would do I/O inside the lock
 # and delay, among other things, cancellations.
 SAVE_INTERVAL = 1.0  # s
+# Windows cannot delete a file another handle holds open (a file being served,
+# the phone artifact index hashing it): what a removal leaves behind is retried
+# after these delays, and a job directory without its job.json is removed at
+# the next start.
+RMTREE_RETRIES_S = (5.0, 30.0, 120.0, 600.0)
+_JOB_ID_RE = re.compile(r"\d{8}-\d{6}-[0-9a-f]{4}")
 
 # Downloaded videos go here (git-ignored: every clone starts clean).
 DOWNLOAD_DIR = Path("downloads")
@@ -347,6 +356,9 @@ class JobStore:
             job = _load_job(job_dir)
             if job is not None:
                 self._jobs[job.id] = job
+            elif (sys.platform == "win32" and _JOB_ID_RE.fullmatch(job_dir.name)
+                  and not (job_dir / "job.json").exists()):
+                _rmtree(job_dir)          # a deleted job whose files were still open
 
     def _reconcile_corpus(self) -> None:
         """The corpus is a derived index: it is brought up to date with what is
@@ -852,7 +864,28 @@ def _summarize(analysis: dict) -> dict:
     }
 
 
-def _rmtree(path: Path) -> None:
+def _rmtree(path: Path, retries: tuple[float, ...] | None = None) -> None:
     import shutil
 
-    shutil.rmtree(path, ignore_errors=True)
+    if sys.platform != "win32":
+        shutil.rmtree(path, ignore_errors=True)
+        return
+    if retries is None:
+        retries = RMTREE_RETRIES_S
+    handler = "onexc" if sys.version_info >= (3, 12) else "onerror"
+    shutil.rmtree(path, **{handler: _writable_and_again})
+    if retries and path.exists():
+        timer = threading.Timer(retries[0], _rmtree, args=(path, retries[1:]))
+        timer.daemon = True
+        timer.start()
+
+
+def _writable_and_again(function, name, _exc) -> None:
+    """rmtree's error handler on Windows: a read-only file cannot be deleted
+    until its read-only attribute is cleared. A file still open elsewhere is
+    left for the next attempt."""
+    try:
+        os.chmod(name, stat.S_IWRITE)
+        function(name)
+    except OSError:
+        pass

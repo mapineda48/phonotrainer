@@ -4,7 +4,17 @@ import time
 import wave
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+
+def pytest_configure(config):
+    # Third-party code (panphon) reads its data files with the locale encoding,
+    # which is cp1252 on Windows unless Python runs in UTF-8 mode.
+    if sys.platform == "win32" and not sys.flags.utf8_mode:
+        pytest.exit("the tests need Python's UTF-8 mode on Windows: set PYTHONUTF8=1 and run "
+                    "them again (setx PYTHONUTF8 1 sets it for every new terminal).", returncode=4)
 
 
 def mk_phones(spaced: str, t0: float = 0.0, dur: float = 0.06) -> list[dict]:
@@ -180,8 +190,6 @@ def wait_until(predicate, timeout: float = 10.0, interval: float = 0.02):
 # --- phone access (phonotrainer/phone, server-contract 11.2) ------------------
 # Every test runs with PHONOTRAINER_CONFIG_DIR in a temporary directory, so no
 # test can ever read or write a real configuration directory.
-
-import pytest  # noqa: E402
 
 from phone_fixtures import (FakeClock, FakeDisk, FakeNetinfo, FakeProbe,  # noqa: E402
                             FakeResolver, PT1Auth, fake_which, no_runner)

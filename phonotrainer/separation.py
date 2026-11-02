@@ -34,7 +34,9 @@ from __future__ import annotations
 
 import logging
 import subprocess
+import sys
 import time
+import traceback
 from functools import lru_cache
 from pathlib import Path
 
@@ -100,6 +102,7 @@ def separate_file(media_path: str | Path, out_path: str | Path) -> dict:
     out_path = Path(out_path)
     partial = out_path.with_name(f"{out_path.stem}.partial{out_path.suffix}")
     raw = out_path.with_name(f"{out_path.stem}.decode.f32")
+    mix = None
     t0 = time.monotonic()
     try:
         import soundfile as sf
@@ -109,7 +112,7 @@ def separate_file(media_path: str | Path, out_path: str | Path) -> dict:
         out_path.parent.mkdir(parents=True, exist_ok=True)
         mix = _decode(media_path, raw)
         speech = speech_fn(mix)
-        del mix
+        mix = None
         y = torchaudio.functional.resample(torch.from_numpy(speech), MODEL_SR,
                                            SAMPLE_RATE)
         del speech
@@ -121,9 +124,21 @@ def separate_file(media_path: str | Path, out_path: str | Path) -> dict:
         raise SeparationUnavailable(str(exc)) from exc
     except Exception as exc:                      # noqa: BLE001 — never abort the analysis
         partial.unlink(missing_ok=True)
+        if sys.platform == "win32":
+            # The separator's frames in the traceback still view the memory-mapped
+            # decode, and Windows cannot delete a mapped file.
+            traceback.clear_frames(exc.__traceback__)
         raise SeparationUnavailable(f"{type(exc).__name__}: {exc}") from exc
     finally:
-        raw.unlink(missing_ok=True)
+        mix = None
+        try:
+            raw.unlink(missing_ok=True)
+        except PermissionError:
+            if sys.platform != "win32":
+                raise
+            # Still mapped somewhere: a leftover file must not turn the fallback
+            # to the original mix into a failed analysis.
+            logger.warning("could not remove the separation decode (still in use)")
     return {"seconds": round(time.monotonic() - t0, 1)}
 
 

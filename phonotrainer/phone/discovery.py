@@ -36,6 +36,8 @@ NONCE_RE = re.compile(r"^[0-9a-f]{16,64}$")
 REPLIES_PER_SOURCE = 5            # per second
 REPLIES_TOTAL = 50                # per second
 RECEIVE_TIMEOUT_S = 0.5           # how often the thread checks whether to stop
+WSAEMSGSIZE = 10040
+WSAECONNRESET = 10054
 
 DISCOVERY_RANGES = tuple(ipaddress.ip_network(n) for n in (
     "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "169.254.0.0/16"))
@@ -146,8 +148,16 @@ class DiscoveryResponder:
                 data, (source, port) = sock.recvfrom(MAX_PROBE_BYTES + 1)
             except socket.timeout:
                 continue
-            except OSError:
-                return                         # closed by stop()
+            except OSError as exc:
+                if self._stop.is_set() or sock.fileno() == -1:
+                    return                     # closed by stop()
+                if getattr(exc, "winerror", None) in (WSAEMSGSIZE, WSAECONNRESET):
+                    # Windows only: an ICMP port-unreachable caused by an earlier
+                    # reply (the phone closed its socket), or a datagram larger
+                    # than the buffer (Linux truncates it). The socket still works.
+                    continue
+                log.debug("Discovery receive failed.", exc_info=True)
+                return
             try:
                 reply = self.answer(data, source)
                 if reply is not None:

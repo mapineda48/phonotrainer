@@ -27,6 +27,9 @@ def main() -> int:
 
     # the espeak engine (--phone-engine espeak)
     print("[3/5] facebook/wav2vec2-lv-60-espeak-cv-ft…", flush=True)
+    from phonotrainer.phones_real import use_installed_espeak
+
+    use_installed_espeak()                 # Windows: eSpeak NG is not on PATH
     AutoProcessor.from_pretrained("facebook/wav2vec2-lv-60-espeak-cv-ft")
     AutoModelForCTC.from_pretrained("facebook/wav2vec2-lv-60-espeak-cv-ft")
     print("      OK", flush=True)

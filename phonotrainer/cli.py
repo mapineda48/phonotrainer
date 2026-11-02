@@ -2,13 +2,33 @@
 
 from __future__ import annotations
 
+import os
+import sys
+
 import click
 from rich.console import Console
 
 from .separation import DEFAULT_ENABLED as SEPARATE_BY_DEFAULT
 
 
-@click.group()
+class _Main(click.Group):
+    """On Windows the command runs in Python's UTF-8 mode: without it,
+    third-party code that opens its data files without `encoding=` (panphon's
+    feature tables) reads them as cp1252, and a redirected stdout cannot
+    print IPA or arrows. Without UTF-8 mode, the command line runs again once
+    under `python -X utf8` (`PYTHONUTF8=1` set but not in effect means the
+    user turned it off with `-X utf8=0`: no second attempt)."""
+
+    def __call__(self, *args, **kwargs):
+        if (sys.platform == "win32" and not sys.flags.utf8_mode
+                and os.environ.get("PYTHONUTF8") != "1"):
+            from ._win import relaunch_in_utf8_mode
+
+            sys.exit(relaunch_in_utf8_mode())
+        return super().__call__(*args, **kwargs)
+
+
+@click.group(cls=_Main)
 def main() -> None:
     """PhonoTrainer: phonetic analyzer of native English speech."""
 

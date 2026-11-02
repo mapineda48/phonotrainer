@@ -73,6 +73,8 @@ const fromAttraction = (value: Attraction): boolean | null =>
 
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err));
 const isMedia = (file: File) => /^(video|audio)\//.test(file.type) || file.type === "";
+// Windows Explorer's "Copy as path" wraps the path in double quotes.
+const typedPath = (raw: string) => raw.trim().replace(/^"(.+)"$/, "$1");
 
 export function NewAnalysisPage() {
   const [started, setStarted] = useState<Job | null>(null);
@@ -100,7 +102,7 @@ function NewAnalysisForm({ onStarted }: { onStarted: (job: Job) => void }) {
     setOptions((current) => ({ ...current, [key]: value }));
 
   const ready =
-    (source === "path" && path.trim() !== "") ||
+    (source === "path" && typedPath(path) !== "") ||
     (source === "upload" && file !== null) ||
     (source === "youtube" && url.trim() !== "");
 
@@ -123,7 +125,7 @@ function NewAnalysisForm({ onStarted }: { onStarted: (job: Job) => void }) {
 
   const start = () => {
     if (!ready || busy) return;
-    if (source === "path") void run(() => api.createJob(path.trim(), options));
+    if (source === "path") void run(() => api.createJob(typedPath(path), options));
     if (source === "upload" && file) void run(() => api.uploadJob(file, options));
     if (source === "youtube") void run(() => api.createFromUrl(url.trim(), options, audioOnly));
   };

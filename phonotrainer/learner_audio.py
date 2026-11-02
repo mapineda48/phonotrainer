@@ -166,7 +166,8 @@ def decode(src: Path, container: str, dest: Path) -> float:
         "-t", f"{MAX_TAKE_S + 2 * TAKE_SLACK_S:.2f}", "-f", "wav", str(dest),
     ]
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=DECODE_TIMEOUT_S)
+        proc = subprocess.run(cmd, capture_output=True, encoding="utf-8", errors="replace",
+                              timeout=DECODE_TIMEOUT_S)
     except subprocess.TimeoutExpired as exc:
         raise TakeError("undecodable", "decoding the recording took too long") from exc
     except FileNotFoundError as exc:

@@ -4,6 +4,7 @@
 import hashlib
 import json
 import re
+import sys
 
 import pytest
 from phone_fixtures import (REFERENCE_CHALLENGE, REFERENCE_CODE, REFERENCE_DEVICE_ID,
@@ -15,6 +16,15 @@ from phonotrainer.phone.config import ConfigDir
 from phonotrainer.phone.identity import ServerIdentity, clean_name, clean_text
 from phonotrainer.phone.registry import (DeviceRegistry, PairingError, RateLimiter,
                                          hello_proof, reactivation_proof, token_key)
+
+
+def private_file(path) -> bool:
+    """Mode 0600; on Windows, a DACL that lets nobody else in."""
+    if sys.platform == "win32":
+        from phonotrainer.phone import winsec
+
+        return winsec.foreign_grantees(path) == set()
+    return path.stat().st_mode & 0o777 == 0o600
 
 
 @pytest.fixture
@@ -53,7 +63,7 @@ def test_a_code_is_six_digits_stored_only_as_a_salted_hash(registry, config):
         bytes.fromhex(stored["salt"]) + code.code.encode()).hexdigest()
     assert stored["wrong_attempts"] == 0 and stored["locked"] is False
     assert stored["expires_at"] == "2026-10-10T09:05:00+00:00"   # 300 s after the clock
-    assert (config.path / "pairing.json").stat().st_mode & 0o777 == 0o600
+    assert private_file(config.path / "pairing.json")
 
 
 def test_a_code_is_single_use(registry):
@@ -165,7 +175,7 @@ def test_the_token_is_never_stored_only_its_key(registry, config):
                         "app_version", "app_version_name", "revoked_at"}
     assert row["name"] == "Pixel 9" and row["app_version"] == 1
     assert row["app_version_name"] == "1.0.0" and row["revoked_at"] is None
-    assert (config.path / "devices.json").stat().st_mode & 0o777 == 0o600
+    assert private_file(config.path / "devices.json")
     assert REFERENCE_KEY_HEX not in repr(device) and row["key_sha256"] not in repr(device)
 
 

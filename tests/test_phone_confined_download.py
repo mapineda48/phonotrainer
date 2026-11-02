@@ -192,7 +192,7 @@ def test_threads_a_confined_thread_starts_are_confined(listener):
     assert outcome == ["refused", "connected"]
 
 
-def test_ipv4_mapped_and_unix_sockets_are_refused(listener, tmp_path):
+def test_ipv4_mapped_addresses_are_refused(listener):
     host, port = listener
     if socket.has_ipv6:
         six = socket.socket(socket.AF_INET6)
@@ -202,6 +202,10 @@ def test_ipv4_mapped_and_unix_sockets_are_refused(listener, tmp_path):
                     six.connect(("::ffff:127.0.0.1", port))  # hygiene: test-vector
         finally:
             six.close()
+
+
+@pytest.mark.skipif(not hasattr(socket, "AF_UNIX"), reason="no AF_UNIX sockets on this platform")
+def test_unix_sockets_are_refused(tmp_path):
     unix = socket.socket(socket.AF_UNIX)
     try:
         with confined_connections():

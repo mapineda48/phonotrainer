@@ -29,6 +29,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal, get_args
@@ -227,8 +228,12 @@ def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
     app.state.web_dist = Path(web_dist) if web_dist else WEB_DIST
     roots = [Path(root).expanduser().resolve()
              for root in (allowed_roots or [Path.home(), Path.cwd()])]
-    if any(root == Path("/") for root in roots):
-        raise ValueError('"/" as an allowed root would disable the confinement')
+    # `root.parent == root`: "/", and on Windows a drive root or a share root,
+    # which `Path("/")` never equals there ("/" itself resolves to the drive).
+    if any(root.parent == root for root in roots):
+        raise ValueError("a drive or share root as an allowed root would disable the "
+                         "confinement" if sys.platform == "win32" else
+                         '"/" as an allowed root would disable the confinement')
     app.state.roots = roots
     app.state.phone = None
     if phone is not None:
@@ -293,8 +298,15 @@ def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
 
     def _resolve(path_str: str) -> Path:
         """A non-existent `~user`, NUL bytes…: user input, not a 500."""
+        if sys.platform == "win32" and len(path_str) >= 2 and path_str[0] == path_str[-1] == '"':
+            # Explorer's "Copy as path" wraps the path in double quotes, a
+            # character no Windows file name can hold.
+            path_str = path_str[1:-1]
         try:
-            return Path(path_str).expanduser().resolve()
+            path = Path(path_str)
+            if sys.platform == "win32" and _unknown_home(path):
+                raise HTTPException(400, f"invalid path: {path_str}")
+            return path.expanduser().resolve()
         except (OSError, ValueError, RuntimeError) as exc:
             raise HTTPException(400, f"invalid path: {path_str}") from exc
 
@@ -754,15 +766,33 @@ def create_app(workspace: str | Path = DEFAULT_WORKSPACE,
         if full_path.startswith("api/"):     # a misspelled API route is a 404
             raise HTTPException(404, f"unknown endpoint: /{full_path}")
         dist = app.state.web_dist
-        candidate = (dist / full_path).resolve()
-        if full_path and dist.resolve() in candidate.parents and candidate.is_file():
-            return FileResponse(candidate)
+        if sys.platform != "win32" or _plain_relative(full_path):
+            candidate = (dist / full_path).resolve()
+            if full_path and dist.resolve() in candidate.parents and candidate.is_file():
+                return FileResponse(candidate)
         index = dist / "index.html"
         if index.is_file():
             return FileResponse(index, media_type="text/html")
         return HTMLResponse(_NO_BUILD_HTML, status_code=200)
 
     return app
+
+
+def _unknown_home(path: Path) -> bool:
+    """Windows: `~name` for a home that does not exist. POSIX refuses an
+    unknown user in `expanduser()`; Windows guesses a sibling of this user's
+    profile (C:\\Users\\name) instead."""
+    first = path.parts[0] if path.parts else ""
+    return first.startswith("~") and first != "~" and not Path(first).expanduser().is_dir()
+
+
+def _plain_relative(url_path: str) -> bool:
+    """Windows: a URL path the SPA may look up under web/dist. A backslash or a
+    leading slash can make it a share (\\\\host\\share) or a device path, a
+    colon a drive or an alternate data stream, and resolving such a path opens
+    it (a connection to another host) before the containment check runs."""
+    return not (url_path.startswith("/") or "\\" in url_path or ":" in url_path
+                or "\x00" in url_path)
 
 
 _NO_BUILD_HTML = """<!doctype html><meta charset="utf-8">

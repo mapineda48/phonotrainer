@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import getpass
 import re
+import sys
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -242,6 +243,13 @@ _ERROR_PREFIX_RE = re.compile(r"^ERROR:\s+")
 # An absolute POSIX path of at least two segments, not part of a URL or of a
 # word ("MB/s", "N/A", "https://host/a/b" are left alone).
 _PATH_RE = re.compile(r"(?<![\w.:/~-])((?:/[^\s/'\"`()<>\[\]{},;]+){2,}/?)")
+# On a Windows server, also an absolute Windows path: a drive (C:\a\b, C:/a/b, or
+# the doubled backslashes of a Python repr) or a share (\\host\share\a).
+_WIN_SEG = r"[^\\/\s'\"`()<>\[\]{},;:*?|]+"
+_WIN_SEP = r"(?:\\{1,2}|/)"
+_WIN_PATH_RE = re.compile(
+    rf"(?<![\w\\/])((?:[A-Za-z]:|\\{{2,4}}{_WIN_SEG}{_WIN_SEP}{_WIN_SEG})"
+    rf"(?:{_WIN_SEP}{_WIN_SEG})+{_WIN_SEP}?)")
 MAX_MESSAGE_CHARS = 500
 
 
@@ -254,15 +262,30 @@ def _basename(match: re.Match) -> str:
     return path.rsplit("/", 1)[-1] + trailing
 
 
-def clean_message(text: str | None, home: str | None = None, user: str | None = None) -> str:
+def _win_basename(match: re.Match) -> str:
+    path = match.group(1).rstrip("\\/")
+    tail = re.search(r"[.!?]+$", path)
+    trailing = tail.group(0) if tail else ""
+    if trailing:
+        path = path[: -len(trailing)]
+    return re.split(r"[\\/]+", path)[-1] + trailing
+
+
+def clean_message(text: str | None, home: str | None = None, user: str | None = None,
+                  windows: bool | None = None) -> str:
     """The error text a phone shows under "Show details": no ANSI codes, no
     leading exception class or `ERROR: `, absolute paths reduced to their base
     names, no home directory or user name, whitespace collapsed, at most 500
-    characters."""
+    characters. `windows` (this server's platform by default) adds Windows
+    paths, and a home directory and user name matched in any case."""
+    if windows is None:
+        windows = sys.platform == "win32"
     message = strip_ansi(text or "").strip()
     message = _EXCEPTION_PREFIX_RE.sub("", message, count=1)
     message = _ERROR_PREFIX_RE.sub("", message, count=1)
     message = _PATH_RE.sub(_basename, message)
+    if windows:
+        message = _WIN_PATH_RE.sub(_win_basename, message)
     if home is None:
         home = str(Path.home())
     if user is None:
@@ -271,9 +294,14 @@ def clean_message(text: str | None, home: str | None = None, user: str | None = 
         except (KeyError, OSError):
             user = None
     if home and len(home) > 1:
-        message = message.replace(home, "~")
+        if windows:
+            either_separator = re.escape(home).replace(r"\\", r"[\\/]{1,2}")
+            message = re.sub(either_separator, "~", message, flags=re.IGNORECASE)
+        else:
+            message = message.replace(home, "~")
     if user and len(user) >= 2:
-        message = re.sub(rf"(?<![\w]){re.escape(user)}(?![\w])", "user", message)
+        message = re.sub(rf"(?<![\w]){re.escape(user)}(?![\w])", "user", message,
+                         flags=re.IGNORECASE if windows else 0)
     message = " ".join(message.split())
     if len(message) > MAX_MESSAGE_CHARS:
         message = message[: MAX_MESSAGE_CHARS - 1] + "…"

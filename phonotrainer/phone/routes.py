@@ -31,7 +31,8 @@ from .runtime import PhoneRuntime
 from .shape import phone_job
 from .ssrf import CannotCheckLink, InvalidLink, LinkRefused, check_link
 from .state import source_kind
-from .uploads import MAX_FILE_NAME_CHARS, TAKEOVER_WAIT_S, fit_file_name, normalize_key
+from .uploads import (MAX_FILE_NAME_CHARS, TAKEOVER_WAIT_S, fit_file_name, normalize_key,
+                      portable_file_name)
 
 ALL_METHODS = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
 DEVICE_ID_PATTERN = r"^[A-Za-z0-9_]{1,64}$"
@@ -447,7 +448,7 @@ def declare_upload(body: UploadBody, request: Request,
     # Stored under a name that fits the file system (its limit is in bytes:
     # 200 CJK characters are 600); the same declaration always gives the same
     # name, so a repeated one still matches its session or its job.
-    file_name = fit_file_name(file_name)
+    file_name = fit_file_name(portable_file_name(file_name))
     sha256 = body.sha256.lower()
     with store.requests_locked():
         job = store.find_by_request(device.device_id, key)

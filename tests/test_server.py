@@ -1,6 +1,7 @@
 """HTTP API: the full cycle (analyze → query → review) without loading models."""
 
 import json
+import sys
 
 import pytest
 from conftest import fake_analyze, mk_analysis, wait_until, write_silent_wav
@@ -197,6 +198,19 @@ def test_the_system_root_is_not_allowed_as_a_root(store, tmp_path):
 
     with _pytest.raises(ValueError):
         create_app(store=store, web_dist=tmp_path, allowed_roots=["/"])
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="drive and share roots exist on Windows")
+def test_a_drive_root_is_not_allowed_as_a_root_on_windows(store, tmp_path):
+    with pytest.raises(ValueError):
+        create_app(store=store, web_dist=tmp_path, allowed_roots=[tmp_path.anchor])
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Explorer's \"Copy as path\" is Windows'")
+def test_a_path_copied_from_explorer_keeps_its_quotes_out(client, media):
+    resp = client.post("/api/jobs", json={"path": f'"{media}"'})
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["source"] == media.name
 
 
 def test_analyzing_a_local_file_end_to_end(client, media):
@@ -629,3 +643,31 @@ def test_serves_the_built_spa(store, tmp_path):
         assert client.get("/assets/app.js").text == "console.log(1)"
         assert client.get("/job/abc").text == "<html>app</html>"   # router routes
         assert client.get("/api/health").json()["web_built"] is True
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="share and drive paths are Windows'")
+def test_the_spa_never_looks_up_a_share_or_a_drive_path(store, tmp_path, monkeypatch):
+    """On Windows web/dist joined with a share path (two backslashes, a host, a
+    share) is the share itself, and resolving it opens a connection to that host
+    (an NTLM handshake any web page could trigger with an <img>). Such paths
+    get the app, untouched."""
+    import ntpath
+
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    (dist / "index.html").write_text("<html>app</html>", encoding="utf-8")
+    opened = []
+    real = ntpath._getfinalpathname
+
+    def spy(path):
+        opened.append(str(path))
+        return real(path)
+
+    monkeypatch.setattr(ntpath, "_getfinalpathname", spy)
+    with TestClient(create_app(store=store, web_dist=dist, allowed_roots=[tmp_path])) as client:
+        for url in ("/%5C%5Chost.invalid%5Cshare%5Cx", "///host.invalid/share/x",
+                    "/C:/Windows/win.ini", "/%5C%5C.%5Cpipe%5Cx", "/index.html:stream"):
+            opened.clear()
+            assert client.get(url).text == "<html>app</html>", url
+            outside = [p for p in opened if not p.lower().startswith(str(dist).lower())]
+            assert not outside, (url, outside)

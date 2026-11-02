@@ -2,21 +2,25 @@
 
 Used for the approved networks (a laptop must not expose phone access on a
 café Wi-Fi it joins later), the `ui` banner and `phonotrainer phone pair`.
-Linux only, like the project: the addresses come from `SIOCGIFADDR` and
-`SIOCGIFNETMASK`, the gateway from `/proc/net/route` and its MAC from
-`/proc/net/arp`, and whether the kernel calls the interface virtual from
-`/sys/class/net`. Nothing here is ever written to a file or a log.
+On Linux the addresses come from `SIOCGIFADDR` and `SIOCGIFNETMASK`, the
+gateway from `/proc/net/route` and its MAC from `/proc/net/arp`, and whether
+the kernel calls the interface virtual from `/sys/class/net`. On Windows
+`winnet.py` asks iphlpapi the same questions. Nothing here is ever written to
+a file or a log.
 """
 
 from __future__ import annotations
 
-import fcntl
 import ipaddress
 import os
 import socket
 import struct
+import sys
 from dataclasses import dataclass
 from pathlib import Path
+
+if sys.platform != "win32":
+    import fcntl
 
 SIOCGIFFLAGS = 0x8913
 SIOCGIFADDR = 0x8915
@@ -37,7 +41,7 @@ class Interface:
     gateway_mac: str | None = None
     up: bool = True
     loopback: bool = False
-    virtual: bool = False         # the kernel says so (kernel_virtual); name rules are identity's
+    virtual: bool = False         # the OS says so (kernel_virtual, winnet); name rules are identity's
 
     @property
     def network(self) -> str:
@@ -120,6 +124,10 @@ def _ioctl(sock: socket.socket, request: int, name: str) -> bytes:
 
 def interfaces() -> list[Interface]:
     """Every interface with an IPv4 address, up or not."""
+    if sys.platform == "win32":
+        from .winnet import interfaces as windows_interfaces
+
+        return windows_interfaces()
     gateways = parse_default_gateways(_read("/proc/net/route"))
     arp = parse_arp(_read("/proc/net/arp"))
     found: list[Interface] = []

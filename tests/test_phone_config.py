@@ -6,6 +6,8 @@ import logging
 import os
 import socket
 import stat
+import subprocess
+import sys
 
 import pytest
 from conftest import enable_phone_access, lan, loopback
@@ -26,6 +28,11 @@ def mode(path) -> int:
     return stat.S_IMODE(os.stat(path).st_mode)
 
 
+POSIX_ONLY = pytest.mark.skipif(sys.platform == "win32",
+                                reason="POSIX owners and mode bits (Windows: the DACL tests)")
+WINDOWS_ONLY = pytest.mark.skipif(sys.platform != "win32", reason="Windows owners and DACLs")
+
+
 # --- where it is -----------------------------------------------------------------------------
 
 def test_directory_resolution(tmp_path, monkeypatch):
@@ -36,12 +43,20 @@ def test_directory_resolution(tmp_path, monkeypatch):
     assert config_dir(env) == tmp_path / "xdg" / "phonotrainer"
     env["XDG_CONFIG_HOME"] = "relative/xdg"            # the XDG spec ignores it
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path / "home"))     # Path.home() on Windows
     assert config_dir(env) == tmp_path / "home" / ".config" / "phonotrainer"
     assert config_dir({}) == tmp_path / "home" / ".config" / "phonotrainer"
+    # %APPDATA% comes after an absolute XDG_CONFIG_HOME, and only on Windows
+    env["APPDATA"] = str(tmp_path / "roaming")
+    expected = tmp_path / ("roaming" if sys.platform == "win32" else "home/.config")
+    assert config_dir(env) == expected / "phonotrainer"
+    env["XDG_CONFIG_HOME"] = str(tmp_path / "xdg")
+    assert config_dir(env) == tmp_path / "xdg" / "phonotrainer"
 
 
 # --- modes and ownership ----------------------------------------------------------------------
 
+@POSIX_ONLY
 def test_created_0700_and_files_0600(isolated_config):
     config = ConfigDir(isolated_config)
     assert not isolated_config.exists()
@@ -52,6 +67,7 @@ def test_created_0700_and_files_0600(isolated_config):
     assert mode(isolated_config / "server.json") == 0o600
 
 
+@POSIX_ONLY
 def test_modes_are_rechecked_and_tightened_at_every_open(isolated_config, caplog):
     config = ConfigDir(isolated_config)
     config.write_json("devices.json", {"devices": []})
@@ -71,6 +87,7 @@ def test_modes_are_rechecked_and_tightened_at_every_open(isolated_config, caplog
     assert not caplog.records
 
 
+@POSIX_ONLY
 def test_a_directory_owned_by_another_user_is_refused(isolated_config, monkeypatch):
     config = ConfigDir(isolated_config)
     config.ensure()
@@ -82,6 +99,7 @@ def test_a_directory_owned_by_another_user_is_refused(isolated_config, monkeypat
     assert str(isolated_config) not in str(err.value)
 
 
+@POSIX_ONLY
 def test_a_secret_file_owned_by_another_user_is_refused(isolated_config, monkeypatch):
     config = ConfigDir(isolated_config)
     config.write_json("devices.json", {"devices": []})
@@ -107,6 +125,80 @@ def test_a_secret_file_owned_by_another_user_is_refused(isolated_config, monkeyp
         config.read_json("devices.json")
 
 
+# The Windows equivalents: a private DACL instead of 0700/0600, the owner SID
+# instead of the uid. SDDL: full access (FA) granted to Everyone (WD).
+EVERYONE_TOO = "D:(A;OICI;FA;;;WD)"
+FOREIGN_SID = "S-1-5-21-1-2-3-1001"          # a made-up account
+
+
+def grant_everyone(path) -> None:
+    import ctypes
+    from ctypes import wintypes
+
+    advapi32 = ctypes.WinDLL("advapi32", use_last_error=True)
+    descriptor, dacl = ctypes.c_void_p(), ctypes.c_void_p()
+    present, defaulted = wintypes.BOOL(), wintypes.BOOL()
+    assert advapi32.ConvertStringSecurityDescriptorToSecurityDescriptorW(
+        EVERYONE_TOO, 1, ctypes.byref(descriptor), None)
+    assert advapi32.GetSecurityDescriptorDacl(descriptor, ctypes.byref(present),
+                                              ctypes.byref(dacl), ctypes.byref(defaulted))
+    unprotected = 0x20000000                 # UNPROTECTED_DACL_SECURITY_INFORMATION
+    assert advapi32.SetNamedSecurityInfoW(str(path), 1, 0x4 | unprotected, None, None,
+                                          dacl, None) == 0
+    ctypes.WinDLL("kernel32").LocalFree(descriptor)
+
+
+@WINDOWS_ONLY
+def test_created_private_to_this_user_on_windows(isolated_config):
+    from phonotrainer.phone import winsec
+
+    config = ConfigDir(isolated_config)
+    config.write_json("devices.json", {"devices": []})
+    trusted = {winsec.current_user_sid(), winsec.SYSTEM_SID, winsec.ADMINISTRATORS_SID}
+    for path in (isolated_config, isolated_config / "devices.json"):
+        assert winsec.grantees(path) == trusted, path
+        assert winsec.foreign_grantees(path) == set()
+        assert winsec.owned_by_me(path)
+
+
+@WINDOWS_ONLY
+def test_a_dacl_letting_others_in_is_tightened_at_every_open(isolated_config, caplog):
+    from phonotrainer.phone import winsec
+
+    config = ConfigDir(isolated_config)
+    config.write_json("devices.json", {"devices": []})
+    grant_everyone(isolated_config)
+    grant_everyone(isolated_config / "devices.json")
+    assert winsec.foreign_grantees(isolated_config / "devices.json")
+    with caplog.at_level(logging.WARNING, logger="phonotrainer.phone"):
+        assert ConfigDir(isolated_config).read_json("devices.json") == {"devices": []}
+    assert winsec.foreign_grantees(isolated_config) == set()
+    assert winsec.foreign_grantees(isolated_config / "devices.json") == set()
+    warnings = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+    assert len(warnings) == 1 and "the directory and devices.json" in warnings[0]
+    assert str(isolated_config) not in warnings[0] and "\\" not in warnings[0]
+    caplog.clear()
+    with caplog.at_level(logging.WARNING, logger="phonotrainer.phone"):
+        config.read_json("devices.json")
+    assert not caplog.records
+
+
+@WINDOWS_ONLY
+def test_a_directory_or_secret_file_owned_by_another_user_is_refused_on_windows(
+        isolated_config, monkeypatch):
+    from phonotrainer.phone import winsec
+
+    config = ConfigDir(isolated_config)
+    config.write_json("devices.json", {"devices": []})
+    real_owner = winsec.owner_sid
+    for foreign in (str(isolated_config), str(isolated_config / "devices.json")):
+        monkeypatch.setattr(winsec, "owner_sid", lambda path, foreign=foreign: (
+            FOREIGN_SID if str(path) == foreign else real_owner(path)))
+        with pytest.raises(ConfigError) as err:
+            ConfigDir(isolated_config).read_json("devices.json")
+        assert "another user" in str(err.value) and str(isolated_config) not in str(err.value)
+
+
 def test_writes_are_atomic(isolated_config, monkeypatch):
     config = ConfigDir(isolated_config)
     config.write_json("server.json", {"server_id": "srv_before"})
@@ -121,6 +213,26 @@ def test_writes_are_atomic(isolated_config, monkeypatch):
     assert config.read_json("server.json") == {"server_id": "srv_before"}
     assert sorted(p.name for p in isolated_config.iterdir()) == [".lock", "server.json"] or \
         sorted(p.name for p in isolated_config.iterdir()) == ["server.json"]
+
+
+@WINDOWS_ONLY
+def test_a_write_or_delete_waits_for_a_reader_that_holds_the_file_on_windows(isolated_config):
+    """Windows refuses to replace or delete a file another handle has open (a
+    server re-reading server.json while `phonotrainer phone name` writes it)."""
+    import threading
+
+    config = ConfigDir(isolated_config)
+    config.write_json("server.json", {"n": 1})
+    reader = open(isolated_config / "server.json", encoding="utf-8")
+    threading.Timer(0.3, reader.close).start()
+    config.write_json("server.json", {"n": 2})
+    assert reader.closed and config.read_json("server.json") == {"n": 2}
+    assert sorted(p.name for p in isolated_config.iterdir()) == [".lock", "server.json"] or \
+        sorted(p.name for p in isolated_config.iterdir()) == ["server.json"]
+    reader = open(isolated_config / "server.json", encoding="utf-8")
+    threading.Timer(0.3, reader.close).start()
+    config.delete("server.json")
+    assert reader.closed and not (isolated_config / "server.json").exists()
 
 
 def test_a_damaged_file_is_an_error_not_a_guess(isolated_config):
@@ -289,6 +401,8 @@ def fake_sysfs(root, name: str, device: str, kind: int):
     link.symlink_to(target)
 
 
+@pytest.mark.skipif(sys.platform == "win32",
+                    reason="Linux sysfs: device names with ':' and symlinks, '/' separators")
 def test_the_kernel_says_which_interfaces_are_virtual(tmp_path):
     sysfs = tmp_path / "sys"
     cards = [("wlp3s0", "pci0000:00/0000:00:1c.0/0000:02:00.0", 1, False),
@@ -372,7 +486,12 @@ def test_runtime_json_follows_the_server(phone_store, phone_settings, fake_netin
         info = runtime_info(config)
         assert info["pid"] == os.getpid() and info["port"] == 8123
         assert info["state"] == "suspended"
-        assert mode(isolated_config / "runtime.json") == 0o600
+        if sys.platform == "win32":
+            from phonotrainer.phone import winsec
+
+            assert winsec.foreign_grantees(isolated_config / "runtime.json") == set()
+        else:
+            assert mode(isolated_config / "runtime.json") == 0o600
         fake_netinfo.at_home()
         fake_clock.advance(30)
         app.state.phone.refresh()
@@ -433,6 +552,38 @@ def test_create_app_without_phone_settings_touches_no_configuration_directory(
     assert not (phone_store.root / "library.json").exists()
 
 
+# --- is the server still running? ------------------------------------------------------------
+
+def test_liveness_of_this_process_and_of_one_that_exited(isolated_config):
+    from phonotrainer.phone.config import pid_alive
+
+    assert pid_alive(os.getpid())
+    done = subprocess.Popen([sys.executable, "-c", "pass"])
+    done.wait(timeout=60)
+    assert not pid_alive(done.pid)
+    config = ConfigDir(isolated_config)
+    config.write_json("runtime.json", {"pid": done.pid, "port": 8000})
+    assert runtime_info(config) is None
+    config.write_json("runtime.json", {"pid": os.getpid(), "port": 8000})
+    assert runtime_info(config)["port"] == 8000
+
+
+@WINDOWS_ONLY
+def test_the_liveness_probe_never_signals_on_windows(isolated_config, monkeypatch):
+    """os.kill(pid, 0) on Windows sends CTRL_C_EVENT to the whole console (a
+    running `phonotrainer ui` there would stop): `phone status` must never call
+    it, for a live pid, a dead one or an impossible one."""
+    def no_kill(*args):
+        raise AssertionError(f"os.kill{args} on Windows")
+
+    monkeypatch.setattr(os, "kill", no_kill)
+    config = ConfigDir(isolated_config)
+    for pid, running in ((os.getpid(), True), (2 ** 22 + 12345, False), (0, False),
+                         (2 ** 40, False)):
+        config.write_json("runtime.json", {"pid": pid, "port": 8000})
+        assert (runtime_info(config) is not None) is running, pid
+
+
 # --- netinfo parsing ---------------------------------------------------------------------------
 
 ROUTE = """Iface\tDestination\tGateway \tFlags\tRefCnt\tUse\tMetric\tMask\t\tMTU\tWindow\tIRTT
@@ -444,6 +595,25 @@ ARP = """IP address       HW type     Flags       HW address            Mask    
 192.0.2.1        0x1         0x2         00:00:5E:00:53:01     *        wlan0
 192.0.2.30       0x1         0x0         00:00:00:00:00:00     *        wlan0
 """
+
+
+@WINDOWS_ONLY
+def test_the_windows_interfaces_include_loopback_and_say_what_is_virtual():
+    from phonotrainer.phone.netinfo import interfaces
+    from phonotrainer.phone.winnet import windows_virtual
+
+    found = interfaces()
+    loopback_ifs = [i for i in found if i.loopback]
+    assert loopback_ifs and all(i.address.startswith("127.") and i.virtual for i in loopback_ifs)
+    assert all(0 <= i.prefix <= 32 for i in found)
+    assert not windows_virtual(True, 71, "Some Wireless LAN Card")          # Wi-Fi
+    assert not windows_virtual(True, 6, "Some PCIe GbE Controller")         # Ethernet
+    assert windows_virtual(False, 6, "Hyper-V Virtual Ethernet Adapter")    # vEthernet (WSL)
+    assert windows_virtual(True, 6, "VirtualBox Host-Only Ethernet Adapter")
+    assert windows_virtual(True, 6, "VMware Virtual Ethernet Adapter for VMnet8")
+    assert windows_virtual(True, 53, "TAP-Windows Adapter V9")
+    assert windows_virtual(True, 131, "Some tunnel")
+    assert windows_virtual(True, 23, "Some PPP link")
 
 
 def test_proc_net_parsing():

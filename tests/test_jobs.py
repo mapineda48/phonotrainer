@@ -1,6 +1,9 @@
 """Job store: threaded execution, progress, cancellation and persistence."""
 
 import json
+import os
+import stat
+import sys
 import threading
 import time
 from pathlib import Path
@@ -534,7 +537,7 @@ def test_creating_with_a_non_existent_path_fails(store, tmp_path):
 def test_an_upload_copies_the_file_into_the_job(store):
     job = store.adopt_upload("uploaded.wav", lambda dest: dest.write_bytes(b"RIFFdata"))
     _done(store, job)
-    assert job.media_path.endswith("/media/uploaded.wav")
+    assert Path(job.media_path) == (job.dir / "media" / "uploaded.wav").resolve()
     assert job.to_public()["has_media"] is True
 
 
@@ -546,3 +549,32 @@ def test_imported_analyses_know_their_phone_engine():
     assert _phone_engine_of(
         {"models": {"phones": "facebook/wav2vec2-lv-60-espeak-cv-ft"}}) == "espeak"
     assert _phone_engine_of({}) == "espeak"
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows cannot delete an open file")
+def test_a_deleted_job_whose_files_are_open_is_removed_later_on_windows(store, media,
+                                                                         monkeypatch):
+    """A file being served (or hashed) when the job is deleted stays behind on
+    Windows: the removal is retried once it is closed, and a leftover job
+    directory without its job.json goes at the next start."""
+    monkeypatch.setattr(jobs, "RMTREE_RETRIES_S", (0.2, 0.2, 0.2))
+    job = _done(store, store.create(media))
+    (job.dir / "readonly.txt").write_text("x")
+    os.chmod(job.dir / "readonly.txt", stat.S_IREAD)            # git objects are read-only
+    held = open(job.dir / "audio.wav", "rb")                    # a download in progress
+    try:
+        store.delete(job.id)
+        assert job.dir.is_dir() and not (job.dir / "job.json").exists()
+        assert not (job.dir / "readonly.txt").exists()
+    finally:
+        held.close()
+    wait_until(lambda: not job.dir.exists(), timeout=5)
+
+    # a process that died before the retries leaves the directory to the next start
+    leftover = store.root / "20261010-091503-4be1"
+    (leftover / "media").mkdir(parents=True)
+    (leftover / "media" / "clip.wav").write_bytes(b"RIFF")
+    unrelated = store.root / "notes"
+    unrelated.mkdir()
+    JobStore(store.root, analyze_fn=fake_analyze, corpus=None).shutdown()
+    assert not leftover.exists() and unrelated.is_dir()

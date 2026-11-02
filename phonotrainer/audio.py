@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 import subprocess
 from pathlib import Path
 
@@ -25,7 +26,12 @@ def extract_audio(media_path: str | Path, out_path: str | Path,
         "-vn", "-ac", "1", "-ar", str(sample_rate),
         "-f", "wav", str(out_path),
     ]
-    proc = subprocess.run(cmd, capture_output=True, text=True)
+    try:
+        # ffmpeg writes UTF-8 (file names in its messages), whatever the locale.
+        proc = subprocess.run(cmd, capture_output=True, encoding="utf-8", errors="replace")
+    except FileNotFoundError as exc:
+        # The same text on every system (Windows' own does not name the program).
+        raise FileNotFoundError(errno.ENOENT, "No such file or directory", "ffmpeg") from exc
     if proc.returncode != 0:
         raise AudioExtractionError(
             f"ffmpeg failed ({proc.returncode}) on {media_path.name}: {proc.stderr[-800:]}"
