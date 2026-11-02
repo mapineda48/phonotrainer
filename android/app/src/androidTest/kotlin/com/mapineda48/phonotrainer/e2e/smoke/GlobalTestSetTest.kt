@@ -302,6 +302,22 @@ class GlobalTestSetTest {
   }
 
   /**
+   * A long seeding: fifty clips take many of the seeder's polls, and it releases no periodic sync at them. Each periodic
+   * pass says hello to the computer, which allows 20 a minute on a clock that only tests move (decisions I-05); when
+   * every poll released one, fifty clips never arrived, the sync paused "not connected" behind `429 rate_limited`.
+   */
+  @Test
+  fun seedingFiftyClipsSaysHelloFewerTimesThanTheComputerAllowsInAMinute() = runBlocking {
+    val titles = (1..FIFTY).map { "Clip $it" }.toTypedArray()
+
+    val ids = seeder.seedLibrary(*titles, video = false, timeout = LONG_SEEDING)
+
+    val onThisPhone = clips.clips(ClipQuery()).first().filter { it.availability == ClipAvailability.OnThisPhone }
+    assertThat(onThisPhone.map { it.id }).containsExactlyElementsIn(ids)
+    assertThat(computer.requests.count { it.target.startsWith(HELLO) }).isLessThan(HELLOS_PER_MINUTE)
+  }
+
+  /**
    * The area tests' clips (the Watch, lesson and Learn areas): WP-12's clip data of the test's choosing, cut into
    * shorts by the real indexer, with a mix that lasts the whole timeline (the fake computer's own audio stops at 30 s),
    * and a dialogue track that reaches the phone only when the test says it arrives.
@@ -340,6 +356,14 @@ class GlobalTestSetTest {
     /** The seeder's WAVs: 16 kHz mono PCM16 after a 44-byte header. */
     const val WAV_HEADER_BYTES = 44L
     const val WAV_BYTES_PER_SECOND = 32_000.0
+
+    /** The Library area's catalogue size. */
+    const val FIFTY = 50
+    val LONG_SEEDING = 120.seconds
+
+    /** `GET /api/phone/hello` and the computer's limit for one phone (server-contract 4.7). */
+    const val HELLO = "/api/phone/hello"
+    const val HELLOS_PER_MINUTE = 20
   }
 }
 

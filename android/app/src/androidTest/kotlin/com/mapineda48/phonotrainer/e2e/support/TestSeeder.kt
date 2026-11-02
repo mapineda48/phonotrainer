@@ -149,12 +149,16 @@ class TestSeeder @Inject constructor(
     return listed
   }
 
-  /** Releases the work the stack schedules until [done], at most [timeout]; [what] names the wait in its failure. */
+  /**
+   * Releases the work the stack schedules until [done], at most [timeout]; [what] names the wait in its failure. The
+   * periodic sync is left waiting: released at every poll it would run a pass, and say hello to the computer, ten
+   * times a second, and the computer's rate limit would cut a long seeding off (`WorkDriver.runEnqueued`).
+   */
   private suspend fun drive(what: String, timeout: Duration, done: suspend () -> Boolean) {
     try {
       withTimeout(timeout) {
         while (true) {
-          workDriver.runEnqueued()
+          workDriver.runEnqueued(periodic = false)
           if (done()) break
           delay(POLL)
         }
