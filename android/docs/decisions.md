@@ -166,6 +166,47 @@ player, behind the same `FeedPlayer` (architecture 11.2). Proof: `:core:player` 
 
 ## Build and test infrastructure
 
+### I-21 End-to-end runs keep WorkManager's foreground service off (2026-11-02, WP-19; CR-FGS-1)
+
+A managed-device run of `HomeAreaTest.aChipOpensTheChangeModeWithAsManyShortsAsItSays` died with
+`InvalidForegroundServiceTypeException: Starting FGS with type none ... targetSDK=36 has been prohibited`, thrown by
+`Service.startForeground` from WorkManager 2.12.0's `SystemForegroundDispatcher.handleNotify` while it handled an
+`ACTION_NOTIFY`; the same test passed in other runs. Every `ForegroundInfo` of the app carries
+`FOREGROUND_SERVICE_TYPE_DATA_SYNC`, and the merged manifest declares the service with `dataSync`, so no app code asks
+for type "none". The dispatcher keeps its `ForegroundInfo` map and current work id without synchronisation, because it
+expects every call on the main thread: in the app, WorkManager's task executor posts the end-of-work callback
+(`onExecuted`) to the main looper. `WorkManagerTestInitHelper`'s task executor runs that "main-thread" callback inline
+on the worker's thread instead. When a visible download promoted itself and ended within milliseconds (a run appended
+behind the one that had fetched everything), `onExecuted` emptied the map on the worker's thread while the main thread
+was between reading the current entry and OR-ing the types of the map's entries, so the union was 0 and Android 14+
+refused it. In the failing run the download run promoted at 10:34:06.941, ended at 06.958 and the service died at
+06.970. A phone cannot reach this state: there both sides run on the main thread, one after the other.
+
+Two changes:
+- WP-08's download worker enters the foreground only as its first file starts, so a run with nothing to fetch never
+  starts the service (spec F-23; it also removes a needless start and stop of the "Transfers" notification on phones).
+- `HiltTestRunner` disables `androidx.work.impl.foreground.SystemForegroundService` for the e2e run and restores the
+  component's default state when the run finishes. A worker's `setForeground` then completes without a service, and
+  the work goes on as if Android had granted it. `e2e/smoke/ForegroundWorkTest` runs work that enters the foreground and
+  ends 0 to 24 ms later, 120 times: without the runner's change the process died with the same exception from the
+  same line, at the 67th run in the lane's run and at the first in WP-19's; with it the test passes and the service
+  never starts. The race depends on timing: a variant of the test with the v2 compose rule and a JUnit `Timeout` rule
+  went through all 120 runs once without the change, so the test keeps its shape.
+
+A component's enabled state is kept by the system, not by the process: if the instrumented process dies before the
+runner's `finish` (a crash the runner does not survive, or a killed process), the service stays off on that install,
+and `adb install -r` keeps it off. Uninstalling the app clears it (AGP's managed-device and connected runs uninstall
+the APKs after the run unless `android.injected.androidTest.leaveApksInstalledAfterRun` is set), and so does
+`adb shell pm enable com.mapineda48.phonotrainer/androidx.work.impl.foreground.SystemForegroundService`. Enabling it
+again at the start of the next run would change nothing, since the runner disables it there; no API makes the state
+last only as long as the process.
+
+The foreground service itself is proved where WorkManager runs with its own executors: `:core:sync`'s
+`DownloadOnDeviceTest` and `:core:requests`' `UploadOnDeviceTest` on the managed device, and WP-25 on the phone.
+Rejected: swallowing the exception in the runner's `onException` (the same race can also throw
+`ConcurrentModificationException`, and it would hide a real `ForegroundInfo` without a type), and a custom task
+executor (`WorkManagerTestInitHelper` fixes the main-thread executor to a synchronous one in every `ExecutorsMode`).
+
 ### I-20 Each end-to-end test's application scope ends with the test (2026-10-18, WP-19; CR-WP08-5)
 
 Every end-to-end test builds a new Hilt component, so each test has its own `@ApplicationScope`, and nothing cancelled
