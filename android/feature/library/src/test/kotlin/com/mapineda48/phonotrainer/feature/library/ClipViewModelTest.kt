@@ -263,18 +263,61 @@ class ClipViewModelTest {
   }
 
   @Test
-  fun aClipDeletedOnTheComputerKeepsOnlyTheNoticesAboutItsCopyHere() {
-    // It never comes from the computer again: nothing waits for a download or sends the learner to the computer.
+  fun aClipDeletedOnTheComputerKeepsOnlyTheNoticeThatItCanBeRead() {
+    // It never comes from the computer again and the feed has left it out: nothing waits for a download, sends the
+    // learner to the computer, or says that listening works ("Listening and study work.", "Listening still works.").
     fun deleted(detail: ClipDetail, wanted: Boolean = false) = ClipRules.notices(detail.copy(deletedOnComputer = true), wanted)
     assertThat(deleted(LibrarySamples.detail(LibrarySamples.lake))).isEmpty()
     assertThat(deleted(LibrarySamples.detail(LibrarySamples.lake), wanted = true)).isEmpty()
     assertThat(deleted(LibrarySamples.detail(LibrarySamples.market))).isEmpty()
     val again = LibrarySamples.coffee.copy(availability = ClipAvailability.NeedsDownloadingAgain, olderRules = true,
       video = VideoAvailability.NotAvailableFromComputer)
-    assertThat(deleted(LibrarySamples.detail(again))).containsExactly(ClipNotice.VIDEO_NOT_AVAILABLE)
+    assertThat(deleted(LibrarySamples.detail(again))).isEmpty()
     val cannotPlay = LibrarySamples.coffee.copy(video = VideoAvailability.CannotPlayOnThisPhone)
-    assertThat(deleted(LibrarySamples.detail(cannotPlay))).containsExactly(ClipNotice.VIDEO_CANNOT_PLAY)
+    assertThat(deleted(LibrarySamples.detail(cannotPlay))).isEmpty()
     assertThat(deleted(LibrarySamples.noAudio.detail!!)).containsExactly(ClipNotice.NO_AUDIO)
+  }
+
+  @Test
+  fun aClipDeletedOnTheComputerNeitherPlaysNorWaitsForTheComputer() {
+    // The corpus leaves it out of every feed (spec F-06 States) and the planner of every download (spec 7.9).
+    val here = LibrarySamples.detail()
+    val gone = here.copy(deletedOnComputer = true)
+    assertThat(ClipRules.playable(here)).isTrue()
+    assertThat(ClipRules.opensTheFeed(here)).isTrue()
+    assertThat(ClipRules.playable(gone)).isFalse()
+    assertThat(ClipRules.opensTheFeed(gone)).isFalse()
+
+    // "Kept" goes with it: it leaves this phone kept or not.
+    assertThat(ClipRules.showsKept(here)).isTrue()
+    assertThat(ClipRules.showsKept(gone)).isFalse()
+
+    // The pills keep what is on this phone and drop what would come from the computer.
+    assertThat(ClipRules.availabilityPill(gone)).isEqualTo(ClipAvailability.OnThisPhone)
+    assertThat(ClipRules.availabilityPill(LibrarySamples.detail(LibrarySamples.lake).copy(deletedOnComputer = true)))
+      .isEqualTo(ClipAvailability.NotOnThisPhone)
+    val bringing = LibrarySamples.bringing.detail!!
+    assertThat(ClipRules.availabilityPill(bringing)).isEqualTo(bringing.summary.availability)
+    assertThat(ClipRules.availabilityPill(bringing.copy(deletedOnComputer = true))).isNull()
+    assertThat(ClipRules.audioPercent(bringing)).isEqualTo(40)
+    assertThat(ClipRules.audioPercent(bringing.copy(deletedOnComputer = true))).isNull()
+    listOf(
+      ClipAvailability.GettingReadyOnComputer,
+      ClipAvailability.NeedsDownloadingAgain,
+      LibrarySamples.market.availability,
+    ).forEach { waiting ->
+      val detail = LibrarySamples.detail(LibrarySamples.coffee.copy(availability = waiting))
+      assertThat(ClipRules.availabilityPill(detail)).isEqualTo(waiting)
+      assertThat(ClipRules.availabilityPill(detail.copy(deletedOnComputer = true))).isNull()
+    }
+    listOf(VideoAvailability.Downloading(60), VideoAvailability.GettingReadyOnComputer).forEach { coming ->
+      val detail = LibrarySamples.detail(LibrarySamples.coffee.copy(video = coming))
+      assertThat(ClipRules.videoPill(detail)).isEqualTo(coming)
+      assertThat(ClipRules.videoPill(detail.copy(deletedOnComputer = true))).isNull()
+    }
+    assertThat(ClipRules.videoPill(gone)).isEqualTo(VideoAvailability.OnThisPhone)
+    val audioOnly = LibrarySamples.detail(LibrarySamples.coffee.copy(video = VideoAvailability.AudioOnlyClip))
+    assertThat(ClipRules.videoPill(audioOnly)).isNull()
   }
 
   @Test

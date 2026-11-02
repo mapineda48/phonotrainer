@@ -61,12 +61,13 @@ import com.mapineda48.phonotrainer.core.ui.marks.MarkLines
 /**
  * One short of the Shorts tab (spec F-05 item 2, render `16`): the italic numeral, the spotlight chip with its word in
  * its mark ("Linking in “pick it up”") or "No labelled change here: listen to the rhythm.", the time range and the
- * count of marked words, and "Seen" (check + word) or "Next". Tapping it opens the feed In order at this short. TalkBack
- * reads the row as one sentence.
+ * count of marked words, and "Seen" (check + word) or "Next". Tapping it opens the feed In order at this short; with no
+ * [onOpen] (a clip deleted on the computer, whose shorts the feed left out) it is not a control. TalkBack reads the row
+ * as one sentence.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun ShortRow(row: ShortRowState, onOpen: () -> Unit) {
+internal fun ShortRow(row: ShortRowState, onOpen: (() -> Unit)?) {
   val colors = PhonoTheme.colors
   val resources = LocalResources.current
   val short = row.short
@@ -94,13 +95,9 @@ internal fun ShortRow(row: ShortRowState, onOpen: () -> Unit) {
       modifier = Modifier
         .fillMaxWidth()
         .heightIn(min = PhonoSizes.minTarget)
-        .clickable(onClick = onOpen)
+        .then(if (onOpen != null) Modifier.clickable(onClick = onOpen) else Modifier)
         .testTag(LibraryTags.short(short.id))
-        .clearAndSetSemantics {
-          contentDescription = sentence
-          role = Role.Button
-          onClick(watch) { onOpen(); true }
-        }
+        .rowSemantics(sentence, onOpen?.let { open -> watch to open })
         .padding(horizontal = PhonoSpacing.gutter, vertical = PhonoSpacing.s12),
       verticalAlignment = Alignment.CenterVertically,
       horizontalArrangement = Arrangement.spacedBy(PhonoSpacing.s12),
@@ -167,11 +164,24 @@ private fun SpotlightChip(name: String, family: Family) {
 }
 
 /**
+ * One sentence for TalkBack in place of the row's children; with [open] (its action's label and call) the row is a
+ * button whose click action says what it does.
+ */
+private fun Modifier.rowSemantics(sentence: String, open: Pair<String, () -> Unit>?): Modifier = clearAndSetSemantics {
+  contentDescription = sentence
+  if (open != null) {
+    role = Role.Button
+    onClick(open.first) { open.second(); true }
+  }
+}
+
+/**
  * A row of "Changes in this clip" (spec F-05 item 4): the family icon, the change's name and practice badge, its count;
- * tapping it opens the feed in that change limited to this clip (F-05-AC1).
+ * tapping it opens the feed in that change limited to this clip (F-05-AC1). With no [onOpen] (a clip deleted on the
+ * computer) it only says what the clip has: no control and no chevron.
  */
 @Composable
-internal fun ChangeRow(change: ChangeRowState, onOpen: () -> Unit) {
+internal fun ChangeRow(change: ChangeRowState, onOpen: (() -> Unit)?) {
   val colors = PhonoTheme.colors
   val advice = stringResource(
     if (change.advice == Advice.PRODUCE) UiR.string.ui_advice_produce else UiR.string.ui_advice_understand,
@@ -183,13 +193,9 @@ internal fun ChangeRow(change: ChangeRowState, onOpen: () -> Unit) {
       modifier = Modifier
         .fillMaxWidth()
         .heightIn(min = PhonoSizes.row)
-        .clickable(onClick = onOpen)
+        .then(if (onOpen != null) Modifier.clickable(onClick = onOpen) else Modifier)
         .testTag(LibraryTags.change(change.label))
-        .clearAndSetSemantics {
-          contentDescription = sentence
-          role = Role.Button
-          onClick(watch) { onOpen(); true }
-        }
+        .rowSemantics(sentence, onOpen?.let { open -> watch to open })
         .padding(horizontal = PhonoSpacing.gutter, vertical = PhonoSpacing.s8),
       verticalAlignment = Alignment.CenterVertically,
       horizontalArrangement = Arrangement.spacedBy(PhonoSpacing.s12),
@@ -209,7 +215,9 @@ internal fun ChangeRow(change: ChangeRowState, onOpen: () -> Unit) {
         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
         color = colors.ink,
       )
-      Icon(painterResource(PhonoIcons.ChevronRight), null, tint = colors.ink, modifier = Modifier.size(PhonoSizes.iconButton))
+      if (onOpen != null) {
+        Icon(painterResource(PhonoIcons.ChevronRight), null, tint = colors.ink, modifier = Modifier.size(PhonoSizes.iconButton))
+      }
     }
     Hairline()
   }

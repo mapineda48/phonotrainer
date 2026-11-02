@@ -269,15 +269,21 @@ internal object LibrarySamples {
     request = analyzing,
   )
 
-  /** Deleted on the computer while the page is open: the sync engine keeps it, marked, until the learner leaves. */
-  val deleted = page.copy(presence = ClipPresence.Known(detail().copy(deletedOnComputer = true)))
+  private fun ClipUiState.deletedOnComputer() =
+    copy(presence = ClipPresence.Known((presence as ClipPresence.Known).detail.copy(deletedOnComputer = true)))
+
+  /**
+   * Deleted on the computer while the page is open: the sync engine keeps it, marked, until the learner leaves. The
+   * clip is a kept one, whose "Kept" goes with the deletion.
+   */
+  val deleted = page.deletedOnComputer()
 
   /** Deleted on the computer before anything of it reached this phone: nothing is here, and nothing will come. */
-  val deletedNotHere = notHereOffline.copy(presence = ClipPresence.Known(detail(lake).copy(deletedOnComputer = true)))
+  val deletedNotHere = notHereOffline.deletedOnComputer()
 
-  /** Deleted on the computer while it was still being analyzed. */
-  val deletedProcessing = processing.copy(
-    presence = ClipPresence.Known((processing.presence as ClipPresence.Known).detail.copy(deletedOnComputer = true)),
-    request = null,
-  )
+  /** Deleted on the computer while its study pack was coming: the download stops for good. */
+  val deletedBringing = bringing.deletedOnComputer()
+
+  /** Deleted on the computer while it was still being analyzed; this phone's request may still be there. */
+  val deletedProcessing = processing.deletedOnComputer()
 }

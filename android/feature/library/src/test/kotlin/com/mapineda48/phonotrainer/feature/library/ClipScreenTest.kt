@@ -6,8 +6,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -21,6 +23,7 @@ import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import com.google.common.truth.Truth.assertThat
 import com.mapineda48.phonotrainer.core.domain.model.ChangeLabel
 import com.mapineda48.phonotrainer.core.domain.model.ClipAvailability
@@ -95,6 +98,7 @@ class ClipScreenTest {
       "deleted while open" to LibrarySamples.deleted,
       "deleted while open, summary" to LibrarySamples.deleted.copy(tab = ClipTab.SUMMARY),
       "deleted, not here" to LibrarySamples.deletedNotHere,
+      "deleted while bringing" to LibrarySamples.deletedBringing,
       "deleted while processing" to LibrarySamples.deletedProcessing,
       "gone" to ClipUiState(presence = ClipPresence.Gone),
       "loading" to ClipUiState(),
@@ -111,6 +115,7 @@ class ClipScreenTest {
       "deleted while open" to LibraryTags.CLIP_DELETED_BANNER,
       "deleted while open, summary" to LibraryTags.ON_PHONE,
       "deleted, not here" to LibraryTags.SHORTS_NOT_HERE,
+      "deleted while bringing" to LibraryTags.CLIP_DELETED_BANNER,
       "deleted while processing" to LibraryTags.CLIP_DELETED_BANNER,
       "gone" to LibraryTags.CLIP_GONE,
       "loading" to UiTags.LOADING,
@@ -240,12 +245,109 @@ class ClipScreenTest {
   @Test
   fun theBannerFollowsTheClipsDetail() {
     // CR-WP08-4: the page reads ClipDetail.deletedOnComputer, the flag the sync engine sets while the page is open.
-    screen.setContent { ClipScreen(LibrarySamples.deleted, actions) }
+    var current by mutableStateOf(LibrarySamples.page)
+    screen.setContent { ClipScreen(current, actions) }
+    assertThat(exists(LibraryTags.CLIP_DELETED_BANNER)).isFalse()
+    current = LibrarySamples.deleted
+    compose.waitForIdle()
     assertInside(LibraryTags.CLIP_DELETED_BANNER, "This clip was deleted on your computer. It stays until you leave this page.")
-    // It stays: the clip's title and "Watch" are still there.
+    // A polite live region: TalkBack says it when it appears.
+    assertThat(compose.onNodeWithTag(LibraryTags.CLIP_DELETED_BANNER).fetchSemanticsNode().config[SemanticsProperties.LiveRegion])
+      .isEqualTo(LiveRegionMode.Polite)
+    // It stays: the clip's title and what it is are still there.
     assertThat(text(LibraryTags.CLIP_TITLE)).isEqualTo("Coffee shop small talk")
-    compose.onNodeWithTag(LibraryTags.CLIP_WATCH).performClick()
-    assertThat(asked).containsExactly("watch")
+    assertThat(text(LibraryTags.CLIP_META)).isEqualTo("4 min 21 s · 87 phrases · 691 words · Video · added today")
+  }
+
+  @Test
+  @Config(qualifiers = "w412dp-h800dp")
+  fun theBannerShowsWhereverTheLearnerHasScrolled() {
+    // Design 9.23: a persistent condition's banner sits at the top, outside the scrolling page. The learner who reads
+    // "On this phone" when the deletion arrives sees it there, as its actions go.
+    var current by mutableStateOf(LibrarySamples.page.copy(tab = ClipTab.SUMMARY))
+    screen.setContent { ClipScreen(current, actions) }
+    compose.onNodeWithTag(LibraryTags.CLIP_LIST).performScrollToNode(hasTestTag(LibraryTags.REMOVE_FROM_PHONE))
+    compose.onNodeWithTag(LibraryTags.REMOVE_FROM_PHONE).assertIsDisplayed()
+    assertThat(exists(LibraryTags.CLIP_TITLE)).isFalse()
+
+    current = LibrarySamples.deleted.copy(tab = ClipTab.SUMMARY)
+    compose.waitForIdle()
+    compose.onNodeWithTag(LibraryTags.CLIP_DELETED_BANNER).assertIsDisplayed()
+    compose.onNodeWithTag(LibraryTags.ON_PHONE).assertIsDisplayed()
+    assertThat(exists(LibraryTags.REMOVE_FROM_PHONE)).isFalse()
+    compose.onNodeWithTag(LibraryTags.CLIP_LIST).performScrollToNode(hasTestTag(LibraryTags.CLIP_TITLE))
+    compose.onNodeWithTag(LibraryTags.CLIP_DELETED_BANNER).assertIsDisplayed()
+    // The Back button stays reachable under the banner.
+    compose.onNodeWithTag(LibraryTags.CLIP_BACK).assertIsDisplayed().performClick()
+    assertThat(asked).containsExactly("back")
+  }
+
+  @Test
+  fun aClipDeletedOnTheComputerNoLongerOpensTheFeed() {
+    // The feed leaves out a clip deleted on the computer at once (spec F-06 States; the corpus' playable clips), so
+    // "Watch", "From the start", a short and a change would open it empty: they are not offered, and the rows stay as
+    // text.
+    var current by mutableStateOf(LibrarySamples.deleted)
+    screen.setContent { ClipScreen(current, actions) }
+    assertThat(exists(LibraryTags.CLIP_WATCH)).isFalse()
+    assertThat(exists(LibraryTags.CLIP_FROM_START)).isFalse()
+    val short = compose.onNodeWithTag(LibraryTags.short(LibrarySamples.shorts[2].id))
+    assertThat(short.description()).isEqualTo("Short 3, Flapping in “better”, 0:36–0:42 · 4 marked words, Seen")
+    short.assertHasNoClickAction().performClick()
+    assertThat(compose.onNodeWithTag(LibraryTags.short(LibrarySamples.shorts[2].id)).fetchSemanticsNode().config.contains(SemanticsProperties.Role))
+      .isFalse()
+
+    current = LibrarySamples.deleted.copy(tab = ClipTab.SUMMARY)
+    compose.waitForIdle()
+    val change = compose.onNodeWithTag(LibraryTags.change(ChangeLabel("flapping")))
+    assertThat(change.description()).isEqualTo("Flapping, 12 in this clip, Safe to produce")
+    change.assertHasNoClickAction().performClick()
+    assertThat(asked).isEmpty()
+  }
+
+  @Test
+  fun theHeaderOfAClipDeletedOnTheComputerPromisesNothing() {
+    // Spec 7.9: it goes when the learner leaves, kept or not, and its downloads stop for good (the planner leaves it).
+    var current by mutableStateOf(LibrarySamples.page)
+    screen.setContent { ClipScreen(current, actions) }
+    compose.onNode(hasText("Kept")).assertIsDisplayed()
+    current = LibrarySamples.deleted
+    compose.waitForIdle()
+    compose.onNode(hasText("Kept")).assertDoesNotExist()
+    compose.onNode(hasText("On this phone")).assertIsDisplayed()
+    compose.onNode(hasText("Video on this phone")).assertIsDisplayed()
+
+    current = LibrarySamples.bringing
+    compose.waitForIdle()
+    compose.onNode(hasText("Bringing to this phone 30 %")).assertIsDisplayed()
+    current = LibrarySamples.deletedBringing
+    compose.waitForIdle()
+    compose.onNode(hasText("Bringing to this phone 30 %")).assertDoesNotExist()
+    assertThat(exists(LibraryTags.CLIP_WATCH)).isFalse()
+    assertThat(exists(LibraryTags.CLIP_PLAY_NOTE)).isFalse()
+    compose.onNode(hasText("Getting the audio… 40 %")).assertDoesNotExist()
+    compose.onNode(hasText("Video not on this phone")).assertIsDisplayed()
+
+    current = LibrarySamples.deletedProcessing
+    compose.waitForIdle()
+    compose.onNode(hasText("Getting ready on your computer")).assertDoesNotExist()
+    compose.onNode(hasText("Video getting ready on your computer")).assertDoesNotExist()
+
+    val downloading = LibrarySamples.detail(LibrarySamples.coffee.copy(video = VideoAvailability.Downloading(60)))
+    current = LibrarySamples.page.copy(presence = ClipPresence.Known(downloading))
+    compose.waitForIdle()
+    compose.onNode(hasText("Video downloading 60 %")).assertIsDisplayed()
+    current = LibrarySamples.page.copy(presence = ClipPresence.Known(downloading.copy(deletedOnComputer = true)))
+    compose.waitForIdle()
+    compose.onNode(hasText("Video downloading 60 %")).assertDoesNotExist()
+
+    // "Listening still works" no longer holds once the feed has left it out.
+    val cannotPlay = LibrarySamples.detail(LibrarySamples.coffee.copy(video = VideoAvailability.CannotPlayOnThisPhone))
+    current = LibrarySamples.page.copy(presence = ClipPresence.Known(cannotPlay.copy(deletedOnComputer = true)))
+    compose.waitForIdle()
+    assertThat(exists(LibraryTags.clipNotice(ClipNotice.VIDEO_CANNOT_PLAY))).isFalse()
+    compose.onNode(hasText("This video can't play on this phone")).assertIsDisplayed()
+    assertThat(asked).isEmpty()
   }
 
   @Test

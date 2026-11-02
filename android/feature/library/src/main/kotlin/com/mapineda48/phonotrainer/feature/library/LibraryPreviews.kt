@@ -93,6 +93,10 @@ private fun ClipDeletedNotHerePreview() = Clip(LibrarySamples.deletedNotHere)
 
 @PreviewLightDark
 @Composable
+private fun ClipDeletedBringingPreview() = Clip(LibrarySamples.deletedBringing)
+
+@PreviewLightDark
+@Composable
 private fun ClipDeletedProcessingPreview() = Clip(LibrarySamples.deletedProcessing)
 
 @PreviewLightDark
