@@ -94,12 +94,29 @@ class HomeRobot(private val compose: ComposeTestRule, val phono: PhonoRobot) {
     compose.waitForIdle()
   }
 
-  /** "Watch" on the shelf card of [id] (F-03-AC8's play action: the card's custom action, as TalkBack offers it). */
-  fun watchFromShelf(id: JobId) {
+  /**
+   * "Watch" on the shelf card of [id] (F-03-AC8's play action: the card's custom action, as TalkBack offers it), after
+   * scrolling the card on screen. Returns the page's scroll position at the tap, read on the main thread in the same
+   * turn as the action, so no frame falls between them: that is where Back must find Home. A position read before
+   * this call is not: Home's blocks above the shelf keep filling in after a sync (today's set, "New on this phone",
+   * the status card), and the scroll to the card follows them.
+   */
+  fun watchFromShelf(id: JobId): Float {
     scrollToShelf(id)
+    val page = compose.onNodeWithTag(HomeTags.PAGE).fetchSemanticsNode().config[SemanticsProperties.VerticalScrollAxisRange]
     val watch = compose.onNode(shelfCard(id)).fetchSemanticsNode().config[SemanticsActions.CustomActions].single { it.label == "Watch" }
-    compose.runOnIdle { watch.action() }
+    var tappedAt = Float.NaN
+    compose.runOnIdle {
+      tappedAt = page.value()
+      watch.action()
+    }
     compose.waitForIdle()
+    return tappedAt
+  }
+
+  /** Waits until "New on this phone" shows the card of [id] (it waits for the clip to reach the phone). */
+  fun waitForNew(id: JobId) {
+    compose.waitUntilAtLeastOneExists(hasTestTag(HomeTags.newWatch(id)), SYNC_TIMEOUT_MS)
   }
 
   /** The key on top of [tab]'s stack. */
