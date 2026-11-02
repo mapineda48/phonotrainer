@@ -17,7 +17,10 @@ import com.mapineda48.phonotrainer.core.navigation.LessonOrigin
 import com.mapineda48.phonotrainer.core.navigation.LessonPresentation
 import com.mapineda48.phonotrainer.core.navigation.PhenomenonKey
 import com.mapineda48.phonotrainer.core.navigation.WatchKey
+import com.mapineda48.phonotrainer.core.testing.computer.FixtureClips
+import com.mapineda48.phonotrainer.core.testing.fixtures.AnalysisFixtures
 import com.mapineda48.phonotrainer.e2e.PhonoRobot
+import com.mapineda48.phonotrainer.e2e.support.TestSeeder
 import com.mapineda48.phonotrainer.feature.learn.LearnTags
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
@@ -32,10 +35,12 @@ import org.junit.rules.Timeout
 
 /**
  * The Learn area on the managed device (work-plan WP-20 Proof, 2.4): Learn, the phenomenon pages, the IPA chart and
- * "Words we use" open through the real shell and Back leaves them in the spec's order; with a clip put on the phone
- * through the real corpus ([LearnSeeder]) the Flapping card and page show the index's two units (D-48), an example
- * plays on the real span player and opens its lesson as a full page, the IPA sheet of [ɾ] lists the clip's words, a
- * recreated activity keeps the chart's selection, and "Words we use" searches; v1-core shows no Insights entry.
+ * "Words we use" open through the real shell and Back leaves them in the spec's order; with WP-12's rules-3 clip
+ * ("Did you get the water?": flapping on "get" and "water", palatalization, a lexical contraction, a low-confidence
+ * word) brought to the phone through the real stack ([TestSeeder]: pairing, a sync pass, the indexer) the Flapping card
+ * and page show the index's two units (D-48), an example plays on the real span player and opens its lesson as a full
+ * page, the IPA sheet of [ɾ] lists the clip's words, a recreated activity keeps the chart's selection, and "Words we
+ * use" searches; v1-core shows no Insights entry.
  */
 @OptIn(ExperimentalTestApi::class)
 @HiltAndroidTest
@@ -52,7 +57,7 @@ class LearnAreaTest {
 
   @Inject lateinit var settings: SettingsRepository
 
-  @Inject lateinit var seeder: LearnSeeder
+  @Inject lateinit var seeder: TestSeeder
 
   @Inject lateinit var occurrences: OccurrenceRepository
 
@@ -63,7 +68,7 @@ class LearnAreaTest {
   private fun start(seed: Boolean): JobId? {
     hilt.inject()
     runBlocking { settings.update { it.copy(welcomeDone = true) } }
-    val id = if (seed) runBlocking { seeder.clip("${LearnSeeder.PREFIX}${System.nanoTime()}") } else null
+    val id = if (seed) runBlocking { seeder.seedAudioClip(TITLE, RULES_3) } else null
     phono.launch()
     return id
   }
@@ -71,7 +76,6 @@ class LearnAreaTest {
   @After
   fun tearDown() {
     if (phono.isLaunched()) phono.scenario.close()
-    if (::seeder.isInitialized) seeder.clear()
   }
 
   @Test
@@ -185,5 +189,9 @@ class LearnAreaTest {
 
   private companion object {
     const val LIMIT_S = 120L
+    const val TITLE = "Two friends at the lake"
+
+    /** WP-12's rules-3 clip data; a silent mix as long as the clip is its audio. */
+    val RULES_3 = FixtureClips.of(AnalysisFixtures.Variant.RULES_3)
   }
 }
