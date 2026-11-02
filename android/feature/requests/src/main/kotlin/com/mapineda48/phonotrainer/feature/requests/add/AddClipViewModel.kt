@@ -277,7 +277,13 @@ internal class AddClipViewModel @AssistedInject constructor(
   }
 
   private suspend fun addLink(current: AddClipUiState, force: Boolean) {
-    val input = LinkInput(current.link, null, audioOnly = current.audioOnly, force = force)
+    val input = LinkInput(
+      current.link,
+      null,
+      audioOnly = current.audioOnly,
+      force = force,
+      separateDialogue = current.separateDialogue,
+    )
     when (val result = runCatching { requests.addLink(input) }.getOrNull()) {
       is AddResult.Added -> {
         stored()

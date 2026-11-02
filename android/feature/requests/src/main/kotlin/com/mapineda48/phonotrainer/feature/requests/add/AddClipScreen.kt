@@ -313,7 +313,10 @@ internal fun duration(ms: Long): String {
   return if (h > 0) String.format(Locale.US, "%d:%02d:%02d", h, m, s) else String.format(Locale.US, "%d:%02d", m, s)
 }
 
-/** The options (spec F-19): "Audio only" (links; videos), "Separate the dialogue" (files), the large-file note. */
+/**
+ * The options (spec F-19): "Audio only" (links; videos), "Separate the dialogue" (links and files, CR-WP22-2), the
+ * large-file note.
+ */
 @Composable
 private fun Options(state: AddClipUiState, actions: AddClipActions) {
   Heading(stringResource(R.string.add_options_heading))
@@ -326,15 +329,13 @@ private fun Options(state: AddClipUiState, actions: AddClipActions) {
       modifier = Modifier.testTag(RequestsTags.ADD_AUDIO_ONLY),
     )
   }
-  if (state.filesMode) {
-    PhonoSwitch(
-      label = stringResource(R.string.add_separate),
-      description = stringResource(R.string.add_separate_body),
-      checked = state.separateDialogue,
-      onCheckedChange = actions.onSeparate,
-      modifier = Modifier.testTag(RequestsTags.ADD_SEPARATE),
-    )
-  }
+  PhonoSwitch(
+    label = stringResource(R.string.add_separate),
+    description = stringResource(R.string.add_separate_body),
+    checked = state.separateDialogue,
+    onCheckedChange = actions.onSeparate,
+    modifier = Modifier.testTag(RequestsTags.ADD_SEPARATE),
+  )
   if (state.largeFile) Notice(stringResource(R.string.add_large_file), modifier = Modifier.testTag(RequestsTags.ADD_LARGE))
 }
 
