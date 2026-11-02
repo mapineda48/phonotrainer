@@ -13,14 +13,18 @@ import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
+import com.mapineda48.phonotrainer.core.common.files.FileLayout
 import com.mapineda48.phonotrainer.core.database.learning.LearningDatabase
 import com.mapineda48.phonotrainer.core.database.library.LibraryDatabase
-import com.mapineda48.phonotrainer.core.domain.api.Clock
+import com.mapineda48.phonotrainer.core.domain.api.ClipContentRepository
 import com.mapineda48.phonotrainer.core.domain.api.ClipRepository
+import com.mapineda48.phonotrainer.core.domain.api.Clock
 import com.mapineda48.phonotrainer.core.domain.api.PairingRepository
+import com.mapineda48.phonotrainer.core.domain.api.ShortRepository
 import com.mapineda48.phonotrainer.core.domain.api.SyncController
 import com.mapineda48.phonotrainer.core.domain.model.ClipAvailability
 import com.mapineda48.phonotrainer.core.domain.model.ClipQuery
+import com.mapineda48.phonotrainer.core.domain.model.JobId
 import com.mapineda48.phonotrainer.core.domain.spi.ClipRemovalHook
 import com.mapineda48.phonotrainer.core.domain.spi.DiscoveryTransport
 import com.mapineda48.phonotrainer.core.domain.spi.NetworkMonitor
@@ -30,10 +34,12 @@ import com.mapineda48.phonotrainer.core.network.NetworkPolicyModule
 import com.mapineda48.phonotrainer.core.network.api.AddressPolicy
 import com.mapineda48.phonotrainer.core.testing.TestClock
 import com.mapineda48.phonotrainer.core.testing.computer.FakeComputer
+import com.mapineda48.phonotrainer.core.testing.computer.FixtureClips
 import com.mapineda48.phonotrainer.core.testing.computer.JobStatus
 import com.mapineda48.phonotrainer.core.testing.fake.connectivity.FakeNetworkMonitor
 import com.mapineda48.phonotrainer.e2e.di.FakeComputers
 import com.mapineda48.phonotrainer.e2e.di.FakeDiscovery
+import com.mapineda48.phonotrainer.e2e.di.PerTestIsolation
 import com.mapineda48.phonotrainer.e2e.support.TestSeeder
 import com.mapineda48.phonotrainer.e2e.support.TestTime
 import com.mapineda48.phonotrainer.e2e.support.WorkDriver
@@ -41,6 +47,7 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
+import java.io.File
 import java.net.HttpURLConnection
 import java.time.Duration
 import java.time.Instant
@@ -54,6 +61,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
+import org.junit.runner.Description
 
 /**
  * The global test set of architecture 21.5 at work (work-plan WP-19, first week): every replaced seam is the test
@@ -95,6 +103,10 @@ class GlobalTestSetTest {
 
   @Inject lateinit var clips: ClipRepository
 
+  @Inject lateinit var content: ClipContentRepository
+
+  @Inject lateinit var shorts: ShortRepository
+
   @Inject lateinit var startupTasks: Set<@JvmSuppressWildcards StartupTask>
 
   @Inject lateinit var removalHooks: Set<@JvmSuppressWildcards ClipRemovalHook>
@@ -113,6 +125,18 @@ class GlobalTestSetTest {
     assertThat(library.openHelper.databaseName).isNull()
     assertThat(learning.openHelper.databaseName).isNull()
     assertThat(work.workInfos()).isEmpty()
+  }
+
+  /** An earlier test's clip files are gone when a test starts: its database is new, and the job ids repeat. */
+  @Test
+  fun aTestStartsWithNoClipFilesOfAnEarlierTest() {
+    val leftover = File(FileLayout.clipDir(context.filesDir, JobId("job_of_an_earlier_test")), "audio_mix.0123abcd.wav")
+    checkNotNull(leftover.parentFile).mkdirs()
+    leftover.writeBytes(byteArrayOf(1))
+
+    PerTestIsolation().testStarted(Description.createTestDescription(javaClass, "theNextTest"))
+
+    assertThat(FileLayout.clipsRoot(context.filesDir).walk().filter { it.isFile }.toList()).isEmpty()
   }
 
   /** Decision I-16: both SPI sets resolve even when no core contributes to them, and every startup task is ordered. */
@@ -277,11 +301,45 @@ class GlobalTestSetTest {
     assertThat(listed.single { it.id == ids.single() }.availability).isEqualTo(ClipAvailability.OnThisPhone)
   }
 
+  /**
+   * The area tests' clips (the Watch, lesson and Learn areas): WP-12's clip data of the test's choosing, cut into
+   * shorts by the real indexer, with a mix that lasts the whole timeline (the fake computer's own audio stops at 30 s),
+   * and a dialogue track that reaches the phone only when the test says it arrives.
+   */
+  @Test
+  fun theSeederBringsAnAudioClipWithItsOwnClipDataAndLaterItsDialogueTrack() = runBlocking {
+    val id = seeder.seedAudioClip("Two friends at the lake", FixtureClips.synthetic(words = WORDS, phrases = PHRASES))
+
+    val data = content.clipData(id)
+    assertThat(data.phrases).hasSize(PHRASES)
+    assertThat(shorts.shorts(id).first()).isNotEmpty()
+    val media = checkNotNull(content.media(id))
+    assertThat(media.audioDialogue).isNull()
+    val mixSeconds = (media.audioMix.length() - WAV_HEADER_BYTES) / WAV_BYTES_PER_SECOND
+    assertThat(mixSeconds).isGreaterThan(data.meta.durationS)
+    assertThat(data.meta.durationS).isGreaterThan(FixtureClips.MAX_AUDIO_S)
+
+    seeder.addDialogue(id)
+
+    val withDialogue = checkNotNull(content.media(id))
+    assertThat(checkNotNull(withDialogue.audioDialogue).length()).isEqualTo(media.audioMix.length())
+    assertThat(withDialogue.audioMix).isEqualTo(media.audioMix)
+    assertThat(content.clipData(id).revision).isEqualTo(data.revision)
+  }
+
   private fun state(id: UUID): WorkInfo.State? = WorkManager.getInstance(context).getWorkInfoById(id).get()?.state
 
   private companion object {
     /** A discovery probe as server-contract 5.2 defines it. */
     val PROBE = """{"t":"phonotrainer-probe","v":1,"nonce":"0123456789abcdef"}""".encodeToByteArray()
+
+    /** WP-12's long synthetic clip as the Watch and lesson areas seed it: about two and a half minutes. */
+    const val WORDS = 300
+    const val PHRASES = 60
+
+    /** The seeder's WAVs: 16 kHz mono PCM16 after a 44-byte header. */
+    const val WAV_HEADER_BYTES = 44L
+    const val WAV_BYTES_PER_SECOND = 32_000.0
   }
 }
 

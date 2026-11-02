@@ -14,8 +14,9 @@ import dagger.hilt.android.testing.HiltTestApplication
  * Runs the end-to-end suite on Hilt's test application (architecture 21.5). [PerTestIsolation] joins the run's
  * listeners (a `listener` argument given on the command line is kept): every test starts with a fresh test WorkManager
  * (synchronous executor, test driver, workers created by [TestWorkerFactory] with the running test's Hilt bindings;
- * the app's own initialiser is removed from the manifest), and every fake computer a test started is closed when it
- * ends. Together with Hilt's per-test component (in-memory databases, own DataStore files) no state crosses tests.
+ * the app's own initialiser is removed from the manifest) and no clip files, and every fake computer a test started is
+ * closed when it ends. Together with Hilt's per-test component (in-memory databases, own DataStore files) no state
+ * crosses tests.
  *
  * WorkManager's foreground service is off for the run (decisions I-21): the test WorkManager runs WorkManager's
  * main-thread callbacks inline on the worker's thread, and that service's dispatcher, written for the main thread
