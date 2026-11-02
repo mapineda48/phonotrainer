@@ -20,6 +20,7 @@ import com.mapineda48.phonotrainer.core.datastore.pairing.DeviceKeyResult
 import com.mapineda48.phonotrainer.core.datastore.pairing.PairingRecord
 import com.mapineda48.phonotrainer.core.datastore.pairing.PairingStore
 import com.mapineda48.phonotrainer.core.domain.api.Clock
+import com.mapineda48.phonotrainer.core.domain.api.SyncController
 import com.mapineda48.phonotrainer.core.domain.model.ComputerStatus
 import com.mapineda48.phonotrainer.core.domain.model.Datagram
 import com.mapineda48.phonotrainer.core.domain.model.HostPort
@@ -237,6 +238,17 @@ internal class Harness(
   val syncTrigger = FakeSyncTrigger()
   val requests = FakeRequestRepository()
   val sync = FakeSyncController()
+
+  /** When the sync engine last reconciled a complete listing ([SyncController.lastSynced]; CR-WP08-1). */
+  val lastListing = MutableStateFlow<Instant?>(null)
+
+  /** What [status] reads as the engine's `lastSynced`: [lastListing], unless a test gives another source first. */
+  var lastSyncedSource: Flow<Instant?> = lastListing
+
+  /** [sync] with [lastSyncedSource]: `FakeSyncController` keeps no time of its own. */
+  private val syncController: SyncController = object : SyncController by sync {
+    override val lastSynced: Flow<Instant?> get() = lastSyncedSource
+  }
   val decoders = FakeDecoderCapabilities()
   val appForeground = FakeAppForeground(foreground)
   val backgroundSource = FakeBackgroundSource()
@@ -253,8 +265,8 @@ internal class Harness(
 
   val status: DefaultComputerStatusRepository by lazy {
     DefaultComputerStatusRepository(
-      engine, store, monitor, appForeground, background, Provider { requests }, Provider { sync }, Provider { decoders },
-      scope.backgroundScope, PhonoLog.NONE,
+      engine, store, monitor, appForeground, background, Provider { requests }, Provider { syncController },
+      Provider { decoders }, scope.backgroundScope, PhonoLog.NONE,
     )
   }
 
