@@ -19,6 +19,7 @@ import com.mapineda48.phonotrainer.core.common.log.PhonoLog
 import com.mapineda48.phonotrainer.core.domain.api.ProgressRepository
 import com.mapineda48.phonotrainer.core.domain.api.SettingsRepository
 import com.mapineda48.phonotrainer.core.domain.api.ShortRepository
+import com.mapineda48.phonotrainer.core.domain.model.JobId
 import com.mapineda48.phonotrainer.core.domain.model.MotionChoice
 import com.mapineda48.phonotrainer.core.domain.model.Track
 import com.mapineda48.phonotrainer.core.domain.model.UserSettings
@@ -30,7 +31,9 @@ import com.mapineda48.phonotrainer.core.navigation.LessonOrigin
 import com.mapineda48.phonotrainer.core.navigation.LessonPresentation
 import com.mapineda48.phonotrainer.core.navigation.Tab
 import com.mapineda48.phonotrainer.core.navigation.WatchKey
+import com.mapineda48.phonotrainer.core.testing.computer.FixtureClips
 import com.mapineda48.phonotrainer.e2e.PhonoRobot
+import com.mapineda48.phonotrainer.e2e.support.TestSeeder
 import com.mapineda48.phonotrainer.feature.watch.WatchTags
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
@@ -43,12 +46,13 @@ import org.junit.Test
 
 /**
  * The Watch area on the managed device (work-plan WP-17 Proof, 2.4): the destination opens through the real shell
- * with the baseline's repositories, Back goes Home, and on clips put on the phone through the real corpus
- * ([WatchSeeder]) the real player pool plays them: swipe, the buttons and TalkBack's actions move one short; reduced
- * motion makes the move instant (F-06-AC9); a word pauses the short and opens the lesson, and closing it comes back
- * paused at the same time (F-07-AC6); the end card stops the feed; with every short seen, the Mix's "Replay the mix"
- * plays a set of the seen shorts (F-06 item 9); a tab switch keeps the position (F-06-AC12); a dialogue track arriving
- * during the feed plays from the next short, with the line gone (F-06-AC13).
+ * with the baseline's repositories, Back goes Home, and on WP-12's synthetic clips brought to the phone through the
+ * real stack ([TestSeeder]: pairing, a sync pass, the indexer) the real player pool plays them: swipe, the buttons and
+ * TalkBack's actions move one short; reduced motion makes the move instant (F-06-AC9); a word pauses the short and
+ * opens the lesson, and closing it comes back paused at the same time (F-07-AC6); the end card stops the feed; with
+ * every short seen, the Mix's "Replay the mix" plays a set of the seen shorts (F-06 item 9); a tab switch keeps the
+ * position (F-06-AC12); a dialogue track arriving during the feed (the computer finishes it, a sync pass brings it)
+ * plays from the next short, with the line gone (F-06-AC13).
  */
 @OptIn(ExperimentalTestApi::class)
 @HiltAndroidTest
@@ -64,7 +68,7 @@ class WatchAreaTest {
 
   @Inject lateinit var settings: SettingsRepository
 
-  @Inject lateinit var seeder: WatchSeeder
+  @Inject lateinit var seeder: TestSeeder
 
   @Inject lateinit var log: PhonoLog
 
@@ -88,7 +92,15 @@ class WatchAreaTest {
   @After
   fun tearDown() {
     if (phono.isLaunched()) phono.scenario.close()
-    if (::seeder.isInitialized) seeder.clear()
+  }
+
+  /**
+   * WP-12's synthetic clip of [phrases] phrases (five words each, dialogue separated) with a silent mix as long as the
+   * clip and no dialogue track yet, on the computer and then on this phone; its id.
+   */
+  private suspend fun seed(name: String, phrases: Int = PHRASES): JobId {
+    val clipData = FixtureClips.synthetic(words = phrases * WORDS_PER_PHRASE, phrases = phrases)
+    return seeder.seedAudioClip("Synthetic clip $name", clipData)
   }
 
   @Test
@@ -106,7 +118,7 @@ class WatchAreaTest {
   @Test
   fun swipeTheButtonsAndTheCardActionsMoveOneShortOnTheRealPlayer() {
     start()
-    val id = runBlocking { seeder.audioClip("${WatchSeeder.PREFIX}moves") }
+    val id = runBlocking { seed("moves") }
     watch.openInOrder(id)
     assertThat(watch.total()).isGreaterThan(3)
     // The pool plays the short when it settles (F-07 item 10).
@@ -123,7 +135,7 @@ class WatchAreaTest {
   @Test
   fun withReducedMotionTheMoveIsInstant() {
     start { it.copy(motion = MotionChoice.REDUCE) }
-    val id = runBlocking { seeder.audioClip("${WatchSeeder.PREFIX}motion") }
+    val id = runBlocking { seed("motion") }
     watch.openInOrder(id)
     compose.waitForIdle()
     compose.mainClock.autoAdvance = false
@@ -140,7 +152,7 @@ class WatchAreaTest {
   @Test
   fun aWordPausesTheShortOpensTheLessonAndClosingComesBackPausedAtTheSameTime() {
     start()
-    val id = runBlocking { seeder.audioClip("${WatchSeeder.PREFIX}lesson") }
+    val id = runBlocking { seed("lesson") }
     watch.openInOrder(id)
     watch.waitForPlaying(true)
     watch.dismissCoachMarks()
@@ -168,7 +180,7 @@ class WatchAreaTest {
   @Test
   fun theEndCardStopsTheFeed() {
     start()
-    val id = runBlocking { seeder.audioClip("${WatchSeeder.PREFIX}end", phrases = 24) }
+    val id = runBlocking { seed("end", phrases = SHORT_CLIP_PHRASES) }
     watch.openInOrder(id)
     val total = watch.total()
     repeat(total - 1) { watch.tapNext() }
@@ -191,7 +203,7 @@ class WatchAreaTest {
   fun withEveryShortSeenReplayTheMixPlaysASetOfTheSeenShorts() {
     var withSpotlight = 0
     start(before = {
-      val id = seeder.audioClip("${WatchSeeder.PREFIX}replay", phrases = 24)
+      val id = seed("replay", phrases = SHORT_CLIP_PHRASES)
       val all = shorts.shorts(id).first()
       all.forEach { short ->
         val length = (short.playEndMs - short.playStartMs).coerceAtLeast(1)
@@ -213,7 +225,7 @@ class WatchAreaTest {
   @Test
   fun aTabSwitchAndReturnKeepsTheFeedPosition() {
     start()
-    val id = runBlocking { seeder.audioClip("${WatchSeeder.PREFIX}tabs") }
+    val id = runBlocking { seed("tabs") }
     watch.openInOrder(id)
     watch.tapNext()
     watch.tapNext()
@@ -227,11 +239,11 @@ class WatchAreaTest {
   @Test
   fun aDialogueTrackArrivingDuringTheFeedPlaysFromTheNextShortWithTheLineGone() {
     start { it.copy(track = Track.DIALOGUE) }
-    val id = runBlocking { seeder.audioClip("${WatchSeeder.PREFIX}dialogue", dialogue = false) }
+    val id = runBlocking { seed("dialogue") }
     watch.openInOrder(id)
     watch.waitForTag(WatchTags.TRACK_LINE)
     watch.waitForText("Playing the original mix: the dialogue track isn't on this phone yet.")
-    seeder.addDialogue(id)
+    runBlocking { seeder.addDialogue(id) }
     // The feed checks its neighbours' media about once a second; give it two checks before the swipe.
     val until = SystemClock.uptimeMillis() + REFRESH_WAIT_MS
     compose.waitUntil(REFRESH_WAIT_MS + PhonoRobot.TIMEOUT_MS) { SystemClock.uptimeMillis() >= until }
@@ -255,6 +267,13 @@ class WatchAreaTest {
       .getOrNull(SemanticsProperties.StateDescription)
 
   private companion object {
+    /** The synthetic clips' size: 60 phrases of five words, about two and a half minutes. */
+    const val PHRASES = 60
+    const val WORDS_PER_PHRASE = 5
+
+    /** A shorter clip, for tests that walk every short of it. */
+    const val SHORT_CLIP_PHRASES = 24
+
     const val INSTANT_FRAMES = 4
     const val REFRESH_WAIT_MS = 2_500L
 
