@@ -14,7 +14,8 @@ private const val REQUEST_PACK_ROLES = "'CLIP_DATA', 'AUDIO_MIX', 'AUDIO_DIALOGU
 
 private const val REQUEST_VIEW =
   "SELECT request.*, clip.status AS job_status, clip.stage AS job_stage, clip.percent AS job_percent, " +
-    "clip.queue_position AS job_queue_position, clip.title AS job_title, " +
+    "clip.queue_position AS job_queue_position, clip.title AS job_title, clip.duration_ms AS job_duration_ms, " +
+    "clip.has_dialogue AS job_has_dialogue, " +
     "(SELECT SUM(CASE WHEN a.local_state = 'READY' THEN COALESCE(a.local_bytes, a.remote_bytes, 0) " +
     "ELSE COALESCE(a.part_bytes, 0) END) FROM artifact a WHERE a.job_id = request.job_id " +
     "AND a.role IN ($REQUEST_PACK_ROLES) AND a.local_state != 'ABSENT') AS pack_done_bytes, " +
@@ -109,8 +110,9 @@ interface RequestDao {
 
 /**
  * A request with what it shows beyond its own row (architecture 8.4): its job's last known state from the catalogue
- * mirror (the "Last known: Analyzing 40 %" of spec F-20), its study pack on the way to this phone, and whether a
- * re-run ("Starting again on your computer") or a cancel is waiting in the outbox.
+ * mirror (the "Last known: Analyzing 40 %" of spec F-20, the clip's length and whether dialogue separation was applied),
+ * its study pack on the way to this phone, and whether a re-run ("Starting again on your computer") or a cancel is
+ * waiting in the outbox. [jobDurationMs] and [jobHasDialogue] are null while the catalogue has no row for the job.
  */
 data class RequestWithJob(
   @Embedded val request: RequestEntity,
@@ -124,6 +126,8 @@ data class RequestWithJob(
   @ColumnInfo(name = "pack_transfers") val packTransfers: Int,
   @ColumnInfo(name = "rerun_pending") val rerunPending: Boolean,
   @ColumnInfo(name = "cancel_pending") val cancelPending: Boolean,
+  @ColumnInfo(name = "job_duration_ms") val jobDurationMs: Long? = null,
+  @ColumnInfo(name = "job_has_dialogue") val jobHasDialogue: Boolean? = null,
 )
 
 /** A catalogue clip that came from a link. */

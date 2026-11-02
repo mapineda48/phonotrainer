@@ -76,6 +76,32 @@ class IntakeTest {
   }
 
   @Test
+  fun aFilesLengthIsReadFromTheCopyItKeepsAndOutlivesTheCopy() = queueTest { queue ->
+    // CR-WP22-1: the request detail's duration and estimate of a file come from the copy the phone keeps, never from
+    // what the provider claims, and stay known once the computer has the file and the copy is gone.
+    val bytes = FakeMediaBytes.video(size = 40_000, salt = 3)
+    val unreadable = FakeMediaBytes.video(size = 30_000, salt = 4)
+    queue.duration.length(bytes, 250_500)
+    queue.duration.length(unreadable, null)
+    val id = queue.addOne(shared(queue.reader.add("content://media.example/40", FakeItem(bytes))))
+    val none = queue.addOne(shared(queue.reader.add("content://media.example/41", FakeItem(unreadable, name = "VID_0002.mp4"))))
+    assertThat(queue.request(id).durationS).isNull()
+
+    queue.runIntakes()
+
+    assertThat(queue.request(id).state).isEqualTo(RequestState.WAITING)
+    assertThat(queue.request(id).durationS).isEqualTo(250.5)
+    assertThat(queue.request(none).durationS).isNull()
+    assertThat(queue.duration.read.map { it.name }).containsExactly("source.mp4", "source.mp4")
+
+    queue.uploader.run(FakeForeground())
+
+    assertThat(queue.request(id).state).isAnyOf(RequestState.SENT, RequestState.IN_LINE)
+    assertThat(queue.files.dir(id).exists()).isFalse()
+    assertThat(queue.request(id).durationS).isEqualTo(250.5)
+  }
+
+  @Test
   fun aProviderThatLiesAboutTheSizeIsCountedNotBelieved() = queueTest { queue ->
     val uri = queue.reader.add("content://media.example/2", FakeItem(ByteArray(3 * 1024 * 1024) { 1 }, declaredSize = 1_000))
     val id = queue.addOne(shared(uri))

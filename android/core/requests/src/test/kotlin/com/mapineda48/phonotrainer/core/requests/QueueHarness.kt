@@ -32,6 +32,7 @@ import com.mapineda48.phonotrainer.core.requests.intake.ExtractorInput
 import com.mapineda48.phonotrainer.core.requests.intake.FileIntake
 import com.mapineda48.phonotrainer.core.requests.intake.FreeSpace
 import com.mapineda48.phonotrainer.core.requests.intake.IntakeHandles
+import com.mapineda48.phonotrainer.core.requests.intake.MediaDuration
 import com.mapineda48.phonotrainer.core.requests.intake.SourceFacts
 import com.mapineda48.phonotrainer.core.requests.intake.SourceReader
 import com.mapineda48.phonotrainer.core.requests.intake.SourceStream
@@ -96,6 +97,7 @@ internal class QueueHarness(scope: CoroutineScope) : AutoCloseable {
   val reader = FakeSourceReader()
   val space = FakeFreeSpace()
   val extraction = FakeAudioExtraction()
+  val duration = FakeMediaDuration()
   val work = RecordingWork()
   val uploads = ActiveUploads()
   val notifier = RecordingNotifier()
@@ -133,7 +135,7 @@ internal class QueueHarness(scope: CoroutineScope) : AutoCloseable {
     scope = scope,
     log = PhonoLog.NONE,
   )
-  val intake = FileIntake(core, live, handles, reader, space, extraction, work, pairing, Dispatchers.IO, PhonoLog.NONE)
+  val intake = FileIntake(core, live, handles, reader, space, extraction, duration, work, pairing, Dispatchers.IO, PhonoLog.NONE)
   val sender = QueueSender(core, live, client, status, pairing, trigger, work, visibility, scope, PhonoLog.NONE)
   val repository = RoomRequestRepository(core, live, handles, intake, sender, status, pairing, LinksV1(), Words, PhonoLog.NONE)
   val reconciler = QueueReconciler(core, live, pairing, PhonoLog.NONE)
@@ -152,12 +154,15 @@ internal class QueueHarness(scope: CoroutineScope) : AutoCloseable {
     }
   }
 
-  /** Puts a computer's job straight into the catalogue mirror (what the sync engine's reconcile writes). */
-  fun catalogueClip(job: JobId, title: String, sourceUrl: String?) {
+  /**
+   * Puts a computer's finished job straight into the catalogue mirror (what the sync engine's reconcile writes), with
+   * its length ([durationMs]) and whether dialogue separation was applied ([hasDialogue]).
+   */
+  fun catalogueClip(job: JobId, title: String, sourceUrl: String?, durationMs: Long? = null, hasDialogue: Boolean = false) {
     db.openHelper.writableDatabase.execSQL(
-      "INSERT INTO clip (job_id, server_id, library_id, origin, revision, status, title, source_url, first_seen_at) " +
-        "VALUES (?, ?, ?, 'ACTIVE', 'r', 'DONE', ?, ?, 1)",
-      arrayOf(job.value, computer.serverId.value, computer.libraryId.value, title, sourceUrl),
+      "INSERT INTO clip (job_id, server_id, library_id, origin, revision, status, title, source_url, duration_ms, " +
+        "has_dialogue, first_seen_at) VALUES (?, ?, ?, 'ACTIVE', 'r', 'DONE', ?, ?, ?, ?, 1)",
+      arrayOf<Any?>(job.value, computer.serverId.value, computer.libraryId.value, title, sourceUrl, durationMs, if (hasDialogue) 1 else 0),
     )
   }
 
@@ -303,6 +308,22 @@ internal class FakeAudioExtraction(var extension: String? = "m4a", var audio: By
     target.writeBytes(audio)
     onProgress(audio.size.toLong())
     return ext
+  }
+}
+
+/** The length of each kept copy, by the bytes it holds (null: unreadable); [read] lists the files asked about. */
+internal class FakeMediaDuration : MediaDuration {
+  val lengths = mutableMapOf<List<Byte>, Long?>()
+  val read = mutableListOf<File>()
+
+  /** [bytes] read back as [durationMs] long. */
+  fun length(bytes: ByteArray, durationMs: Long?) {
+    lengths[bytes.toList()] = durationMs
+  }
+
+  override fun durationMs(file: File): Long? {
+    read += file
+    return lengths[file.readBytes().toList()]
   }
 }
 

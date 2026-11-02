@@ -9,13 +9,17 @@ import com.mapineda48.phonotrainer.core.domain.model.remote.RemoteStatus
 
 /** What happens to a request (architecture 8.4): the learner, the intake, the sender and the computer's answers. */
 internal sealed interface QueueEvent {
-  /** The copy (or the extracted audio) is complete and hashed. [copyFile] is relative to `filesDir`. */
+  /**
+   * The copy (or the extracted audio) is complete and hashed. [copyFile] is relative to `filesDir`; [durationMs] is the
+   * clip's length read from it, null when it could not be read.
+   */
   data class CopyComplete(
     val copyFile: String,
     val sha256: String,
     val bytes: Long,
     val audioExtracted: Boolean,
     val wholeFileFallback: Boolean,
+    val durationMs: Long? = null,
   ) : QueueEvent
 
   /** A copy code of architecture 8.3: no space (with the space needed), unreadable, interrupted. */
@@ -292,6 +296,8 @@ internal object RequestMachine {
         fileSha256 = event.sha256,
         copyBytes = event.bytes,
         fileBytes = event.bytes,
+        // Kept after the copy is deleted: the request detail shows the clip's length until the request goes.
+        fileDurationMs = event.durationMs ?: row.fileDurationMs,
         copyComplete = true,
         audioExtracted = event.audioExtracted,
         wholeFileFallback = event.wholeFileFallback,
