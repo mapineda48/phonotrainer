@@ -53,7 +53,12 @@ class FakeProgressRepository : ProgressRepository {
 
 class FakeSetRepository : SetRepository {
   val todayState = MutableStateFlow<StudySet?>(null)
+
+  /** What "Another set" answers; null: nothing new is due (spec F-08 item 7). */
   var another: StudySet? = null
+
+  /** What "Replay the mix" answers, apart from [another] (spec F-06 item 9); null: no short is eligible at all. */
+  var replay: StudySet? = null
   var answerFor: (Long, Int, String) -> AnswerResult = { _, _, _ -> error("No answer arranged in FakeSetRepository") }
   val advanced = mutableListOf<Pair<Long, Int>>()
 
@@ -62,6 +67,8 @@ class FakeSetRepository : SetRepository {
   override suspend fun ensureToday(): StudySet? = todayState.value
 
   override suspend fun anotherSet(): StudySet? = another
+
+  override suspend fun replayMix(): StudySet? = replay
 
   override suspend fun advance(setId: Long, position: Int) {
     advanced += setId to position
