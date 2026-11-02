@@ -34,8 +34,7 @@ import javax.inject.Singleton
 
 /**
  * The sync engine's public bindings (architecture 3.4, 7): exactly the five interfaces of `:core:domain` it provides.
- * Its name and these bindings are what `e2e/library/LibraryStateTest` uninstalls and replaces with fakes (WP-16's
- * per-class `@UninstallModules`), so everything else `:core:sync` binds lives in [SyncInternalModule].
+ * Everything else `:core:sync` binds lives in [SyncInternalModule].
  */
 @Module
 @InstallIn(SingletonComponent::class)

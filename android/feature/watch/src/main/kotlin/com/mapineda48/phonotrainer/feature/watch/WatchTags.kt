@@ -8,11 +8,6 @@ object WatchTags {
   /** The feed screen: the same node as [START]. */
   const val SCREEN = START
 
-  /**
-   * The stub's "Open a word lesson" button. The real feed opens the lesson from a word or the spotlight
-   * ([word], [SLIP]); the constant stays until the shell's smoke test stops reading it (change request CR-WP17-1).
-   */
-  const val OPEN_LESSON = "watch.feed.openLesson"
   const val PAGER = "watch.feed.pager"
   const val LOADING = "watch.feed.loading"
 
