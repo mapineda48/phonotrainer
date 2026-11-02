@@ -19,6 +19,8 @@ import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasSetTextAction
@@ -27,6 +29,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextReplacement
 import androidx.core.app.ActivityOptionsCompat
 import androidx.navigation3.runtime.NavKey
 import androidx.test.core.app.ApplicationProvider
@@ -194,6 +197,26 @@ class AddClipScreenTest {
 
     assertThat(exists(hasText("That doesn't look like a link."))).isTrue()
     compose.onNodeWithTag(RequestsTags.ADD_SUBMIT).assertIsNotEnabled()
+  }
+
+  @Test
+  fun aLinkOffersTheDialogueSwitchAsFilesDoAndSendsTheChoice() {
+    // CR-WP22-2, spec F-19 options: "Separate the dialogue from music and effects" applies to a link too (on).
+    requests.fake.addLinkResult = { AddResult.Added(RequestId("new")) }
+    route()
+    assertThat(exists(hasTestTag(RequestsTags.ADD_SEPARATE))).isFalse()
+
+    field().performTextReplacement("https://youtu.be/abc")
+    compose.waitForIdle()
+    compose.onNodeWithTag(RequestsTags.ADD_SEPARATE).performScrollTo().assertIsOn()
+    compose.onNodeWithTag(RequestsTags.ADD_SEPARATE).assertTextContains("Separate the dialogue from music and effects")
+    compose.onNodeWithTag(RequestsTags.ADD_SEPARATE).performClick()
+    compose.waitForIdle()
+    compose.onNodeWithTag(RequestsTags.ADD_SEPARATE).assertIsOff()
+
+    compose.onNodeWithTag(RequestsTags.ADD_SUBMIT).performScrollTo().performClick()
+    compose.waitForIdle()
+    assertThat(requests.fake.links.single().separateDialogue).isFalse()
   }
 
   @Test

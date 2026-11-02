@@ -15,6 +15,8 @@ import com.mapineda48.phonotrainer.core.domain.model.RequestTimeline
 import com.mapineda48.phonotrainer.core.domain.model.Site
 import com.mapineda48.phonotrainer.core.domain.model.WaitingInfo
 import com.mapineda48.phonotrainer.core.domain.model.remote.RemoteJob
+import com.mapineda48.phonotrainer.core.domain.model.remote.RemoteStatus
+import com.mapineda48.phonotrainer.core.domain.model.remote.SeparationNote
 import com.mapineda48.phonotrainer.core.domain.model.remote.Stage
 import com.mapineda48.phonotrainer.core.requests.rules.ActionFacts
 import com.mapineda48.phonotrainer.core.requests.rules.BackgroundWindow
@@ -78,6 +80,54 @@ internal object RequestTitles {
   }
 }
 
+/**
+ * What a request knows about its clip from the computer and from this phone: its length (CR-WP22-1) and whether the
+ * dialogue was separated (CR-WP22-3). The job's last reported facts come first; without them (after a restart, before
+ * the next listing) the catalogue's copy of the job and the request's own row say it. Pure.
+ */
+internal object ClipFacts {
+  private const val MILLIS_PER_SECOND = 1_000.0
+
+  /**
+   * The clip's length in seconds: the job's `summary.duration_s` or `media.duration_s` (server-contract 6.3), else the
+   * catalogue's copy of it, else the length this phone read from its own copy of a file; null while none is known (a
+   * link before the computer reports it).
+   */
+  fun durationS(live: RemoteJob?, catalogueMs: Long?, fileMs: Long?): Double? =
+    (live?.summary?.durationS ?: live?.media?.durationS)?.takeIf { it > 0 }
+      ?: catalogueMs?.takeIf { it > 0 }?.let { it / MILLIS_PER_SECOND }
+      ?: fileMs?.takeIf { it > 0 }?.let { it / MILLIS_PER_SECOND }
+
+  /**
+   * The job's `separation` (server-contract 6.3): [SeparationNote.OFF] when the option was off,
+   * [SeparationNote.SKIPPED] when the computer skipped it, [SeparationNote.UNKNOWN] for a value this app does not know,
+   * null when it ran or is still to come. For a finished job `analysis.dialogue_separation` is authoritative; without
+   * the job's live facts, the request's own [separateDialogue] and the catalogue's "separation applied" of a finished
+   * job say it.
+   */
+  fun separation(
+    separateDialogue: Boolean,
+    live: RemoteJob?,
+    catalogueStatus: String?,
+    catalogueApplied: Boolean?,
+  ): SeparationNote? {
+    if (live != null) {
+      val analysis = live.analysis
+      return when {
+        !live.separateDialogue -> SeparationNote.OFF
+        live.status == RemoteStatus.DONE && analysis != null ->
+          if (analysis.dialogueSeparation) null else SeparationNote.SKIPPED
+        else -> live.separation
+      }
+    }
+    return when {
+      !separateDialogue -> SeparationNote.OFF
+      catalogueStatus == RemoteStatus.DONE.name && catalogueApplied == false -> SeparationNote.SKIPPED
+      else -> null
+    }
+  }
+}
+
 /** A stored request as the domain sees it (architecture 3.4, work-plan 4.2). */
 internal class RequestMapper(private val words: RequestWords) {
   fun map(view: RequestWithJob, facts: LiveFacts): Request {
@@ -88,6 +138,7 @@ internal class RequestMapper(private val words: RequestWords) {
     // A clip that started to come to this phone reads "Getting it on this phone" before its row says so.
     val state = if (stored == RequestState.READY_ON_COMPUTER && view.packTransfers > 0) RequestState.GETTING_ON_PHONE else stored
     val live = row.jobId?.let(facts.jobs::get)
+    val separation = ClipFacts.separation(row.separateDialogue, live, view.jobStatus, view.jobHasDialogue)
     val connected = facts.status is ComputerStatus.Connected
     val copyKept = row.copyComplete && row.copyFile != null
     val actionFacts = ActionFacts(
@@ -114,7 +165,7 @@ internal class RequestMapper(private val words: RequestWords) {
       fileName = row.fileName,
       fileBytes = row.fileBytes ?: row.copyBytes,
       createdAt = Instant.ofEpochMilli(row.createdAt),
-      progress = progress(view, state, live, facts),
+      progress = progress(view, state, live, facts, separation),
       lastError = RequestTitles.error(row, live?.error?.downloaderVersion),
       jobId = row.jobId?.let(::JobId),
       actions = RequestActions.of(actionFacts),
@@ -128,6 +179,7 @@ internal class RequestMapper(private val words: RequestWords) {
       ),
       rerunPending = view.rerunPending,
       updatedAt = Instant.ofEpochMilli(row.updatedAt),
+      durationS = ClipFacts.durationS(live, view.jobDurationMs, row.fileDurationMs),
     )
   }
 
@@ -143,7 +195,17 @@ internal class RequestMapper(private val words: RequestWords) {
     )
   }
 
-  private fun progress(view: RequestWithJob, state: RequestState, live: RemoteJob?, facts: LiveFacts): RequestProgress? {
+  /**
+   * The request's progress in [state]; once the computer has its job, [separation] goes with it (the stepper's skipped
+   * "Separate the dialogue", design 9.19), also when the clip is ready and nothing else moves.
+   */
+  private fun progress(
+    view: RequestWithJob,
+    state: RequestState,
+    live: RemoteJob?,
+    facts: LiveFacts,
+    separation: SeparationNote?,
+  ): RequestProgress? {
     val row = view.request
     return when (state) {
       RequestState.PREPARING -> facts.copied[row.id].let { moved ->
@@ -177,6 +239,7 @@ internal class RequestMapper(private val words: RequestWords) {
         downloadPercent = live?.downloadPercent,
         segment = live?.segment,
         segments = live?.segments,
+        separation = separation,
       )
       RequestState.GETTING_ON_PHONE -> RequestProgress(
         stage = null,
@@ -185,7 +248,19 @@ internal class RequestMapper(private val words: RequestWords) {
         sentBytes = view.packDoneBytes,
         totalBytes = view.packTotalBytes,
         downloadPercent = null,
+        separation = separation,
       )
+      RequestState.READY_ON_COMPUTER, RequestState.ON_PHONE -> separation?.let {
+        RequestProgress(
+          stage = null,
+          percent = null,
+          queuePosition = null,
+          sentBytes = null,
+          totalBytes = null,
+          downloadPercent = null,
+          separation = it,
+        )
+      }
       else -> null
     }
   }

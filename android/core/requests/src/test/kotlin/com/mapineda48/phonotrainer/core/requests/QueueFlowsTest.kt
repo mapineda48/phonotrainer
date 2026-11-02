@@ -15,6 +15,7 @@ import com.mapineda48.phonotrainer.core.domain.model.Site
 import com.mapineda48.phonotrainer.core.domain.model.SyncReason
 import com.mapineda48.phonotrainer.core.domain.model.UserMessageKind
 import com.mapineda48.phonotrainer.core.domain.model.remote.RemoteLibrary
+import com.mapineda48.phonotrainer.core.domain.model.remote.SeparationNote
 import com.mapineda48.phonotrainer.core.network.api.ApiResult
 import com.mapineda48.phonotrainer.core.testing.computer.JobSeed
 import com.mapineda48.phonotrainer.core.testing.computer.JobStage
@@ -39,8 +40,13 @@ class QueueFlowsTest {
     QueueHarness(backgroundScope).use { block(it) }
   }
 
-  private suspend fun QueueHarness.add(text: String, subject: String? = null, audioOnly: Boolean = false, force: Boolean = false): RequestId =
-    (repository.addLink(LinkInput(text, subject, audioOnly, force)) as AddResult.Added).id
+  private suspend fun QueueHarness.add(
+    text: String,
+    subject: String? = null,
+    audioOnly: Boolean = false,
+    force: Boolean = false,
+    separateDialogue: Boolean = true,
+  ): RequestId = (repository.addLink(LinkInput(text, subject, audioOnly, force, separateDialogue)) as AddResult.Added).id
 
   private suspend fun QueueHarness.listing(): RemoteLibrary = (fakeClient.library() as ApiResult.Ok).value
 
@@ -400,6 +406,79 @@ class QueueFlowsTest {
 
     assertThat(queue.request(id).state).isEqualTo(RequestState.ON_PHONE)
     assertThat(queue.notifier.ready).containsExactly(Triple(job, "A walk in the park", 15))
+  }
+
+  @Test
+  fun aLinkCarriesTheLearnersDialogueChoiceToTheComputer() = queueTest { queue ->
+    // CR-WP22-2: the choice is stored with the link while it waits, and sent as the link route's separate_dialogue.
+    queue.status.statusState.value = ComputerStatus.Offline
+    val off = queue.add("https://youtu.be/aaaaaaaaaaa", separateDialogue = false)
+    val on = queue.add("https://youtu.be/bbbbbbbbbbb")
+    assertThat(queue.row(off)!!.separateDialogue).isFalse()
+    assertThat(queue.row(on)!!.separateDialogue).isTrue()
+
+    queue.status.statusState.value = QueueHarness.CONNECTED
+    queue.sender.sendLinks()
+
+    assertThat(queue.computer.jobsWithKey(off).single().separateDialogue).isFalse()
+    assertThat(queue.computer.jobsWithKey(on).single().separateDialogue).isTrue()
+  }
+
+  @Test
+  fun aLinksLengthIsKnownOnceItsJobSaysItAndStaysKnownWithoutTheComputer() = queueTest { queue ->
+    // CR-WP22-1: a link's length is unknown until the computer reports it, then the detail can show it.
+    val id = queue.add("https://youtu.be/abc123def45")
+    queue.sync()
+    val job = queue.request(id).jobId!!
+    assertThat(queue.request(id).durationS).isNull()
+
+    queue.computer.finishJob(job, title = "A walk in the park")
+    queue.reconciler.reconcile(queue.listing())
+    val reported = queue.listing().jobs.single { it.id == job }.summary!!.durationS!!
+    assertThat(queue.request(id).durationS).isEqualTo(reported)
+
+    // After a restart nothing is known live: the catalogue's copy of the job, which the sync engine keeps, says it.
+    queue.live.listing(emptyList())
+    queue.catalogueClip(job, "A walk in the park", "https://youtu.be/abc123def45", durationMs = 250_500)
+    assertThat(queue.request(id).durationS).isEqualTo(250.5)
+  }
+
+  @Test
+  fun aSeparationTheComputerSkippedOrTheLearnerTurnedOffNeverReadsAsDone() = queueTest { queue ->
+    // CR-WP22-3: the job's separation note reaches the request, before and after the analysis, and after a restart.
+    val skipped = queue.add("https://youtu.be/aaaaaaaaaaa")
+    val off = queue.add("https://youtu.be/bbbbbbbbbbb", separateDialogue = false)
+    val separated = queue.add("https://youtu.be/ccccccccccc")
+    queue.sync()
+    val ids = listOf(skipped, off, separated)
+    val jobs = ids.associateWith { queue.request(it).jobId!! }
+
+    queue.computer.progress(jobs.getValue(skipped), JobStage.TRANSCRIBE, 50, separationSkipped = true)
+    queue.reconciler.reconcile(queue.listing())
+    assertThat(queue.request(skipped).state).isEqualTo(RequestState.ANALYZING)
+    assertThat(queue.request(skipped).progress!!.separation).isEqualTo(SeparationNote.SKIPPED)
+    assertThat(queue.request(off).progress!!.separation).isEqualTo(SeparationNote.OFF)
+    assertThat(queue.request(separated).progress!!.separation).isNull()
+
+    jobs.values.forEach { queue.computer.finishJob(it) }
+    queue.reconciler.reconcile(queue.listing())
+    ids.forEach { assertThat(queue.request(it).state).isEqualTo(RequestState.READY_ON_COMPUTER) }
+    assertThat(queue.request(skipped).progress?.separation).isEqualTo(SeparationNote.SKIPPED)
+    assertThat(queue.request(off).progress?.separation).isEqualTo(SeparationNote.OFF)
+    assertThat(queue.request(separated).progress?.separation).isNull()
+
+    // After a restart: the request's own choice, and the catalogue's "dialogue separation applied" of a finished job.
+    queue.live.listing(emptyList())
+    queue.catalogueClip(jobs.getValue(skipped), "Skipped", null, hasDialogue = false)
+    queue.catalogueClip(jobs.getValue(off), "Off", null, hasDialogue = false)
+    queue.catalogueClip(jobs.getValue(separated), "Separated", null, hasDialogue = true)
+    assertThat(queue.request(skipped).progress?.separation).isEqualTo(SeparationNote.SKIPPED)
+    assertThat(queue.request(off).progress?.separation).isEqualTo(SeparationNote.OFF)
+    assertThat(queue.request(separated).progress?.separation).isNull()
+
+    queue.reconciler.onClipOnPhone(jobs.getValue(skipped))
+    assertThat(queue.request(skipped).state).isEqualTo(RequestState.ON_PHONE)
+    assertThat(queue.request(skipped).progress?.separation).isEqualTo(SeparationNote.SKIPPED)
   }
 
   @Test

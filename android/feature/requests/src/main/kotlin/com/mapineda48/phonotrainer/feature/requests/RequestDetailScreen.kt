@@ -195,19 +195,25 @@ private fun SourceCard(state: RequestDetailUiState, request: Request, words: Req
 
 private fun bareLink(link: String): String = link.trim().substringAfter("://").removePrefix("www.")
 
-/** "YouTube · youtube.com/watch?v=…Qx7" (or the whole link when "Show it all" is on); a file's name and size. */
+/**
+ * "YouTube · youtube.com/watch?v=…Qx7 · 4:10" (or the whole link when "Show it all" is on); a file's name, kind, size
+ * and length. The length shows once it is known (CR-WP22-1).
+ */
 @Composable
 private fun sourceLine(state: RequestDetailUiState, request: Request): String {
   val resources = LocalResources.current
+  val length = RequestDetailRules.length(request.durationS)
   return when (request.kind) {
     RequestKind.LINK -> listOfNotNull(
       stringResource(RequestRowCopy.siteWord(request.site)),
       request.link?.let { if (state.linkExpanded) it.trim() else RequestRowCopy.shortLink(it) },
+      length,
     ).joinToString(" · ")
     RequestKind.FILE -> listOfNotNull(
       request.fileName?.takeIf { it.isNotBlank() && it != request.title },
       stringResource(if (RequestRowCopy.isVideo(request) == false) R.string.add_file_kind_audio else R.string.add_file_kind_video),
       request.fileBytes?.takeIf { it > 0 }?.let { RequestRowCopy.bytes(it, resources) },
+      length,
     ).joinToString(" · ")
   }
 }
@@ -390,8 +396,7 @@ private fun Stages(request: Request) {
       modifier = Modifier.semantics { heading() },
     )
     if (RequestDetailRules.onComputer(request)) {
-      // The clip's duration is not in Request yet (CR-WP22-1): a link reads the "once it's downloaded" line.
-      val minutes = RequestDetailRules.estimateMinutes(null)
+      val minutes = RequestDetailRules.estimateMinutes(request.durationS)
       when {
         minutes != null -> PhonoText(
           stringResource(R.string.detail_estimate, resources.getQuantityString(R.plurals.detail_minutes, minutes, minutes)),
@@ -399,7 +404,7 @@ private fun Stages(request: Request) {
           color = colors.ink2,
           modifier = Modifier.testTag(RequestsTags.DETAIL_ESTIMATE),
         )
-        RequestDetailRules.linkEstimate(request, null) -> PhonoText(
+        RequestDetailRules.linkEstimate(request) -> PhonoText(
           stringResource(R.string.detail_estimate_link),
           style = MaterialTheme.typography.bodyMedium,
           color = colors.ink2,

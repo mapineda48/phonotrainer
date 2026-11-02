@@ -37,6 +37,7 @@ import com.mapineda48.phonotrainer.core.notifications.android.TransferNotifier
 import com.mapineda48.phonotrainer.core.requests.android.AndroidFreeSpace
 import com.mapineda48.phonotrainer.core.requests.android.ContentSourceReader
 import com.mapineda48.phonotrainer.core.requests.android.MediaAudioExtraction
+import com.mapineda48.phonotrainer.core.requests.android.MediaRetrieverDuration
 import com.mapineda48.phonotrainer.core.requests.android.ShareIntakeWorker
 import com.mapineda48.phonotrainer.core.requests.android.UploadWorker
 import com.mapineda48.phonotrainer.core.requests.android.WorkManagerRequestWork
@@ -132,6 +133,7 @@ internal class DeviceQueue : AutoCloseable {
     reader = reader,
     space = AndroidFreeSpace(context),
     extraction = MediaAudioExtraction(),
+    duration = MediaRetrieverDuration(),
     work = work,
     pairing = NoPairing,
     io = Dispatchers.IO,

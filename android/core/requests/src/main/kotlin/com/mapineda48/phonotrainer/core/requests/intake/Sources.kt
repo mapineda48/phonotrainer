@@ -69,6 +69,15 @@ internal interface AudioExtraction {
   fun extract(input: ExtractorInput, target: File, onProgress: (Long) -> Unit): String?
 }
 
+/**
+ * The length of a clip the phone keeps (`requests/<id>/source.<ext>`): the request detail's duration and its estimate
+ * (spec F-20 item 2). It reads the app's own copy, never the provider's claims (security review M-4).
+ */
+internal fun interface MediaDuration {
+  /** The length of [file] in milliseconds, or null when it cannot be read (never throws). */
+  fun durationMs(file: File): Long?
+}
+
 /** A local file as a source: the copy kept on the phone ("Try audio only" after `too_large`, architecture 8.4). */
 internal class FileSourceStream(private val file: File) : SourceStream {
   private var input: FileInputStream? = null

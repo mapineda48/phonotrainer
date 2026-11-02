@@ -90,7 +90,7 @@ internal class QueueSender @Inject constructor(
         report.refused++
         continue
       }
-      val result = client.createLink(LinkCreate(id, link, picked.audioOnly, separateDialogue = null))
+      val result = client.createLink(LinkCreate(id, link, picked.audioOnly, separateDialogue = picked.separateDialogue))
       if (result is ApiResult.Ok) {
         accepted(id, result.value.value)
         report.sent++

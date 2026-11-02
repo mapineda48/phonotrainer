@@ -48,8 +48,9 @@ internal enum class IntakeResult {
 /**
  * Files into the queue (architecture 8.3): the checks before a request exists, then the copy into
  * `requests/<id>/.copy.part` through a SHA-256 digest, counting the bytes that really arrive (providers may lie about
- * sizes), renamed to `source.<ext>` and marked complete in one transaction. With "Audio only" a seekable video's audio
- * track is remuxed without re-encoding; when that is impossible the whole file is kept and the request says so.
+ * sizes), renamed to `source.<ext>` and marked complete in one transaction, with the clip's length read from that copy
+ * (CR-WP22-1). With "Audio only" a seekable video's audio track is remuxed without re-encoding; when that is impossible
+ * the whole file is kept and the request says so.
  */
 @Singleton
 internal class FileIntake @Inject constructor(
@@ -59,6 +60,7 @@ internal class FileIntake @Inject constructor(
   private val reader: SourceReader,
   private val space: FreeSpace,
   private val extraction: AudioExtraction,
+  private val duration: MediaDuration,
   private val work: RequestWork,
   private val pairing: PairingStore,
   @param:IoDispatcher private val io: CoroutineDispatcher,
@@ -171,6 +173,7 @@ internal class FileIntake @Inject constructor(
         bytes = outcome.hashed.bytes,
         audioExtracted = outcome.extension != null,
         wholeFileFallback = outcome.fallback,
+        durationMs = lengthOf(target),
       ),
     )
     handles.drop(id)
@@ -179,6 +182,14 @@ internal class FileIntake @Inject constructor(
       files.delete(id)
     }
     return IntakeResult.DONE
+  }
+
+  /** The kept copy's length (the request detail's duration and estimate), or null when it cannot be read. */
+  private fun lengthOf(copy: File): Long? = try {
+    duration.durationMs(copy)?.takeIf { it > 0 }
+  } catch (expected: Exception) {
+    log.w("requests.duration_unreadable", expected)
+    null
   }
 
   /** The copy already on the phone stays as it is when its audio cannot be separated ("Sent the whole file"). */

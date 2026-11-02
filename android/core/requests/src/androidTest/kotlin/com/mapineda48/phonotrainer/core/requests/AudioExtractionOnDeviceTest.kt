@@ -6,6 +6,7 @@ import android.os.ParcelFileDescriptor
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
+import com.google.common.truth.Truth.assertWithMessage
 import com.mapineda48.phonotrainer.core.common.hash.Sha256
 import com.mapineda48.phonotrainer.core.domain.model.FileOptions
 import com.mapineda48.phonotrainer.core.domain.model.FileSource
@@ -21,7 +22,8 @@ import org.junit.runner.RunWith
 /**
  * "Audio only" for a local video on the device (architecture 8.3): the AAC track of a real MP4 is remuxed into M4A
  * without re-encoding, from a file and from a provider's descriptor; a video without a track the phone can separate
- * gives nothing, and the intake keeps the whole file.
+ * gives nothing, and the intake keeps the whole file. The clip's length is read from the copy the intake keeps
+ * (CR-WP22-1), whichever it is.
  */
 @RunWith(AndroidJUnit4::class)
 class AudioExtractionOnDeviceTest {
@@ -95,6 +97,17 @@ class AudioExtractionOnDeviceTest {
       assertThat(whole.wholeFileFallback).isTrue()
       assertThat(whole.copyFile).endsWith("source.mp4")
       assertThat(whole.fileSha256).isEqualTo(Sha256.of(silent).sha256)
+      // Both synthetic videos are 2 s long; the extracted audio and the whole file both say so.
+      listOf(audio, whole).forEach { row ->
+        assertWithMessage(row.copyFile).that(row.fileDurationMs).isAtLeast(SECONDS_2_LOW_MS)
+        assertWithMessage(row.copyFile).that(row.fileDurationMs).isAtMost(SECONDS_2_HIGH_MS)
+      }
     }
+  }
+
+  private companion object {
+    // The encoders may add or trim a frame: 2 s within a few hundred milliseconds.
+    const val SECONDS_2_LOW_MS = 1_500L
+    const val SECONDS_2_HIGH_MS = 2_500L
   }
 }

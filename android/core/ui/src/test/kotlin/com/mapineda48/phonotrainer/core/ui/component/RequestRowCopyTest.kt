@@ -4,6 +4,7 @@ import android.content.res.Resources
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
+import com.mapineda48.phonotrainer.core.designsystem.component.StepState
 import com.mapineda48.phonotrainer.core.designsystem.icons.PhonoIcons
 import com.mapineda48.phonotrainer.core.domain.model.ComputerStatus
 import com.mapineda48.phonotrainer.core.domain.model.Request
@@ -13,6 +14,7 @@ import com.mapineda48.phonotrainer.core.domain.model.RequestProgress
 import com.mapineda48.phonotrainer.core.domain.model.RequestState
 import com.mapineda48.phonotrainer.core.domain.model.Site
 import com.mapineda48.phonotrainer.core.domain.model.WaitingInfo
+import com.mapineda48.phonotrainer.core.domain.model.remote.SeparationNote
 import com.mapineda48.phonotrainer.core.domain.model.remote.Stage
 import com.mapineda48.phonotrainer.core.ui.component.RequestRowSamples.now
 import java.time.Duration
@@ -38,6 +40,7 @@ class RequestRowCopyTest {
       "sending" to "Sending 40 % · 125 of 312 MB",
       "in line" to "Waiting in line · 2nd",
       "analyzing" to "Analyzing 61 % · Hear the phones · phrase 3 of 10",
+      "separation turned off" to "Analyzing 35 % · Transcribe the words",
       "cancel waiting" to "Cancel waiting for your computer",
       "starting again" to "Starting again on your computer",
       "getting it" to "Getting it on this phone 70 %",
@@ -150,6 +153,40 @@ class RequestRowCopyTest {
       .isEqualTo("6 steps on your computer, not started yet.")
     assertThat(RequestRowStages.description(RequestRowStages.of(RequestRowSamples.getting, resources), resources)).isEqualTo("All 6 steps done.")
     assertThat(RequestRowStages.announcement(Stage.TRANSCRIBE, resources)).isEqualTo("Now: Transcribe the words.")
+  }
+
+  @Test
+  fun aSeparationTurnedOffOrSkippedIsSkippedWithItsReasonAndNeverDone() {
+    // CR-WP22-3: design 9.19's skipped node, with the web stepper's two reasons.
+    fun analyzing(note: SeparationNote?) = RequestRowSamples.analyzing.copy(progress = RequestRowSamples.analyzing.progress!!.copy(separation = note))
+    val skipped = RequestRowStages.of(analyzing(SeparationNote.SKIPPED), resources)
+    assertThat(skipped.map { it.state.name }).containsExactly("DONE", "DONE", "SKIPPED", "DONE", "CURRENT", "NEXT").inOrder()
+    assertThat(skipped[2].detail).isEqualTo("the separator wasn't available, so the original mix was analyzed")
+    val off = RequestRowStages.of(analyzing(SeparationNote.OFF), resources)
+    assertThat(off[2].state).isEqualTo(StepState.SKIPPED)
+    assertThat(off[2].detail).isEqualTo("turned off for this analysis")
+    assertThat(RequestRowStages.description(off, resources)).isEqualTo("Step 5 of 6: Hear the phones, in progress.")
+    // A value this app does not know claims nothing.
+    assertThat(RequestRowStages.of(analyzing(SeparationNote.UNKNOWN), resources)[2].state).isEqualTo(StepState.DONE)
+
+    // Before the analysis starts, and once the clip is ready: still skipped, and the summary says so.
+    val inLine = RequestRowSamples.inLine.copy(progress = RequestRowSamples.inLine.progress!!.copy(separation = SeparationNote.OFF))
+    assertThat(RequestRowStages.of(inLine, resources).map { it.state.name }).containsExactly("NEXT", "NEXT", "SKIPPED", "NEXT", "NEXT", "NEXT").inOrder()
+    val ready = RequestRowSamples.onPhone.copy(progress = RequestProgress(null, null, null, null, null, null, separation = SeparationNote.SKIPPED))
+    val done = RequestRowStages.of(ready, resources)
+    assertThat(done.map { it.state.name }).containsExactly("DONE", "DONE", "SKIPPED", "DONE", "DONE", "DONE").inOrder()
+    assertThat(RequestRowStages.description(done, resources)).isEqualTo("5 steps done, Separate the dialogue skipped.")
+
+    // The computer names the separation stage while it skips it: that stage is not "in progress" and is not announced.
+    val atSeparation = RequestRowSamples.analyzing.copy(
+      progress = RequestProgress(Stage.SEPARATE, 20, null, null, null, null, separation = SeparationNote.SKIPPED),
+    )
+    val passing = RequestRowStages.of(atSeparation, resources)
+    assertThat(passing.map { it.state.name }).containsExactly("DONE", "DONE", "SKIPPED", "NEXT", "NEXT", "NEXT").inOrder()
+    assertThat(RequestRowStages.current(atSeparation)).isNull()
+    assertThat(RequestRowStages.description(passing, resources)).isEqualTo("Step 3 of 6: Separate the dialogue, skipped.")
+    assertThat(RequestRowStages.description(RequestRowStages.of(inLine, resources), resources))
+      .isEqualTo("6 steps on your computer, not started yet.")
   }
 
   @Test

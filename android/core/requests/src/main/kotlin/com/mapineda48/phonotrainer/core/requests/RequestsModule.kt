@@ -11,6 +11,7 @@ import com.mapineda48.phonotrainer.core.domain.spi.StartupTask
 import com.mapineda48.phonotrainer.core.requests.android.AndroidFreeSpace
 import com.mapineda48.phonotrainer.core.requests.android.ContentSourceReader
 import com.mapineda48.phonotrainer.core.requests.android.MediaAudioExtraction
+import com.mapineda48.phonotrainer.core.requests.android.MediaRetrieverDuration
 import com.mapineda48.phonotrainer.core.requests.android.ProcessVisibility
 import com.mapineda48.phonotrainer.core.requests.android.ResourceRequestWords
 import com.mapineda48.phonotrainer.core.requests.android.WorkManagerRequestWork
@@ -21,6 +22,7 @@ import com.mapineda48.phonotrainer.core.requests.store.RequestWork
 import com.mapineda48.phonotrainer.core.requests.store.RequestWords
 import com.mapineda48.phonotrainer.core.requests.intake.AudioExtraction
 import com.mapineda48.phonotrainer.core.requests.intake.FreeSpace
+import com.mapineda48.phonotrainer.core.requests.intake.MediaDuration
 import com.mapineda48.phonotrainer.core.requests.intake.SourceReader
 import com.mapineda48.phonotrainer.core.requests.reconcile.QueueReconciler
 import com.mapineda48.phonotrainer.core.requests.send.QueueSender
@@ -66,6 +68,9 @@ internal interface RequestsModule {
 
   @Binds
   fun audioExtraction(impl: MediaAudioExtraction): AudioExtraction
+
+  @Binds
+  fun mediaDuration(impl: MediaRetrieverDuration): MediaDuration
 
   @Binds
   fun work(impl: WorkManagerRequestWork): RequestWork

@@ -51,7 +51,8 @@ internal object SyntheticVideo {
       setInteger(MediaFormat.KEY_FRAME_RATE, FPS)
       setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
     }
-    return encode(MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC), format, frames) { codec, index, frame ->
+    val endUs = frames * MICROS / FPS
+    return encode(MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC), format, frames, endUs) { codec, index, frame ->
       val image = checkNotNull(codec.getInputImage(index))
       image.planes.forEachIndexed { plane, data ->
         val value = (if (plane == 0) 40 + frame * 4 else 128).toByte()
@@ -70,7 +71,8 @@ internal object SyntheticVideo {
       setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC)
       setInteger(MediaFormat.KEY_BIT_RATE, 64_000)
     }
-    return encode(MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_AUDIO_AAC), format, frames) { codec, index, frame ->
+    val endUs = frames.toLong() * AAC_FRAME * MICROS / SAMPLE_RATE
+    return encode(MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_AUDIO_AAC), format, frames, endUs) { codec, index, frame ->
       val buffer = checkNotNull(codec.getInputBuffer(index))
       buffer.clear()
       for (n in 0 until AAC_FRAME) {
@@ -83,11 +85,16 @@ internal object SyntheticVideo {
     }
   }
 
-  /** Runs [codec] over [frames] inputs that [fill] writes (returning their size and time); the output samples. */
+  /**
+   * Runs [codec] over [frames] inputs that [fill] writes (returning their size and time), then the end of the stream at
+   * [endUs], the time just after the last input in this stream's own clock; the output samples. An end stamped in
+   * another stream's clock would let the encoder's last frame land seconds late and lengthen the whole file.
+   */
   private fun encode(
     codec: MediaCodec,
     format: MediaFormat,
     frames: Int,
+    endUs: Long,
     fill: (MediaCodec, Int, Int) -> Pair<Int, Long>,
   ): Pair<MediaFormat, List<Sample>> {
     codec.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
@@ -107,7 +114,7 @@ internal object SyntheticVideo {
               codec.queueInputBuffer(index, 0, size, timeUs, 0)
               frame++
             } else {
-              codec.queueInputBuffer(index, 0, 0, frame * MICROS / FPS, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+              codec.queueInputBuffer(index, 0, 0, endUs, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
               inputDone = true
             }
           }

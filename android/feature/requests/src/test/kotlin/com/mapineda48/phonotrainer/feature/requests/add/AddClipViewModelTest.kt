@@ -133,6 +133,25 @@ class AddClipViewModelTest {
   }
 
   @Test
+  fun aLinkCarriesTheDialogueChoiceAsFilesDo() = runTest(main.dispatcher) {
+    // CR-WP22-2: "Separate the dialogue" is on by default and goes with the link.
+    requests.fake.addLinkResult = { AddResult.Added(RequestId("new")) }
+    val first = viewModel()
+    first.setLink("https://youtu.be/abc")
+    assertThat(first.state.value.separateDialogue).isTrue()
+    first.submit()
+    runCurrent()
+    assertThat(requests.fake.links.single().separateDialogue).isTrue()
+
+    val second = viewModel()
+    second.setLink("https://youtu.be/def")
+    second.setSeparateDialogue(false)
+    second.submit()
+    runCurrent()
+    assertThat(requests.fake.links.last().separateDialogue).isFalse()
+  }
+
+  @Test
   fun aDuplicateOffersOpenItOrAnalyzeAgainAnyway() = runTest(main.dispatcher) {
     val duplicate = Duplicate(RequestId("waiting"), null, "Coffee")
     requests.fake.addLinkResult = { if (it.force) AddResult.Added(RequestId("again")) else AddResult.DuplicateFound(duplicate) }

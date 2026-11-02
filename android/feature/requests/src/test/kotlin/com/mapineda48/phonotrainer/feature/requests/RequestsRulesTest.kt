@@ -35,7 +35,7 @@ class RequestsRulesTest {
     assertThat(byGroup.getValue(RequestGroupKind.ATTENTION)).containsExactly("forbidden", "too-long", "copy-no-space", "cancelled")
     assertThat(byGroup.getValue(RequestGroupKind.WAITING)).containsExactly("waiting", "held", "large")
     // The automatic re-run reads "Starting again on your computer" among the requests on the computer.
-    assertThat(byGroup.getValue(RequestGroupKind.ON_COMPUTER)).containsExactly("in-line", "analyzing", "cancel-waiting", "rerun")
+    assertThat(byGroup.getValue(RequestGroupKind.ON_COMPUTER)).containsExactly("in-line", "analyzing", "separation-off", "cancel-waiting", "rerun")
     assertThat(byGroup.getValue(RequestGroupKind.GETTING)).containsExactly("getting")
     assertThat(byGroup.getValue(RequestGroupKind.DONE)).containsExactly("on-phone")
   }
@@ -155,8 +155,14 @@ class RequestsRulesTest {
     assertThat(RequestDetailRules.showsStages(RequestRowSamples.downloadForbidden, failure = true)).isFalse()
     assertThat(RequestDetailRules.estimateMinutes(260.5)).isEqualTo(5)
     assertThat(RequestDetailRules.estimateMinutes(null)).isNull()
-    assertThat(RequestDetailRules.linkEstimate(RequestRowSamples.analyzing, null)).isTrue()
-    assertThat(RequestDetailRules.linkEstimate(RequestRowSamples.request("f", RequestState.ANALYZING, kind = RequestKind.FILE), null)).isFalse()
+    assertThat(RequestDetailRules.linkEstimate(RequestRowSamples.analyzing)).isTrue()
+    assertThat(RequestDetailRules.linkEstimate(RequestRowSamples.analyzing.copy(durationS = 260.5))).isFalse()
+    assertThat(RequestDetailRules.linkEstimate(RequestRowSamples.request("f", RequestState.ANALYZING, kind = RequestKind.FILE))).isFalse()
+    // The clip's length on the source line (CR-WP22-1).
+    assertThat(RequestDetailRules.length(250.5)).isEqualTo("4:10")
+    assertThat(RequestDetailRules.length(3_723.0)).isEqualTo("1:02:03")
+    assertThat(RequestDetailRules.length(0.0)).isNull()
+    assertThat(RequestDetailRules.length(null)).isNull()
     assertThat(RequestDetailRules.time(now.minusSeconds(39 * 60), now, java.time.ZoneOffset.UTC)).isEqualTo("9:02")
     assertThat(RequestDetailRules.time(now.minus(Duration.ofDays(1)), now, java.time.ZoneOffset.UTC)).isEqualTo("Oct 9, 9:41")
   }

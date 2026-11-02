@@ -3,6 +3,7 @@ package com.mapineda48.phonotrainer.e2e.requests
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.os.SystemClock
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.ExperimentalTestApi
@@ -166,7 +167,28 @@ class RequestsRobot(private val compose: ComposeTestRule, val phono: PhonoRobot,
     return last
   }
 
+  /**
+   * Waits until the queue satisfies [check] while the computer is involved, running [drive] (released work, a sync
+   * pass) at most every half second meanwhile; returns it.
+   */
+  fun awaitQueue(drive: () -> Unit, check: (List<Request>) -> Boolean): List<Request> {
+    var last = emptyList<Request>()
+    var drivenAt = 0L
+    compose.waitUntil(COMPUTER_TIMEOUT_MS) {
+      val now = SystemClock.uptimeMillis()
+      if (now - drivenAt >= DRIVE_EVERY_MS) {
+        drivenAt = now
+        drive()
+      }
+      last = queue()
+      check(last)
+    }
+    return last
+  }
+
   private companion object {
     const val QUESTION_WAIT_MS = 3_000L
+    const val COMPUTER_TIMEOUT_MS = 30_000L
+    const val DRIVE_EVERY_MS = 500L
   }
 }

@@ -15,11 +15,15 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
+import com.mapineda48.phonotrainer.core.domain.model.JobId
 import com.mapineda48.phonotrainer.core.domain.model.Request
 import com.mapineda48.phonotrainer.core.domain.model.RequestAction
 import com.mapineda48.phonotrainer.core.domain.model.RequestError
+import com.mapineda48.phonotrainer.core.domain.model.RequestKind
+import com.mapineda48.phonotrainer.core.domain.model.RequestProgress
 import com.mapineda48.phonotrainer.core.domain.model.RequestState
 import com.mapineda48.phonotrainer.core.domain.model.WaitingInfo
+import com.mapineda48.phonotrainer.core.domain.model.remote.SeparationNote
 import com.mapineda48.phonotrainer.core.domain.model.remote.Stage
 import com.mapineda48.phonotrainer.core.testing.screen.PhonoScreenRule
 import com.mapineda48.phonotrainer.core.testing.screen.ScreenVariant
@@ -118,6 +122,51 @@ class RequestDetailScreenTest {
     compose.onNodeWithTag(RequestsTags.DETAIL_ESTIMATE).assertTextContains("Usually takes about as long as the clip, once it's downloaded.")
     assertThat(exists(hasTestTag(RequestsTags.DETAIL_FIRST_RUN))).isTrue()
     compose.onNodeWithTag(RequestsTags.milestone(Milestone.ANALYZING.name)).assertTextContains("Analyzing · 61 %")
+  }
+
+  @Test
+  fun aKnownLengthShowsOnTheSourceLineAndGivesTheEstimate() {
+    // CR-WP22-1, spec F-20 item 2: the source line ends with the clip's length, and the estimate names it in minutes.
+    show(detailOf(RequestRowSamples.analyzing.copy(durationS = 250.5)))
+    assertShows(RequestsTags.DETAIL_SOURCE, "X · x.com/someone/status/189…041 · 4:10")
+    compose.onNodeWithTag(RequestsTags.DETAIL_ESTIMATE).assertTextContains("Usually takes about as long as the clip (about 5 min).")
+
+    // A file: its name, kind, size and length; without a known length, no estimate at all.
+    val file = RequestRowSamples.request(
+      "file",
+      RequestState.IN_LINE,
+      kind = RequestKind.FILE,
+      title = "Bus stop chat",
+      actions = setOf(RequestAction.CANCEL),
+      progress = RequestProgress(null, 0, 1, null, null, null),
+      jobId = JobId("20261010-090500-c3d4"),
+    )
+    state = detailOf(file.copy(durationS = 3_723.0))
+    compose.waitForIdle()
+    assertShows(RequestsTags.DETAIL_SOURCE, "bus-stop-chat.mp4 · Video · 48 MB · 1:02:03")
+    compose.onNodeWithTag(RequestsTags.DETAIL_ESTIMATE).assertTextContains("Usually takes about as long as the clip (about 63 min).")
+    state = detailOf(file)
+    compose.waitForIdle()
+    assertShows(RequestsTags.DETAIL_SOURCE, "bus-stop-chat.mp4 · Video · 48 MB")
+    assertThat(exists(hasTestTag(RequestsTags.DETAIL_ESTIMATE))).isFalse()
+  }
+
+  @Test
+  fun aSeparationTurnedOffOrSkippedReadsSkippedWithItsReasonEvenOnceReady() {
+    // CR-WP22-3, spec F-20 item 2's status words, design 9.19's skipped node.
+    val analyzing = RequestRowSamples.analyzing
+    show(detailOf(analyzing.copy(progress = analyzing.progress!!.copy(separation = SeparationNote.SKIPPED))))
+    compose.onNodeWithTag(RequestsTags.stage(Stage.SEPARATE))
+      .assertTextContains("Separate the dialogue — skipped · the separator wasn't available, so the original mix was analyzed")
+    compose.onNodeWithTag(RequestsTags.stage(Stage.TRANSCRIBE)).assertTextContains("Transcribe the words — done")
+
+    val onPhone = RequestsSamples.detailOnPhone.request!!
+    state = RequestsSamples.detailOnPhone.copy(
+      request = onPhone.copy(progress = RequestProgress(null, null, null, null, null, null, separation = SeparationNote.OFF)),
+    )
+    compose.waitForIdle()
+    compose.onNodeWithTag(RequestsTags.stage(Stage.SEPARATE)).assertTextContains("Separate the dialogue — skipped · turned off for this analysis")
+    compose.onNodeWithTag(RequestsTags.stage(Stage.SAVE)).assertTextContains("Compare and save — done")
   }
 
   @Test

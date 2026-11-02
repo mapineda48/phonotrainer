@@ -86,6 +86,7 @@ internal object RequestsSamples {
   )
 
   val detailAnalyzing = detail(RequestRowSamples.analyzing)
+  val detailSeparationOff = detail(RequestRowSamples.separationOff)
   val detailForbidden = detail(RequestRowSamples.downloadForbidden, details = true)
   val detailTooLong = detail(RequestRowSamples.tooLong, details = true)
   val detailWaiting = detail(RequestRowSamples.waiting)
@@ -96,6 +97,7 @@ internal object RequestsSamples {
   val detailStates: List<Pair<String, RequestDetailUiState>> = listOf(
     "loading" to detailLoading,
     "analyzing" to detailAnalyzing,
+    "file analyzing, its length known, separation off" to detailSeparationOff,
     "download failed, details open" to detailForbidden,
     "too long, details open" to detailTooLong,
     "waiting" to detailWaiting,
