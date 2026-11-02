@@ -483,6 +483,23 @@ class ClipScreenTest {
   }
 
   @Test
+  fun anOpenRemoveConfirmationClosesWhenTheComputerDeletesTheClip() {
+    // Its body says the clip stays on the computer and can be downloaded again, which no longer holds; and the clip
+    // leaves this phone anyway once the learner leaves the page (spec F-05 States, 7.9).
+    var current by mutableStateOf(LibrarySamples.page.copy(tab = ClipTab.SUMMARY))
+    screen.setContent { ClipScreen(current, actions) }
+    compose.onNodeWithTag(LibraryTags.REMOVE_FROM_PHONE).performClick()
+    compose.onNode(isDialog()).assertIsDisplayed()
+
+    current = LibrarySamples.deleted.copy(tab = ClipTab.SUMMARY)
+    compose.waitForIdle()
+    assertThat(compose.onAllNodes(isDialog()).fetchSemanticsNodes()).isEmpty()
+    assertThat(exists(LibraryTags.REMOVE_CONFIRM)).isFalse()
+    compose.onNodeWithTag(LibraryTags.CLIP_DELETED_BANNER).assertIsDisplayed()
+    assertThat(asked).isEmpty()
+  }
+
+  @Test
   fun aClipNotOnThisPhoneHasNothingToRemove() {
     screen.setContent { ClipScreen(LibrarySamples.notHereOffline.copy(tab = ClipTab.SUMMARY), actions) }
     assertInside(LibraryTags.ON_PHONE, "Nothing of this clip is on this phone.")

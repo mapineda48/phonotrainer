@@ -196,7 +196,9 @@ private fun ClipPage(
       }
     }
   }
-  if (confirmRemove) {
+  // A deletion on the computer closes an open confirmation: its body says the clip stays there and can be downloaded
+  // again, and the clip leaves this phone anyway when the learner leaves the page.
+  if (confirmRemove && !presence.deleted) {
     RemoveFromPhoneDialog(
       title = clip.title,
       onConfirm = {
