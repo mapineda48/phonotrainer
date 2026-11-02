@@ -39,8 +39,13 @@ class QueueFlowsTest {
     QueueHarness(backgroundScope).use { block(it) }
   }
 
-  private suspend fun QueueHarness.add(text: String, subject: String? = null, audioOnly: Boolean = false, force: Boolean = false): RequestId =
-    (repository.addLink(LinkInput(text, subject, audioOnly, force)) as AddResult.Added).id
+  private suspend fun QueueHarness.add(
+    text: String,
+    subject: String? = null,
+    audioOnly: Boolean = false,
+    force: Boolean = false,
+    separateDialogue: Boolean = true,
+  ): RequestId = (repository.addLink(LinkInput(text, subject, audioOnly, force, separateDialogue)) as AddResult.Added).id
 
   private suspend fun QueueHarness.listing(): RemoteLibrary = (fakeClient.library() as ApiResult.Ok).value
 
@@ -400,6 +405,22 @@ class QueueFlowsTest {
 
     assertThat(queue.request(id).state).isEqualTo(RequestState.ON_PHONE)
     assertThat(queue.notifier.ready).containsExactly(Triple(job, "A walk in the park", 15))
+  }
+
+  @Test
+  fun aLinkCarriesTheLearnersDialogueChoiceToTheComputer() = queueTest { queue ->
+    // CR-WP22-2: the choice is stored with the link while it waits, and sent as the link route's separate_dialogue.
+    queue.status.statusState.value = ComputerStatus.Offline
+    val off = queue.add("https://youtu.be/aaaaaaaaaaa", separateDialogue = false)
+    val on = queue.add("https://youtu.be/bbbbbbbbbbb")
+    assertThat(queue.row(off)!!.separateDialogue).isFalse()
+    assertThat(queue.row(on)!!.separateDialogue).isTrue()
+
+    queue.status.statusState.value = QueueHarness.CONNECTED
+    queue.sender.sendLinks()
+
+    assertThat(queue.computer.jobsWithKey(off).single().separateDialogue).isFalse()
+    assertThat(queue.computer.jobsWithKey(on).single().separateDialogue).isTrue()
   }
 
   @Test

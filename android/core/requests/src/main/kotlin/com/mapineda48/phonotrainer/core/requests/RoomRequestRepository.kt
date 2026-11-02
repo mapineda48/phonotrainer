@@ -108,7 +108,8 @@ internal class RoomRequestRepository @Inject constructor(
       site = parsed.site.name,
       titleHint = Titles.hint(input.sharedText, input.subject, parsed.shared),
       audioOnly = input.audioOnly,
-      separateDialogue = true,
+      // "Separate the dialogue from music and effects" (spec F-19), sent with the link (CR-WP22-2).
+      separateDialogue = input.separateDialogue,
       targetServerId = currentServer(),
     )
     val stored = try {
